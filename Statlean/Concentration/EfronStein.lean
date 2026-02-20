@@ -42,20 +42,42 @@ lemma sq_integral_le_integral_sq {α : Type*} {m : MeasurableSpace α}
   -- hEq : variance g ν = ∫ x, g x ^ 2 ∂ν - (∫ x, g x ∂ν) ^ 2
   linarith
 
+/-- **ANOVA key inequality** (sorry):
+For the product probability measure `Measure.pi μ` with n = `Fintype.card ι` coordinates,
+the sum of variances of marginal conditional expectations satisfies:
+  `∑ᵢ Var[E[f|G_i^except]] ≤ (n-1) · Var[f]`
+
+**Proof sketch** (Hoeffding/ANOVA decomposition for product measures):
+Under the product measure, `f` decomposes as `f = Σ_{S ⊆ ι} f_S` with pairwise L²-orthogonal
+components (Hoeffding decomposition), where `f_∅ = E[f]` and `f_S` depends only on
+coordinates in S ("interaction terms"). By orthogonality:
+  - `E[f | G_i^except] = Σ_{S: i∉S} f_S`
+  - `Var[E[f | G_i^except]] = Σ_{S≠∅, i∉S} Var[f_S]`
+  - `∑ᵢ Var[E[f | G_i^except]] = Σ_{S≠∅} (n - |S|) · Var[f_S]`
+  - Since `|S| ≥ 1` for nonempty S: `n - |S| ≤ n - 1`
+  - Therefore: `∑ᵢ Var[E[f|G_i^except]] ≤ (n-1) · Σ_{S≠∅} Var[f_S] = (n-1) · Var[f]`
+-/
+lemma efron_stein_anova_key
+    [∀ i, IsProbabilityMeasure (μ i)]
+    (f : (∀ j, X j) → ℝ)
+    (hf : MemLp f 2 (Measure.pi μ)) :
+    ∑ i : ι,
+      Var[(Measure.pi μ)[f | sigmaAlgExcept i]; Measure.pi μ] ≤
+    ((Fintype.card ι : ℝ) - 1) * Var[f; Measure.pi μ] := by
+  sorry
+
 /-- **Efron-Stein core** (Theorem 3.1):
 For independent random variables X₁,...,Xₙ on a product probability space
 and a square-integrable function f, variance is bounded by the sum of conditional variances:
   `Var[f] ≤ Σᵢ (Measure.pi μ)[Var[f | G_i^except]]`
 
-**Proof sketch** (martingale telescoping):
-1. Order coordinates 1,...,n; let `Fₖ = σ(X₁,...,Xₖ)` with `F₀ = {∅,Ω}`.
-2. Write `f - E[f] = Σₖ Dₖ` where `Dₖ = E[f|Fₖ] - E[f|Fₖ₋₁]`.
-3. By L²-orthogonality of martingale differences: `Var[f] = Σₖ E[Dₖ²]`.
-4. Key step: `E[Dₖ²] ≤ E[Var[f | G_k^except]]`.
-   - Under product structure, `Dₖ = E[f - E^{(k)}[f] | Fₖ]`.
-   - Conditional Jensen: `Dₖ² ≤ E[(f - E^{(k)}[f])² | Fₖ]`.
-   - Taking expectations: `E[Dₖ²] ≤ E[(f - E^{(k)}[f])²] = E[Var[f|G_k^except]]`.
-5. Summing over k gives the result.
+**Proof** (law of total variance + ANOVA key inequality):
+1. Law of total variance for each i:
+   `E[Var[f|G_i^except]] + Var[E[f|G_i^except]] = Var[f]`
+2. Sum over i:
+   `∑ᵢ E[Var[f|G_i]] + ∑ᵢ Var[E[f|G_i]] = n · Var[f]`
+3. ANOVA key: `∑ᵢ Var[E[f|G_i]] ≤ (n-1) · Var[f]`
+4. So: `∑ᵢ E[Var[f|G_i]] = n·Var[f] - ∑ᵢ Var[E[f|G_i]] ≥ n·Var[f] - (n-1)·Var[f] = Var[f]`
 -/
 theorem efron_stein_core
     [∀ i, IsProbabilityMeasure (μ i)]
@@ -63,7 +85,25 @@ theorem efron_stein_core
     (hf : MemLp f 2 (Measure.pi μ)) :
     Var[f; Measure.pi μ] ≤
       ∑ i : ι, (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept i]] := by
-  sorry
+  -- Step 1: Law of total variance for each coordinate i:
+  --   E[Var[f|G_i^except]] + Var[E[f|G_i^except]] = Var[f]
+  have hltv : ∀ i : ι,
+      (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept i]] +
+        Var[(Measure.pi μ)[f | sigmaAlgExcept i]; Measure.pi μ] = Var[f; Measure.pi μ] :=
+    fun i => integral_condVar_add_variance_condExp (sigmaAlgExcept_le (X := X) i)
+              (μ := Measure.pi μ) hf
+  -- Step 2: Sum over all i: ∑ E[Var[f|G_i]] + ∑ Var[E[f|G_i]] = n · Var[f]
+  have hsum :
+      (∑ i : ι, (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept i]]) +
+        (∑ i : ι, Var[(Measure.pi μ)[f | sigmaAlgExcept i]; Measure.pi μ]) =
+        (Fintype.card ι : ℝ) * Var[f; Measure.pi μ] := by
+    rw [← Finset.sum_add_distrib]
+    simp_rw [hltv]
+    simp [Finset.sum_const, nsmul_eq_mul]
+  -- Step 3: ANOVA key inequality: ∑ Var[E[f|G_i]] ≤ (n-1) · Var[f]
+  have hanova := efron_stein_anova_key (μ := μ) f hf
+  -- Step 4: Arithmetic: A + B = n·V and B ≤ (n-1)·V implies V ≤ A
+  linarith
 
 /-- Efron-Stein in integral form from an already-established integral bound.
 Kept as a compatibility wrapper. -/
