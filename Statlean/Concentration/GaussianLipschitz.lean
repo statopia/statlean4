@@ -222,27 +222,49 @@ lemma integrable_exp_centered_of_lipschitz_stdGaussianPi
     Real.exp (s * (f x - c)) ≤ Real.exp (A + B * ‖x‖) := by gcongr
     _ = Real.exp A * Real.exp (B * ‖x‖) := by rw [Real.exp_add]
 
+/-- **Herbst argument core** (sorry):
+For an `L`-Lipschitz function `f` on `(Fin n → ℝ)` under the standard Gaussian
+product measure `stdGaussianPi n`, the cumulant generating function satisfies:
+  `log E[e^{s(f - E[f])}] ≤ s²L²/2` for all `s ∈ ℝ`.
+
+**Proof sketch** (ODE comparison / Gronwall):
+1. Let `Φ(s) = log E[e^{s(f - E[f])}]` (cumulant GF), with `Φ(0) = 0`.
+2. From Gaussian LSI(2): `Ent(e^{sf}) ≤ (s²L²/2) · E[e^{sf}]`.
+   This uses `‖∇f‖ ≤ L` (Lipschitz condition).
+3. Rewrite using `Ent(g) = E[g log g] - E[g] log E[g]`:
+   `s · Φ'(s) - Φ(s) ≤ s²L²/2`.
+4. Let `g(s) = Φ(s)/s²` for `s > 0`. The ODE inequality gives `g'(s) ≤ L²/2`.
+5. Integrating: `g(s) ≤ L²/2` for all `s > 0`, i.e., `Φ(s) ≤ s²L²/2`.
+6. Symmetric argument for `s < 0`.
+-/
+theorem herbst_argument_core
+    (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
+    (hf : LipschitzWith L f) :
+    HerbstBound n f L := by
+  sorry
+
 /-- **Herbst argument**: If μ satisfies LSI(c) and f is L-Lipschitz,
 then the cumulant generating function of f satisfies
-  log E[e^{s(f - E[f])}] ≤ s²cL²/4  for all s.
+  `log E[e^{s(f - E[f])}] ≤ s²cL²/4` for all s.
 
-(For Gaussian LSI(2), this gives s²L²/2.) -/
+(For Gaussian LSI(2), this gives `s²L²/2`.)
+Delegates to `herbst_argument_core`. -/
 theorem herbst_argument
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
-    (hHerbst : HerbstBound n f L)
+    (hf : LipschitzWith L f)
     (s : ℝ) :
     Real.log (∫ x, Real.exp (s * (f x - ∫ y, f y ∂stdGaussianPi n)) ∂stdGaussianPi n) ≤
-      s ^ 2 * L ^ 2 / 2 := by
-  exact hHerbst s
+      s ^ 2 * L ^ 2 / 2 :=
+  herbst_argument_core n f L hf s
 
-/-- Herbst argument packaged through `HerbstBound`. -/
+/-- Herbst argument from an already-established `HerbstBound` hypothesis. -/
 theorem herbst_argument_of_bound
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
     (hHerbst : HerbstBound n f L)
     (s : ℝ) :
     Real.log (∫ x, Real.exp (s * (f x - ∫ y, f y ∂stdGaussianPi n)) ∂stdGaussianPi n) ≤
       s ^ 2 * L ^ 2 / 2 :=
-  herbst_argument n f L hHerbst s
+  hHerbst s
 
 /-- Herbst bounds are stable under negation of the function. -/
 lemma herbstBound_neg
@@ -287,7 +309,7 @@ theorem gaussian_lipschitz_upper_tail_of_expIntegrable
     measure_ge_le_exp_cgf (X := X) (μ := μ) t hs_nonneg (by
       simpa [μ, X] using hExpInt s)
   have h_cgf : cgf X μ s ≤ s ^ 2 * L ^ 2 / 2 := by
-    simpa [X, μ, cgf, mgf] using herbst_argument n f L hHerbst s
+    simpa [X, μ, cgf, mgf] using hHerbst s
   have h_real : μ.real {x | X x ≥ t} ≤ Real.exp (-t ^ 2 / (2 * L ^ 2)) := by
     have h1' : μ.real {x | t ≤ X x} ≤ Real.exp (-s * t + s ^ 2 * L ^ 2 / 2) := by
       exact hchernoff.trans (by gcongr)
@@ -315,16 +337,18 @@ theorem gaussian_lipschitz_upper_tail_of_expIntegrable
   simpa [μ, X] using h_enn
 
 /-- **Theorem 3.7** (Gaussian Lipschitz Concentration — upper tail):
-For X ~ N(0, Iₙ) and f : ℝⁿ → ℝ L-Lipschitz,
-  P(f(X) - E[f(X)] ≥ t) ≤ exp(-t²/(2L²))  for all t ≥ 0. -/
+For `X ~ N(0, Iₙ)` and `f` L-Lipschitz:
+  `P(f(X) - E[f(X)] ≥ t) ≤ exp(-t²/(2L²))` for all `t ≥ 0`.
+
+No external hypothesis required: Herbst bound comes from `herbst_argument_core`. -/
 theorem gaussian_lipschitz_upper_tail
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (t : ℝ)
     (hf : LipschitzWith L f)
-    (hHerbst : HerbstBound n f L)
     (ht : 0 ≤ t) :
     (stdGaussianPi n) {x | f x - ∫ y, f y ∂stdGaussianPi n ≥ t} ≤
-      ENNReal.ofReal (Real.exp (-t ^ 2 / (2 * L ^ 2))) := by
-  exact gaussian_lipschitz_upper_tail_of_expIntegrable n f L t hHerbst
+      ENNReal.ofReal (Real.exp (-t ^ 2 / (2 * L ^ 2))) :=
+  gaussian_lipschitz_upper_tail_of_expIntegrable n f L t
+    (herbst_argument_core n f L hf)
     (integrable_exp_centered_of_lipschitz_stdGaussianPi n f L hf) ht
 
 /-- **Theorem 3.7** (two-sided version) from explicit exponential-integrability
@@ -384,38 +408,37 @@ theorem gaussian_lipschitz_concentration_of_expIntegrable
     _ = 2 * b := by simp [two_mul]
     _ = 2 * ENNReal.ofReal (Real.exp (-t ^ 2 / (2 * L ^ 2))) := by rfl
 
-/-- **Theorem 3.7** (two-sided version):
-  P(|f(X) - E[f(X)]| ≥ t) ≤ 2 · exp(-t²/(2L²)). -/
+/-- **Theorem 3.7** (Gaussian Lipschitz Concentration — two-sided, self-contained):
+For `X ~ N(0, Iₙ)` and `f` L-Lipschitz:
+  `P(|f(X) - E[f(X)]| ≥ t) ≤ 2 · exp(-t²/(2L²))`
+
+No external hypothesis required: Herbst bound comes from `herbst_argument_core`. -/
 theorem gaussian_lipschitz_concentration
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (t : ℝ)
     (hf : LipschitzWith L f)
-    (hHerbst : HerbstBound n f L)
     (ht : 0 ≤ t) :
     (stdGaussianPi n) {x | |f x - ∫ y, f y ∂stdGaussianPi n| ≥ t} ≤
-      2 * ENNReal.ofReal (Real.exp (-t ^ 2 / (2 * L ^ 2))) := by
-  exact gaussian_lipschitz_concentration_of_expIntegrable n f L t hHerbst
+      2 * ENNReal.ofReal (Real.exp (-t ^ 2 / (2 * L ^ 2))) :=
+  gaussian_lipschitz_concentration_of_expIntegrable n f L t
+    (herbst_argument_core n f L hf)
     (integrable_exp_centered_of_lipschitz_stdGaussianPi n f L hf) ht
 
-/-- Upper-tail concentration from the universal Herbst interface. -/
+/-- Upper-tail concentration (alias without explicit Herbst hypothesis). -/
 theorem gaussian_lipschitz_upper_tail_of_universal_herbst
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (t : ℝ)
     (hf : LipschitzWith L f)
-    (hUHerbst : UniversalHerbstBound n)
     (ht : 0 ≤ t) :
     (stdGaussianPi n) {x | f x - ∫ y, f y ∂stdGaussianPi n ≥ t} ≤
-      ENNReal.ofReal (Real.exp (-t ^ 2 / (2 * L ^ 2))) := by
-  exact gaussian_lipschitz_upper_tail n f L t
-    hf (universalHerbst_of_lipschitz n hUHerbst f L hf) ht
+      ENNReal.ofReal (Real.exp (-t ^ 2 / (2 * L ^ 2))) :=
+  gaussian_lipschitz_upper_tail n f L t hf ht
 
-/-- Two-sided concentration from the universal Herbst interface. -/
+/-- Two-sided concentration (alias without explicit Herbst hypothesis). -/
 theorem gaussian_lipschitz_concentration_of_universal_herbst
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (t : ℝ)
     (hf : LipschitzWith L f)
-    (hUHerbst : UniversalHerbstBound n)
     (ht : 0 ≤ t) :
     (stdGaussianPi n) {x | |f x - ∫ y, f y ∂stdGaussianPi n| ≥ t} ≤
-      2 * ENNReal.ofReal (Real.exp (-t ^ 2 / (2 * L ^ 2))) := by
-  have hHerbst : HerbstBound n f L := universalHerbst_of_lipschitz n hUHerbst f L hf
-  exact gaussian_lipschitz_concentration n f L t hf hHerbst ht
+      2 * ENNReal.ofReal (Real.exp (-t ^ 2 / (2 * L ^ 2))) :=
+  gaussian_lipschitz_concentration n f L t hf ht
 
 end

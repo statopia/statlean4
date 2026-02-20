@@ -29,6 +29,42 @@ variable {ι : Type*} [Fintype ι]
 variable {X : ι → Type*} [∀ i, MeasurableSpace (X i)]
 variable (μ : ∀ i, Measure (X i))
 
+/-- Jensen's inequality (squared form): for a probability measure,
+`(∫ g dμ)² ≤ ∫ g² dμ`.
+Follows immediately from `variance_nonneg` and `variance_eq_sub`. -/
+lemma sq_integral_le_integral_sq {α : Type*} {m : MeasurableSpace α}
+    (ν : Measure α) [IsProbabilityMeasure ν]
+    (g : α → ℝ) (hg : MemLp g 2 ν) :
+    (∫ x, g x ∂ν) ^ 2 ≤ ∫ x, g x ^ 2 ∂ν := by
+  have hVar := variance_nonneg g ν
+  have hEq := variance_eq_sub (μ := ν) hg
+  simp only [Pi.pow_apply] at hEq
+  -- hEq : variance g ν = ∫ x, g x ^ 2 ∂ν - (∫ x, g x ∂ν) ^ 2
+  linarith
+
+/-- **Efron-Stein core** (Theorem 3.1):
+For independent random variables X₁,...,Xₙ on a product probability space
+and a square-integrable function f, variance is bounded by the sum of conditional variances:
+  `Var[f] ≤ Σᵢ (Measure.pi μ)[Var[f | G_i^except]]`
+
+**Proof sketch** (martingale telescoping):
+1. Order coordinates 1,...,n; let `Fₖ = σ(X₁,...,Xₖ)` with `F₀ = {∅,Ω}`.
+2. Write `f - E[f] = Σₖ Dₖ` where `Dₖ = E[f|Fₖ] - E[f|Fₖ₋₁]`.
+3. By L²-orthogonality of martingale differences: `Var[f] = Σₖ E[Dₖ²]`.
+4. Key step: `E[Dₖ²] ≤ E[Var[f | G_k^except]]`.
+   - Under product structure, `Dₖ = E[f - E^{(k)}[f] | Fₖ]`.
+   - Conditional Jensen: `Dₖ² ≤ E[(f - E^{(k)}[f])² | Fₖ]`.
+   - Taking expectations: `E[Dₖ²] ≤ E[(f - E^{(k)}[f])²] = E[Var[f|G_k^except]]`.
+5. Summing over k gives the result.
+-/
+theorem efron_stein_core
+    [∀ i, IsProbabilityMeasure (μ i)]
+    (f : (∀ j, X j) → ℝ)
+    (hf : MemLp f 2 (Measure.pi μ)) :
+    Var[f; Measure.pi μ] ≤
+      ∑ i : ι, (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept i]] := by
+  sorry
+
 /-- Efron-Stein in integral form from an already-established integral bound.
 Kept as a compatibility wrapper. -/
 theorem efron_stein_of_integral_bound
@@ -96,18 +132,19 @@ theorem efron_stein_of_condVar_sum_bound
       simpa [eq_comm] using hEq
 
 /-- **Efron-Stein Inequality** (Theorem 3.1):
-For independent random variables X₁,...,Xₙ and a square-integrable function `f`,
-derive the integral-form bound from the conditional-variance-sum bound. -/
+For independent random variables X₁,...,Xₙ and a square-integrable function f:
+  `Var[f(X)] ≤ Σᵢ E[(f(X) - E^{(i)}[f(X)])²]`
+where `E^{(i)}` is the conditional expectation averaging out coordinate i.
+
+This version requires no external hypothesis: the core inequality is
+established via `efron_stein_core` (sorry, martingale telescoping argument). -/
 theorem efron_stein
     [∀ i, IsProbabilityMeasure (μ i)]
     (f : (∀ j, X j) → ℝ)
-    (hf : MemLp f 2 (Measure.pi μ))
-    (hCondVar :
-      Var[f; Measure.pi μ] ≤
-        ∑ i : ι, (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept i]]) :
+    (hf : MemLp f 2 (Measure.pi μ)) :
     Var[f; Measure.pi μ] ≤
-      ∑ i : ι, ∫ ω, (f ω - condExpExceptCoord μ i f ω) ^ 2 ∂(Measure.pi μ) := by
-  exact efron_stein_of_condVar_sum_bound (μ := μ) f hf hCondVar
+      ∑ i : ι, ∫ ω, (f ω - condExpExceptCoord μ i f ω) ^ 2 ∂(Measure.pi μ) :=
+  efron_stein_of_condVar_sum_bound (μ := μ) f hf (efron_stein_core (μ := μ) f hf)
 
 /-- Convert an Efron-Stein integral-form bound to the equivalent
 conditional-variance-sum form. -/
