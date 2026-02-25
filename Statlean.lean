@@ -17,3 +17,8 @@ import Statlean.EmpiricalProcess.Dudley
 import Statlean.Regression.Basic
 import Statlean.Regression.MasterBound
 import Statlean.Regression.Linear
+
+-- Phase 4: SPD Statistics (Log-Cholesky Mean Layer)
+import Statlean.Statistics.SPD.Basic
+import Statlean.Statistics.SPD.FrechetMean
+import Statlean.Statistics.SPD.Determinant
