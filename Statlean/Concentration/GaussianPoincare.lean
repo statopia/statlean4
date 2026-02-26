@@ -38,6 +38,40 @@ abbrev stdGaussian : Measure ℝ := gaussianReal 0 1
 def stdGaussianPi (n : ℕ) : Measure (Fin n → ℝ) :=
   Measure.pi (fun _ => stdGaussian)
 
+/-! ## Integrability infrastructure for Gaussian density
+
+Key chain: `MemLp h 2 γ → Integrable h γ` (finite measure) and
+`Integrable h γ ↔ Integrable (h * φ) volume` via `integrable_withDensity_iff`.
+-/
+
+/-- If `h ∈ L²(γ)`, then `h · φ ∈ L¹(Lebesgue)` where `φ` is the Gaussian density. -/
+lemma integrable_mul_gaussianPDFReal_of_memLp {g : ℝ → ℝ} (hg : MemLp g 2 stdGaussian) :
+    Integrable (fun x => g x * gaussianPDFReal 0 1 x) volume := by
+  have hv : (1 : ℝ≥0) ≠ 0 := one_ne_zero
+  have hg_int : Integrable g stdGaussian := hg.integrable one_le_two
+  rw [show (stdGaussian : Measure ℝ) = volume.withDensity (gaussianPDF 0 1)
+      from gaussianReal_of_var_ne_zero 0 hv] at hg_int
+  rw [integrable_withDensity_iff (measurable_gaussianPDF 0 1)
+    (ae_of_all _ (fun _ => gaussianPDF_lt_top))] at hg_int
+  simp only [toReal_gaussianPDF] at hg_int
+  exact hg_int
+
+/-- If `h ∈ L²(γ)`, then `x * h(x) * φ(x) ∈ L¹(Lebesgue)`. -/
+lemma integrable_id_mul_mul_gaussianPDFReal_of_memLp {g : ℝ → ℝ}
+    (hg : MemLp g 2 stdGaussian) :
+    Integrable (fun x => x * g x * gaussianPDFReal 0 1 x) volume := by
+  have hv : (1 : ℝ≥0) ≠ 0 := one_ne_zero
+  have hid : MemLp id 2 stdGaussian := memLp_id_gaussianReal' 2 (by norm_num)
+  have hprod : Integrable (id * g) stdGaussian := hid.integrable_mul hg
+  have hprod' : Integrable (fun x => x * g x) stdGaussian := by
+    convert hprod using 1
+  rw [show (stdGaussian : Measure ℝ) = volume.withDensity (gaussianPDF 0 1)
+      from gaussianReal_of_var_ne_zero 0 hv] at hprod'
+  rw [integrable_withDensity_iff (measurable_gaussianPDF 0 1)
+    (ae_of_all _ (fun _ => gaussianPDF_lt_top))] at hprod'
+  simp only [toReal_gaussianPDF] at hprod'
+  exact hprod'
+
 /-! ## Gaussian density derivative and Stein's identity
 
 The standard Gaussian density `φ(x) = (√(2π))⁻¹ exp(-x²/2)` satisfies
@@ -88,7 +122,7 @@ lemma stein_identity
   -- Convert to Lebesgue density form:
   -- ∫ f ∂γ = ∫ φ(x) • f(x) dx  where φ = gaussianPDFReal 0 1
   have hv : (1 : ℝ≥0) ≠ 0 := one_ne_zero
-  show ∫ x, x * h x ∂gaussianReal 0 1 = ∫ x, h' x ∂gaussianReal 0 1
+  change ∫ x, x * h x ∂gaussianReal 0 1 = ∫ x, h' x ∂gaussianReal 0 1
   rw [integral_gaussianReal_eq_integral_smul (v := (1 : ℝ≥0)) hv,
       integral_gaussianReal_eq_integral_smul (v := (1 : ℝ≥0)) hv]
   simp only [smul_eq_mul]
@@ -107,13 +141,16 @@ lemma stein_identity
   -- IBP: ∫ h(x) * φ'(x) dx = -∫ h'(x) * φ(x) dx
   have hIBP := integral_mul_deriv_eq_deriv_mul_of_integrable
     hderiv hφ_deriv
-    -- Integrability of h·(xφ): h ∈ L²(γ) and x·φ bounded by C·φ^{1/2} ∈ L²(Leb)
-    -- Use MemLp.integrable_mul with HolderTriple 2 2 1 after converting from γ to Lebesgue
-    (sorry /- Integrable (h * fun x => -x * φ x) Leb: from h ∈ L²(γ), xφ ∈ L²(Leb) -/)
-    -- Integrability of h'·φ: h' ∈ L²(γ) means h'²φ ∈ L¹(Leb), φ bounded → h'φ ∈ L¹(Leb)
-    (sorry /- Integrable (h' * φ) Leb: from h' ∈ L²(γ) and φ ∈ L^∞ -/)
-    -- Integrability of h·φ: h ∈ L²(γ) → h·√φ ∈ L²(Leb) → h·φ = (h·√φ)·√φ ∈ L¹(Leb)
-    (sorry /- Integrable (h * φ) Leb: from h ∈ L²(γ), Cauchy-Schwarz -/)
+    -- Integrability of h·(xφ): from h ∈ L²(γ), id ∈ L²(γ), Hölder, withDensity
+    (by have := integrable_id_mul_mul_gaussianPDFReal_of_memLp hh
+        change Integrable (fun x => h x * (-x * gaussianPDFReal 0 1 x)) volume
+        have : Integrable (fun x => -(x * h x * gaussianPDFReal 0 1 x)) volume :=
+          this.neg
+        convert this using 1; ext x; ring)
+    -- Integrability of h'·φ: from h' ∈ L²(γ) via integrable_mul_gaussianPDFReal_of_memLp
+    (integrable_mul_gaussianPDFReal_of_memLp hh')
+    -- Integrability of h·φ: from h ∈ L²(γ) via integrable_mul_gaussianPDFReal_of_memLp
+    (integrable_mul_gaussianPDFReal_of_memLp hh)
   -- hIBP : ∫ x, h x * (-x * gaussianPDFReal 0 1 x) = -(∫ x, h' x * gaussianPDFReal 0 1 x)
   -- We need: ∫ x, gaussianPDFReal 0 1 x * (x * h x) = ∫ x, gaussianPDFReal 0 1 x * h' x
   -- From hIBP: ∫ h(x) * (-x * φ(x)) = -∫ h'(x) * φ(x)
