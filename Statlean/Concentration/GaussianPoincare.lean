@@ -2,6 +2,8 @@ import Statlean.Concentration.EfronStein
 import Mathlib.Probability.Distributions.Gaussian.Real
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.MeasureTheory.Integral.IntegralEqImproper
+import Mathlib.Algebra.Polynomial.AlgebraMap
+import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 
 /-! # Gaussian Poincaré Inequality (Corollary 3.2)
 
@@ -28,6 +30,7 @@ via Fubini slicing.
 -/
 
 open MeasureTheory ProbabilityTheory Filter Topology Real NNReal
+open scoped ENNReal
 
 noncomputable section
 
@@ -71,6 +74,90 @@ lemma integrable_id_mul_mul_gaussianPDFReal_of_memLp {g : ℝ → ℝ}
     (ae_of_all _ (fun _ => gaussianPDF_lt_top))] at hprod'
   simp only [toReal_gaussianPDF] at hprod'
   exact hprod'
+
+/-! ## Polynomial × Gaussian integrability
+
+Power functions `x^n` are in all finite `Lp` spaces under any Gaussian measure.
+This extends to arbitrary polynomial evaluations via structural induction, and
+to products with the Gaussian density via `integrable_withDensity_iff`.
+These results are needed for Hermite orthogonality arguments.
+-/
+
+open Polynomial in
+/-- `(fun x => x ^ n)` is in `Lp q` under any Gaussian measure for finite `q`.
+
+**Proof**: By induction on `n`. Base: `x^0 = 1` is in all `Lp` (probability measure).
+Step: `x^(n+1) = id * x^n` via Hölder with `1/q = 1/(2q) + 1/(2q)`. -/
+private lemma memLp_pow_id_gaussianReal_aux {μ₀ : ℝ} {v : ℝ≥0} (n : ℕ) :
+    ∀ (q : ℝ≥0∞), q ≠ ⊤ → MemLp (fun x : ℝ => x ^ n) q (gaussianReal μ₀ v) := by
+  induction n with
+  | zero => intro q _; simp only [pow_zero]; exact memLp_const 1
+  | succ n ih =>
+    intro q hq
+    have h2q : 2 * q ≠ ⊤ := ENNReal.mul_ne_top (by norm_num) hq
+    have hid_2q : MemLp id (2 * q) (gaussianReal μ₀ v) :=
+      memLp_id_gaussianReal' (2 * q) h2q
+    have hpow_2q : MemLp (fun x : ℝ => x ^ n) (2 * q) (gaussianReal μ₀ v) :=
+      ih (2 * q) h2q
+    have hHolder : ENNReal.HolderTriple (2 * q) (2 * q) q := by
+      constructor
+      have h2ne0 : (2 : ℝ≥0∞) ≠ 0 := by norm_num
+      have h2ne_top : (2 : ℝ≥0∞) ≠ ⊤ := by norm_num
+      rw [ENNReal.mul_inv (Or.inl h2ne0) (Or.inl h2ne_top)]
+      rw [← two_mul]
+      rw [← mul_assoc, ENNReal.mul_inv_cancel h2ne0 h2ne_top, one_mul]
+    have hmul : MemLp (fun x : ℝ => id x * x ^ n) q (gaussianReal μ₀ v) :=
+      hpow_2q.mul' hid_2q (hpqr := hHolder)
+    have heq : (fun x : ℝ => id x * x ^ n) =ᵐ[gaussianReal μ₀ v]
+        (fun x : ℝ => x ^ (n + 1)) :=
+      Filter.Eventually.of_forall fun x => by simp [pow_succ, mul_comm]
+    exact hmul.ae_eq heq
+
+lemma memLp_pow_id_gaussianReal {μ₀ : ℝ} {v : ℝ≥0} (n : ℕ) (q : ℝ≥0∞) (hq : q ≠ ⊤) :
+    MemLp (fun x : ℝ => x ^ n) q (gaussianReal μ₀ v) :=
+  memLp_pow_id_gaussianReal_aux n q hq
+
+open Polynomial in
+/-- Any polynomial evaluated at `x` is in `Lp q` under the standard Gaussian
+for all finite `q`. Key integrability result for Hermite orthogonality.
+
+**Proof**: Structural induction on the polynomial. Monomials `a * x^n` by
+`memLp_pow_id_gaussianReal` + `const_mul`. Sums by `MemLp.add`. -/
+lemma memLp_polynomial_gaussianReal (p : Polynomial ℝ) (q : ℝ≥0∞) (hq : q ≠ ⊤) :
+    MemLp (fun x : ℝ => Polynomial.aeval x p) q stdGaussian := by
+  induction p using Polynomial.induction_on' with
+  | add p₁ p₂ ih₁ ih₂ =>
+    have h1 := ih₁
+    have h2 := ih₂
+    have : (fun x : ℝ => Polynomial.aeval x (p₁ + p₂)) =
+        (fun x : ℝ => Polynomial.aeval x p₁) + (fun x : ℝ => Polynomial.aeval x p₂) := by
+      ext x; simp [map_add]
+    rw [this]
+    exact h1.add h2
+  | monomial n a =>
+    have hmono : (fun x : ℝ => Polynomial.aeval x (Polynomial.monomial n a)) =
+        (fun x : ℝ => a * x ^ n) := by
+      ext x; simp [Polynomial.aeval_monomial]
+    rw [hmono]
+    exact (memLp_pow_id_gaussianReal n q hq).const_mul a
+
+/-- Any polynomial times the Gaussian density is Lebesgue-integrable.
+
+**Proof**: `memLp_polynomial_gaussianReal` at `q = 1` gives `Integrable ... stdGaussian`,
+then convert via `integrable_withDensity_iff` + `toReal_gaussianPDF`. -/
+lemma integrable_polynomial_mul_gaussianPDFReal (p : Polynomial ℝ) :
+    Integrable (fun x : ℝ => Polynomial.aeval x p * gaussianPDFReal 0 1 x) volume := by
+  have hL1 : Integrable (fun x : ℝ => Polynomial.aeval x p) stdGaussian := by
+    rw [← memLp_one_iff_integrable]
+    exact memLp_polynomial_gaussianReal p 1 ENNReal.one_ne_top
+  have hv : (1 : ℝ≥0) ≠ 0 := one_ne_zero
+  rw [show stdGaussian = gaussianReal 0 1 from rfl,
+      gaussianReal_of_var_ne_zero 0 hv] at hL1
+  rw [integrable_withDensity_iff (measurable_gaussianPDF 0 1)
+      (ae_of_all _ (fun _ => gaussianPDF_lt_top))] at hL1
+  convert hL1 using 1
+  ext x
+  simp [toReal_gaussianPDF]
 
 /-! ## Gaussian density derivative and Stein's identity
 
