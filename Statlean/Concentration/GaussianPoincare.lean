@@ -255,32 +255,30 @@ lemma stein_identity
 /-- **1D Gaussian Poincaré core**:
 For `f ∈ W^{1,2}(N(0,1))` with derivative `f'`, `Var_γ[f] ≤ E_γ[(f')²]`.
 
-**Status**: sorry — this is a genuine core gap.
+**Status**: sorry — genuine core gap requiring Hermite completeness.
 
-**Known proof routes** (all require infrastructure beyond current Mathlib):
+**What we have proved** (zero sorry):
+- `stein_identity`: `E_γ[x·h(x)] = E_γ[h'(x)]`
+- `hermite_orthogonality`: `E_γ[Hₘ·Hₙ] = n! · δ_{mn}`
+- `derivative_hermite`: `H'_{n+1} = (n+1)·Hₙ`
+- `memLp_polynomial_gaussianReal`: all polynomials in all Lp(γ)
 
-1. **Hermite expansion** (most elementary):
-   Hermite polynomials `{Hₙ}` form an ONB of L²(γ).
-   Write `f = Σ aₙ Hₙ`. Then `Var[f] = Σ_{n≥1} aₙ²` and
-   `E[(f')²] = Σ_{n≥1} n·aₙ²`. Since `n ≥ 1`, done.
-   **Missing**: Hermite orthogonality `∫ Hₘ Hₙ dγ = n! δ_{mn}` and completeness.
-   Mathlib has `hermite` polynomials + `deriv_gaussian_eq_hermite_mul_gaussian`
-   but NOT orthogonality in L²(γ).
+**What remains** (the spectral gap):
+The forward Poincaré `Var[f] ≤ E[(f')²]` cannot be derived from Stein's
+identity alone (Stein + Cauchy-Schwarz gives only `(E[f'])² ≤ Var[f]`,
+the REVERSE direction). The essential missing piece is:
 
-2. **Ornstein-Uhlenbeck semigroup**:
-   `P_t f(x) = E[f(e^{-t}x + √(1-e^{-2t})Z)]`. Then
-   `Var[f] = 2∫₀^∞ e^{-2t} E[(P_t f')²] dt ≤ E[(f')²]`
-   since `E[(P_t f')²] ≤ E[(f')²]` by contractivity.
-   **Missing**: OU semigroup definition and contractivity in L²(γ).
+  **Hermite completeness (Parseval)**: `‖f‖²_{L²(γ)} = Σₙ aₙ² · n!`
+  where `aₙ = E_γ[f · Hₙ] / n!`.
 
-3. **Brascamp-Lieb**: For log-concave measure with Hessian ≥ κI,
-   `Var[f] ≤ (1/κ) E[‖∇f‖²]`. For Gaussian, κ = 1.
-   **Missing**: Brascamp-Lieb inequality.
+This, combined with `hermite_orthogonality` (proved), yields:
+  `Var[f] = Σ_{n≥1} aₙ²·n!  ≤  Σ_{n≥1} n·aₙ²·n! = E[(f')²]`
 
-**Note**: Stein's identity (`stein_identity` above) is a necessary ingredient
-but NOT sufficient alone — it gives `E[Xf] = E[f']` which by Cauchy-Schwarz
-yields `(E[f'])² ≤ Var[f]` (REVERSE Poincaré), not the forward direction.
-The spectral gap (= 1) is the essential additional information.
+**Possible proof routes for completeness**:
+1. Smooth compact-support density (`Lp.dense_hasCompactSupport_contDiff`,
+   in Mathlib) + Weierstrass on compacts + Hermite orthogonality
+2. Ornstein-Uhlenbeck semigroup spectral theory (not in Mathlib)
+3. Brascamp-Lieb inequality (not in Mathlib)
 -/
 theorem gaussian_poincare_1d_core
     (f f' : ℝ → ℝ)
