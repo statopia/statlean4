@@ -102,9 +102,34 @@ When you detect **independent sub-goals** (sorries that don't depend on each oth
 
 Independence test: Two sorries are independent if neither's proof would use the other's result. Check by reading the type signatures.
 
+### Infrastructure Building (optional — when Mathlib lacks primitives)
+
+When Mathlib genuinely does NOT have the needed lemma but it CAN be proved from
+lower-level API (~5-50 lines), build it instead of giving up:
+
+1. **Classify the gap**: Is it a missing algebraic identity, a missing bound,
+   or a missing structural result?
+2. **Estimate cost**: Can it be proved in ≤50 lines from existing Mathlib API?
+   - YES → Build it as a `private lemma` in the same file.
+   - NO (needs 100+ lines of new infrastructure) → Extract as a standalone
+     module in `Statlean/` with honest sorry for the hardest sub-goals.
+3. **Common buildable patterns**:
+   - Product telescoping: `‖∏zᵢ - ∏wᵢ‖ ≤ ∑‖zᵢ-wᵢ‖` (Finset induction + `norm_mul_le`)
+   - Custom Hölder / interpolation: from `MemLp` + `integrable_mul`
+   - Fubini slicing: `integral_prod` + `integral_prod_symm`
+   - Pointwise → integral: `integral_mono_ae` + custom pointwise lemma
+4. **Build pattern**: Write the helper, build, fix, verify. Same 5-cycle limit.
+5. **Report**: Tag built infrastructure as `[INFRA]` in the prove report.
+
+Example: Mathlib has no `norm_prod_sub_prod_le` (ring product telescoping).
+Built it via `Fin.prod_univ_castSucc` induction + `norm_add_le` + `norm_mul_le`
++ `Finset.norm_prod_le'` + `Finset.prod_le_one`. ~25 lines, reusable.
+
 ### Hard Branch Escalation
 
-A branch is "hard" if after 3 fix-build cycles it still has sorries AND Mathlib search hasn't found relevant API. When this happens:
+A branch is "hard" if after 3 fix-build cycles it still has sorries AND
+Mathlib search hasn't found relevant API AND the infrastructure building
+route above is too expensive (>50 lines). When this happens:
 
 1. **Stop immediately.** Do not keep trying variations.
 2. Write a structured comment:
@@ -114,6 +139,7 @@ A branch is "hard" if after 3 fix-build cycles it still has sorries AND Mathlib 
       Tried: <list strategies attempted>
       Missing: <what Mathlib API would be needed>
       Possible routes: <any partial leads>
+      Infra cost: <estimated lines to build from scratch>
    -/
    sorry
    ```
