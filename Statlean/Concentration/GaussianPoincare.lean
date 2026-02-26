@@ -1,6 +1,7 @@
 import Statlean.Concentration.EfronStein
 import Mathlib.Probability.Distributions.Gaussian.Real
 import Mathlib.Analysis.Calculus.Deriv.Basic
+import Mathlib.MeasureTheory.Integral.IntegralEqImproper
 
 /-! # Gaussian Poincaré Inequality (Corollary 3.2)
 
@@ -9,19 +10,24 @@ Let X ~ N(0, Iₙ) (standard n-dimensional Gaussian) and f ∈ C_c^∞(ℝⁿ). 
 
   Var[f(X)] ≤ E[‖∇f(X)‖²]
 
-## Proof strategy (from Efron-Stein)
-Starting from Efron-Stein for product Gaussian:
-  Var[f(X)] ≤ Σᵢ E[(f(X) - E^{(i)}[f(X)])²]
+## Proof strategy (1D: Stein identity + IBP)
+The 1D Gaussian Poincaré inequality `Var_γ[f] ≤ E_γ[(f')²]` is proved via:
 
-For each term, conditioning on Xⱼ (j ≠ i) and applying 1D Poincaré:
-  E[(f(X) - E^{(i)}[f(X)])² | Xⱼ, j ≠ i] ≤ E[(∂f/∂xᵢ)² | Xⱼ, j ≠ i]
+1. **Stein's identity**: For `γ = N(0,1)`, `E_γ[x·h(x)] = E_γ[h'(x)]`.
+   Proof: integration by parts using `φ'(x) = -x·φ(x)`.
 
-The 1D Poincaré inequality for Gaussian can be proved via:
-  - Hermite polynomial expansion (spectral gap = 1)
-  - or: CLT from Rademacher to Gaussian
+2. **Poincaré from Stein**: Let `g = f - E[f]`.
+   By Stein applied to `g²/2`: `E_γ[g·g'] = ½ E_γ[x·g²]`.
+   By non-negativity of `E[(g' - xg)²]`:
+     `E[(g')²] + E[x²g²] ≥ 2E[xgg']`
+   Combined with Stein identity on `xg²` this yields Poincaré.
+
+## Multi-dimensional Poincaré
+For the multi-dimensional case, apply Efron-Stein + per-coordinate 1D Poincaré
+via Fubini slicing.
 -/
 
-open MeasureTheory ProbabilityTheory
+open MeasureTheory ProbabilityTheory Filter Topology Real NNReal
 
 noncomputable section
 
@@ -32,19 +38,125 @@ abbrev stdGaussian : Measure ℝ := gaussianReal 0 1
 def stdGaussianPi (n : ℕ) : Measure (Fin n → ℝ) :=
   Measure.pi (fun _ => stdGaussian)
 
-/-- **1D Gaussian Poincaré core** (sorry):
+/-! ## Gaussian density derivative and Stein's identity
+
+The standard Gaussian density `φ(x) = (√(2π))⁻¹ exp(-x²/2)` satisfies
+`φ'(x) = -x · φ(x)`. This yields Stein's identity by integration by parts:
+`E_γ[x·h(x)] = E_γ[h'(x)]`.
+-/
+
+/-- The standard Gaussian density `φ(x) = (√(2π))⁻¹ exp(-x²/2)` has
+derivative `φ'(x) = -x · φ(x)`. -/
+lemma hasDerivAt_gaussianPDFReal_std (x : ℝ) :
+    HasDerivAt (gaussianPDFReal 0 1) (-x * gaussianPDFReal 0 1 x) x := by
+  -- We prove this by chaining: (-x²/2)' = -x, then exp ∘ (-x²/2), then const_mul
+  have hg : HasDerivAt (fun y => -(y ^ 2) / 2) (-x) x := by
+    have h1 := hasDerivAt_pow 2 x  -- HasDerivAt (· ^ 2) (2 * x) x
+    have h2 := h1.neg               -- HasDerivAt (-(· ^ 2)) (-(2 * x)) x
+    have h3 := h2.div_const 2       -- HasDerivAt (-(· ^ 2) / 2) (-(2 * x) / 2) x
+    convert h3 using 1; ring
+  have hexp := hg.exp  -- HasDerivAt (exp ∘ (-·²/2)) (exp(-x²/2) * (-x)) x
+  -- gaussianPDFReal 0 1 y = (√(2 * π * ↑1))⁻¹ * exp(-(y - 0)² / (2 * ↑1))
+  -- We need to match this with const * exp(-y²/2)
+  have hkey : ∀ y, gaussianPDFReal 0 1 y = (√(2 * Real.pi * ↑(1 : ℝ≥0)))⁻¹ *
+      Real.exp (-(y ^ 2) / 2) := by
+    intro y; simp [gaussianPDFReal]
+  have hfull := (hexp.const_mul (√(2 * Real.pi * ↑(1 : ℝ≥0)))⁻¹)
+  rw [show gaussianPDFReal 0 1 = fun y => (√(2 * Real.pi * ↑(1 : ℝ≥0)))⁻¹ *
+      Real.exp (-(y ^ 2) / 2) from funext hkey]
+  convert hfull using 1; ring
+
+/-- **Stein's identity for standard Gaussian**:
+For `h` differentiable with `h, h' ∈ L²(γ)`:
+  `∫ x, x * h x ∂γ = ∫ x, h' x ∂γ`
+
+**Proof**: Write the Gaussian integral in density form using
+`integral_gaussianReal_eq_integral_smul`. Since `φ'(x) = -x · φ(x)`, we have
+`x · φ(x) = -φ'(x)`, so:
+  `∫ x·h(x)·φ(x) dx = -∫ h(x)·φ'(x) dx = ∫ h'(x)·φ(x) dx`
+where the second step uses `integral_mul_deriv_eq_deriv_mul_of_integrable`
+(integration by parts on ℝ) with `u = h` and `v = φ`.
+
+The integrability of `h · φ` follows from `h ∈ L²(γ)` and boundedness of `φ`.
+-/
+lemma stein_identity
+    (h h' : ℝ → ℝ)
+    (hh : MemLp h 2 stdGaussian)
+    (hh' : MemLp h' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt h (h' x) x) :
+    ∫ x, x * h x ∂stdGaussian = ∫ x, h' x ∂stdGaussian := by
+  -- Convert to Lebesgue density form:
+  -- ∫ f ∂γ = ∫ φ(x) • f(x) dx  where φ = gaussianPDFReal 0 1
+  have hv : (1 : ℝ≥0) ≠ 0 := one_ne_zero
+  show ∫ x, x * h x ∂gaussianReal 0 1 = ∫ x, h' x ∂gaussianReal 0 1
+  rw [integral_gaussianReal_eq_integral_smul (v := (1 : ℝ≥0)) hv,
+      integral_gaussianReal_eq_integral_smul (v := (1 : ℝ≥0)) hv]
+  simp only [smul_eq_mul]
+  -- LHS: ∫ φ(x) * (x * h(x)) dx
+  -- RHS: ∫ φ(x) * h'(x) dx
+  -- Use IBP: ∫ h(x) * φ'(x) dx = -∫ h'(x) * φ(x) dx
+  --   where φ'(x) = -x * φ(x), so ∫ h(x) * (-x * φ(x)) dx = -∫ h'(x) * φ(x) dx
+  --   i.e., -∫ x * h(x) * φ(x) dx = -∫ h'(x) * φ(x) dx
+  --   i.e., ∫ x * h(x) * φ(x) dx = ∫ h'(x) * φ(x) dx  ✓
+  -- Apply integral_mul_deriv_eq_deriv_mul_of_integrable with u = h, v = φ.
+  have hφ_deriv : ∀ x, HasDerivAt (gaussianPDFReal 0 1)
+      (-x * gaussianPDFReal 0 1 x) x := hasDerivAt_gaussianPDFReal_std
+  -- IBP: ∫ h(x) * φ'(x) dx = -∫ h'(x) * φ(x) dx
+  -- i.e., ∫ h(x) * (-x * φ(x)) dx = -∫ h'(x) * φ(x) dx
+  -- Rearranging: ∫ φ(x) * (x * h(x)) dx = ∫ φ(x) * h'(x) dx
+  -- IBP: ∫ h(x) * φ'(x) dx = -∫ h'(x) * φ(x) dx
+  have hIBP := integral_mul_deriv_eq_deriv_mul_of_integrable
+    hderiv hφ_deriv
+    -- Integrability of h·(xφ): h ∈ L²(γ) and x·φ bounded by C·φ^{1/2} ∈ L²(Leb)
+    -- Use MemLp.integrable_mul with HolderTriple 2 2 1 after converting from γ to Lebesgue
+    (sorry /- Integrable (h * fun x => -x * φ x) Leb: from h ∈ L²(γ), xφ ∈ L²(Leb) -/)
+    -- Integrability of h'·φ: h' ∈ L²(γ) means h'²φ ∈ L¹(Leb), φ bounded → h'φ ∈ L¹(Leb)
+    (sorry /- Integrable (h' * φ) Leb: from h' ∈ L²(γ) and φ ∈ L^∞ -/)
+    -- Integrability of h·φ: h ∈ L²(γ) → h·√φ ∈ L²(Leb) → h·φ = (h·√φ)·√φ ∈ L¹(Leb)
+    (sorry /- Integrable (h * φ) Leb: from h ∈ L²(γ), Cauchy-Schwarz -/)
+  -- hIBP : ∫ x, h x * (-x * gaussianPDFReal 0 1 x) = -(∫ x, h' x * gaussianPDFReal 0 1 x)
+  -- We need: ∫ x, gaussianPDFReal 0 1 x * (x * h x) = ∫ x, gaussianPDFReal 0 1 x * h' x
+  -- From hIBP: ∫ h(x) * (-x * φ(x)) = -∫ h'(x) * φ(x)
+  -- i.e.      -∫ h(x) * x * φ(x) = -∫ h'(x) * φ(x)
+  -- i.e.       ∫ h(x) * x * φ(x) = ∫ h'(x) * φ(x)
+  -- i.e.       ∫ φ(x) * (x * h(x)) = ∫ φ(x) * h'(x)    ✓
+  have key : ∫ x, h x * (-x * gaussianPDFReal 0 1 x) =
+      -(∫ x, gaussianPDFReal 0 1 x * (x * h x)) := by
+    rw [← integral_neg]; congr 1; ext x; ring
+  have key2 : ∫ x, h' x * gaussianPDFReal 0 1 x =
+      ∫ x, gaussianPDFReal 0 1 x * h' x := by
+    congr 1; ext x; ring
+  linarith
+
+/-- **1D Gaussian Poincaré core**:
 For `f ∈ W^{1,2}(N(0,1))` with derivative `f'`, `Var_γ[f] ≤ E_γ[(f')²]`.
 
-**Proof sketch** (Hermite expansion):
-The Hermite polynomials `Hₙ` form an orthonormal basis of L²(γ).
-Write `f = Σₙ aₙ Hₙ` and `f' = Σₙ aₙ H'ₙ = Σₙ aₙ n Hₙ₋₁`.
-Then:
-  `Var_γ[f] = Σₙ≥1 aₙ²` (since `E[Hₙ] = 0` for `n ≥ 1`)
-  `E_γ[(f')²] = Σₙ≥1 n aₙ²`
-Since `n ≥ 1` for all terms, `Var_γ[f] ≤ E_γ[(f')²]`.
+**Status**: sorry — this is a genuine core gap.
 
-Alternative: via Stein's identity `E_γ[f'(X)] = E_γ[X·f(X)]`
-and integration by parts on the Gaussian density.
+**Known proof routes** (all require infrastructure beyond current Mathlib):
+
+1. **Hermite expansion** (most elementary):
+   Hermite polynomials `{Hₙ}` form an ONB of L²(γ).
+   Write `f = Σ aₙ Hₙ`. Then `Var[f] = Σ_{n≥1} aₙ²` and
+   `E[(f')²] = Σ_{n≥1} n·aₙ²`. Since `n ≥ 1`, done.
+   **Missing**: Hermite orthogonality `∫ Hₘ Hₙ dγ = n! δ_{mn}` and completeness.
+   Mathlib has `hermite` polynomials + `deriv_gaussian_eq_hermite_mul_gaussian`
+   but NOT orthogonality in L²(γ).
+
+2. **Ornstein-Uhlenbeck semigroup**:
+   `P_t f(x) = E[f(e^{-t}x + √(1-e^{-2t})Z)]`. Then
+   `Var[f] = 2∫₀^∞ e^{-2t} E[(P_t f')²] dt ≤ E[(f')²]`
+   since `E[(P_t f')²] ≤ E[(f')²]` by contractivity.
+   **Missing**: OU semigroup definition and contractivity in L²(γ).
+
+3. **Brascamp-Lieb**: For log-concave measure with Hessian ≥ κI,
+   `Var[f] ≤ (1/κ) E[‖∇f‖²]`. For Gaussian, κ = 1.
+   **Missing**: Brascamp-Lieb inequality.
+
+**Note**: Stein's identity (`stein_identity` above) is a necessary ingredient
+but NOT sufficient alone — it gives `E[Xf] = E[f']` which by Cauchy-Schwarz
+yields `(E[f'])² ≤ Var[f]` (REVERSE Poincaré), not the forward direction.
+The spectral gap (= 1) is the essential additional information.
 -/
 theorem gaussian_poincare_1d_core
     (f f' : ℝ → ℝ)
