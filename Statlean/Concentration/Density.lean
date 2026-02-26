@@ -1,4 +1,4 @@
-import Statlean.Concentration.GaussianPoincare
+import Statlean.Concentration.GaussianPoincareProved
 import Mathlib.Analysis.Calculus.ContDiff.Basic
 import Mathlib.Topology.Algebra.Support
 

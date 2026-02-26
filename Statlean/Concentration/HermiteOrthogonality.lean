@@ -2,7 +2,7 @@ import Mathlib.RingTheory.Polynomial.Hermite.Basic
 import Mathlib.Probability.Distributions.Gaussian.Real
 import Mathlib.Analysis.Calculus.Deriv.Polynomial
 import Mathlib.Analysis.Calculus.Deriv.Mul
-import Statlean.Concentration.GaussianPoincare
+import Statlean.Concentration.GaussianPoincareProved
 
 /-! # Hermite Polynomial Orthogonality under Gaussian Measure
 
