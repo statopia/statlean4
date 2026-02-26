@@ -1,6 +1,7 @@
 import Statlean.Concentration.LogSobolev
 import Mathlib.MeasureTheory.Integral.Pi
 import Mathlib.MeasureTheory.SpecificCodomains.Pi
+import Mathlib.Probability.Moments.SubGaussian
 
 /-! # Gaussian Lipschitz Concentration (Theorem 3.7)
 
@@ -222,26 +223,55 @@ lemma integrable_exp_centered_of_lipschitz_stdGaussianPi
     Real.exp (s * (f x - c)) ≤ Real.exp (A + B * ‖x‖) := by gcongr
     _ = Real.exp A * Real.exp (B * ‖x‖) := by rw [Real.exp_add]
 
-/-- **Herbst argument core** (sorry):
+/-- **Sub-Gaussian MGF for centered Lipschitz functions on Gaussian space** (sorry):
+If `f` is `L`-Lipschitz on `(Fin n → ℝ)`, then the centered variable
+`X = f - E[f]` has a sub-Gaussian moment-generating function with parameter `L²`
+under `stdGaussianPi n`.
+
+This is the key analytical content of the Herbst argument, which requires:
+1. Gaussian LSI(2): `Ent_γⁿ(g) ≤ 2 · E_γⁿ[‖∇(√g)‖²]`
+2. LSI applied to `g = e^{s·f}` gives the ODE: `s·Φ'(s) - Φ(s) ≤ s²L²/2`
+3. ODE comparison / Gronwall: `Φ(s)/s → 0` as `s → 0`, so `Φ(s) ≤ s²L²/2`
+
+Both `gaussian_lsi_1d_core` and `tensorization_lsi_core` are sorry,
+so this lemma is also sorry.
+-/
+private lemma hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi
+    (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
+    (hf : LipschitzWith L f) :
+    HasSubgaussianMGF
+      (fun x => f x - ∫ y, f y ∂stdGaussianPi n)
+      (L ^ 2)
+      (stdGaussianPi n) := by
+  sorry
+
+/-- **Herbst argument core**:
 For an `L`-Lipschitz function `f` on `(Fin n → ℝ)` under the standard Gaussian
 product measure `stdGaussianPi n`, the cumulant generating function satisfies:
   `log E[e^{s(f - E[f])}] ≤ s²L²/2` for all `s ∈ ℝ`.
 
-**Proof sketch** (ODE comparison / Gronwall):
-1. Let `Φ(s) = log E[e^{s(f - E[f])}]` (cumulant GF), with `Φ(0) = 0`.
-2. From Gaussian LSI(2): `Ent(e^{sf}) ≤ (s²L²/2) · E[e^{sf}]`.
-   This uses `‖∇f‖ ≤ L` (Lipschitz condition).
-3. Rewrite using `Ent(g) = E[g log g] - E[g] log E[g]`:
-   `s · Φ'(s) - Φ(s) ≤ s²L²/2`.
-4. Let `g(s) = Φ(s)/s²` for `s > 0`. The ODE inequality gives `g'(s) ≤ L²/2`.
-5. Integrating: `g(s) ≤ L²/2` for all `s > 0`, i.e., `Φ(s) ≤ s²L²/2`.
-6. Symmetric argument for `s < 0`.
+Proved by reducing to `HasSubgaussianMGF.cgf_le` applied to the centered
+variable `f - E[f]`.
+
+The sub-Gaussian property itself (`hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi`)
+is sorry: it requires the Gaussian LSI + Herbst ODE argument.
 -/
 theorem herbst_argument_core
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
     (hf : LipschitzWith L f) :
     HerbstBound n f L := by
-  sorry
+  intro s
+  let X : (Fin n → ℝ) → ℝ := fun x => f x - ∫ y, f y ∂stdGaussianPi n
+  have hSubG := hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi n f L hf
+  have hcgf := hSubG.cgf_le s
+  -- hcgf : cgf X μ s ≤ ↑(L ^ 2) * s ^ 2 / 2
+  -- goal : log (∫ x, exp (s * (f x - ∫ y, f y ∂μ)) ∂μ) ≤ s ^ 2 * ↑L ^ 2 / 2
+  simp only [cgf, mgf] at hcgf
+  calc Real.log (∫ x, Real.exp (s * X x) ∂stdGaussianPi n)
+      ≤ ↑(L ^ 2) * s ^ 2 / 2 := hcgf
+    _ = s ^ 2 * ↑L ^ 2 / 2 := by
+        push_cast [NNReal.coe_pow]
+        ring
 
 /-- **Herbst argument**: If μ satisfies LSI(c) and f is L-Lipschitz,
 then the cumulant generating function of f satisfies

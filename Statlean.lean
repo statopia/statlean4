@@ -8,6 +8,7 @@ import Statlean.Concentration.GaussianPoincare
 import Statlean.Concentration.Density
 import Statlean.Concentration.LogSobolev
 import Statlean.Concentration.GaussianLipschitz
+import Statlean.Concentration.BerryEsseen
 
 -- Phase 2: Empirical Process Theory
 import Statlean.EmpiricalProcess.CoveringNumber
