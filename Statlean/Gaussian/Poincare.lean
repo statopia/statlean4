@@ -1,5 +1,6 @@
 import Statlean.Variance.EfronStein
 import Statlean.Gaussian.Hermite
+import Mathlib.Analysis.InnerProductSpace.l2Space
 
 /-! # Gaussian Poincaré Inequality
 
@@ -249,21 +250,129 @@ private lemma hermite_bessel_finite (f : ℝ → ℝ) (hf : MemLp f 2 stdGaussia
     rw [h2c, h2a, h2b, I_fS, I_S2]; ring
   linarith [hresid, hnn]
 
+/-- Summability of Hermite coefficient squares from Bessel. -/
+private lemma summable_hermiteCoeff_sq (f : ℝ → ℝ) (hf : MemLp f 2 stdGaussian) :
+    Summable (fun k => hermiteCoeff f k ^ 2) := by
+  apply summable_of_sum_le (fun k => sq_nonneg _) (c := ∫ x, f x ^ 2 ∂stdGaussian)
+  intro u
+  obtain ⟨N, hN⟩ := Finset.exists_nat_subset_range u
+  calc ∑ x ∈ u, hermiteCoeff f x ^ 2
+      ≤ ∑ x ∈ Finset.range N, hermiteCoeff f x ^ 2 :=
+        Finset.sum_le_sum_of_subset_of_nonneg hN (fun _ _ _ => sq_nonneg _)
+    _ ≤ ∫ x, f x ^ 2 ∂stdGaussian := hermite_bessel_finite f hf N
+
+/-- For ℝ, inner product is multiplication. -/
+private lemma real_inner_eq_mul (a b : ℝ) : @inner ℝ ℝ _ a b = a * b := by
+  rw [RCLike.inner_apply]; simp [mul_comm]
+
+/-- Hermite normalized functions embedded in L²(γ). -/
+private noncomputable def hermiteNormLp (k : ℕ) : Lp ℝ 2 stdGaussian :=
+  (memLp_hermiteNorm k).toLp (hermiteNorm k)
+
+/-- The Hermite normalized functions form an orthonormal system in L²(γ). -/
+private lemma orthonormal_hermiteNormLp : Orthonormal ℝ hermiteNormLp := by
+  rw [orthonormal_iff_ite]
+  intro i j
+  simp only [hermiteNormLp]
+  rw [L2.inner_def]
+  -- Need: ∫ ⟪(toLp eᵢ)(x), (toLp eⱼ)(x)⟫ dγ = δᵢⱼ
+  have := hermiteNorm_inner i j
+  convert this using 1
+  apply integral_congr_ae
+  filter_upwards [(memLp_hermiteNorm i).coeFn_toLp, (memLp_hermiteNorm j).coeFn_toLp]
+    with x hi hj
+  rw [hi, hj, real_inner_eq_mul]
+
+/-- The orthogonal complement of the Hermite span is trivial in L²(γ). -/
+private lemma hermiteNormLp_orthogonal_eq_bot :
+    (Submodule.span ℝ (Set.range hermiteNormLp))ᗮ = ⊥ := by
+  rw [Submodule.eq_bot_iff]
+  intro g hg
+  rw [Submodule.mem_orthogonal] at hg
+  have hg_inner : ∀ k : ℕ,
+      ∫ x, hermiteNorm k x * (↑↑g : ℝ → ℝ) x ∂stdGaussian = 0 := by
+    intro k
+    have h := hg (hermiteNormLp k) (Submodule.subset_span ⟨k, rfl⟩)
+    rw [L2.inner_def] at h
+    have hae : (fun x => @inner ℝ ℝ _
+        ((↑↑(hermiteNormLp k) : ℝ → ℝ) x) ((↑↑g : ℝ → ℝ) x)) =ᵐ[stdGaussian]
+      (fun x => hermiteNorm k x * (↑↑g : ℝ → ℝ) x) := by
+      simp only [hermiteNormLp]
+      filter_upwards [(memLp_hermiteNorm k).coeFn_toLp] with x hx
+      rw [hx, real_inner_eq_mul]
+    rwa [integral_congr_ae hae] at h
+  have hg_eval : ∀ n : ℕ, ∫ x, hermiteEval n x * (↑↑g : ℝ → ℝ) x ∂stdGaussian = 0 := by
+    intro n
+    have := hg_inner n
+    simp only [hermiteNorm] at this
+    have hfact : (0 : ℝ) < Real.sqrt ↑n.factorial :=
+      Real.sqrt_pos_of_pos (Nat.cast_pos.mpr (Nat.factorial_pos n))
+    have heq : (fun x => hermiteEval n x / Real.sqrt ↑n.factorial * (↑↑g : ℝ → ℝ) x) =
+        (fun x => (1 / Real.sqrt ↑n.factorial) * (hermiteEval n x * (↑↑g : ℝ → ℝ) x)) := by
+      ext x; ring
+    rw [heq, integral_const_mul] at this
+    rcases mul_eq_zero.mp this with h | h
+    · exfalso; linarith [div_pos one_pos hfact]
+    · exact h
+  have hg_memLp : MemLp (↑↑g : ℝ → ℝ) 2 stdGaussian := Lp.memLp g
+  have hg_ae := hermite_span_dense_L2 _ hg_memLp hg_eval
+  exact Lp.ext (hg_ae.trans (Lp.coeFn_zero ℝ 2 stdGaussian).symm)
+
+/-- The Hermite functions form a Hilbert basis of L²(γ). -/
+private noncomputable def hermiteBasis : HilbertBasis ℕ ℝ (Lp ℝ 2 stdGaussian) :=
+  HilbertBasis.mkOfOrthogonalEqBot orthonormal_hermiteNormLp hermiteNormLp_orthogonal_eq_bot
+
+/-- Parseval identity for Hermite functions: `∑' k, aₖ² = ∫ f²`.
+The proof constructs the Hermite `HilbertBasis` in `Lp ℝ 2 stdGaussian` via
+`hermiteNorm_inner` → Orthonormal → orthogonal complement ⊥ →
+`HilbertBasis.mkOfOrthogonalEqBot` → `hasSum_inner_mul_inner` (Parseval). -/
+private lemma hermite_parseval (f : ℝ → ℝ) (hf : MemLp f 2 stdGaussian) :
+    HasSum (fun k => hermiteCoeff f k ^ 2) (∫ x, f x ^ 2 ∂stdGaussian) := by
+  set F := hf.toLp f
+  -- Coefficients: ⟪bₖ, F⟫ = aₖ
+  have hcoeff : ∀ k, @inner ℝ _ _ (hermiteBasis k) F = hermiteCoeff f k := by
+    intro k
+    rw [L2.inner_def]
+    simp only [hermiteBasis, HilbertBasis.coe_mkOfOrthogonalEqBot, hermiteNormLp, hermiteCoeff]
+    apply integral_congr_ae
+    filter_upwards [(memLp_hermiteNorm k).coeFn_toLp, hf.coeFn_toLp] with x hek hfx
+    rw [hek, hfx, real_inner_eq_mul, mul_comm]
+  -- Parseval: HasSum (fun i => ⟪F, bᵢ⟫ * ⟪bᵢ, F⟫) ⟪F, F⟫
+  have hp := hermiteBasis.hasSum_inner_mul_inner F F
+  -- Convert ⟪F, bₖ⟫ * ⟪bₖ, F⟫ = aₖ²
+  have h1 : (fun i => @inner ℝ _ _ F (hermiteBasis i) * @inner ℝ _ _ (hermiteBasis i) F) =
+      (fun k => hermiteCoeff f k ^ 2) := by
+    ext k
+    rw [show @inner ℝ _ _ F (hermiteBasis k) = @inner ℝ _ _ (hermiteBasis k) F from
+      (real_inner_comm F (hermiteBasis k)).symm, hcoeff k]; ring
+  rw [h1] at hp
+  -- Convert ⟪F, F⟫ = ∫ f²
+  have h2 : @inner ℝ _ _ F F = ∫ x, f x ^ 2 ∂stdGaussian := by
+    rw [L2.inner_def]
+    apply integral_congr_ae
+    filter_upwards [hf.coeFn_toLp] with x hfx
+    rw [hfx, real_inner_eq_mul]; ring
+  rwa [h2] at hp
+
 /-- Hermite Parseval identity for the tail:
 for any ε > 0, the Hermite expansion eventually captures all of ‖f‖². -/
 private lemma hermite_parseval_tail (f : ℝ → ℝ) (hf : MemLp f 2 stdGaussian) :
     ∀ ε > 0, ∃ N : ℕ,
     ∫ x, f x ^ 2 ∂stdGaussian -
       ∑ k ∈ Finset.range N, hermiteCoeff f k ^ 2 < ε := by
-  -- By Bessel, the partial sums ∑_{k<N} aₖ² are bounded by ∫ f².
-  -- The partial sums are monotone increasing and bounded, so they converge.
-  -- We need: their limit equals ∫ f².
-  -- Proof: the sum ∑ aₖ² is summable.
-  -- The Hermite projection residual ∫ (f - S_N)² = ∫ f² - ∑ aₖ² ≥ 0.
-  -- S_N is L²-Cauchy (‖S_M - S_N‖² = tail of summable series → 0).
-  -- By L² completeness, S_N → S. All Hermite coefficients of f - S vanish.
-  -- By hermite_span_dense_L2, f = S a.e. So ∫ (f - S_N)² → 0.
-  sorry
+  intro ε hε
+  -- Convert HasSum to Tendsto along Finset.range
+  have hp := hermite_parseval f hf
+  rw [hasSum_iff_tendsto_nat_of_nonneg (fun k => sq_nonneg _)] at hp
+  -- hp : Tendsto (fun n => ∑ i ∈ Finset.range n, aᵢ²) atTop (nhds (∫ f²))
+  rw [Metric.tendsto_atTop] at hp
+  obtain ⟨N, hN⟩ := hp ε hε
+  exact ⟨N, by
+    have h1 := hN N le_rfl
+    rw [Real.dist_eq] at h1
+    have h2 : ∑ k ∈ Finset.range N, hermiteCoeff f k ^ 2 ≤ ∫ x, f x ^ 2 ∂stdGaussian :=
+      hermite_bessel_finite f hf N
+    linarith [abs_lt.mp h1]⟩
 
 /-- **Coefficient bound for f'**: `∑_{k=1}^{N} aₖ² ≤ ∫ f'²`.
 Uses Bessel for f' and the coefficient relation. -/

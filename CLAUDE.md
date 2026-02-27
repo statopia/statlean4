@@ -105,7 +105,11 @@
 
 ## 效率规则
 
-- **并行 subagent**：独立搜索/研究任务用 Task 并发，不串行
+- **并行 subagent（强制）**：`/prove-deep` 和多 sorry 攻击时，**每个待攻击子任务必须启动独立 agent 并行**
+  - 不同模块的 sorry（如 Poincaré vs LSI vs BerryEsseen）→ 同时启动多个 Task agent
+  - 同一定理的 sub-lemma 如果互不依赖 → 也可以并行
+  - 仅当有数据依赖时才串行（如 A 的输出是 B 的输入）
+  - 纯研究/搜索型 agent → `model: haiku`；需要写代码的 agent → `model: sonnet` 或默认
 - **subagent 用 haiku**：纯搜索、grep、读文件指定 `model: haiku`
 - **增量编译**：`lake build Statlean.Gaussian.Poincare` 只编目标，不要每次全量 build
 - **grep 先于 read**：用 Grep 定位行号再 Read 指定范围，不盲读大文件
