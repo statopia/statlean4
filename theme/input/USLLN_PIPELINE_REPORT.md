@@ -10,10 +10,9 @@
 
 | Metric | Value |
 |--------|-------|
-| Total wall time | ~110 min (2 sessions) |
-| Session 1 (PDF extract + skeleton + prove) | ~90 min |
-| Session 2 (prove continuation + gate) | ~20 min |
-| Claude Code tokens (estimated) | ~200K input + ~50K output |
+| Total wall time (pipeline 6 步) | **~34 min** (15:10 → 15:44) |
+| 含工具开发 (pdf_extract 三后端改造) | ~69 min (14:35 → 15:44) |
+| Claude Code tokens (estimated) | ~150K input + ~40K output |
 | Anthropic API tokens (pdf_extract) | ~8K (targeted extraction, 4 pages) |
 | Lean lines generated | 132 |
 | Lemmas proved (zero sorry) | 2 (`integrable_U_comp_X`, `slln_pointwise`) |
@@ -24,12 +23,12 @@
 
 | Step | Skill | Time | Result |
 |------|-------|------|--------|
-| 1. PDF Extract | `pdf-extract` | ~5 min | 4 blocks, 3314 chars (USLLN + KL + Shannon-Kolmogorov) |
-| 2. LaTeX Ingest | `latex-ingest` | ~2 min | `theorems.yaml` with 3 entries |
-| 3. Lean Skeleton | `tex2lean` | ~15 min | `USLLN.lean` skeleton (3 build-fix cycles) |
-| 4. Build & Fix | `build-fix` | ~3 min | Clean compilation with sorry |
-| 5. Prove | `prove` | ~60 min | 2/3 lemmas proved, 1 honest sorry |
-| 6. Promote & Gate | `checkpoint` | ~5 min | Committed, full build PASS |
+| 1. PDF Extract | `pdf-extract` | ~3 min | 4 blocks, 3314 chars (USLLN + KL + Shannon-Kolmogorov) |
+| 2. LaTeX Ingest | `latex-ingest` | ~1 min | `theorems.yaml` with 3 entries |
+| 3. Lean Skeleton | `tex2lean` | ~8 min | `USLLN.lean` skeleton (3 build-fix cycles) |
+| 4. Build & Fix | `build-fix` | ~2 min | Clean compilation with sorry |
+| 5. Prove | `prove` | ~12 min | 2/3 lemmas proved, 1 honest sorry |
+| 6. Promote & Gate | `checkpoint` | ~8 min | Committed, full build PASS, report |
 
 ## Proved Lemmas
 

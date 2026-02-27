@@ -137,8 +137,8 @@ Total: 117 verified declarations (zero sorry)
 
 ### Pipeline 全流程验证 (USLLN)
 - **输入**: `lecture-10-handout.pdf` (Lecture 10, Theorem C)
-- **总耗时**: ~110 分钟 (2 个会话)
-- **Token 消耗**: ~200K input + ~50K output (Claude Code) + ~8K (Anthropic API pdf_extract)
+- **总耗时**: ~34 分钟 (pipeline 6 步), ~69 分钟含工具开发
+- **Token 消耗**: ~150K input + ~40K output (Claude Code) + ~8K (Anthropic API pdf_extract)
 - **产出**: 132 行 Lean, 2 个零 sorry 引理, 1 个 honest sorry
 
 ### 新增基础设施
