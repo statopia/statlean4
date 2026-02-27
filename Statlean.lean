@@ -25,6 +25,9 @@ import Statlean.CharFun.Taylor
 -- Berry-Esseen theorem
 import Statlean.BerryEsseen
 
+-- Concentration: Uniform SLLN
+import Statlean.Concentration.USLLN
+
 -- Phase 2: Empirical Process Theory
 import Statlean.EmpiricalProcess.CoveringNumber
 import Statlean.EmpiricalProcess.Dudley
