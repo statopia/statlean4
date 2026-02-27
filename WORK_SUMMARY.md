@@ -130,4 +130,34 @@ Total: 117 verified declarations (zero sorry)
 | v5 | Hermite orthogonality | `bb91f93` |
 | v6-v7 | Berry-Esseen 框架 | `8f5f71e` |
 | v8 | charfun 链证明 (6→2 sorry) | `e671492` |
-| **v9** | **Proved/Sorry 分离 (117 已验证声明)** | **pending** |
+| v9 | Proved/Sorry 分离 (117 已验证声明) | `e264c31` |
+| **v10** | **USLLN 全流程 (PDF→Lean) + 深度证明框架** | **`35023f5`** |
+
+## 七、v10 工作记录
+
+### Pipeline 全流程验证 (USLLN)
+- **输入**: `lecture-10-handout.pdf` (Lecture 10, Theorem C)
+- **总耗时**: ~110 分钟 (2 个会话)
+- **Token 消耗**: ~200K input + ~50K output (Claude Code) + ~8K (Anthropic API pdf_extract)
+- **产出**: 132 行 Lean, 2 个零 sorry 引理, 1 个 honest sorry
+
+### 新增基础设施
+- `sorry_backlog.yaml` — 10 个 sorry 的机器可读依赖图
+- `/prove-deep` — 深度证明命令 (支持 `next` / `all-leaves` / 指定 ID)
+- `/pipeline` — 全流程命令 (PDF → Lean 一键执行)
+- `USLLN_PIPELINE_REPORT.md` — 详细流程报告
+
+### 快速恢复指南
+```bash
+# 攻击下一个最高优先级 sorry
+/prove-deep next
+
+# 攻击 USLLN 主定理
+/prove-deep uslln.uniform_slln
+
+# 并行攻击所有叶节点 sorry
+/prove-deep all-leaves
+
+# 从 PDF 开始新定理
+/pipeline lecture-10-handout.pdf --theorem "Shannon-Kolmogorov"
+```

@@ -1,0 +1,147 @@
+version: v1
+generated: 2026-02-27
+total_sorry: 10
+
+# Each entry is an independent sorry that can be attacked with `/prove`
+# Priority: lower number = attack first (leaf nodes, highest ROI)
+# Use: `/prove Statlean/<path>:<theorem_name>` to attack
+
+sorry_items:
+
+# === USLLN (NEW) ===
+- id: uslln.uniform_slln
+  file: Statlean/Concentration/USLLN.lean
+  line: 132
+  theorem: uniform_slln
+  type: honest
+  depth: 3
+  priority: 2
+  blocker: "compactness → finite ε-net → SLLN at net points → triangle inequality"
+  estimated_lines: 100
+  sub_lemmas_needed:
+    - name: sampleAvg_continuous
+      difficulty: leaf
+      lines: 5
+      description: "finite sum of continuous functions is continuous"
+    - name: popMean_continuous
+      difficulty: intermediate
+      lines: 15
+      description: "DCT + domination → continuity of population mean"
+    - name: finite_eps_net
+      difficulty: intermediate
+      lines: 20
+      description: "compact space → finite ε-net from open cover"
+    - name: uniform_from_pointwise_compact
+      difficulty: hard
+      lines: 40
+      description: "ε/3 assembly: pointwise + compact + continuous → uniform"
+  dependencies: []
+  unlocks: []
+
+# === Efron-Stein (2) ===
+- id: efron_stein.condvar
+  file: Statlean/Variance/EfronStein.lean
+  line: 408
+  theorem: efron_stein_condVar_le_of_condExp
+  type: honest
+  depth: 2
+  priority: 5
+  blocker: "product-measure Fubini for condExp (NOT in Mathlib)"
+  estimated_lines: 80
+  dependencies: []
+  unlocks: [efron_stein.core_gen]
+
+- id: efron_stein.core_gen
+  file: Statlean/Variance/EfronStein.lean
+  line: 452
+  theorem: efron_stein_core_gen
+  type: blocked
+  depth: 2
+  priority: 6
+  blocker: "depends on efron_stein.condvar"
+  dependencies: [efron_stein.condvar]
+  unlocks: []
+
+# === Gaussian Poincaré (2) — CRITICAL PATH ===
+- id: poincare.1d_core
+  file: Statlean/Gaussian/Poincare.lean
+  line: 93
+  theorem: gaussian_poincare_1d_core
+  type: honest
+  depth: 3
+  priority: 1
+  blocker: "Hermite completeness / Parseval identity in L²(γ)"
+  estimated_lines: 120
+  dependencies: []
+  unlocks: [poincare.coord_bound, lsi.1d_core]
+
+- id: poincare.coord_bound
+  file: Statlean/Gaussian/Poincare.lean
+  line: 115
+  theorem: gaussian_poincare_coord_bound_core
+  type: blocked
+  depth: 2
+  priority: 7
+  blocker: "depends on poincare.1d_core"
+  dependencies: [poincare.1d_core]
+  unlocks: []
+
+# === Log-Sobolev (2) ===
+- id: lsi.1d_core
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 102
+  theorem: gaussian_lsi_1d_core
+  type: blocked
+  depth: 3
+  priority: 8
+  blocker: "depends on poincare.1d_core"
+  dependencies: [poincare.1d_core]
+  unlocks: [lipschitz.subgaussian_mgf]
+
+- id: lsi.tensorization
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 108
+  theorem: tensorization_lsi_core
+  type: honest
+  depth: 3
+  priority: 4
+  blocker: "product entropy decomposition"
+  estimated_lines: 80
+  dependencies: []
+  unlocks: [lipschitz.subgaussian_mgf]
+
+# === Gaussian Lipschitz (1) ===
+- id: lipschitz.subgaussian_mgf
+  file: Statlean/SubGaussian/Herbst.lean
+  line: 77
+  theorem: hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi
+  type: blocked
+  depth: 2
+  priority: 9
+  blocker: "depends on lsi.1d_core + lsi.tensorization"
+  dependencies: [lsi.1d_core, lsi.tensorization]
+  unlocks: []
+
+# === Berry-Esseen (2) ===
+- id: berry_esseen.smoothing
+  file: Statlean/BerryEsseen.lean
+  line: 28
+  theorem: berry_esseen_smoothing
+  type: honest
+  depth: 3
+  priority: 3
+  blocker: "Esseen smoothing inequality (mollifier + Fourier inversion)"
+  estimated_lines: 100
+  dependencies: []
+  unlocks: [berry_esseen.theorem]
+
+- id: berry_esseen.theorem
+  file: Statlean/BerryEsseen.lean
+  line: 49
+  theorem: berry_esseen_theorem
+  type: blocked
+  depth: 1
+  priority: 10
+  blocker: "depends on berry_esseen.smoothing"
+  dependencies: [berry_esseen.smoothing]
+  unlocks: []
