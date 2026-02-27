@@ -1,0 +1,42 @@
+% Auto-extracted from: lecture-10-handout.pdf
+% Backend: claude
+% Review formulas marked with % OCR_UNCERTAIN before proceeding.
+
+\documentclass{article}
+\usepackage{amsmath,amssymb,amsthm}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{definition}[theorem]{Definition}
+% === Quality Warnings ===
+% WARNING: Line 17: possible merged mathbb
+% WARNING: Line 19: possible merged mathbb
+
+\begin{document}
+
+\begin{theorem}[USLLN, C]
+Let $X_1, \ldots, X_n, \ldots$ be i.i.d. sample from $P$ on the space $\mathcal{X}$. Let $U(x,\theta)$ be a measurable function on $\mathcal{X} \times \Theta$. Suppose
+1. $U(x,\theta)$ is continuous in $\theta$ for any fixed $x$,
+2. for each $\theta$, $\mu(\theta) = \mathbb{E}U(X,\theta)$ is finite,
+3. $\Theta$ is compact,
+4. there exists a function $M(x)$ such that $\mathbb{E}M(X) < \infty$ and $|U(x,\theta)| \leq M(x)$ for all $x$ and $\theta$.
+
+Then
+\[P\left\{\lim_{n \to \infty} \sup_{\theta \in \Theta} \left|\frac{1}{n} \sum_{j=1}^n U(X_j, \theta) - \mu(\theta)\right| = 0\right\} = 1\]
+\end{theorem}
+
+\begin{definition}[Kullback-Leibler Information]
+The limit of the log-likelihood ratio is $-\mathbb{E}_{\theta_0} \log \frac{f(X|\theta_0)}{f(X|\theta)}$.
+
+Define the **Kullback-Leibler (KL) information number** as
+\[K(f_0, f_1) = \mathbb{E}_0 \log \frac{f_0(X)}{f_1(X)} = \int \log \left(\frac{f_0(x)}{f_1(x)}\right) f_0(x) d\nu(x)\]
+
+When $f$ is indexed by $\theta$, we may also write $K(\theta_0, \theta_1)$ for short.
+\end{definition}
+
+\begin{theorem}[Shannon-Kolmogorov Information Inequality]
+$K(f_0, f_1) \geq 0$ with equality if and only if $f_1(\omega) = f_0(\omega)$ $\nu$-a.e.
+\end{theorem}
+
+\end{document}

@@ -1,0 +1,11 @@
+# Auto-generated notation mapping
+# Review and edit as needed
+
+symbols:
+  "\inf": "infimum"
+  "\int": "integral"
+  "\lim": "limit"
+  "\log": "logarithm"
+  "\mathbb{E}": "expectation"
+  "\sum": "summation"
+  "\sup": "supremum"

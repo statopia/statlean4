@@ -1,0 +1,84 @@
+version: v1
+theorem_set: imported-tex-batch
+defaults:
+  lean_namespace: Statlean.Concentration
+  layer: formalization
+  allow_axiom: false
+theorems:
+- id: imported.theorem.001.uslln_c
+  title: USLLN, C
+  kind: theorem
+  latex_statement: 'Let $X_1, \ldots, X_n, \ldots$ be i.i.d. sample from $P$ on the
+    space $\mathcal{X}$. Let $U(x,\theta)$ be a measurable function on $\mathcal{X}
+    \times \Theta$. Suppose
+
+    1. $U(x,\theta)$ is continuous in $\theta$ for any fixed $x$,
+
+    2. for each $\theta$, $\mu(\theta) = \mathbb{E}U(X,\theta)$ is finite,
+
+    3. $\Theta$ is compact,
+
+    4. there exists a function $M(x)$ such that $\mathbb{E}M(X) < \infty$ and $|U(x,\theta)|
+    \leq M(x)$ for all $x$ and $\theta$.
+
+
+    Then
+
+    \[P\left\{\lim_{n \to \infty} \sup_{\theta \in \Theta} \left|\frac{1}{n} \sum_{j=1}^n
+    U(X_j, \theta) - \mu(\theta)\right| = 0\right\} = 1\]'
+  latex_proof_hint: ''
+  lean_name: theorem_001_uslln_c
+  lean_namespace: Statlean.Concentration
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.definition.002.kullback_leibler_information
+  title: Kullback-Leibler Information
+  kind: definition
+  latex_statement: 'The limit of the log-likelihood ratio is $-\mathbb{E}_{\theta_0}
+    \log \frac{f(X|\theta_0)}{f(X|\theta)}$.
+
+
+    Define the **Kullback-Leibler (KL) information number** as
+
+    \[K(f_0, f_1) = \mathbb{E}_0 \log \frac{f_0(X)}{f_1(X)} = \int \log \left(\frac{f_0(x)}{f_1(x)}\right)
+    f_0(x) d\nu(x)\]
+
+
+    When $f$ is indexed by $\theta$, we may also write $K(\theta_0, \theta_1)$ for
+    short.'
+  latex_proof_hint: ''
+  lean_name: definition_002_kullback_leibler_information
+  lean_namespace: Statlean.Concentration
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.003.shannon_kolmogorov_information_inequality
+  title: Shannon-Kolmogorov Information Inequality
+  kind: theorem
+  latex_statement: $K(f_0, f_1) \geq 0$ with equality if and only if $f_1(\omega)
+    = f_0(\omega)$ $\nu$-a.e.
+  latex_proof_hint: ''
+  lean_name: theorem_003_shannon_kolmogorov_information_inequality
+  lean_namespace: Statlean.Concentration
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
