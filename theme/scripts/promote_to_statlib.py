@@ -80,31 +80,35 @@ def infer_group_name(chunk: str) -> str:
     sample = chunk[:2000].lower()
     text = f"{title}\n{kind}\n{sample}"
 
-    # Concentration / probability keywords (check FIRST — more specific)
-    conc_kw = [
-        "berry", "esseen", "clt", "central limit", "concentration",
-        "poincare", "poincaré", "log-sobolev", "efron-stein", "stein",
-        "hoeffding", "azuma", "chernoff", "chebyshev", "markov",
-        "bound", "inequality", "tail", "sub-gaussian", "subgaussian",
-        "characteristic function", "charfun", "fourier",
-        "iid", "i.i.d", "independent", "variance",
-    ]
-    if any(k in text for k in conc_kw):
-        return "Concentration"
+    # ── Classify by mathematical object (v10 architecture) ──
+    gauss_kw = ["gaussian", "poincare", "poincaré", "stein identity", "hermite", "sobolev"]
+    var_kw = ["variance", "efron-stein", "efron stein", "rao-blackwell", "rao blackwell"]
+    ent_kw = ["entropy", "log-sobolev", "log sobolev", "lsi"]
+    subg_kw = ["sub-gaussian", "subgaussian", "herbst", "lipschitz concentration",
+               "hoeffding", "azuma", "chernoff"]
+    charfun_kw = ["berry", "esseen", "clt", "central limit",
+                  "characteristic function", "charfun", "fourier"]
+    spd_kw = ["fréchet", "frechet", "spd", "log-cholesky", "determinant", "logdet",
+              "geodesic", "cholesky", "manifold"]
+    reg_kw = ["regression", "risk", "estimator", "least-squares"]
+    emp_kw = ["empirical process", "covering number", "dudley"]
 
-    mean_kw = [
-        "fréchet", "frechet", "spd mean", "spd average", "determinant",
-        "random element", "log-cholesky mean",
-    ]
-    geom_kw = [
-        "lie group", "geodesic", "parallel transport", "curvature",
-        "metric", "diffeomorphism", "cholesky", "differential", "manifold",
-    ]
-
-    if any(k in text for k in mean_kw):
-        return "SPDMeans"
-    if any(k in text for k in geom_kw):
-        return "SPDGeometry"
+    if any(k in text for k in var_kw):
+        return "Variance"
+    if any(k in text for k in ent_kw):
+        return "Entropy"
+    if any(k in text for k in subg_kw):
+        return "SubGaussian"
+    if any(k in text for k in charfun_kw):
+        return "CharFun"
+    if any(k in text for k in gauss_kw):
+        return "Gaussian"
+    if any(k in text for k in spd_kw):
+        return "SPD"
+    if any(k in text for k in reg_kw):
+        return "Regression"
+    if any(k in text for k in emp_kw):
+        return "EmpiricalProcess"
     return "General"
 
 
@@ -124,7 +128,8 @@ def render_module(chunks: List[str]) -> str:
         return header + body + footer
 
     grouped: "OrderedDict[str, List[str]]" = OrderedDict()
-    preferred_order = ["Concentration", "SPDGeometry", "SPDMeans", "General"]
+    preferred_order = ["Gaussian", "Variance", "Entropy", "SubGaussian", "CharFun",
+                       "SPD", "Regression", "EmpiricalProcess", "General"]
     for g in preferred_order:
         grouped[g] = []
 

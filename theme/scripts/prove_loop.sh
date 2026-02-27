@@ -12,6 +12,10 @@ AGENT_TIMEOUT_SECONDS=${AGENT_TIMEOUT_SECONDS:-600}
 BATCH_SIZE=${BATCH_SIZE:-3}
 # Agent backend: "codex" (default) or "claude"
 AGENT_BACKEND=${AGENT_BACKEND:-codex}
+# Parallel mode for claude: set PARALLEL=1 to run one agent per theorem ID
+PARALLEL=${PARALLEL:-0}
+# Max concurrent agents in parallel mode
+MAX_PARALLEL=${MAX_PARALLEL:-4}
 TARGET_FILE="$OUT_DIR/generated/Generated.lean"
 TARGET_DIR="$OUT_DIR/generated"
 
@@ -79,6 +83,131 @@ count_unresolved() {
     return
   fi
   list_unresolved_ids | wc -l | tr -d ' '
+}
+
+# --- Generate per-ID prompt ---
+generate_id_prompt() {
+  local tid="$1"
+  local prompt_file="$2"
+  cat > "$prompt_file" <<PROMPT
+You are fixing a generated Lean 4 project that formalizes mathematical theorems from LaTeX.
+Workspace root: $REPO_ROOT
+Target file: $TARGET_FILE
+
+Tasks:
+1) Open $TARGET_FILE and find the declaration marked with TODO_TRANSLATE_ID: $tid
+2) Read the LaTeX statement and proof hint in the docstring comment above it.
+3) Search for API — three-level strategy:
+   Level 1: Read theme/mathlib_api_index.md (pre-built index of ~650 Mathlib APIs by topic)
+   Level 2: Use #check / exact? for precise lookup
+   Level 3: grep Mathlib source as last resort (Mathlib/Probability/, Mathlib/MeasureTheory/)
+   Also search Statlean/ (organized by: Gaussian/, Variance/, Entropy/, SubGaussian/, CharFun/, SPD/)
+4) Replace the placeholder statement with a correct Lean 4 type-checked statement.
+5) Write a proof (prefer sorry-free; if infeasible, use sorry with a comment explaining what's missing).
+6) Remove the TODO_TRANSLATE_ID marker from the comment.
+7) Keep the theorem axiom-free. Prefer using existing Mathlib/Statlean lemmas.
+8) After edits, verify: cd $REPO_ROOT && lake env lean $TARGET_FILE
+9) If a full proof is infeasible, refactor statement assumptions explicitly so the theorem stays logically honest and compilable.
+
+Focus ONLY on this theorem ID: $tid
+Do NOT modify other declarations.
+
+Acceptance:
+- The TODO_TRANSLATE_ID: $tid marker is removed
+- Build passes with lake env lean on target file
+PROMPT
+}
+
+# --- Run a single Claude agent for one ID ---
+run_claude_agent() {
+  local tid="$1"
+  local fix_log="$2"
+  local prompt_file="$3"
+  local agent_timeout="$4"
+
+  local agent_rc=0
+  local run_agent_cmd=(
+    env -u CLAUDECODE claude --dangerously-skip-permissions
+      --verbose
+      -p "$(cat "$prompt_file")"
+  )
+
+  if command -v timeout >/dev/null 2>&1; then
+    if timeout --kill-after=30s "${agent_timeout}s" "${run_agent_cmd[@]}" > "$fix_log" 2>&1; then
+      agent_rc=0
+    else
+      agent_rc=$?
+    fi
+  else
+    if "${run_agent_cmd[@]}" > "$fix_log" 2>&1; then
+      agent_rc=0
+    else
+      agent_rc=$?
+    fi
+  fi
+
+  return $agent_rc
+}
+
+# --- Parallel Claude: run one agent per unresolved ID concurrently ---
+run_parallel_claude() {
+  local iter="$1"
+  shift
+  local ids=("$@")
+  local pids=()
+  local logs=()
+  local prompts=()
+  local running=0
+
+  echo "[prove-loop] parallel mode: launching ${#ids[@]} agents (max_parallel=$MAX_PARALLEL)"
+
+  for idx in "${!ids[@]}"; do
+    local tid="${ids[$idx]}"
+    local prompt_file="$OUT_DIR/logs/fix_prompt_${iter}_${idx}.txt"
+    local fix_log="$OUT_DIR/logs/fix_iter_${iter}_${idx}.log"
+
+    generate_id_prompt "$tid" "$prompt_file"
+    prompts+=("$prompt_file")
+    logs+=("$fix_log")
+
+    echo "[prove-loop] starting agent for $tid (${idx}/${#ids[@]})"
+
+    # Launch in background
+    run_claude_agent "$tid" "$fix_log" "$prompt_file" "$AGENT_TIMEOUT_SECONDS" &
+    pids+=($!)
+    running=$((running + 1))
+
+    # Throttle: wait if at max_parallel
+    if (( running >= MAX_PARALLEL )); then
+      # Wait for any one to finish
+      wait -n "${pids[@]}" 2>/dev/null || true
+      running=$((running - 1))
+    fi
+  done
+
+  # Wait for all remaining
+  local any_success=0
+  for pidx in "${!pids[@]}"; do
+    local pid="${pids[$pidx]}"
+    local tid="${ids[$pidx]}"
+    local fix_log="${logs[$pidx]}"
+    local rc=0
+    wait "$pid" 2>/dev/null || rc=$?
+
+    if [[ "$rc" -eq 0 ]]; then
+      echo "[prove-loop] agent for $tid completed successfully"
+      echo "{\"phase\":\"prove-loop\",\"iter\":$iter,\"status\":\"agent-ran\",\"agent\":\"claude\",\"id\":\"$tid\",\"fix_log\":\"$fix_log\"}" >> "$OUT_DIR/logs/pipeline.jsonl"
+      any_success=1
+    elif [[ "$rc" -eq 124 ]]; then
+      echo "[prove-loop] agent for $tid timed out (${AGENT_TIMEOUT_SECONDS}s)"
+      echo "{\"phase\":\"prove-loop\",\"iter\":$iter,\"status\":\"agent-timeout\",\"agent\":\"claude\",\"id\":\"$tid\",\"fix_log\":\"$fix_log\"}" >> "$OUT_DIR/logs/pipeline.jsonl"
+    else
+      echo "[prove-loop] agent for $tid failed (rc=$rc)"
+      echo "{\"phase\":\"prove-loop\",\"iter\":$iter,\"status\":\"agent-failed\",\"agent\":\"claude\",\"id\":\"$tid\",\"fix_log\":\"$fix_log\"}" >> "$OUT_DIR/logs/pipeline.jsonl"
+    fi
+  done
+
+  return 0
 }
 
 for i in $(seq 1 "$MAX_ITERS"); do
@@ -152,6 +281,19 @@ for i in $(seq 1 "$MAX_ITERS"); do
       ;;
   esac
 
+  # --- Parallel Claude mode ---
+  if [[ "$AGENT_BACKEND" == "claude" && "$PARALLEL" == "1" ]]; then
+    echo "{\"phase\":\"prove-loop\",\"iter\":$i,\"status\":\"parallel-batch\",\"agent\":\"claude\",\"count\":${#unresolved_ids[@]},\"max_parallel\":$MAX_PARALLEL}" >> "$OUT_DIR/logs/pipeline.jsonl"
+    echo "[prove-loop] parallel claude mode: ${#unresolved_ids[@]} IDs"
+
+    run_parallel_claude "$i" "${unresolved_ids[@]}"
+
+    unresolved_after=$(count_unresolved)
+    echo "[prove-loop] parallel round done; unresolved now: $unresolved_after"
+    continue
+  fi
+
+  # --- Sequential mode (original behavior) ---
   BATCH_IDS_FILE="$OUT_DIR/logs/fix_batch_ids_${i}.txt"
   : > "$BATCH_IDS_FILE"
   BATCH_IDS_BULLETS=""
@@ -179,7 +321,11 @@ Tasks:
 $BATCH_IDS_BULLETS
 3) For each unresolved ID:
    a) Read the LaTeX statement and proof hint in the docstring comment above the declaration.
-   b) Search the project (Statlean/) and Mathlib (.lake/packages/mathlib/) for similar theorems and useful API.
+   b) Search for API — three-level strategy:
+      Level 1: Read theme/mathlib_api_index.md (pre-built index of ~650 Mathlib APIs by topic)
+      Level 2: Use #check / exact? for precise lookup
+      Level 3: grep Mathlib source as last resort (Mathlib/Probability/, Mathlib/MeasureTheory/)
+      Also search Statlean/ (organized by: Gaussian/, Variance/, Entropy/, SubGaussian/, CharFun/, SPD/)
    c) Replace the placeholder statement with a correct Lean 4 type-checked statement.
    d) Write a proof (prefer sorry-free; if infeasible, use sorry with a comment explaining what's missing).
 4) Keep theorems axiom-free. Prefer using existing Mathlib/Statlean lemmas.
@@ -198,7 +344,7 @@ PROMPT
   case "$AGENT_BACKEND" in
     claude)
       run_agent_cmd=(
-        claude --dangerously-skip-permissions
+        env -u CLAUDECODE claude --dangerously-skip-permissions
           --verbose
           -p "$(cat "$PROMPT_FILE")"
       )

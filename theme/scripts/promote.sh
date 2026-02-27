@@ -75,7 +75,7 @@ if [[ "$APPLY_PROMOTION" == "1" && "$PROMOTED_COUNT" -gt 0 ]]; then
     --theorems-file "$PROMOTED_YAML" > "$OUT_DIR/logs/promoted_generate.log"
 
   if (cd "$REPO_ROOT" && lake env lean "$OUT_DIR/promoted/generated/Generated.lean") > "$OUT_DIR/logs/promoted_build.log" 2>&1; then
-    STATLIB_MODULE="$REPO_ROOT/Statlean/AutoPromoted.lean"
+    STATLIB_MODULE="$OUT_DIR/promoted/AutoPromoted.candidate.lean"
     STATLEAN_ROOT="$REPO_ROOT/Statlean.lean"
     CANDIDATE_MODULE="$OUT_DIR/promoted/AutoPromoted.candidate.lean"
     APPLY_SUMMARY="$OUT_DIR/promoted/statlib_apply_summary.json"
@@ -104,39 +104,13 @@ PY
       echo "[promote] no new promoted declarations to add to Statlean (already present)"
       echo "{\"phase\":\"promote\",\"status\":\"ok\",\"report\":\"$REPORT\",\"applied\":true,\"promoted_count\":$PROMOTED_COUNT,\"regression_build\":\"ok\",\"statlib_apply_summary\":\"$APPLY_SUMMARY\",\"statlib_module\":\"$STATLIB_MODULE\",\"statlib_build\":\"skipped-existing\"}" >> "$OUT_DIR/logs/pipeline.jsonl"
     else
-      # Pre-check candidate module before writing to Statlean/
+      # Pre-check candidate module compiles
       if (cd "$REPO_ROOT" && lake env lean "$CANDIDATE_MODULE") > "$OUT_DIR/logs/statlib_candidate_build.log" 2>&1; then
-        cp "$CANDIDATE_MODULE" "$STATLIB_MODULE"
-        if [[ "$IMPORT_AUTOPROMOTED" == "1" ]]; then
-          python3 - <<PY
-from pathlib import Path
-root = Path("$STATLEAN_ROOT")
-line = "import Statlean.AutoPromoted"
-lines = root.read_text(encoding="utf-8").splitlines()
-if line not in lines:
-    insert_at = -1
-    for i, ln in enumerate(lines):
-        if ln.startswith("import "):
-            insert_at = i
-    if insert_at >= 0:
-        lines.insert(insert_at + 1, line)
-    else:
-        lines.insert(0, line)
-    root.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
-PY
-        fi
-
-        if (cd "$REPO_ROOT" && lake build Statlean.AutoPromoted) > "$OUT_DIR/logs/statlib_module_build.log" 2>&1 \
-          && (cd "$REPO_ROOT" && lake build Statlean) > "$OUT_DIR/logs/statlean_root_build.log" 2>&1; then
-          echo "{\"phase\":\"promote\",\"status\":\"ok\",\"report\":\"$REPORT\",\"applied\":true,\"promoted_count\":$PROMOTED_COUNT,\"regression_build\":\"ok\",\"statlib_apply_summary\":\"$APPLY_SUMMARY\",\"statlib_module\":\"$STATLIB_MODULE\",\"statlib_build\":\"ok\"}" >> "$OUT_DIR/logs/pipeline.jsonl"
-        else
-          echo "{\"phase\":\"promote\",\"status\":\"ok\",\"report\":\"$REPORT\",\"applied\":true,\"promoted_count\":$PROMOTED_COUNT,\"regression_build\":\"ok\",\"statlib_apply_summary\":\"$APPLY_SUMMARY\",\"statlib_module\":\"$STATLIB_MODULE\",\"statlib_build\":\"fail\"}" >> "$OUT_DIR/logs/pipeline.jsonl"
-          echo "[promote] applied module build failed (see $OUT_DIR/logs/statlib_module_build.log and $OUT_DIR/logs/statlean_root_build.log)" >&2
-          exit 1
-        fi
+        echo "{\"phase\":\"promote\",\"status\":\"ok\",\"report\":\"$REPORT\",\"applied\":true,\"promoted_count\":$PROMOTED_COUNT,\"regression_build\":\"ok\",\"statlib_apply_summary\":\"$APPLY_SUMMARY\",\"candidate\":\"$CANDIDATE_MODULE\",\"statlib_build\":\"candidate-ok\"}" >> "$OUT_DIR/logs/pipeline.jsonl"
+        echo "[promote] candidate module ready at $CANDIDATE_MODULE (stabilize step will migrate to target modules)"
       else
-        echo "{\"phase\":\"promote\",\"status\":\"ok\",\"report\":\"$REPORT\",\"applied\":true,\"promoted_count\":$PROMOTED_COUNT,\"regression_build\":\"ok\",\"statlib_apply_summary\":\"$APPLY_SUMMARY\",\"statlib_module\":\"$STATLIB_MODULE\",\"statlib_build\":\"candidate-fail\"}" >> "$OUT_DIR/logs/pipeline.jsonl"
-        echo "[promote] candidate module pre-check failed; not writing to Statlean (see $OUT_DIR/logs/statlib_candidate_build.log)" >&2
+        echo "{\"phase\":\"promote\",\"status\":\"ok\",\"report\":\"$REPORT\",\"applied\":true,\"promoted_count\":$PROMOTED_COUNT,\"regression_build\":\"ok\",\"statlib_apply_summary\":\"$APPLY_SUMMARY\",\"candidate\":\"$CANDIDATE_MODULE\",\"statlib_build\":\"candidate-fail\"}" >> "$OUT_DIR/logs/pipeline.jsonl"
+        echo "[promote] candidate module pre-check failed (see $OUT_DIR/logs/statlib_candidate_build.log)" >&2
         exit 1
       fi
     fi

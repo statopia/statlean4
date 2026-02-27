@@ -8,8 +8,9 @@ TEX ?= $(ROOT)/output.tex
 # Agent backend for prove-loop: "codex" (default) or "claude"
 export AGENT_BACKEND ?= codex
 
-.PHONY: formalize ingest plan generate prove-loop promote stabilize gate clean from-tex tex-formalize formalize-claude
+.PHONY: formalize ingest plan generate prove-loop promote stabilize gate clean from-tex tex-formalize formalize-claude formalize-parallel prove-sorry refresh-index
 
+# ── Full pipeline: LaTeX → Lean → prove → promote → gate ──
 formalize: ingest plan generate prove-loop promote stabilize gate
 
 ingest:
@@ -33,6 +34,7 @@ stabilize:
 gate:
 	$(THEME_DIR)/scripts/gate.sh "$(OUT_DIR)" "$(ROOT)"
 
+# ── Entry points ──
 from-tex:
 	$(THEME_DIR)/scripts/from_tex.sh "$(TEX)" "$(INPUT_DIR)"
 
@@ -41,6 +43,18 @@ tex-formalize: from-tex formalize
 # Shortcut: run full pipeline with Claude as agent backend
 formalize-claude:
 	AGENT_BACKEND=claude $(MAKE) formalize
+
+# Shortcut: parallel Claude — one agent per theorem ID
+formalize-parallel:
+	AGENT_BACKEND=claude PARALLEL=1 $(MAKE) formalize
+
+# ── Existing sorry elimination (operates on Statlean/ directly) ──
+prove-sorry:
+	cd "$(ROOT)" && python3 scripts/auto_prove.py
+
+# ── Refresh Mathlib API index (run after Mathlib upgrade) ──
+refresh-index:
+	cd "$(ROOT)" && lake env lean scripts/gen_mathlib_index.lean > theme/mathlib_api_index.md
 
 clean:
 	rm -rf "$(OUT_DIR)"
