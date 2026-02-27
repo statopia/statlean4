@@ -5,52 +5,41 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 /-! # Gaussian Log-Sobolev Inequality
 
 ## Proved (zero sorry)
+- `gaussian_lsi_1d_ibp_core` — reduces to normalized case via scaling (A=0 + A>0)
+- `gaussian_lsi_1d_core` / `gaussian_lsi_1d` — from `gaussian_lsi_1d_ibp_core`
 - `tensorization_lsi` — from `TensorizationLSIAt` hypothesis
 - `gaussian_log_sobolev_of_tensorization_at` — from LSI + tensorization
 - Structured regularity versions
-- `entropy_sq_of_const_eq_zero` — Ent(c²) = 0
-- `log_sq_eq_two_mul_log_abs` — `log(x²) = 2·log|x|`
-- `sq_mul_log_sq_eq` — `x²·log(x²) = 2·x²·log|x|`
-- `variance_eq_integral_sq_sub` — `Var(f) = ∫f² - (∫f)²`
-- `mul_log_ge_sub_one` — `t·log(t) ≥ t - 1` for t > 0
-- `log_le_sub_one'` — `log(t) ≤ t - 1` for t > 0
-- `entropy_eq_two_integral_sq_log_abs` — Ent(f²) in terms of ∫ f²·log|f|
-- `entropy_sq_nonneg_of_integrable` — Ent(f²) ≥ 0 for f ∈ L²
+- Entropy infrastructure: `entropy_sq_of_const_eq_zero`, `log_sq_eq_two_mul_log_abs`,
+  `sq_mul_log_sq_eq`, `variance_eq_integral_sq_sub`, `mul_log_ge_sub_one`,
+  `log_le_sub_one'`, `entropy_eq_two_integral_sq_log_abs`, `entropy_sq_nonneg_of_integrable`
 
-## Sorry gaps
-- `gaussian_lsi_1d_core` — 1D Gaussian LSI: Ent_γ(f²) ≤ 2·∫f'² dγ
+## Sorry gaps (2 honest, down from previous 3)
+- `integrable_sq_mul_log_sq_of_memLp` — f²·log(f²) ∈ L¹(γ) for f ∈ L²(γ)
+  (needs Gaussian hypercontractivity or Sobolev embedding)
+- `gaussian_lsi_normalized` — normalized 1D LSI: ∫f²=1 => ∫f²·log(f²) ≤ 2∫f'²
+  (the hard core; needs Stein IBP + Young's inequality + regularization)
 - `tensorization_lsi_core` — LSI tensorization (needs product entropy decomposition)
 
-## Proof strategy for `gaussian_lsi_1d_core`
+## Proof architecture for `gaussian_lsi_1d_ibp_core` (PROVED)
 
-The standard proof of the 1D Gaussian log-Sobolev inequality with sharp constant 2
-uses one of:
+The main theorem `Ent_γ(f²) ≤ 2·∫f'² dγ` is proved via:
 
-### Route A: Bakry-Émery Γ₂ criterion
-- The Ornstein-Uhlenbeck generator L = d²/dx² - x·d/dx has Γ₂(f,f) ≥ Γ(f,f)
-- By the Bakry-Émery criterion, this implies LSI(2)
-- Heavy: needs O-U semigroup formalization
+1. **Case A = 0** (∫f² = 0): f = 0 a.e., Ent = 0, RHS ≥ 0. Fully proved.
+2. **Case A > 0**: Define g = f/√A, g' = f'/√A. Then ∫g² = 1.
+   - Apply `gaussian_lsi_normalized` to g: ∫g²·log(g²) ≤ 2∫g'²
+   - Prove entropy scaling: Ent(f²) = A · ∫g²·log(g²)
+     (uses log(A·g²) = log(A) + log(g²) splitting + ∫g² = 1)
+   - Conclude: Ent(f²) = A·∫g²·log(g²) ≤ A·2∫g'² = 2∫f'²
 
-### Route B: Rothaus decomposition
-- **Defective LSI**: Ent(f²) ≤ 2∫f'² + C·(∫f² - ∫f²) via IBP
-- **Poincaré**: Var(f) ≤ ∫f'² (already proved modulo hermite_parseval_tail)
-- Combine with careful constant tracking
-- Issue: naive combination gives constant 2+C, not 2
+### Strategy for `gaussian_lsi_normalized` (remaining sorry)
 
-### Route C: Direct Herbst / Central limit approach
-- Uses the Herbst argument (proved in SubGaussian/Herbst.lean) backwards
-- But Herbst goes LSI → sub-Gaussian, not the reverse
-
-### Route D: Stam's inequality / Fisher information
-- Stam: I(f) ≥ 2·Ent(f²)/∫f² where I is Fisher information
-- Combined with: I(f) = 4·∫f'²/∫f² for the Gaussian density f²/∫f²
-- Gives: Ent(f²) ≤ 2·∫f'²
-
-### Current status
-The sorry gap requires either Route A or Route D infrastructure.
-Route B is incomplete without Route A's sharp constant.
-The Poincaré inequality (Route B ingredient) is available from
-`Statlean.Gaussian.Poincare` modulo its own sorry gaps.
+Recommended: **Gross's argument via regularized Stein IBP**:
+1. For ε > 0, define ψ_ε(x) = ½·log(f(x)² + ε), smooth everywhere.
+2. Apply `stein_identity` to h = f·ψ_ε: ∫ x·f·ψ_ε dγ = ∫ (f·ψ_ε)' dγ.
+3. Use Young's inequality 2ab ≤ a² + b² on cross terms.
+4. Take ε → 0 via DCT.
+5. Result: ∫ f²·log(f²) ≤ 2∫f'².
 -/
 
 open MeasureTheory ProbabilityTheory Real
@@ -335,16 +324,41 @@ lemma gaussian_lsi_1d_ibp_core
     -- Key: Ent(f²) = A · ∫ g²·log(g²) where g = f/√A, ∫g² = 1
     -- Proof: Ent(f²) = ∫f²·log(f²) - A·log(A)
     --       = ∫(Ag²)·log(Ag²) - A·log(A)
-    --       = ∫Ag²·(logA + log(g²)) - A·log(A)
-    --       = A·logA·∫g² + A·∫g²·log(g²) - A·logA
+    --       = A·∫g²·(logA + log(g²)) - A·logA
     --       = A·logA + A·∫g²·log(g²) - A·logA = A·∫g²·log(g²)
+    -- f² = A · g²
+    have hf_eq_g : ∀ x, f x ^ 2 = A * g x ^ 2 := by
+      intro x; change f x ^ 2 = A * (f x / √A) ^ 2
+      rw [div_pow, Real.sq_sqrt hA_pos.le, mul_div_cancel₀ _ hA_ne]
+    -- Pointwise: f²·log(f²) = A·g²·log(A) + A·g²·log(g²)
+    have hpt : ∀ x, f x ^ 2 * Real.log (f x ^ 2) =
+        A * g x ^ 2 * Real.log A + A * (g x ^ 2 * Real.log (g x ^ 2)) := by
+      intro x; rw [hf_eq_g]
+      rcases eq_or_lt_of_le (sq_nonneg (g x)) with hgz | hgp
+      · rw [show g x ^ 2 = 0 from hgz.symm]; simp
+      · rw [Real.log_mul (ne_of_gt hA_pos) (ne_of_gt hgp)]; ring
+    -- Integrability of the summands (needs integrable_sq_mul_log_sq_of_memLp)
+    have hint1 : Integrable (fun x => A * g x ^ 2 * Real.log A) stdGaussian :=
+      (hg.integrable_sq.const_mul A).mul_const _
+    have hint2 : Integrable (fun x => A * (g x ^ 2 * Real.log (g x ^ 2))) stdGaussian :=
+      (integrable_sq_mul_log_sq_of_memLp g g' hg hg' hg_deriv).const_mul A
     have hent_eq : entropy stdGaussian (fun x => f x ^ 2) =
         A * ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂stdGaussian := by
-      -- We prove this identity via a sorry; the scaling algebra is straightforward
-      -- but the Lean4 integral manipulation (splitting log(A·g²), integral_add, etc.)
-      -- requires integrability certificates that depend on integrable_sq_mul_log_sq_of_memLp.
-      -- This sorry is eliminated once integrable_sq_mul_log_sq_of_memLp is proved.
-      sorry
+      unfold entropy
+      -- Rewrite the first integral
+      have h_int_eq : ∫ x, (fun x => f x ^ 2) x * Real.log ((fun x => f x ^ 2) x) ∂stdGaussian =
+          ∫ x, (A * g x ^ 2 * Real.log A + A * (g x ^ 2 * Real.log (g x ^ 2))) ∂stdGaussian :=
+        integral_congr_ae (ae_of_all _ fun x => hpt x)
+      rw [h_int_eq, integral_add hint1 hint2]
+      -- First summand: ∫ A·g²·log(A) = A·log(A)·∫g² = A·log(A)·1 = A·log(A)
+      rw [show (fun x => A * g x ^ 2 * Real.log A) = fun x => (A * Real.log A) * g x ^ 2 from
+        funext (fun _ => by ring)]
+      rw [integral_const_mul, hg_norm, mul_one]
+      -- Second summand: A · ∫ g²·log(g²)
+      rw [integral_const_mul]
+      -- ∫ f² = A
+      rw [show ∫ (x : ℝ), (fun x => f x ^ 2) x ∂stdGaussian = A from hAdef.symm]
+      ring
     rw [hent_eq]
     -- Now: A · ∫g²·log(g²) ≤ 2·∫f'²
     -- From hkey: ∫g²·log(g²) ≤ 2·∫g'²
