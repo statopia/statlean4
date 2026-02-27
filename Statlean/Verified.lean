@@ -18,6 +18,9 @@ import Statlean.Entropy.Basic
 -- Characteristic function Taylor bounds (verified)
 import Statlean.CharFun.Taylor
 
+-- USLLN proved helpers (verified)
+import Statlean.LimitTheorems.USLLNProved
+
 /-! # Statlean Verified Library
 
 **Every declaration reachable from this import is fully proved (zero sorry).**
@@ -38,4 +41,5 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Variance/EfronStein**: Efron-Stein clean core (sigma-algebras, ANOVA, condVar)
 - **Entropy/Basic**: Entropy definitions, LSI interfaces
 - **CharFun/Taylor**: Charfun chain, Taylor bounds, Lyapunov (Berry-Esseen chain)
+- **LimitTheorems/USLLNProved**: USLLN helpers (pointwise SLLN, continuity, integrability)
 -/
