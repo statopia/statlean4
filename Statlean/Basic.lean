@@ -11,7 +11,7 @@ This library formalizes results from the paper:
 * `Statlean.Entropy` — Entropy, log-Sobolev inequality
 * `Statlean.SubGaussian` — Herbst argument, Lipschitz concentration
 * `Statlean.CharFun` — Characteristic function Taylor bounds
-* `Statlean.BerryEsseen` — Berry-Esseen CLT
+* `Statlean.LimitTheorems` — Berry-Esseen CLT, Uniform SLLN
 * `Statlean.EmpiricalProcess` — Covering numbers, Dudley's entropy integral
 * `Statlean.Regression` — Least-squares regression, master error bound
 

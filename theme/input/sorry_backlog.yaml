@@ -10,7 +10,7 @@ sorry_items:
 
 # === USLLN (NEW) ===
 - id: uslln.uniform_slln
-  file: Statlean/Concentration/USLLN.lean
+  file: Statlean/LimitTheorems/USLLN.lean
   line: 132
   theorem: uniform_slln
   type: honest
@@ -124,7 +124,7 @@ sorry_items:
 
 # === Berry-Esseen (2) ===
 - id: berry_esseen.smoothing
-  file: Statlean/BerryEsseen.lean
+  file: Statlean/LimitTheorems/BerryEsseen.lean
   line: 28
   theorem: berry_esseen_smoothing
   type: honest
@@ -136,7 +136,7 @@ sorry_items:
   unlocks: [berry_esseen.theorem]
 
 - id: berry_esseen.theorem
-  file: Statlean/BerryEsseen.lean
+  file: Statlean/LimitTheorems/BerryEsseen.lean
   line: 49
   theorem: berry_esseen_theorem
   type: blocked

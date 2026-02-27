@@ -22,11 +22,9 @@ import Statlean.SubGaussian.Lipschitz
 -- Characteristic function Taylor bounds
 import Statlean.CharFun.Taylor
 
--- Berry-Esseen theorem
-import Statlean.BerryEsseen
-
--- Concentration: Uniform SLLN
-import Statlean.Concentration.USLLN
+-- Limit theorems
+import Statlean.LimitTheorems.BerryEsseen
+import Statlean.LimitTheorems.USLLN
 
 -- Phase 2: Empirical Process Theory
 import Statlean.EmpiricalProcess.CoveringNumber
