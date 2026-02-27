@@ -116,6 +116,15 @@
 - **不重复搜索**：委派给 subagent 的搜索不要自己再做一遍
 - **深度预算**：`/prove` 模式 3 轮发散即 triage；`/prove-deep` 模式不设轮数限制，可以运行数小时
 - **上下文保护**：大量搜索结果放 subagent 消化，只返回结论到主会话
+- **上下文满自动续接（强制）**：
+  - 当检测到上下文接近容量限制时，**立即**执行以下保存动作，不要等到最后：
+    1. 更新 `sorry_backlog.yaml`：所有已完成/新增 sorry 的状态变更
+    2. 更新 `MEMORY.md`：新学到的 Mathlib patterns、已完成的证明
+    3. Commit 所有已完成的工作（即使部分完成也 commit 已验证通过的部分）
+  - 新会话开始时，用户只需发 `/prove-deep all-leaves` 或 `/prove-deep next`
+  - Claude 会自动读取 `sorry_backlog.yaml` + `MEMORY.md` 恢复状态并继续
+  - **不要在中间轮次停下来写总结报告** — 持续推进直到上下文真正用完
+  - 用户可以用 `claude --continue` 在同一会话续接，或新会话中靠 backlog 恢复
 - **基础设施增量入库（强制 — 证明过程中实时执行，不等主定理完成）**：
   证明过程中产生的内容分两类处理：
 

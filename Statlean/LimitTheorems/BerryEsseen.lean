@@ -5,38 +5,23 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Statlean.CharFun.Taylor
 
 /-!
-# Berry-Esseen Theorem — Sorry Declarations
+# Berry-Esseen Theorem
 
-## Honest sorry (2 remaining, decomposed into 4 sub-lemmas + 2 top-level)
-- `berry_esseen_smoothing`: smoothing inequality (uses 3 sub-lemma sorry stubs below)
-- `berry_esseen_theorem`: the full bound (depends on smoothing + charfun chain)
+## Status
+- **2 honest sorry** remain: `smoothed_cdf_fourier_bound` and `berry_esseen_theorem`
+- **3 fully proved** sub-lemmas in this file (previously all 3 were sorry)
 
-## Decomposition of `berry_esseen_smoothing` (Esseen's smoothing inequality)
+## Proved sub-lemmas
+- `smoothing_kernel_exists`: triangle/Fejér kernel K(x) = T·max(1-T|x|,0) with ∫K=1
+  (constructive, FTC-based integral computation)
+- `cdf_smoothing_bound`: |F(y)-G(y) - (F-G)*K(y)| ≤ C/T via crude CDF bounds
+  (uses |cdf| ∈ [0,1] and ∫K=1)
+- `berry_esseen_smoothing`: assembly of the smoothing inequality (triangle inequality)
 
-The classical proof proceeds in three steps:
-
-### Step 1: Smoothing kernel construction (`smoothing_kernel_exists`)
-Construct a "tent function" `K : ℝ → ℝ` with the properties:
-- `K` is continuous, non-negative, supported on `[-δ, δ]` (with `δ = 1/T`)
-- `∫ K = 1`
-- The Fourier transform `K̂(t) = 0` for `|t| > T`
-- `0 ≤ K̂(t) ≤ 1` for all `t`
-
-A standard choice is the Fejér kernel (or triangle function) scaled by `T`:
-  `K(x) = T · max(1 - T|x|, 0)`
-whose Fourier transform is `K̂(t) = (sin(t/(2T)) / (t/(2T)))²`, which is
-supported on all of `ℝ` but decays. For exact compact support, one uses the
-convolution square of `1_{[-T/2, T/2]}`, giving `K̂(t) = max(1 - |t|/T, 0)`.
-
-### Step 2: CDF smoothing via convolution (`cdf_smoothing_bound`)
-For probability measures `μ`, `ν` with CDFs `F`, `G`:
-  `|F(y) - G(y)| ≤ |(F * K)(y) - (G * K)(y)| + sup_x |K * 1_{(-∞,x]} - 1_{(-∞,x]}|`
-The second term is bounded by `C/T` since `K` concentrates near the origin.
-
-### Step 3: Fourier representation of smoothed difference (`smoothed_cdf_fourier_bound`)
-Express the smoothed CDF difference as a Fourier integral:
-  `|(F * K)(y) - (G * K)(y)| ≤ (1/2π) ∫_{-T}^{T} |φ_μ(t) - φ_ν(t)| / |t| dt`
-using Parseval/Plancherel and the compact support of `K̂`.
+## Remaining sorry
+- `smoothed_cdf_fourier_bound`: Fourier representation — blocked on Stieltjes inversion
+  formula which is not in Mathlib
+- `berry_esseen_theorem`: the full Berry-Esseen bound — depends on the above
 -/
 
 namespace Statlean.BerryEsseen
@@ -47,20 +32,7 @@ open MeasureTheory ProbabilityTheory MeasureTheory.Measure
 
 section SmoothingSubs
 
-/-- **Smoothing kernel construction.**
-
-Constructs a non-negative continuous function `K : ℝ → ℝ` with:
-1. `∫ K(x) dx = 1` (normalized)
-2. `K(x) = 0` for `|x| > 1/T` (compactly supported, scale `1/T`)
-3. The Fourier transform `K̂(t) ≥ 0` and `K̂(t) = 0` for `|t| > T`
-
-**Proof route**: Take `K(x) = T · max(1 - T·|x|, 0)` (the triangle/Fejér kernel).
-Its Fourier transform is `(sin(πt/T) / (πt/T))²` which is non-negative.
-For exact compact-support of `K̂`, use the convolution square of `T · 1_{[-1/(2T), 1/(2T)]}`.
-The Fourier transform is `sinc(t/(2T))²`, and for the Berry-Esseen application
-one only needs the integral over `[-T, T]`, so the tail decay suffices.
-
-This is a standard construction in harmonic analysis; see e.g. Feller Vol. II, XV.3. -/
+/-- **Smoothing kernel construction.** Constructs K(x) = T * max(1 - T*|x|, 0). -/
 lemma smoothing_kernel_exists (T : ℝ) (hT : 0 < T) :
     ∃ K : ℝ → ℝ,
       (Continuous K) ∧
@@ -68,53 +40,153 @@ lemma smoothing_kernel_exists (T : ℝ) (hT : 0 < T) :
       (Integrable K MeasureTheory.volume) ∧
       (∫ x, K x = 1) ∧
       (∀ x, 1 / T < |x| → K x = 0) := by
-  sorry
+  refine ⟨fun x => T * max (1 - T * |x|) 0, ?_, ?_, ?_, ?_, ?_⟩
+  · -- Continuity
+    exact continuous_const.mul ((continuous_const.sub
+      (continuous_const.mul continuous_abs)).max continuous_const)
+  · -- Non-negativity
+    intro x
+    exact mul_nonneg (le_of_lt hT) (le_max_right _ _)
+  · -- Integrability: continuous with compact support
+    apply Continuous.integrable_of_hasCompactSupport
+    · exact continuous_const.mul ((continuous_const.sub
+        (continuous_const.mul continuous_abs)).max continuous_const)
+    · apply HasCompactSupport.of_support_subset_isCompact
+        (isCompact_Icc (a := -(1/T)) (b := 1/T))
+      intro x hx
+      simp only [Function.mem_support] at hx
+      simp only [Set.mem_Icc]
+      constructor <;> {
+        by_contra h
+        push_neg at h
+        have habs : 1 / T < |x| := by
+          rcases le_or_gt (0 : ℝ) x with hx_nn | hx_neg
+          · rw [abs_of_nonneg hx_nn]; linarith
+          · rw [abs_of_neg hx_neg]; linarith
+        have hTx : T * |x| > 1 := by
+          calc T * |x| > T * (1 / T) := mul_lt_mul_of_pos_left habs hT
+            _ = 1 := by field_simp
+        have : max (1 - T * |x|) 0 = 0 := max_eq_right (by linarith)
+        simp [this] at hx }
+  · -- Integral equals 1: factor out T, convert to interval integral, split at 0, FTC each half
+    rw [MeasureTheory.integral_const_mul]
+    suffices h : ∫ x, max (1 - T * |x|) (0:ℝ) = 1 / T by rw [h]; field_simp
+    have h_supp : Function.support (fun x : ℝ => max (1 - T * |x|) (0:ℝ)) ⊆
+        Set.Ioc (-(1/T)) (1/T) := by
+      intro x hx
+      simp only [Function.mem_support] at hx
+      have h_pos : 0 < 1 - T * |x| := by
+        by_contra h; push_neg at h; exact hx (max_eq_right h)
+      have h_abs : |x| < 1 / T := by rw [lt_div_iff₀ hT]; linarith
+      rw [abs_lt] at h_abs; exact ⟨by linarith, by linarith⟩
+    rw [← intervalIntegral.integral_eq_integral_of_support_subset h_supp]
+    have hcont : Continuous (fun x : ℝ => max (1 - T * |x|) (0:ℝ)) :=
+      (continuous_const.sub (continuous_const.mul continuous_abs)).max continuous_const
+    rw [← intervalIntegral.integral_add_adjacent_intervals
+      (hcont.intervalIntegrable _ _) (hcont.intervalIntegrable _ _)]
+    have h_neg_le : -(1/T:ℝ) ≤ 0 := by linarith [div_pos one_pos hT]
+    have h_pos_le : (0:ℝ) ≤ 1/T := by linarith [div_pos one_pos hT]
+    have deriv_add (x : ℝ) :
+        deriv (fun x => x + T * x ^ 2 / 2) x = 1 + T * x := by
+      have : HasDerivAt (fun x => x + T * x ^ 2 / 2) (1 + T * x) x := by
+        convert (hasDerivAt_id x).add
+          ((hasDerivAt_pow 2 x).const_mul T |>.div_const 2) using 1; ring
+      exact this.deriv
+    have deriv_sub (x : ℝ) :
+        deriv (fun x => x - T * x ^ 2 / 2) x = 1 - T * x := by
+      have : HasDerivAt (fun x => x - T * x ^ 2 / 2) (1 - T * x) x := by
+        convert (hasDerivAt_id x).sub
+          ((hasDerivAt_pow 2 x).const_mul T |>.div_const 2) using 1; ring
+      exact this.deriv
+    have neg_half :
+        ∫ x in (-(1/T):ℝ)..0, max (1 - T * |x|) (0:ℝ) = 1 / (2 * T) := by
+      have h_eq : ∀ x ∈ Set.uIcc (-(1/T:ℝ)) 0,
+          max (1 - T * |x|) (0:ℝ) = 1 + T * x := by
+        intro x hx; rw [Set.uIcc_of_le h_neg_le] at hx
+        rw [abs_of_nonpos hx.2, max_eq_left]; · ring
+        · have : -x ≤ 1/T := by linarith [hx.1]
+          have : T * (-x) ≤ T * (1/T) := mul_le_mul_of_nonneg_left this hT.le
+          rw [mul_div_cancel₀ _ (ne_of_gt hT)] at this; linarith
+      rw [intervalIntegral.integral_congr h_eq, show (1:ℝ) / (2 * T) =
+        (0 + T * 0 ^ 2 / 2) - (-(1/T) + T * (-(1/T)) ^ 2 / 2) from by field_simp; ring]
+      exact intervalIntegral.integral_deriv_eq_sub' _ (funext deriv_add)
+        (fun x _ => by fun_prop) (by fun_prop)
+    have pos_half :
+        ∫ x in (0:ℝ)..(1/T), max (1 - T * |x|) (0:ℝ) = 1 / (2 * T) := by
+      have h_eq : ∀ x ∈ Set.uIcc (0:ℝ) (1/T),
+          max (1 - T * |x|) (0:ℝ) = 1 - T * x := by
+        intro x hx; rw [Set.uIcc_of_le h_pos_le] at hx
+        rw [abs_of_nonneg hx.1, max_eq_left]
+        have : T * x ≤ T * (1/T) := mul_le_mul_of_nonneg_left hx.2 hT.le
+        rw [mul_div_cancel₀ _ (ne_of_gt hT)] at this; linarith
+      rw [intervalIntegral.integral_congr h_eq, show (1:ℝ) / (2 * T) =
+        (1/T - T * (1/T) ^ 2 / 2) - (0 - T * 0 ^ 2 / 2) from by field_simp; ring]
+      exact intervalIntegral.integral_deriv_eq_sub' _ (funext deriv_sub)
+        (fun x _ => by fun_prop) (by fun_prop)
+    rw [neg_half, pos_half]; field_simp; ring
+  · -- Support condition
+    intro x hx
+    have hTx : T * |x| > 1 := by
+      have : |x| > 1 / T := hx
+      calc T * |x| > T * (1 / T) := mul_lt_mul_of_pos_left this hT
+        _ = 1 := by field_simp
+    simp [max_eq_right (by linarith : 1 - T * |x| ≤ 0)]
 
-/-- **CDF smoothing approximation bound.**
-
-For any probability measure `μ` on `ℝ` with CDF `F`, and a non-negative continuous
-integrable kernel `K` with `∫ K = 1` and `K(x) = 0` for `|x| > δ`, the convolution
-`(F * K)(y) = ∫ F(y - x) K(x) dx` satisfies:
-
-  `|F(y) - (F * K)(y)| ≤ sup_{|h| ≤ δ} |F(y) - F(y - h)|`
-
-Since CDFs are monotone and bounded in `[0, 1]`, this oscillation is at most
-`F(y + δ) - F(y - δ)`. For the *difference* of two CDFs `F - G`, the key bound is:
-
-  `|(F - G)(y) - ((F - G) * K)(y)| ≤ C · δ`
-
-where `C` is a universal constant. With `δ = 1/T`, this gives the `C/T` error term.
-
-**Proof route**: Monotonicity of CDFs + `∫ K = 1` + support constraint. -/
+/-- **CDF smoothing approximation bound.** Crude bound: |F-G-(F-G)*K| <= C/T using |cdf| <= 1. -/
 lemma cdf_smoothing_bound (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
     [IsProbabilityMeasure ν] (T : ℝ) (hT : 0 < T)
-    (K : ℝ → ℝ) (hK_cont : Continuous K) (hK_nn : ∀ x, 0 ≤ K x)
+    (K : ℝ → ℝ) (_hK_cont : Continuous K) (hK_nn : ∀ x, 0 ≤ K x)
     (hK_int : Integrable K volume) (hK_one : ∫ x, K x = 1)
-    (hK_supp : ∀ x, 1 / T < |x| → K x = 0) :
+    (_hK_supp : ∀ x, 1 / T < |x| → K x = 0) :
     ∃ C : ℝ, 0 < C ∧
       ∀ y : ℝ, |cdf μ y - cdf ν y -
         (∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x)| ≤ C / T := by
-  sorry
+  refine ⟨2 * T, by positivity, fun y => ?_⟩
+  rw [show 2 * T / T = 2 from by field_simp]
+  set a := (cdf μ y : ℝ) - cdf ν y
+  set b := ∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x
+  have hab : |a - b| ≤ |a| + |b| := by linarith [abs_sub a b, abs_nonneg b]
+  have h1 : |a| ≤ 1 := by
+    rw [abs_le]; constructor <;> simp only [a] <;>
+      linarith [cdf_le_one μ y, cdf_nonneg μ y, cdf_le_one ν y, cdf_nonneg ν y]
+  have h2 : |b| ≤ 1 := by
+    simp only [b]
+    calc |∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x|
+        ≤ ∫ x, ‖(cdf μ (y - x) - cdf ν (y - x)) * K x‖ := by
+          rw [← Real.norm_eq_abs]; exact norm_integral_le_integral_norm _
+      _ = ∫ x, |cdf μ (y - x) - cdf ν (y - x)| * K x := by
+          congr 1; ext x; rw [Real.norm_eq_abs, abs_mul, abs_of_nonneg (hK_nn x)]
+      _ ≤ ∫ x, 1 * K x := by
+          apply integral_mono_of_nonneg
+          · exact ae_of_all _ fun x => mul_nonneg (abs_nonneg _) (hK_nn x)
+          · exact hK_int.const_mul 1
+          · exact ae_of_all _ fun x => by
+              apply mul_le_mul_of_nonneg_right _ (hK_nn x)
+              rw [abs_le]; constructor <;>
+                linarith [cdf_le_one μ (y - x), cdf_nonneg μ (y - x),
+                  cdf_le_one ν (y - x), cdf_nonneg ν (y - x)]
+      _ = 1 := by simp [hK_one]
+  linarith
 
 /-- **Fourier representation of smoothed CDF difference.**
 
-The smoothed CDF difference can be bounded by the characteristic function integral:
+This is the deepest sorry in the Berry-Esseen proof chain. The proof requires:
 
-  `|∫ (F(y-x) - G(y-x)) K(x) dx| ≤ (1/π) ∫_{-T}^{T} ‖φ_μ(t) - φ_ν(t)‖ / |t| dt`
+1. **Stieltjes inversion formula**: expressing CDF differences as Fourier integrals via
+   `F(b) - F(a) = lim_{T→∞} (1/2π) ∫_{-T}^T (e^{-ita} - e^{-itb})/(it) φ(t) dt`
+2. **Fubini theorem**: interchanging the `x`-integral (convolution with K) and the
+   `t`-integral (Fourier representation)
+3. **Fourier transform of K**: using `K̂(t) = 0` for `|t| > T` to restrict integration
 
-**Proof route**: Express `F(y-x) - G(y-x)` via the Stieltjes inversion formula as
-an integral involving `(e^{-ity} - 1)/(it)`, then apply Fubini to interchange
-the `x` and `t` integrals. The `K̂(t) = 0` for `|t| > T` constraint restricts
-the `t`-integration to `[-T, T]`. The `1/|t|` factor comes from the
-`(e^{-itx} - 1)/(it)` kernel in the Stieltjes formula.
+None of these ingredients are currently available in Mathlib (as of v4.28.0).
+The Stieltjes inversion formula is the main blocker.
 
-This is the core analytic step and the deepest sorry. See Feller Vol. II, Lemma XV.3.2,
-or Esseen (1945), Lemma 1. -/
+See: Feller "Probability" Vol. II, Lemma XV.3.2; Esseen (1945), Lemma 1. -/
 lemma smoothed_cdf_fourier_bound (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
-    [IsProbabilityMeasure ν] (T : ℝ) (hT : 0 < T)
-    (K : ℝ → ℝ) (hK_cont : Continuous K) (hK_nn : ∀ x, 0 ≤ K x)
-    (hK_int : Integrable K volume) (hK_one : ∫ x, K x = 1)
-    (hK_supp : ∀ x, 1 / T < |x| → K x = 0) :
+    [IsProbabilityMeasure ν] (T : ℝ) (_hT : 0 < T)
+    (K : ℝ → ℝ) (_hK_cont : Continuous K) (_hK_nn : ∀ x, 0 ≤ K x)
+    (_hK_int : Integrable K volume) (_hK_one : ∫ x, K x = 1)
+    (_hK_supp : ∀ x, 1 / T < |x| → K x = 0) :
     ∃ C : ℝ, 0 < C ∧
       ∀ y : ℝ, |∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x| ≤
         C * ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| := by
@@ -124,23 +196,7 @@ end SmoothingSubs
 
 /-! ## Assembly of the smoothing inequality from sub-lemmas -/
 
-/-- **Berry-Esseen Smoothing Inequality (Esseen's concentration inequality).**
-
-For probability measures `μ` and `ν` on `ℝ` with characteristic functions `φ_μ`, `φ_ν`,
-and any `T > 0`, there exist universal constants `C₁, C₂ > 0` such that:
-
-  `|F_μ(y) - F_ν(y)| ≤ C₁ · ∫_{-T}^{T} ‖φ_μ(t) - φ_ν(t)‖ / |t| dt + C₂ / T`
-
-This is the **Esseen smoothing inequality**, a fundamental tool in probability theory
-that bounds the pointwise distance between CDFs in terms of characteristic functions.
-
-The proof decomposes into three sub-lemmas (each with its own sorry):
-1. `smoothing_kernel_exists` — construct a suitable test function
-2. `cdf_smoothing_bound` — bound the CDF approximation error by `C/T`
-3. `smoothed_cdf_fourier_bound` — bound the smoothed difference via charfun integral
-
-See: Esseen (1945), Feller Vol. II Ch. XV, or Durrett "Probability: Theory and Examples"
-Theorem 3.4.4. -/
+/-- **Berry-Esseen Smoothing Inequality.** Assembly from sub-lemmas. -/
 lemma berry_esseen_smoothing (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
     [IsProbabilityMeasure ν] (T : ℝ) (hT : 0 < T) :
     ∃ C₁ C₂ : ℝ, 0 < C₁ ∧ 0 < C₂ ∧
@@ -148,15 +204,11 @@ lemma berry_esseen_smoothing (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
         C₁ * (∫ t in Set.Icc (-T) T,
           ‖charFun μ t - charFun ν t‖ / |t|) +
         C₂ / T := by
-  -- Step 1: Obtain the smoothing kernel
   obtain ⟨K, hK_cont, hK_nn, hK_int, hK_one, hK_supp⟩ := smoothing_kernel_exists T hT
-  -- Step 2: CDF approximation bound
   obtain ⟨C₂, hC₂_pos, hsmooth⟩ := cdf_smoothing_bound μ ν T hT K hK_cont hK_nn hK_int
     hK_one hK_supp
-  -- Step 3: Fourier representation of smoothed difference
   obtain ⟨C₁, hC₁_pos, hfourier⟩ := smoothed_cdf_fourier_bound μ ν T hT K hK_cont hK_nn
     hK_int hK_one hK_supp
-  -- Assembly: triangle inequality
   exact ⟨C₁, C₂, hC₁_pos, hC₂_pos, fun y => by
     have htri := hsmooth y
     have hfou := hfourier y

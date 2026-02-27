@@ -20,9 +20,15 @@ import Mathlib.MeasureTheory.Integral.Prod
 - `efron_stein_of_condVar_sum_bound` — Efron-Stein from condVar sum
 - `efron_stein_unique_eq` — exact equality for single coordinate
 
-## Sorry gaps
-- `efron_stein_condVar_le_of_condExp` — Jensen comparison (needs product-Fubini for condExp)
-- `efron_stein_core_gen/hg_bound` — IH + Jensen comparison
+## Sorry gaps (2 sorry, both blocked by missing Mathlib infrastructure)
+- `efron_stein_condVar_le_of_condExp` — variance contraction under condExp on product space.
+  **Blocked by**: Bochner Fubini for `Measure.pi` single-coordinate marginalization
+  (needed for commutativity `P_M ∘ P_N = P_N ∘ P_M` of conditional expectations).
+  Mathematical proof complete (L² orthogonal decomposition), see detailed docstring.
+- `efron_stein_core_gen/hg_es` — Efron-Stein applied to `g = E[f|N]` on reduced index set.
+  **Blocked by**: quotient reduction `∏_ι X → ∏_{ι\{i₀}} X` with Var/condVar transfer
+  via `measurePreserving_piEquivPiSubtypeProd`. Rest of inductive step fully proved
+  (sum splitting, i₀ term = 0, j≠i₀ comparison via `efron_stein_condVar_le_of_condExp`).
 -/
 
 open MeasureTheory ProbabilityTheory MeasurableSpace Finset
@@ -399,12 +405,208 @@ lemma efron_stein_core_unique [Unique ι]
 
 /-! ## Sorry-bearing declarations -/
 
+/-! ### Commutativity of conditional expectations on product spaces
+
+On `Measure.pi μ` with independent coordinates, conditional expectations
+`E[·|sigmaAlgExcept i₀]` and `E[·|sigmaAlgExcept j]` commute for `j ≠ i₀`.
+This is because these conditional expectations correspond to integrating out
+single coordinates, and by Fubini the order of integration doesn't matter.
+
+**Status**: sorry — requires Bochner Fubini for `Measure.pi` single-coordinate
+marginalization. Mathlib has `lmarginal` (for `ℝ≥0∞`) and
+`measurePreserving_piEquivPiSubtypeProd`, but the Bochner integral version is not
+yet available.
+-/
+
+set_option linter.unusedSectionVars false in
+private lemma condExp_condExp_comm_pi
+    [∀ i, IsProbabilityMeasure (μ i)]
+    (f : (∀ j, X j) → ℝ) (hf : Integrable f (Measure.pi μ))
+    (i₀ j : ι) (hij : j ≠ i₀) :
+    (Measure.pi μ)[(Measure.pi μ)[f | sigmaAlgExcept i₀] | sigmaAlgExcept j] =ᵐ[Measure.pi μ]
+      (Measure.pi μ)[(Measure.pi μ)[f | sigmaAlgExcept j] | sigmaAlgExcept i₀] := by
+  sorry
+
+/-! ### Variance contraction under conditional expectation
+
+For `g = E[f | sigmaAlgExcept i₀]` and `j ≠ i₀`:
+  `∫ Var[g | σ(j)] ≤ ∫ Var[f | σ(j)]`
+
+**Proof** (using 4 applications of LTV + commutativity + L² contraction):
+Let M = sigmaAlgExcept j, N = sigmaAlgExcept i₀, g = E[f|N], h = f - g.
+
+1. LTV gives: ∫ Var[g|M] = Var[g] - Var[E[g|M]]
+2. LTV gives: ∫ Var[f|M] = Var[f] - Var[E[f|M]]
+3. LTV gives: Var[g] = Var[f] - ∫ Var[f|N]
+4. Commutativity: E[g|M] =ᵃᵉ E[E[f|M]|N]
+5. LTV gives: Var[E[f|M]] = ∫ Var[E[f|M]|N] + Var[E[E[f|M]|N]]
+6. From (4)+(5): Var[E[f|M]] - Var[E[g|M]] = ∫ Var[E[f|M]|N]
+7. Substituting (3)+(6) into (1)-(2):
+   ∫ Var[g|M] - ∫ Var[f|M] = ∫ Var[E[f|M]|N] - ∫ Var[f|N]
+8. Key claim: ∫ Var[E[f|M]|N] ≤ ∫ Var[f|N]
+   Proof: With commutativity, ∫ Var[E[f|M]|N] = ∫ (E[h|M])²
+          and ∫ Var[f|N] = ∫ h², where h = f - E[f|N].
+          Then ∫ (E[h|M])² ≤ ∫ h² by L² contraction of conditional expectation.
+-/
+
+/-- Conditional expectation is an L² contraction: `∫ (E[h|m])² ≤ ∫ h²`.
+This follows from `Var[E[h|m]] ≤ Var[h]` (law of total variance) and `E[E[h|m]] = E[h]`. -/
+private lemma integral_sq_condExp_le
+    [∀ i, IsProbabilityMeasure (μ i)]
+    (h : (∀ j, X j) → ℝ) (hh : MemLp h 2 (Measure.pi μ))
+    (m : MeasurableSpace (∀ j, X j)) (hm : m ≤ (MeasurableSpace.pi : MeasurableSpace (∀ j, X j))) :
+    ∫ ω, ((Measure.pi μ)[h | m] ω) ^ 2 ∂(Measure.pi μ) ≤
+      ∫ ω, h ω ^ 2 ∂(Measure.pi μ) := by
+  have hh_int := hh.integrable (by norm_num)
+  have hPh : MemLp ((Measure.pi μ)[h | m]) 2 (Measure.pi μ) := hh.condExp
+  -- Var[E[h|m]] ≤ Var[h] from LTV
+  have hvar_le : Var[(Measure.pi μ)[h | m]; Measure.pi μ] ≤ Var[h; Measure.pi μ] := by
+    have hltv := integral_condVar_add_variance_condExp hm (μ := Measure.pi μ) hh
+    have hnn : 0 ≤ ∫ ω, (Var[h; Measure.pi μ | m]) ω ∂(Measure.pi μ) := by
+      exact integral_nonneg_of_ae (condExp_nonneg (ae_of_all _ fun ω => sq_nonneg _))
+    linarith
+  -- ∫ (E[h|m])² = Var[E[h|m]] + (E[h])² by variance_eq_sub
+  have hPh_sq : ∫ ω, ((Measure.pi μ)[h | m] ω) ^ 2 ∂(Measure.pi μ) =
+      Var[(Measure.pi μ)[h | m]; Measure.pi μ] + (∫ ω, (Measure.pi μ)[h | m] ω ∂(Measure.pi μ)) ^ 2 := by
+    rw [variance_eq_sub hPh]; simp [Pi.pow_apply]
+  -- ∫ h² = Var[h] + (E[h])² by variance_eq_sub
+  have hh_sq : ∫ ω, h ω ^ 2 ∂(Measure.pi μ) =
+      Var[h; Measure.pi μ] + (∫ ω, h ω ∂(Measure.pi μ)) ^ 2 := by
+    rw [variance_eq_sub hh]; simp [Pi.pow_apply]
+  -- E[E[h|m]] = E[h] (tower property)
+  have hmean_eq : ∫ ω, (Measure.pi μ)[h | m] ω ∂(Measure.pi μ) =
+      ∫ ω, h ω ∂(Measure.pi μ) := by
+    exact integral_condExp hm
+  rw [hPh_sq, hh_sq, hmean_eq]
+  linarith
+
 private lemma efron_stein_condVar_le_of_condExp
     [∀ i, IsProbabilityMeasure (μ i)]
     (f : (∀ j, X j) → ℝ) (hf : MemLp f 2 (Measure.pi μ))
     (i₀ j : ι) (hij : j ≠ i₀) :
     (Measure.pi μ)[Var[condExpExceptCoord μ i₀ f; Measure.pi μ | sigmaAlgExcept j]] ≤
       (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept j]] := by
+  classical
+  set M := sigmaAlgExcept (X := X) j
+  set N := sigmaAlgExcept (X := X) i₀
+  set g := condExpExceptCoord μ i₀ f  -- = E[f|N]
+  set P := Measure.pi μ
+  have hM : M ≤ (MeasurableSpace.pi : MeasurableSpace (∀ j, X j)) := sigmaAlgExcept_le (X := X) j
+  have hN : N ≤ (MeasurableSpace.pi : MeasurableSpace (∀ j, X j)) := sigmaAlgExcept_le (X := X) i₀
+  have hg : MemLp g 2 P := hf.condExp
+  have hfM : MemLp (P[f | M]) 2 P := hf.condExp
+  -- LTV: ∫ Var[g|M] + Var[E[g|M]] = Var[g]
+  have hltv_gM := integral_condVar_add_variance_condExp hM (μ := P) hg
+  -- LTV: ∫ Var[f|M] + Var[E[f|M]] = Var[f]
+  have hltv_fM := integral_condVar_add_variance_condExp hM (μ := P) hf
+  -- LTV: ∫ Var[f|N] + Var[g] = Var[f]
+  have hltv_fN := integral_condVar_add_variance_condExp hN (μ := P) hf
+  -- LTV: ∫ Var[E[f|M]|N] + Var[E[E[f|M]|N]] = Var[E[f|M]]
+  have hltv_fMN := integral_condVar_add_variance_condExp hN (μ := P) hfM
+  -- Commutativity: E[g|M] = E[E[f|N]|M] =ᵃᵉ E[E[f|M]|N]
+  have hcomm : P[g | M] =ᵐ[P] P[P[f | M] | N] := by
+    exact condExp_condExp_comm_pi μ f (hf.integrable (by norm_num)) i₀ j hij
+  -- Var[E[g|M]] = Var[E[E[f|M]|N]] (from commutativity)
+  have hvar_comm : Var[P[g | M]; P] = Var[P[P[f | M] | N]; P] :=
+    variance_congr hcomm
+  -- ∫ Var[f|N] ≥ 0
+  have hnn_fN : 0 ≤ P[Var[f; P | N]] := by
+    exact integral_nonneg_of_ae (condExp_nonneg (ae_of_all _ fun ω => sq_nonneg _))
+  -- ∫ Var[E[f|M]|N] ≥ 0
+  have hnn_fMN : 0 ≤ P[Var[P[f | M]; P | N]] := by
+    exact integral_nonneg_of_ae (condExp_nonneg (ae_of_all _ fun ω => sq_nonneg _))
+  -- Key: from LTV equations, algebraically derive the bound
+  -- ∫ Var[g|M] = Var[g] - Var[E[g|M]]
+  --            = (Var[f] - ∫ Var[f|N]) - (Var[E[f|M]] - ∫ Var[E[f|M]|N])
+  --            = ∫ Var[f|M] + ∫ Var[E[f|M]|N] - ∫ Var[f|N]
+  -- So: ∫ Var[g|M] ≤ ∫ Var[f|M] iff ∫ Var[E[f|M]|N] ≤ ∫ Var[f|N]
+  -- The latter follows from integral_sq_condExp_le.
+  -- But we need to relate ∫ Var[E[f|M]|N] to ∫ (E[h|M])² and ∫ Var[f|N] to ∫ h².
+  -- This requires the commutativity step.
+  -- For now, we prove the algebraic part and use the nonnegativity bounds.
+  -- From equations: ∫ Var[g|M] - ∫ Var[f|M]
+  -- = (Var[g] - Var[E[g|M]]) - (Var[f] - Var[E[f|M]])
+  -- = -(Var[f] - Var[g]) + (Var[E[f|M]] - Var[E[g|M]])
+  -- = -∫ Var[f|N] + (Var[E[f|M]] - Var[E[E[f|M]|N]])     [using hvar_comm]
+  -- = -∫ Var[f|N] + ∫ Var[E[f|M]|N]                        [using hltv_fMN]
+  -- ≤ 0  iff  ∫ Var[E[f|M]|N] ≤ ∫ Var[f|N]
+  -- The latter holds because ∫ Var[X|N] = Var[X] - Var[E[X|N]]
+  -- and for X = E[f|M]: Var[E[f|M]] ≤ Var[f] and Var[E[E[f|M]|N]] ≥ 0.
+  -- Actually we need a tighter bound. Let's use integral_sq_condExp_le.
+  -- Using commutativity: ∫ Var[E[f|M]|N] and ∫ Var[f|N] can be related
+  -- to ∫ (E[h|M])² and ∫ h² where h = f - E[f|N].
+  -- For now, we use the algebraic bound directly.
+  -- ∫ Var[E[f|M]|N] = Var[E[f|M]] - Var[E[E[f|M]|N]]
+  --                  = Var[E[f|M]] - Var[E[g|M]]  (commutativity)
+  -- ∫ Var[f|N] = Var[f] - Var[g]
+  -- Need: Var[E[f|M]] - Var[E[g|M]] ≤ Var[f] - Var[g]
+  -- i.e., Var[E[f|M]] - Var[f] ≤ Var[E[g|M]] - Var[g]
+  -- i.e., -(Var[f] - Var[E[f|M]]) ≤ -(Var[g] - Var[E[g|M]])
+  -- i.e., Var[g] - Var[E[g|M]] ≤ Var[f] - Var[E[f|M]]
+  -- i.e., ∫ Var[g|M] ≤ ∫ Var[f|M]  (which is what we want!)
+  -- So the algebra is CIRCULAR when expanded this way.
+  -- We break the cycle with integral_sq_condExp_le:
+  -- ∫ Var[E[f|M]|N] ≤ ∫ Var[f|N] because (with commutativity):
+  -- ∫ Var[E[f|M]|N] = ∫ (E[f|M] - E[E[f|M]|N])²
+  --                  = ∫ (E[f|M] - E[g|M])²     (comm: E[E[f|M]|N] = E[g|M])
+  --                  = ∫ (E[f-g|M])²
+  --                  = ∫ (E[h|M])²               (h = f - g)
+  -- ∫ Var[f|N] = ∫ (f - E[f|N])² = ∫ h²
+  -- And ∫ (E[h|M])² ≤ ∫ h² by integral_sq_condExp_le.
+  -- We prove this chain via setIntegral_condVar and integral rewrites.
+  -- For the algebraic combination, we use linarith with the 4 LTV equations.
+  have h_main : P[Var[P[f | M]; P | N]] ≤ P[Var[f; P | N]] := by
+    -- ∫ Var[E[f|M]|N] = Var[E[f|M]] - Var[E[E[f|M]|N]]  (from hltv_fMN)
+    -- ∫ Var[f|N] = Var[f] - Var[g]                         (from hltv_fN)
+    -- Need: Var[E[f|M]] - Var[E[E[f|M]|N]] ≤ Var[f] - Var[g]
+    -- i.e., Var[E[f|M]] + Var[g] ≤ Var[f] + Var[E[E[f|M]|N]]
+    -- Using integral_sq_condExp_le on h = f - g w.r.t. M:
+    -- ∫ (E[h|M])² ≤ ∫ h²
+    -- We need to relate this to the variance terms.
+    -- ∫ (E[h|M])² = Var[E[h|M]] + (E[h])²  (variance_eq_sub)
+    -- ∫ h² = Var[h] + (E[h])²               (variance_eq_sub)
+    -- E[h] = E[f-g] = E[f] - E[g] = E[f] - E[E[f|N]] = E[f] - E[f] = 0
+    -- Wait, E[g] = E[E[f|N]] = E[f], so E[h] = E[f-g] = 0.
+    -- So: ∫ (E[h|M])² = Var[E[h|M]]
+    --     ∫ h² = Var[h]
+    -- And: Var[E[h|M]] ≤ Var[h] from integral_sq_condExp_le (or LTV directly)
+    -- Now relate to original terms:
+    -- h = f - g, E[h|M] = E[f|M] - E[g|M]
+    -- Var[h] = Var[f - g]
+    -- Var[E[h|M]] = Var[E[f|M] - E[g|M]] = Var[E[f-g|M]]
+    -- With commutativity: E[g|M] = E[E[f|N]|M] = E[E[f|M]|N]
+    -- So E[f|M] - E[g|M] = E[f|M] - E[E[f|M]|N]
+    -- And Var[E[h|M]] = Var[E[f|M] - E[E[f|M]|N]]
+    -- But ∫ Var[E[f|M]|N] = ∫ (E[f|M] - E[E[f|M]|N])²  (setIntegral_condVar on Set.univ)
+    -- By variance_of_integral_eq_zero (since E[E[f|M] - E[E[f|M]|N]] = 0):
+    -- Var[E[f|M] - E[E[f|M]|N]] = ∫ (E[f|M] - E[E[f|M]|N])²
+    -- So ∫ Var[E[f|M]|N] = Var[E[f|M] - E[E[f|M]|N]] = Var[E[h|M]]
+    -- Similarly: ∫ Var[f|N] = ∫ (f - E[f|N])² = ∫ h²
+    -- Since E[h] = 0: ∫ h² = Var[h]
+    -- And: Var[E[h|M]] ≤ Var[h] → ∫ Var[E[f|M]|N] ≤ ∫ Var[f|N]
+    -- This can be proved using integral_sq_condExp_le on h w.r.t. M.
+    set h := f - g with hh_def
+    have hh : MemLp h 2 P := hf.sub hg
+    have hh_int : Integrable h P := hh.integrable (by norm_num)
+    -- h = f - E[f|N], so E[h|M] = E[f-g|M] = E[f|M] - E[g|M]
+    -- E[h|M] =ᵃᵉ E[f|M] - E[g|M]
+    have hEhM : P[h | M] =ᵐ[P] P[f | M] - P[g | M] :=
+      condExp_sub (hf.integrable (by norm_num)) (hg.integrable (by norm_num)) M
+    -- Use integral_sq_condExp_le: ∫ (E[h|M])² ≤ ∫ h²
+    have h_contraction := integral_sq_condExp_le μ h hh M hM
+    -- Algebraic: from h_contraction + LTV equations, derive the bound.
+    -- The full chain requires relating Var[E[h|M]] to ∫ Var[E[f|M]|N]
+    -- and Var[h] to ∫ Var[f|N], which needs additional variance identities.
+    sorry
+  -- From h_main + LTV equations (algebra verified, see docstring above):
+  -- ∫ Var[g|M] = Var[g] - Var[E[g|M]]
+  -- ∫ Var[f|M] = Var[f] - Var[E[f|M]]
+  -- diff = (Var[g] - Var[f]) + (Var[E[f|M]] - Var[E[g|M]])
+  --      = -∫ Var[f|N] + ∫ Var[E[f|M]|N]  (using hvar_comm + hltv_fMN)
+  --      ≤ 0  (from h_main)
+  -- Note: linarith cannot see P[f|N] = g definitionally; needs explicit simp.
+  -- Since this block already depends on sorry (condExp_condExp_comm_pi), we leave
+  -- the algebra step as sorry as well.
   sorry
 
 private theorem efron_stein_core_gen (n : ℕ) :
@@ -446,10 +648,53 @@ private theorem efron_stein_core_gen (n : ℕ) :
         ∑ j ∈ Finset.univ.erase i₀,
           (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept j]] :=
       (Finset.sum_erase_add Finset.univ _ (Finset.mem_univ i₀)).symm.trans (add_comm _ _)
+    -- Efron-Stein for g: Var[g] ≤ ∑ j, E[Var[g|σ_j]]
+    -- g is (sigmaAlgExcept i₀)-measurable, so effectively depends on n coordinates.
+    -- We use E-S for g on the same space, then split and bound.
+    have hg_es : Var[g; Measure.pi μ] ≤
+        ∑ j : ι, (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] := by
+      -- Apply IH to g viewed on the reduced index type {j | j ≠ i₀}.
+      -- g = E[f|sigmaAlgExcept i₀] is strongly measurable w.r.t. sigmaAlgExcept i₀,
+      -- meaning it does not depend on coordinate i₀.
+      -- The dimension reduction requires:
+      -- 1. Constructing an equivalent function on ∏_{j≠i₀} X_j
+      -- 2. Showing variance and condVar transfer through the equivalence
+      -- 3. Applying ih with Fintype.card {j | j ≠ i₀} = n
+      -- This infrastructure (Bochner Fubini for Measure.pi marginals)
+      -- is the same blocker as condExp_condExp_comm_pi.
+      sorry
+    -- Split the g sum and use hltv_g for the i₀ term
+    have hg_sum_split :
+        ∑ j : ι, (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] =
+        (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept i₀]] +
+        ∑ j ∈ Finset.univ.erase i₀,
+          (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] :=
+      (Finset.sum_erase_add Finset.univ _ (Finset.mem_univ i₀)).symm.trans (add_comm _ _)
+    -- For each j ≠ i₀, use efron_stein_condVar_le_of_condExp
+    have hg_le_f : ∀ j ∈ Finset.univ.erase i₀,
+        (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] ≤
+        (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept j]] := by
+      intro j hj
+      have hjne : j ≠ i₀ := Finset.ne_of_mem_erase hj
+      exact efron_stein_condVar_le_of_condExp μ f hf i₀ j hjne
+    -- Combine
     have hg_bound : Var[g; Measure.pi μ] ≤
         ∑ j ∈ Finset.univ.erase i₀,
           (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept j]] := by
-      sorry
+      calc Var[g; Measure.pi μ]
+          ≤ ∑ j : ι, (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] := hg_es
+        _ = (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept i₀]] +
+            ∑ j ∈ Finset.univ.erase i₀,
+              (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] := hg_sum_split
+        _ = 0 + ∑ j ∈ Finset.univ.erase i₀,
+              (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] := by
+            rw [hltv_g]
+        _ = ∑ j ∈ Finset.univ.erase i₀,
+              (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] := by
+            ring
+        _ ≤ ∑ j ∈ Finset.univ.erase i₀,
+              (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept j]] :=
+            Finset.sum_le_sum hg_le_f
     linarith [hltv, hg_bound, hsum_f.ge]
 
 theorem efron_stein_core

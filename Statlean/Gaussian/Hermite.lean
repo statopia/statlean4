@@ -313,24 +313,55 @@ lemma integrable_f_mul_hermiteEval (k : ℕ) {f : ℝ → ℝ} (hf : MemLp f 2 s
     Integrable (fun x => f x * hermiteEval k x) stdGaussian :=
   integrable_f_mul_poly_gaussian _ hf
 
-/-- f·p ∈ L²(γ) when f ∈ L²(γ) and p is a polynomial (Gaussian-specific).
-Under Gaussian measure, the super-exponential tail decay compensates polynomial growth.
+/-! ## Lebesgue-level IBP infrastructure for Hermite coefficient relation -/
 
-Sorry gap: needs either Gaussian hypercontractivity or a density argument
-(approximate f by smooth compactly supported, which are in all Lᵖ). -/
-lemma memLp_f_mul_poly_gaussian {f : ℝ → ℝ} (p : ℤ[X])
-    (hf : MemLp f 2 stdGaussian) :
-    MemLp (fun x => f x * Polynomial.aeval x p) 2 stdGaussian := by
-  sorry
+/-- Convert integrability under Gaussian to integrability of `g * φ` under Lebesgue measure,
+where `φ = gaussianPDFReal 0 1`. -/
+private lemma integrable_mul_gaussianPDFReal_of_integrable {g : ℝ → ℝ}
+    (hg : Integrable g stdGaussian) :
+    Integrable (fun x => g x * gaussianPDFReal 0 1 x) volume := by
+  have hv : (1 : ℝ≥0) ≠ 0 := one_ne_zero
+  change Integrable g (gaussianReal 0 1) at hg
+  rw [gaussianReal_of_var_ne_zero 0 hv] at hg
+  rw [integrable_withDensity_iff (measurable_gaussianPDF 0 1)
+    (ae_of_all _ (fun _ => gaussianPDF_lt_top))] at hg
+  simp only [toReal_gaussianPDF] at hg
+  exact hg
+
+/-- Derivative of `Hₖ · φ` equals `-H_{k+1} · φ`.
+
+Uses the product rule and the Hermite recurrence `H_{k+1} = x · Hₖ - Hₖ'`:
+`(Hₖ · φ)' = Hₖ' · φ + Hₖ · φ' = Hₖ' · φ - x · Hₖ · φ = -(x · Hₖ - Hₖ') · φ = -H_{k+1} · φ`. -/
+private lemma hasDerivAt_hermiteEval_mul_gaussianPDF (k : ℕ) (x : ℝ) :
+    HasDerivAt (fun y => hermiteEval k y * gaussianPDFReal 0 1 y)
+      (-hermiteEval (k + 1) x * gaussianPDFReal 0 1 x) x := by
+  have hHk := hasDerivAt_hermiteEval k x
+  have hφ := hasDerivAt_gaussianPDFReal_std x
+  have hprod := hHk.mul hφ
+  convert hprod using 1
+  have hrec : hermiteEval (k + 1) x = x * hermiteEval k x -
+      Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k)) := by
+    simp only [hermiteEval, Polynomial.hermite_succ, map_sub, Polynomial.aeval_mul,
+      Polynomial.aeval_X]
+  rw [hrec]; ring
+
+/-- Gaussian integral equals Lebesgue integral against the density. -/
+private lemma integral_stdGaussian_eq_integral_mul_pdf (g : ℝ → ℝ) :
+    ∫ x, g x ∂stdGaussian = ∫ x, g x * gaussianPDFReal 0 1 x := by
+  have hv : (1 : ℝ≥0) ≠ 0 := one_ne_zero
+  rw [integral_gaussianReal_eq_integral_smul (v := (1 : ℝ≥0)) hv]
+  simp only [smul_eq_mul]
+  congr 1; ext x; ring
 
 /-- **Hermite coefficient of derivative** (unnormalized):
 `∫ f'·Hₖ dγ = ∫ f·H_{k+1} dγ`.
 
-Proof sketch: Apply Stein to h = f·Hₖ, h' = f'·Hₖ + f·H'ₖ.
-Stein: ∫ x·(f·Hₖ) dγ = ∫ (f'·Hₖ + f·H'ₖ) dγ.
-Recurrence: x·Hₖ = H_{k+1} + H'ₖ gives ∫ f·(x·Hₖ) = ∫ f·H_{k+1} + ∫ f·H'ₖ.
-Cancel ∫ f·H'ₖ from both sides.
-Depends on `memLp_f_mul_poly_gaussian` (sorry). -/
+Proof: Apply Lebesgue-level integration by parts with `u = f` and `v = Hₖ · φ`.
+Since `v'(x) = -H_{k+1}(x) · φ(x)`, the IBP formula
+`∫ u · v' = -∫ u' · v` gives the result directly.
+
+This approach only requires `f, f' ∈ L²(γ)` (for L¹ integrability of the products),
+avoiding the false claim that `f · p ∈ L²(γ)` for general `f ∈ L²(γ)`. -/
 theorem integral_deriv_mul_hermiteEval
     (f f' : ℝ → ℝ) (k : ℕ)
     (hf : MemLp f 2 stdGaussian)
@@ -338,57 +369,38 @@ theorem integral_deriv_mul_hermiteEval
     (hderiv : ∀ x, HasDerivAt f (f' x) x) :
     ∫ x, f' x * hermiteEval k x ∂stdGaussian =
     ∫ x, f x * hermiteEval (k + 1) x ∂stdGaussian := by
-  -- L² membership for products (via sorry gap memLp_f_mul_poly_gaussian)
-  have hfHk_L2 : MemLp (fun x => f x * hermiteEval k x) 2 stdGaussian :=
-    memLp_f_mul_poly_gaussian _ hf
-  have hfHk_deriv_L2 : MemLp (fun x => f' x * hermiteEval k x +
-      f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k)))
-      2 stdGaussian :=
-    (memLp_f_mul_poly_gaussian _ hf').add (memLp_f_mul_poly_gaussian _ hf)
-  -- Apply Stein to h = f·Hₖ
-  have hstein := stein_identity
-    (fun x => f x * hermiteEval k x)
-    (fun x => f' x * hermiteEval k x +
-     f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k)))
-    hfHk_L2 hfHk_deriv_L2
-    (fun x => (hderiv x).mul (hasDerivAt_hermiteEval k x))
-  -- hstein: ∫ x·(f·Hₖ) = ∫ (f'·Hₖ + f·H'ₖ)
-  -- Rearrange LHS: ∫ x·(f·Hₖ) = ∫ f·(x·Hₖ)
-  have hrearrange : ∫ x, x * (f x * hermiteEval k x) ∂stdGaussian =
-      ∫ x, f x * (x * hermiteEval k x) ∂stdGaussian := by
+  -- Convert both Gaussian integrals to Lebesgue integrals: ∫ g dγ = ∫ g · φ dx
+  rw [integral_stdGaussian_eq_integral_mul_pdf, integral_stdGaussian_eq_integral_mul_pdf]
+  -- Apply Lebesgue-level IBP: ∫ u · v' = -∫ u' · v
+  -- with u = f, v(x) = Hₖ(x) · φ(x), v'(x) = -H_{k+1}(x) · φ(x)
+  have hIBP := integral_mul_deriv_eq_deriv_mul_of_integrable
+    hderiv
+    (fun x => hasDerivAt_hermiteEval_mul_gaussianPDF k x)
+    -- Integrable (f * v'): f(x) * (-H_{k+1}(x) * φ(x))
+    (show Integrable (f * (fun x => -hermiteEval (k + 1) x * gaussianPDFReal 0 1 x)) volume from
+      (integrable_mul_gaussianPDFReal_of_integrable
+        (integrable_f_mul_hermiteEval (k + 1) hf)).neg.congr
+        (Filter.Eventually.of_forall fun x => by simp [Pi.mul_apply]; ring))
+    -- Integrable (f' * v): f'(x) * (Hₖ(x) * φ(x))
+    (show Integrable (f' * (fun x => hermiteEval k x * gaussianPDFReal 0 1 x)) volume from
+      (integrable_mul_gaussianPDFReal_of_integrable
+        (integrable_f_mul_hermiteEval k hf')).congr
+        (Filter.Eventually.of_forall fun x => by simp [Pi.mul_apply]; ring))
+    -- Integrable (f * v): f(x) * (Hₖ(x) * φ(x))
+    (show Integrable (f * (fun x => hermiteEval k x * gaussianPDFReal 0 1 x)) volume from
+      (integrable_mul_gaussianPDFReal_of_integrable
+        (integrable_f_mul_hermiteEval k hf)).congr
+        (Filter.Eventually.of_forall fun x => by simp [Pi.mul_apply]; ring))
+  -- hIBP: ∫ f(x) · (-H_{k+1}(x) · φ(x)) dx = -∫ f'(x) · (Hₖ(x) · φ(x)) dx
+  -- Rearrange: ∫ f' · Hₖ · φ = ∫ f · H_{k+1} · φ
+  have h1 : (∫ x, f x * (-hermiteEval (k + 1) x * gaussianPDFReal 0 1 x)) =
+      -(∫ x, f x * hermiteEval (k + 1) x * gaussianPDFReal 0 1 x) := by
+    rw [← integral_neg]; congr 1; ext x; ring
+  have h2 : ∫ x, f' x * (hermiteEval k x * gaussianPDFReal 0 1 x) =
+      ∫ x, f' x * hermiteEval k x * gaussianPDFReal 0 1 x := by
     congr 1; ext x; ring
-  -- Recurrence: x·Hₖ(x) = H_{k+1}(x) + H'ₖ(x)
-  have hrecurrence : ∀ x : ℝ,
-      x * hermiteEval k x = hermiteEval (k + 1) x +
-        Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k)) := by
-    intro x
-    simp only [hermiteEval, Polynomial.hermite_succ, map_sub, Polynomial.aeval_mul,
-      Polynomial.aeval_X]
-    ring
-  -- Substitute recurrence into LHS
-  have hLHS : ∫ x, f x * (x * hermiteEval k x) ∂stdGaussian =
-      ∫ x, f x * hermiteEval (k + 1) x ∂stdGaussian +
-      ∫ x, f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k))
-        ∂stdGaussian := by
-    have heq : (fun x => f x * (x * hermiteEval k x)) =
-        (fun x => f x * hermiteEval (k + 1) x +
-         f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k))) := by
-      ext x; rw [hrecurrence x, mul_add]
-    rw [heq]
-    exact integral_add (integrable_f_mul_hermiteEval (k + 1) hf)
-      (integrable_f_mul_poly_gaussian _ hf)
-  -- Expand RHS: ∫ (f'·Hₖ + f·H'ₖ) = ∫ f'·Hₖ + ∫ f·H'ₖ
-  have hRHS : ∫ x, (f' x * hermiteEval k x +
-      f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k)))
-      ∂stdGaussian =
-      ∫ x, f' x * hermiteEval k x ∂stdGaussian +
-      ∫ x, f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k))
-        ∂stdGaussian := by
-    exact integral_add (integrable_f_mul_hermiteEval k hf')
-      (integrable_f_mul_poly_gaussian _ hf)
-  -- Chain: LHS = ∫ f·H_{k+1} + ∫ f·H'ₖ = ∫ x·(f·Hₖ) = ∫ (f'·Hₖ + f·H'ₖ) = ∫ f'·Hₖ + ∫ f·H'ₖ
-  -- Cancel ∫ f·H'ₖ
-  linarith [hrearrange, hstein, hLHS, hRHS]
+  rw [h1, h2] at hIBP
+  linarith
 
 /-- **Hermite coefficient of derivative** (normalized):
 `∫ f'·eₖ dγ = √(k+1) · ∫ f·e_{k+1} dγ`. -/

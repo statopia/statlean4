@@ -4,8 +4,7 @@ import Statlean.Basic
 -- Gaussian infrastructure (verified)
 import Statlean.Gaussian.Basic
 import Statlean.Gaussian.Stein
--- Note: Hermite.lean has 4 sorry gaps (recurrence, memLp, density, span)
--- Proved declarations (derivative_hermite, orthogonality) still usable but not imported here
+import Statlean.Gaussian.Hermite
 import Statlean.Gaussian.Sobolev
 
 -- Variance (verified)
@@ -36,7 +35,7 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 
 - **Gaussian/Basic**: stdGaussian, stdGaussianPi, integrability infrastructure
 - **Gaussian/Stein**: Stein identity
-- **Gaussian/Hermite**: Hermite derivative + orthogonality
+- **Gaussian/Hermite**: Hermite derivative, orthogonality, Parseval, density, IBP
 - **Gaussian/Sobolev**: Mollification, Sobolev density
 - **Variance/RaoBlackwell**: Rao-Blackwell MSE theorem and variants
 - **Variance/EfronStein**: Efron-Stein clean core (sigma-algebras, ANOVA, condVar)

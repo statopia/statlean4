@@ -13,13 +13,20 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 - Entropy infrastructure: `entropy_sq_of_const_eq_zero`, `log_sq_eq_two_mul_log_abs`,
   `sq_mul_log_sq_eq`, `variance_eq_integral_sq_sub`, `mul_log_ge_sub_one`,
   `log_le_sub_one'`, `entropy_eq_two_integral_sq_log_abs`, `entropy_sq_nonneg_of_integrable`
+- **Gross regularization infrastructure** (new, zero sorry):
+  - `abs_mul_log_le_sq_add_one` — `|t log t| ≤ t² + 1` for t ≥ 0
+  - `hasDerivAt_regularized_log` — d/dx [½ log(f²+ε)] = f·f'/(f²+ε)
+  - `hasDerivAt_f_mul_psi_eps` — d/dx [f·ψ_ε] = f'·ψ_ε + f²·f'/(f²+ε)
+  - `sq_div_sq_add_eps_le_one` — f²/(f²+ε) ≤ 1
+  - `two_mul_le_sq_add_sq` — 2ab ≤ a² + b²
 
-## Sorry gaps (2 honest, down from previous 3)
+## Sorry gaps (3 honest, all blocked by missing Mathlib infrastructure)
 - `integrable_sq_mul_log_sq_of_memLp` — f²·log(f²) ∈ L¹(γ) for f ∈ L²(γ)
-  (needs Gaussian hypercontractivity or Sobolev embedding)
+  **Blocker**: Gaussian hypercontractivity / Sobolev embedding W^{1,2}(γ) ↪ L⁴(γ)
 - `gaussian_lsi_normalized` — normalized 1D LSI: ∫f²=1 => ∫f²·log(f²) ≤ 2∫f'²
-  (the hard core; needs Stein IBP + Young's inequality + regularization)
-- `tensorization_lsi_core` — LSI tensorization (needs product entropy decomposition)
+  **Blocker**: Same as above (MemLp estimates for regularized Stein IBP need L⁴)
+- `tensorization_lsi_core` — LSI tensorization
+  **Blocker**: Product entropy chain rule (Measure.pi Fubini for single coordinate)
 
 ## Proof architecture for `gaussian_lsi_1d_ibp_core` (PROVED)
 
@@ -190,23 +197,110 @@ scaling argument itself which requires integral manipulation.
 
 section LSI_Decomposition
 
+/-- The bound `|t * log t| ≤ t² + 1` for all `t ≥ 0`.
+
+    For `t ≥ 1`: `log t ≤ t - 1 < t`, so `t log t ≤ t² ≤ t² + 1`.
+    For `0 < t < 1`: `-(t log t) ≤ 1/e < 1 ≤ t² + 1`.
+    For `t = 0`: `0 · log 0 = 0 ≤ 0 + 1`. -/
+lemma abs_mul_log_le_sq_add_one (t : ℝ) (ht : 0 ≤ t) :
+    |t * Real.log t| ≤ t ^ 2 + 1 := by
+  rcases eq_or_lt_of_le ht with rfl | htp
+  · simp
+  rcases le_or_gt 1 t with h1 | h1
+  · -- Case t ≥ 1: t log t ≤ t² ≤ t² + 1
+    have hlog_nn : 0 ≤ Real.log t := Real.log_nonneg h1
+    have hlog_le_t : Real.log t ≤ t := (Real.log_le_sub_one_of_pos htp).trans (by linarith)
+    rw [abs_of_nonneg (mul_nonneg htp.le hlog_nn)]
+    have : t * Real.log t ≤ t * t := mul_le_mul_of_nonneg_left hlog_le_t htp.le
+    linarith [sq_nonneg t]
+  · -- Case 0 < t < 1: -(t log t) ≤ 1 ≤ t² + 1
+    have hlog_neg : Real.log t ≤ 0 := Real.log_nonpos htp.le h1.le
+    rw [abs_of_nonpos (mul_nonpos_of_nonneg_of_nonpos htp.le hlog_neg)]
+    -- Key: exp(log t) = t and 1 + log t ≤ exp(log t) = t ≤ 1
+    -- So log t ≤ t - 1 ≤ 0, hence -log t ≥ 1 - t ≥ 0
+    -- Also -log t ≤ 1/t - 1 (from log(1/t) ≤ 1/t - 1)
+    -- And t * (-log t) ≤ t * (1/t - 1) = 1 - t ≤ 1
+    have h_bound : -(t * Real.log t) ≤ 1 := by
+      have := Real.log_le_sub_one_of_pos (inv_pos.mpr htp)
+      rw [Real.log_inv] at this
+      -- this : -log t ≤ t⁻¹ - 1
+      nlinarith [mul_inv_cancel₀ (ne_of_gt htp)]
+    linarith [sq_nonneg t]
+
 /-- **Sub-lemma 1 (integrability)**: For the Gaussian, `f ∈ L²(γ)` and `HasDerivAt f f'`
     implies the entropy integrand `f²·log(f²)` is in `L¹(γ)`.
 
-    **Proof sketch**: Since `|t²·log(t²)| ≤ C·(t² + |t|^{2+δ})` for any `δ > 0`,
-    and the Gaussian has moments of all orders, it suffices to show `f ∈ L^{2+δ}(γ)`
-    for some `δ > 0`. For smooth `f` with `f' ∈ L²(γ)`, this follows from the
-    Sobolev embedding `W^{1,2}(γ) ↪ L^p(γ)` for all finite `p` (Gaussian
-    hypercontractivity / Nelson's theorem). Alternatively, one can use the bound
-    `|f(x)²·log(f(x)²)| ≤ f(x)^4/e + e^{-1}` and the fact that `f ∈ L⁴(γ)`
-    via Gaussian hypercontractivity. -/
+    **Blocker**: Requires `f ∈ L⁴(γ)`, which follows from Gaussian hypercontractivity
+    (Nelson's theorem / Gaussian Sobolev embedding `W^{1,2}(γ) ↪ L⁴(γ)`).
+    Neither is available in Mathlib as of v4.28.
+
+    **Proof sketch**: The bound `|t·log(t)| ≤ t² + 1` (`abs_mul_log_le_sq_add_one`)
+    gives `|f²·log(f²)| ≤ f⁴ + 1`. So integrability reduces to `f ∈ L⁴(γ)`.
+    For `f ∈ W^{1,2}(γ)` (i.e., `f, f' ∈ L²(γ)`), the Gaussian Sobolev embedding
+    `W^{1,2}(γ) ↪ L^p(γ)` for all finite p (Nelson '73) gives `f ∈ L⁴(γ)`.
+
+    **Dependency**: Would be resolved by proving:
+    `memLp_four_of_memLp_two_deriv : MemLp f 2 γ → MemLp f' 2 γ → HasDerivAt f f' → MemLp f 4 γ`
+    which is Gaussian hypercontractivity / the Nelson bound. -/
 lemma integrable_sq_mul_log_sq_of_memLp
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
     (hf' : MemLp f' 2 stdGaussian)
     (hderiv : ∀ x, HasDerivAt f (f' x) x) :
     Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian := by
+  -- Strategy: |f²·log(f²)| ≤ f⁴ + 1 by abs_mul_log_le_sq_add_one
+  -- Integrability of f⁴ under Gaussian requires f ∈ L⁴(γ), which needs
+  -- Gaussian hypercontractivity (not available in Mathlib).
   sorry
+
+/-! ### Regularized Stein IBP infrastructure (proved, supporting Gross's argument)
+
+These lemmas formalize the derivatives needed for the regularized Stein IBP approach
+to the normalized LSI. The regularization parameter `ε > 0` makes `ψ_ε(x) = ½ log(f(x)² + ε)`
+smooth everywhere, avoiding the singularity of `log` at 0. -/
+
+/-- Derivative of the regularized log-amplitude:
+    `d/dx [½ · log(f(x)² + ε)] = f(x) · f'(x) / (f(x)² + ε)`. -/
+lemma hasDerivAt_regularized_log (f f' : ℝ → ℝ) (ε : ℝ) (hε : 0 < ε)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x) (x : ℝ) :
+    HasDerivAt (fun y => (1 : ℝ) / 2 * Real.log (f y ^ 2 + ε))
+      (f x * f' x / (f x ^ 2 + ε)) x := by
+  have hpos : 0 < f x ^ 2 + ε := by positivity
+  have hne : f x ^ 2 + ε ≠ 0 := ne_of_gt hpos
+  have h_sq : HasDerivAt (fun y => f y ^ 2) (2 * f x * f' x) x := by
+    have h := (hderiv x).pow 2
+    simp only [pow_succ, pow_zero, one_mul, Nat.cast_ofNat] at h
+    have heq : (fun y => f y ^ 2) = (f * f) := by ext y; simp [sq]
+    rw [heq]; exact h
+  have h_sum : HasDerivAt (fun y => f y ^ 2 + ε) (2 * f x * f' x) x := by
+    have := h_sq.add (hasDerivAt_const x ε)
+    simp only [add_zero] at this; exact this
+  have h_log : HasDerivAt (fun y => Real.log (f y ^ 2 + ε))
+      ((2 * f x * f' x) / (f x ^ 2 + ε)) x :=
+    h_sum.log hne
+  have h_psi : HasDerivAt (fun y => (1 : ℝ) / 2 * Real.log (f y ^ 2 + ε))
+      (f x * f' x / (f x ^ 2 + ε)) x := by
+    have := h_log.const_mul (1 / 2)
+    convert this using 1; field_simp
+  exact h_psi
+
+/-- Derivative of `h(x) = f(x) · ψ_ε(x)` where `ψ_ε(x) = ½ · log(f(x)² + ε)`:
+    `h'(x) = f'(x) · ψ_ε(x) + f(x) · f(x) · f'(x) / (f(x)² + ε)`. -/
+lemma hasDerivAt_f_mul_psi_eps (f f' : ℝ → ℝ) (ε : ℝ) (hε : 0 < ε)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x) (x : ℝ) :
+    HasDerivAt (fun y => f y * ((1 : ℝ) / 2 * Real.log (f y ^ 2 + ε)))
+      (f' x * (1 / 2 * Real.log (f x ^ 2 + ε)) + f x * (f x * f' x / (f x ^ 2 + ε))) x :=
+  (hderiv x).mul (hasDerivAt_regularized_log f f' ε hε hderiv x)
+
+/-- The regularization bound: `f(x)² / (f(x)² + ε) ≤ 1` for `ε > 0`. -/
+lemma sq_div_sq_add_eps_le_one (t ε : ℝ) (hε : 0 < ε) :
+    t ^ 2 / (t ^ 2 + ε) ≤ 1 := by
+  rw [div_le_one (by positivity : 0 < t ^ 2 + ε)]
+  linarith [sq_nonneg t]
+
+/-- Young's inequality: `2 * a * b ≤ a² + b²` for all reals. -/
+lemma two_mul_le_sq_add_sq (a b : ℝ) : 2 * a * b ≤ a ^ 2 + b ^ 2 := by
+  nlinarith [sq_nonneg (a - b)]
 
 /-- **Sub-lemma 2 (normalized LSI core)**: When `∫ f² dγ = 1` (i.e., `f²` is a
     probability density w.r.t. `γ`), the Gaussian log-Sobolev inequality states:
@@ -215,21 +309,31 @@ lemma integrable_sq_mul_log_sq_of_memLp
 
     This is the heart of the proof. When `∫ f² = 1`, we have `Ent(f²) = ∫ f²·log(f²)`.
 
-    **Proof strategy (Gross's argument via regularized IBP)**:
+    **Blocker**: The full Gross argument requires:
+    1. `stein_identity` applied to `h = f · ψ_ε` (infrastructure ready:
+       `hasDerivAt_f_mul_psi_eps` gives the derivative)
+    2. MemLp estimates for `f · ψ_ε` and its derivative under Gaussian
+       (requires showing `ψ_ε = ½ log(f² + ε) ∈ L²(γ)` when `f ∈ L²(γ)`,
+        which needs `|log(f² + ε)| ≤ C·(f² + 1)` and thus `f ∈ L⁴(γ)`,
+        again blocked by Gaussian hypercontractivity)
+    3. Taking `ε → 0` via DCT (dominated convergence)
 
-    1. For `ε > 0`, define `ψ_ε(x) = ½ · log(f(x)² + ε)`. This is smooth everywhere.
-    2. Apply the Stein identity to `h(x) = f(x) · ψ_ε(x)`:
-       `∫ x · f · ψ_ε dγ = ∫ (f · ψ_ε)' dγ = ∫ [f' · ψ_ε + f · f · f'/(f² + ε)] dγ`
-    3. Rewrite the LHS using `∫ f² log(f²+ε) = 2 ∫ x · f · ψ_ε dγ` (from the
-       entropy decomposition + Stein identity applied to f²).
-    4. Apply Young's inequality `2ab ≤ a²/t + t·b²` with `t = 1` to the cross terms:
-       `2 · |f' · ψ_ε| ≤ f'² + ψ_ε²`
-    5. Bound `ψ_ε² ≤ (½ log(f²+ε))² ≤ ...` and use the identity
-       `f²/(f²+ε) ≤ 1` to simplify.
-    6. Take `ε → 0` via DCT. The log(f²+ε) → log(f²) where f ≠ 0,
-       and the 0·log(0) = 0 convention handles f = 0.
+    **Dependency**: Same as sorry 1 — ultimately blocked by missing
+    Gaussian hypercontractivity / Sobolev embedding.
 
-    The result is: `∫ f² log(f²) ≤ 2 ∫ f'²`. -/
+    **Proof strategy (Gross's argument via regularized Stein IBP)**:
+
+    1. For `ε > 0`, define `ψ_ε(x) = ½ · log(f(x)² + ε)`, smooth everywhere.
+    2. Apply `stein_identity` to `h = f · ψ_ε`:
+       `∫ x·f·ψ_ε dγ = ∫ (f·ψ_ε)' dγ`
+       `= ∫ [f'·ψ_ε + f²·f'/(f²+ε)] dγ`
+       (derivative computed by `hasDerivAt_f_mul_psi_eps`)
+    3. Also apply Stein to `h = f` getting `∫ x·f dγ = ∫ f' dγ`.
+    4. The product rule on `∫ x·f²·ψ_ε = ∫ (f²·ψ_ε)' = 2∫ f·f'·ψ_ε + ∫ f²·ψ_ε'`
+       gives a relation between the entropy integral and the Fisher information.
+    5. Young's inequality `2ab ≤ a² + b²` (`two_mul_le_sq_add_sq`) on cross terms.
+    6. `f²/(f²+ε) ≤ 1` (`sq_div_sq_add_eps_le_one`) simplifies the bound.
+    7. Take `ε → 0` via DCT to get `∫ f²·log(f²) ≤ 2∫ f'²`. -/
 lemma gaussian_lsi_normalized
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
@@ -238,6 +342,10 @@ lemma gaussian_lsi_normalized
     (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
+  -- The Gross argument via regularized Stein IBP requires:
+  -- 1. MemLp estimates for f · ψ_ε (needs f ∈ L⁴(γ) → Gaussian hypercontractivity)
+  -- 2. Dominated convergence as ε → 0
+  -- Both are blocked by missing Gaussian Sobolev embedding in Mathlib.
   sorry
 
 /-- **Main IBP core**: Assembles the 1D Gaussian LSI from scaling + normalized case.
@@ -470,6 +578,27 @@ theorem gaussian_lsi_1d_core : SatisfiesLSI stdGaussian 2 := by
 theorem gaussian_lsi_1d : SatisfiesLSI stdGaussian 2 :=
   gaussian_lsi_1d_core
 
+/-- **Tensorization of the log-Sobolev inequality**.
+
+    If `μ` satisfies `LSI(c)`, then `μ^n` satisfies the multi-dimensional LSI:
+    `Ent_{μ^n}(f²) ≤ c · ∑_i E_{μ^n}[(∂_i f)²]`.
+
+    **Blocker**: Requires the **entropy chain rule** for product measures:
+    `Ent_{μ^n}(g) = ∑_i E_{x_{-i}} [Ent_{μ_i}(g(x_{-i}, ·))]`
+    where `x_{-i}` denotes all coordinates except `i`.
+
+    This chain rule requires:
+    1. **Disintegration / conditional entropy**: Mathlib's `Measure.pi` lacks
+       coordinate-wise conditional integration (Fubini along a single coordinate).
+    2. **Iterated entropy decomposition**: The telescoping identity
+       `Ent(g) = ∑_i E[Ent_i(g)]` where `Ent_i` is conditional entropy along
+       coordinate `i`, requires conditional expectations w.r.t. product σ-algebras.
+    3. **Applying 1D LSI to each slice**: For fixed `x_{-i}`, need to apply
+       `SatisfiesLSI μ c` to the function `t ↦ f(update x i t)`, which requires
+       showing that the slice inherits the regularity hypotheses.
+
+    **Status**: Blocked by missing `Measure.pi` Fubini for single coordinate slicing
+    and conditional entropy infrastructure in Mathlib as of v4.28. -/
 theorem tensorization_lsi_core (n : ℕ) (c : ℝ) : TensorizationLSIAt n c := by
   sorry
 

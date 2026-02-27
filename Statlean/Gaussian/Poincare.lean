@@ -4,14 +4,18 @@ import Mathlib.Analysis.InnerProductSpace.l2Space
 
 /-! # Gaussian Poincaré Inequality
 
-## Proved (zero sorry)
+## Proved
+- `gaussian_poincare_1d_core` — 1D Poincaré via Hermite Parseval
+- `gaussian_poincare_coord_bound_core` — per-coordinate bound via condVar + tower law
+- `gaussian_poincare` — multi-dimensional Poincaré via Efron-Stein + coordinate bound
 - `gaussian_poincare_of_integral_bound` — wrapper
 - `gaussian_poincare_of_efron_stein` — via Efron-Stein + coordinate bound
 - `gaussian_poincare_of_condVar_sum` — via conditional variance sum
 
-## Sorry gaps
-- `gaussian_poincare_1d_core` — needs Hermite coefficient relation + Parseval
-- `gaussian_poincare_coord_bound_core` — needs Fubini + 1D Poincaré
+## Sorry gaps (1 sorry)
+- `condVar_le_condExp_gradf_sq_ae` — fiberwise 1D Poincaré bound for conditional variance.
+  Needs Fubini/disintegration for `Measure.pi` to connect abstract `condVar`/`condExp`
+  to concrete fiber integrals over `Function.update x i ·`.
 -/
 
 open MeasureTheory ProbabilityTheory Filter Topology Real NNReal
@@ -466,19 +470,208 @@ theorem gaussian_poincare_1d
     Var[f; stdGaussian] ≤ ∫ x, f' x ^ 2 ∂stdGaussian :=
   gaussian_poincare_1d_core f f' hf hf' hderiv
 
-/-- **Per-coordinate Poincaré bound core** (sorry — needs Fubini + 1D Poincaré). -/
+/-- The fiber average: integrate f over coordinate i, keeping other coordinates fixed. -/
+private noncomputable def fiberAvg (i : Fin n) (f : (Fin n → ℝ) → ℝ) (x : Fin n → ℝ) : ℝ :=
+  ∫ t, f (Function.update x i t) ∂stdGaussian
+
+/-- L² minimality of conditional expectation: `∫ (f - E[f|G])² ≤ ∫ (f - g)²`
+for any `G`-measurable `g ∈ L²`. Proved via orthogonality in L². -/
+private lemma integral_sq_sub_condExp_le_integral_sq_sub
+    {Ω : Type*} {m m0 : MeasurableSpace Ω} {μ : @Measure Ω m0}
+    [@IsProbabilityMeasure Ω m0 μ]
+    (hm : m ≤ m0) (f g : Ω → ℝ)
+    (hf : MemLp f 2 μ)
+    (hg_meas : StronglyMeasurable[m] g)
+    (hg_lp : MemLp g 2 μ) :
+    ∫ x, (f x - (μ[f | m]) x) ^ 2 ∂μ ≤ ∫ x, (f x - g x) ^ 2 ∂μ := by
+  set E_f := (μ[f | m]) with hEf_def
+  have hEf_lp : MemLp E_f 2 μ := hf.condExp
+  have hf_sub_Ef : MemLp (f - E_f) 2 μ := hf.sub hEf_lp
+  have hEf_sub_g : MemLp (E_f - g) 2 μ := hEf_lp.sub hg_lp
+  -- Key: ∫ (f - E_f) * (E_f - g) = 0 (orthogonality)
+  have hcross : ∫ x, (f x - E_f x) * (E_f x - g x) ∂μ = 0 := by
+    have hEf_g_meas : AEStronglyMeasurable[m] (E_f - g) μ :=
+      (stronglyMeasurable_condExp.sub hg_meas).aestronglyMeasurable
+    have h1 : ∫ x, (f x - E_f x) * (E_f x - g x) ∂μ =
+        ∫ x, f x * (E_f x - g x) ∂μ - ∫ x, E_f x * (E_f x - g x) ∂μ := by
+      have hint_a : Integrable (fun x => f x * (E_f x - g x)) μ :=
+        hf.integrable_mul hEf_sub_g (𝕜 := ℝ)
+      have hint_b : Integrable (fun x => E_f x * (E_f x - g x)) μ :=
+        hEf_lp.integrable_mul hEf_sub_g (𝕜 := ℝ)
+      have heq : ∀ x, (f x - E_f x) * (E_f x - g x) =
+          f x * (E_f x - g x) - E_f x * (E_f x - g x) := by intro x; ring
+      rw [show (fun x => (f x - E_f x) * (E_f x - g x)) =
+          fun x => f x * (E_f x - g x) - E_f x * (E_f x - g x)
+          from funext heq]
+      exact integral_sub hint_a hint_b
+    have h2 : ∫ x, f x * (E_f x - g x) ∂μ =
+        ∫ x, E_f x * (E_f x - g x) ∂μ := by
+      -- Pull-out: μ[f * h | m] =ᵐ μ[f|m] * h where h = E_f - g is m-measurable
+      set h := E_f - g
+      have hfh_int : Integrable (f * h) μ :=
+        (hf.integrable_mul hEf_sub_g (𝕜 := ℝ)).congr (ae_of_all _ fun x => rfl)
+      have hf_int : Integrable f μ := hf.integrable one_le_two
+      have hpull := condExp_mul_of_aestronglyMeasurable_right hEf_g_meas hfh_int hf_int
+      -- hpull : μ[f * h | m] =ᵐ μ[f|m] * h = E_f * h
+      -- Taking integrals of both sides:
+      -- ∫ μ[f*h|m] = ∫ f*h (tower property)
+      -- ∫ E_f*h = ∫ μ[f|m]*h (by definition)
+      have htower : ∫ x, (μ[f * h | m]) x ∂μ = ∫ x, (f * h) x ∂μ :=
+        integral_condExp hm
+      have hrhs : ∫ x, (μ[f * h | m]) x ∂μ = ∫ x, E_f x * h x ∂μ := by
+        apply integral_congr_ae
+        filter_upwards [hpull] with x hx
+        simp only [Pi.mul_apply] at hx
+        exact hx
+      -- Now: ∫ f*h = ∫ E_f*h
+      have hkey : ∫ x, (f * h) x ∂μ = ∫ x, E_f x * h x ∂μ := by
+        rw [← htower, hrhs]
+      -- Convert from f * h to f x * (E_f x - g x)
+      convert hkey using 1 <;> (congr 1; ext x; simp [h, Pi.mul_apply, Pi.sub_apply])
+    linarith [h1, h2]
+  -- ∫(f-g)² ≥ ∫(f-Ef)² via: (f-g) = (f-Ef) + (Ef-g), cross term = 0
+  -- Direct approach: ∫(f-g)² = ∫(f-Ef)² + ∫(Ef-g)² (Pythagorean)
+  have hfg_eq : ∀ x, (f x - g x) ^ 2 = (f x - E_f x) ^ 2 + (E_f x - g x) ^ 2 +
+      2 * ((f x - E_f x) * (E_f x - g x)) := by intro x; ring
+  have hfg_eq2 : ∀ x, (f x - g x) ^ 2 = ((f x - E_f x) ^ 2 + (E_f x - g x) ^ 2) +
+      2 * ((f x - E_f x) * (E_f x - g x)) := by intro x; ring
+  have hint1 : Integrable (fun x => (f x - E_f x) ^ 2 + (E_f x - g x) ^ 2) μ :=
+    hf_sub_Ef.integrable_sq.add hEf_sub_g.integrable_sq
+  have hint2 : Integrable (fun x => 2 * ((f x - E_f x) * (E_f x - g x))) μ :=
+    (hf_sub_Ef.integrable_mul hEf_sub_g (𝕜 := ℝ)).const_mul 2
+  have h_expand : ∫ x, (f x - g x) ^ 2 ∂μ =
+      (∫ x, (f x - E_f x) ^ 2 ∂μ + ∫ x, (E_f x - g x) ^ 2 ∂μ) +
+      2 * ∫ x, (f x - E_f x) * (E_f x - g x) ∂μ := by
+    calc ∫ x, (f x - g x) ^ 2 ∂μ
+        = ∫ x, ((f x - E_f x) ^ 2 + (E_f x - g x) ^ 2) +
+            2 * ((f x - E_f x) * (E_f x - g x)) ∂μ :=
+          integral_congr_ae (ae_of_all _ hfg_eq2)
+      _ = ∫ x, ((f x - E_f x) ^ 2 + (E_f x - g x) ^ 2) ∂μ +
+            ∫ x, 2 * ((f x - E_f x) * (E_f x - g x)) ∂μ :=
+          integral_add hint1 hint2
+      _ = (∫ x, (f x - E_f x) ^ 2 ∂μ + ∫ x, (E_f x - g x) ^ 2 ∂μ) +
+            2 * ∫ x, (f x - E_f x) * (E_f x - g x) ∂μ := by
+          congr 1
+          · exact integral_add hf_sub_Ef.integrable_sq hEf_sub_g.integrable_sq
+          · exact integral_const_mul 2 _
+  rw [h_expand, hcross, mul_zero, add_zero]
+  have : 0 ≤ ∫ x, (E_f x - g x) ^ 2 ∂μ := integral_nonneg (fun x => sq_nonneg _)
+  linarith
+
+/-- Variance of the 1D fiber is bounded by derivative L²-norm, for each fixed
+value of the other coordinates. This is `gaussian_poincare_1d_core` applied
+to `t ↦ f(update x i t)` with derivative `t ↦ gradf i (update x i t)`. -/
+private lemma fiber_variance_le_fiber_grad_sq
+    {n : ℕ} {f : (Fin n → ℝ) → ℝ} {gradf : Fin n → (Fin n → ℝ) → ℝ}
+    {i : Fin n} (x : Fin n → ℝ)
+    (hf_fiber : MemLp (fun t => f (Function.update x i t)) 2 stdGaussian)
+    (hg_fiber : MemLp (fun t => gradf i (Function.update x i t)) 2 stdGaussian)
+    (hderiv : ∀ t, HasDerivAt (fun s => f (Function.update x i s)) (gradf i (Function.update x i t)) t) :
+    ∫ t, (f (Function.update x i t) - ∫ s, f (Function.update x i s) ∂stdGaussian) ^ 2
+      ∂stdGaussian ≤
+    ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian := by
+  -- The LHS is Var_γ[φ] where φ(t) = f(update x i t)
+  -- Apply gaussian_poincare_1d_core
+  set φ := fun t => f (Function.update x i t)
+  set φ' := fun t => gradf i (Function.update x i t)
+  have hpoincare := gaussian_poincare_1d_core φ φ' hf_fiber hg_fiber (by
+    intro t
+    exact hderiv t)
+  -- hpoincare : Var[φ; stdGaussian] ≤ ∫ (φ')² dγ
+  -- Need to convert Var[φ; γ] to ∫ (φ - E[φ])² dγ
+  have hVar : Var[φ; stdGaussian] = ∫ t, (φ t - ∫ s, φ s ∂stdGaussian) ^ 2 ∂stdGaussian := by
+    rw [variance_eq_integral hf_fiber.aemeasurable]
+  linarith [hVar, hpoincare]
+
+/-- **Fiberwise Poincaré bound for conditional variance** (infrastructure sorry).
+
+For the standard Gaussian product measure `π = γ^n` on `Fin n → ℝ`, and coordinate `i`,
+the conditional variance of `f` given all other coordinates is bounded a.e. by the
+conditional expectation of `(∂ᵢf)²`:
+
+  `condVar[f; π | G_i] ≤ᵃ·ₑ π[(∂ᵢf)² | G_i]`
+
+where `G_i = sigmaAlgExcept i`.
+
+**Mathematical proof**: For a.e. `x`, both sides are `G_i`-measurable (depend only on
+`x_{-i}`). For fixed `x_{-i}`, define `φ(t) := f(update x i t)` and
+`φ'(t) := gradf i (update x i t)`. Then:
+- LHS(x) = `Var_γ[φ]` = `∫ (φ - ∫φ)² dγ`
+- RHS(x) = `∫ (φ')² dγ`
+
+By 1D Gaussian Poincaré (`gaussian_poincare_1d_core`): `LHS(x) ≤ RHS(x)`.
+
+**Infrastructure gap**: Connecting abstract `condVar`/`condExp` (Radon-Nikodym) to
+concrete fiber integrals over `Function.update x i ·`. Requires:
+- `condExp[g | sigmaAlgExcept i](x) = ∫ g(update x i t) dγ(t)` a.e.
+  for integrable `g` on Gaussian product space
+- This is Fubini/disintegration for `Measure.pi` single-coordinate marginalization,
+  currently absent from Mathlib's abstract conditional expectation interface. -/
+private lemma condVar_le_condExp_gradf_sq_ae
+    {n : ℕ} (f : (Fin n → ℝ) → ℝ)
+    (gradf : Fin n → (Fin n → ℝ) → ℝ)
+    (hf : MemLp f 2 (stdGaussianPi n))
+    (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n))
+    (hderiv : ∀ x i,
+      HasDerivAt (fun t => f (Function.update x i t))
+        (gradf i x) (x i))
+    (i : Fin n) :
+    Var[f; stdGaussianPi n |
+      sigmaAlgExcept (X := fun _ : Fin n => ℝ) i]
+      ≤ᵐ[stdGaussianPi n]
+    (stdGaussianPi n)[(fun x => (gradf i x) ^ 2) |
+      sigmaAlgExcept (X := fun _ : Fin n => ℝ) i] := by
+  sorry
+
+/-- **Per-coordinate Poincaré bound core**.
+
+For each coordinate `i`, `∫ (f - E[f|G_i])² dπ ≤ ∫ (∂ᵢf)² dπ`.
+
+Proof:
+1. Rewrite LHS as `E[condVar[f|G_i]]` via `efron_stein_term_eq_integral_condVar_exceptCoord`
+2. Apply `condVar ≤ᵃ·ₑ condExp[(∂ᵢf)²|G_i]` (see `condVar_le_condExp_gradf_sq_ae`)
+3. Integrate both sides via `integral_mono_ae`
+4. Simplify RHS via tower law: `∫ E[(∂ᵢf)²|G_i] = ∫ (∂ᵢf)²` (`integral_condExp`) -/
 theorem gaussian_poincare_coord_bound_core
     (n : ℕ) (f : (Fin n → ℝ) → ℝ)
     (gradf : Fin n → (Fin n → ℝ) → ℝ)
     (hf : MemLp f 2 (stdGaussianPi n))
     (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n))
-    (hderiv : ∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i)) :
+    (hderiv : ∀ x i,
+      HasDerivAt (fun t => f (Function.update x i t))
+        (gradf i x) (x i)) :
     ∀ i : Fin n,
-      ∫ x, (f x - condExpExceptCoord (fun _ : Fin n => stdGaussian) i f x) ^ 2
+      ∫ x, (f x - condExpExceptCoord
+        (fun _ : Fin n => stdGaussian) i f x) ^ 2
         ∂(stdGaussianPi n)
         ≤
       ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
-  sorry
+  intro i
+  haveI : IsFiniteMeasure (stdGaussianPi n) := by
+    unfold stdGaussianPi; infer_instance
+  have hm : sigmaAlgExcept (X := fun _ : Fin n => ℝ) i ≤
+      (inferInstance : MeasurableSpace (Fin n → ℝ)) :=
+    sigmaAlgExcept_le _
+  -- Step 1: Rewrite LHS as E[condVar[f|G_i]]
+  have hstep1 := efron_stein_term_eq_integral_condVar_exceptCoord
+    (μ := fun _ : Fin n => stdGaussian) i f hf
+  simp only [stdGaussianPi] at hstep1 ⊢
+  rw [hstep1]
+  -- Step 2: a.e. bound condVar ≤ condExp[(gradf i)²|G_i]
+  have hbound := condVar_le_condExp_gradf_sq_ae f gradf hf hgradf hderiv i
+  simp only [stdGaussianPi] at hbound
+  -- Step 3: Integrate + tower law
+  calc ∫ x, (Var[f; Measure.pi fun _ : Fin n => stdGaussian |
+        sigmaAlgExcept (X := fun _ : Fin n => ℝ) i]) x
+        ∂(Measure.pi fun _ : Fin n => stdGaussian)
+      ≤ ∫ x, ((Measure.pi fun _ : Fin n => stdGaussian)[
+        (fun x => (gradf i x) ^ 2) |
+        sigmaAlgExcept (X := fun _ : Fin n => ℝ) i]) x
+        ∂(Measure.pi fun _ : Fin n => stdGaussian) :=
+        integral_mono_ae integrable_condExp integrable_condExp hbound
+    _ = ∫ x, (gradf i x) ^ 2
+        ∂(Measure.pi fun _ : Fin n => stdGaussian) :=
+        integral_condExp hm
 
 /-- **Multi-dimensional Gaussian Poincaré inequality** (Corollary 3.2). -/
 theorem gaussian_poincare
