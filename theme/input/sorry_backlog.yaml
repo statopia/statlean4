@@ -1,6 +1,6 @@
-version: v2
-generated: 2026-02-27
-total_sorry: 9
+version: v3
+generated: 2026-02-28
+total_sorry: 10
 
 # Each entry is an independent sorry that can be attacked with `/prove`
 # Priority: lower number = attack first (leaf nodes, highest ROI)
@@ -10,7 +10,20 @@ sorry_items:
 
 # === USLLN — FULLY PROVED (removed from backlog) ===
 # uniform_slln: proved 2026-02-27
-# Key: oscEnvelope + DCT + SLLN + ε/3 triangle inequality
+
+# === Hermite (1 remaining) ===
+- id: hermite.memLp_f_mul_poly
+  file: Statlean/Gaussian/Hermite.lean
+  line: 324
+  theorem: memLp_f_mul_poly_gaussian
+  type: honest
+  depth: 2
+  priority: 12
+  blocker: "f·poly ∈ L²(γ) needs hypercontractivity or direct estimate"
+  estimated_lines: 60
+  dependencies: []
+  unlocks: []
+  note: "Not blocking Poincaré (alternative route via hermite_span_dense_L2 used)"
 
 # === Efron-Stein (2) ===
 - id: efron_stein.condvar
@@ -36,28 +49,29 @@ sorry_items:
   dependencies: [efron_stein.condvar]
   unlocks: []
 
-# === Gaussian Poincaré (2) — CRITICAL PATH ===
-- id: poincare.1d_core
+# === Gaussian Poincaré (2) — 1D core 90% proved ===
+- id: poincare.parseval_tail
   file: Statlean/Gaussian/Poincare.lean
-  line: 93
-  theorem: gaussian_poincare_1d_core
+  line: 258
+  theorem: hermite_parseval_tail
   type: honest
-  depth: 3
+  depth: 1
   priority: 1
-  blocker: "Hermite completeness / Parseval identity in L²(γ)"
-  estimated_lines: 120
+  blocker: "Parseval tail from hermite_span_dense_L2 density"
+  estimated_lines: 40
   dependencies: []
-  unlocks: [poincare.coord_bound, lsi.1d_core]
+  unlocks: [poincare.1d_core]
+  note: "Once proved, gaussian_poincare_1d_core becomes zero-sorry"
 
 - id: poincare.coord_bound
   file: Statlean/Gaussian/Poincare.lean
-  line: 115
+  line: 364
   theorem: gaussian_poincare_coord_bound_core
   type: blocked
   depth: 2
   priority: 7
-  blocker: "depends on poincare.1d_core"
-  dependencies: [poincare.1d_core]
+  blocker: "Fubini + 1D Poincaré (blocked by parseval_tail)"
+  dependencies: [poincare.parseval_tail]
   unlocks: []
 
 # === Log-Sobolev (2) ===
@@ -65,12 +79,14 @@ sorry_items:
   file: Statlean/Entropy/LogSobolev.lean
   line: 102
   theorem: gaussian_lsi_1d_core
-  type: blocked
+  type: honest
   depth: 3
-  priority: 8
-  blocker: "depends on poincare.1d_core"
-  dependencies: [poincare.1d_core]
+  priority: 2
+  blocker: "Rothaus-Simon or direct IBP"
+  estimated_lines: 100
+  dependencies: []
   unlocks: [lipschitz.subgaussian_mgf]
+  note: "Does NOT depend on Poincaré (independent route via Herbst or direct)"
 
 - id: lsi.tensorization
   file: Statlean/Entropy/LogSobolev.lean
@@ -79,7 +95,7 @@ sorry_items:
   type: honest
   depth: 3
   priority: 4
-  blocker: "product entropy decomposition"
+  blocker: "product entropy decomposition + conditional entropy Fubini"
   estimated_lines: 80
   dependencies: []
   unlocks: [lipschitz.subgaussian_mgf]
