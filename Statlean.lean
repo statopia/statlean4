@@ -24,7 +24,6 @@ import Statlean.CharFun.Taylor
 
 -- Limit theorems
 import Statlean.LimitTheorems.BerryEsseen
-import Statlean.LimitTheorems.USLLNProved
 import Statlean.LimitTheorems.USLLN
 
 -- Phase 2: Empirical Process Theory
