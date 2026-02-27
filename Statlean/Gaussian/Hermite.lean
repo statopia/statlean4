@@ -250,7 +250,41 @@ theorem hermite_recurrence_norm (n : ℕ) (x : ℝ) :
     x * hermiteNorm n x =
     Real.sqrt (↑(n + 1)) * hermiteNorm (n + 1) x +
     Real.sqrt (↑n) * hermiteNorm (n - 1) x := by
-  sorry
+  match n with
+  | 0 =>
+    -- n - 1 = 0 in ℕ, √0 = 0, so last term vanishes; reduces to x * H₀/1 = √1 * H₁/1
+    simp [hermiteNorm, hermiteEval, Polynomial.hermite_zero, Nat.factorial, Real.sqrt_zero]
+  | m + 1 =>
+    simp only [Nat.add_sub_cancel, hermiteNorm_eq]
+    -- Key recurrence: x * H_{m+1}(x) = H_{m+2}(x) + (m+1) * H_m(x)
+    -- From hermite_succ: H_{m+2} = X * H_{m+1} - H'_{m+1}, i.e. x * H_{m+1} = H_{m+2} + H'_{m+1}
+    -- From derivative_hermite: H'_{m+1} = (m+1) * H_m
+    have hrec : x * hermiteEval (m + 1) x =
+        hermiteEval (m + 2) x + (↑(m + 1) : ℝ) * hermiteEval m x := by
+      have hstep1 : x * hermiteEval (m + 1) x = hermiteEval (m + 2) x +
+          Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite (m + 1))) := by
+        simp only [hermiteEval, Polynomial.hermite_succ, map_sub, Polynomial.aeval_mul,
+          Polynomial.aeval_X]
+        ring
+      simp only [hstep1, Polynomial.derivative_hermite, map_mul, map_natCast]
+    -- Factorial sqrt splitting: √((n+1)!) = √(n+1) * √(n!)
+    have h1 : Real.sqrt (↑(m + 2).factorial) =
+        Real.sqrt ↑(m + 2) * Real.sqrt ↑(m + 1).factorial := by
+      rw [Nat.factorial_succ, Nat.cast_mul, Real.sqrt_mul (Nat.cast_nonneg _)]
+    have h2 : Real.sqrt (↑(m + 1).factorial) = Real.sqrt ↑(m + 1) * Real.sqrt ↑m.factorial := by
+      rw [Nat.factorial_succ, Nat.cast_mul, Real.sqrt_mul (Nat.cast_nonneg _)]
+    have hsq1_sq : Real.sqrt (↑(m + 1)) ^ 2 = (↑(m + 1) : ℝ) :=
+      Real.sq_sqrt (Nat.cast_nonneg _)
+    -- Rewrite n + 1 + 1 to m + 2 so patterns match
+    rw [show (m + 1 + 1) = m + 2 from rfl]
+    -- Pull multiplication inside the division
+    rw [show x * (hermiteEval (m + 1) x / Real.sqrt (↑(m + 1).factorial)) =
+        (x * hermiteEval (m + 1) x) / Real.sqrt (↑(m + 1).factorial) from by ring]
+    -- Substitute the recurrence and factorial splits, then close by algebra
+    rw [hrec, h1, h2]
+    field_simp
+    rw [hsq1_sq]
+    push_cast; ring
 
 /-- f·p is integrable (L¹) under Gaussian when f ∈ L²(γ) and p is a polynomial.
 Uses Hölder: L² · L² → L¹. -/
