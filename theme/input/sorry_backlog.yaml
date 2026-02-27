@@ -1,6 +1,6 @@
-version: v3
+version: v4
 generated: 2026-02-28
-total_sorry: 10
+total_sorry: 12
 
 # Each entry is an independent sorry that can be attacked with `/prove`
 # Priority: lower number = attack first (leaf nodes, highest ROI)
@@ -9,7 +9,7 @@ total_sorry: 10
 sorry_items:
 
 # === USLLN — FULLY PROVED (removed from backlog) ===
-# uniform_slln: proved 2026-02-27
+# === Poincaré 1D — FULLY PROVED (hermite_parseval proved via HilbertBasis) ===
 
 # === Hermite (1 remaining) ===
 - id: hermite.memLp_f_mul_poly
@@ -23,7 +23,7 @@ sorry_items:
   estimated_lines: 60
   dependencies: []
   unlocks: []
-  note: "Not blocking Poincaré (alternative route via hermite_span_dense_L2 used)"
+  note: "Not blocking Poincaré (alternative route via HilbertBasis used)"
 
 # === Efron-Stein (2) ===
 - id: efron_stein.condvar
@@ -34,7 +34,7 @@ sorry_items:
   depth: 2
   priority: 5
   blocker: "product-measure Fubini for condExp (NOT in Mathlib)"
-  estimated_lines: 80
+  estimated_lines: 200
   dependencies: []
   unlocks: [efron_stein.core_gen]
 
@@ -49,48 +49,47 @@ sorry_items:
   dependencies: [efron_stein.condvar]
   unlocks: []
 
-# === Gaussian Poincaré (2) — 1D core 90% proved ===
-- id: poincare.parseval_tail
-  file: Statlean/Gaussian/Poincare.lean
-  line: 258
-  theorem: hermite_parseval_tail
-  type: honest
-  depth: 1
-  priority: 1
-  blocker: "Parseval tail from hermite_span_dense_L2 density"
-  estimated_lines: 40
-  dependencies: []
-  unlocks: [poincare.1d_core]
-  note: "Once proved, gaussian_poincare_1d_core becomes zero-sorry"
-
+# === Gaussian Poincaré (1 remaining) ===
 - id: poincare.coord_bound
   file: Statlean/Gaussian/Poincare.lean
-  line: 364
+  line: 481
   theorem: gaussian_poincare_coord_bound_core
-  type: blocked
+  type: honest
   depth: 2
   priority: 7
-  blocker: "Fubini + 1D Poincaré (blocked by parseval_tail)"
-  dependencies: [poincare.parseval_tail]
+  blocker: "Fubini + 1D Poincaré (1D core now proved)"
+  estimated_lines: 100
+  dependencies: []
   unlocks: []
 
-# === Log-Sobolev (2) ===
-- id: lsi.1d_core
+# === Log-Sobolev (3) ===
+- id: lsi.integrable_sq_log
   file: Statlean/Entropy/LogSobolev.lean
-  line: 102
-  theorem: gaussian_lsi_1d_core
+  line: 209
+  theorem: integrable_sq_mul_log_sq_of_memLp
+  type: honest
+  depth: 2
+  priority: 3
+  blocker: "f²·log(f²) ∈ L¹(γ) — needs Gaussian hypercontractivity or Sobolev embedding"
+  estimated_lines: 80
+  dependencies: []
+  unlocks: [lsi.normalized]
+
+- id: lsi.normalized
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 241
+  theorem: gaussian_lsi_normalized
   type: honest
   depth: 3
   priority: 2
-  blocker: "Rothaus-Simon or direct IBP"
-  estimated_lines: 100
-  dependencies: []
+  blocker: "Gross's regularized Stein IBP (mathematical core)"
+  estimated_lines: 120
+  dependencies: [lsi.integrable_sq_log]
   unlocks: [lipschitz.subgaussian_mgf]
-  note: "Does NOT depend on Poincaré (independent route via Herbst or direct)"
 
 - id: lsi.tensorization
   file: Statlean/Entropy/LogSobolev.lean
-  line: 108
+  line: 474
   theorem: tensorization_lsi_core
   type: honest
   depth: 3
@@ -108,30 +107,54 @@ sorry_items:
   type: blocked
   depth: 2
   priority: 9
-  blocker: "depends on lsi.1d_core + lsi.tensorization"
-  dependencies: [lsi.1d_core, lsi.tensorization]
+  blocker: "depends on lsi.normalized + lsi.tensorization"
+  dependencies: [lsi.normalized, lsi.tensorization]
   unlocks: []
 
-# === Berry-Esseen (2) ===
-- id: berry_esseen.smoothing
+# === Berry-Esseen (4 = 3 sub-lemmas + 1 top-level) ===
+- id: berry_esseen.kernel
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 28
-  theorem: berry_esseen_smoothing
+  line: 71
+  theorem: smoothing_kernel_exists
+  type: honest
+  depth: 2
+  priority: 8
+  blocker: "Triangle/Fejér kernel construction"
+  estimated_lines: 40
+  dependencies: []
+  unlocks: [berry_esseen.smoothing]
+
+- id: berry_esseen.cdf_bound
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 97
+  theorem: cdf_smoothing_bound
+  type: honest
+  depth: 2
+  priority: 10
+  blocker: "CDF monotonicity + kernel support"
+  estimated_lines: 50
+  dependencies: []
+  unlocks: [berry_esseen.smoothing]
+
+- id: berry_esseen.fourier
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 121
+  theorem: smoothed_cdf_fourier_bound
   type: honest
   depth: 3
-  priority: 3
-  blocker: "Esseen smoothing inequality (mollifier + Fourier inversion)"
+  priority: 11
+  blocker: "Stieltjes inversion + Fubini"
   estimated_lines: 100
   dependencies: []
-  unlocks: [berry_esseen.theorem]
+  unlocks: [berry_esseen.smoothing]
 
 - id: berry_esseen.theorem
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 49
+  line: 195
   theorem: berry_esseen_theorem
   type: blocked
   depth: 1
-  priority: 10
-  blocker: "depends on berry_esseen.smoothing"
-  dependencies: [berry_esseen.smoothing]
+  priority: 13
+  blocker: "depends on berry_esseen.smoothing (assembly proof done)"
+  dependencies: [berry_esseen.kernel, berry_esseen.cdf_bound, berry_esseen.fourier]
   unlocks: []
