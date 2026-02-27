@@ -1,4 +1,5 @@
 import Statlean.Variance.EfronStein
+import Statlean.Gaussian.Hermite
 
 /-! # Gaussian Poincaré Inequality
 
@@ -8,7 +9,7 @@ import Statlean.Variance.EfronStein
 - `gaussian_poincare_of_condVar_sum` — via conditional variance sum
 
 ## Sorry gaps
-- `gaussian_poincare_1d_core` — needs Hermite completeness (Parseval)
+- `gaussian_poincare_1d_core` — needs Hermite coefficient relation + Parseval
 - `gaussian_poincare_coord_bound_core` — needs Fubini + 1D Poincaré
 -/
 

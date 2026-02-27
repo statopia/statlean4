@@ -1,6 +1,6 @@
-version: v1
+version: v2
 generated: 2026-02-27
-total_sorry: 10
+total_sorry: 9
 
 # Each entry is an independent sorry that can be attacked with `/prove`
 # Priority: lower number = attack first (leaf nodes, highest ROI)
@@ -8,35 +8,9 @@ total_sorry: 10
 
 sorry_items:
 
-# === USLLN (NEW) ===
-- id: uslln.uniform_slln
-  file: Statlean/LimitTheorems/USLLN.lean
-  line: 132
-  theorem: uniform_slln
-  type: honest
-  depth: 3
-  priority: 2
-  blocker: "compactness → finite ε-net → SLLN at net points → triangle inequality"
-  estimated_lines: 100
-  sub_lemmas_needed:
-    - name: sampleAvg_continuous
-      difficulty: leaf
-      lines: 5
-      description: "finite sum of continuous functions is continuous"
-    - name: popMean_continuous
-      difficulty: intermediate
-      lines: 15
-      description: "DCT + domination → continuity of population mean"
-    - name: finite_eps_net
-      difficulty: intermediate
-      lines: 20
-      description: "compact space → finite ε-net from open cover"
-    - name: uniform_from_pointwise_compact
-      difficulty: hard
-      lines: 40
-      description: "ε/3 assembly: pointwise + compact + continuous → uniform"
-  dependencies: []
-  unlocks: []
+# === USLLN — FULLY PROVED (removed from backlog) ===
+# uniform_slln: proved 2026-02-27
+# Key: oscEnvelope + DCT + SLLN + ε/3 triangle inequality
 
 # === Efron-Stein (2) ===
 - id: efron_stein.condvar

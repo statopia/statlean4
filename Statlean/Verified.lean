@@ -4,7 +4,8 @@ import Statlean.Basic
 -- Gaussian infrastructure (verified)
 import Statlean.Gaussian.Basic
 import Statlean.Gaussian.Stein
-import Statlean.Gaussian.Hermite
+-- Note: Hermite.lean has 4 sorry gaps (recurrence, memLp, density, span)
+-- Proved declarations (derivative_hermite, orthogonality) still usable but not imported here
 import Statlean.Gaussian.Sobolev
 
 -- Variance (verified)
@@ -18,8 +19,8 @@ import Statlean.Entropy.Basic
 -- Characteristic function Taylor bounds (verified)
 import Statlean.CharFun.Taylor
 
--- USLLN proved helpers (verified)
-import Statlean.LimitTheorems.USLLNProved
+-- USLLN (fully verified — uniform SLLN + all infrastructure)
+import Statlean.LimitTheorems.USLLN
 
 /-! # Statlean Verified Library
 
@@ -41,5 +42,5 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Variance/EfronStein**: Efron-Stein clean core (sigma-algebras, ANOVA, condVar)
 - **Entropy/Basic**: Entropy definitions, LSI interfaces
 - **CharFun/Taylor**: Charfun chain, Taylor bounds, Lyapunov (Berry-Esseen chain)
-- **LimitTheorems/USLLNProved**: USLLN helpers (pointwise SLLN, continuity, integrability)
+- **LimitTheorems/USLLN**: Uniform Strong Law of Large Numbers (full theorem + infrastructure)
 -/

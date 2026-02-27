@@ -212,4 +212,189 @@ theorem hermite_orthogonality (m n : ℕ) :
       · have hneq : m - 1 ≠ n' := by omega
         simp [hneq, heq]
 
+/-! ## Normalized Hermite functions and IBP coefficient relation -/
+
+/-- Normalized Hermite function: `eₙ(x) = Hₙ(x) / √(n!)`.
+These form an orthonormal system in L²(γ). -/
+noncomputable def hermiteNorm (n : ℕ) (x : ℝ) : ℝ :=
+  hermiteEval n x / Real.sqrt (n.factorial : ℝ)
+
+lemma hermiteNorm_eq (n : ℕ) (x : ℝ) :
+    hermiteNorm n x = hermiteEval n x / Real.sqrt (n.factorial : ℝ) := rfl
+
+/-- Inner product of normalized Hermite functions = Kronecker delta. -/
+theorem hermiteNorm_inner (m n : ℕ) :
+    ∫ x, hermiteNorm m x * hermiteNorm n x ∂stdGaussian = if m = n then 1 else 0 := by
+  simp only [hermiteNorm]
+  have hsqrt_m : Real.sqrt (↑m.factorial) ≠ 0 := Real.sqrt_ne_zero'.mpr (by positivity)
+  have hsqrt_n : Real.sqrt (↑n.factorial) ≠ 0 := Real.sqrt_ne_zero'.mpr (by positivity)
+  have heq : (fun x => hermiteEval m x / Real.sqrt ↑m.factorial *
+      (hermiteEval n x / Real.sqrt ↑n.factorial)) =
+      (fun x => hermiteEval m x * hermiteEval n x /
+        (Real.sqrt ↑m.factorial * Real.sqrt ↑n.factorial)) := by
+    ext x; field_simp
+  rw [heq, show (fun x => hermiteEval m x * hermiteEval n x /
+      (Real.sqrt ↑m.factorial * Real.sqrt ↑n.factorial)) =
+      (fun x => (1 / (Real.sqrt ↑m.factorial * Real.sqrt ↑n.factorial)) *
+        (hermiteEval m x * hermiteEval n x)) from by ext x; ring]
+  rw [integral_const_mul, hermite_orthogonality]
+  split_ifs with h
+  · subst h
+    field_simp
+    rw [Real.sq_sqrt (Nat.cast_nonneg (α := ℝ) _)]
+  · simp
+
+/-- The three-term recurrence for normalized Hermite:
+`x · eₙ(x) = √(n+1) · e_{n+1}(x) + √n · e_{n-1}(x)`. -/
+theorem hermite_recurrence_norm (n : ℕ) (x : ℝ) :
+    x * hermiteNorm n x =
+    Real.sqrt (↑(n + 1)) * hermiteNorm (n + 1) x +
+    Real.sqrt (↑n) * hermiteNorm (n - 1) x := by
+  sorry
+
+/-- f·p is integrable (L¹) under Gaussian when f ∈ L²(γ) and p is a polynomial.
+Uses Hölder: L² · L² → L¹. -/
+lemma integrable_f_mul_poly_gaussian {f : ℝ → ℝ} (p : ℤ[X])
+    (hf : MemLp f 2 stdGaussian) :
+    Integrable (fun x => f x * Polynomial.aeval x p) stdGaussian := by
+  have hp : MemLp (fun x => Polynomial.aeval x p) 2 stdGaussian :=
+    memLp_aeval_intPolynomial_gaussianReal p 2 (by norm_num)
+  have h := hf.integrable_mul hp (𝕜 := ℝ)
+  exact h.congr (Filter.Eventually.of_forall fun x => by simp)
+
+/-- f·Hₖ is integrable under Gaussian when f ∈ L²(γ). -/
+lemma integrable_f_mul_hermiteEval (k : ℕ) {f : ℝ → ℝ} (hf : MemLp f 2 stdGaussian) :
+    Integrable (fun x => f x * hermiteEval k x) stdGaussian :=
+  integrable_f_mul_poly_gaussian _ hf
+
+/-- f·p ∈ L²(γ) when f ∈ L²(γ) and p is a polynomial (Gaussian-specific).
+Under Gaussian measure, the super-exponential tail decay compensates polynomial growth.
+
+Sorry gap: needs either Gaussian hypercontractivity or a density argument
+(approximate f by smooth compactly supported, which are in all Lᵖ). -/
+lemma memLp_f_mul_poly_gaussian {f : ℝ → ℝ} (p : ℤ[X])
+    (hf : MemLp f 2 stdGaussian) :
+    MemLp (fun x => f x * Polynomial.aeval x p) 2 stdGaussian := by
+  sorry
+
+/-- **Hermite coefficient of derivative** (unnormalized):
+`∫ f'·Hₖ dγ = ∫ f·H_{k+1} dγ`.
+
+Proof sketch: Apply Stein to h = f·Hₖ, h' = f'·Hₖ + f·H'ₖ.
+Stein: ∫ x·(f·Hₖ) dγ = ∫ (f'·Hₖ + f·H'ₖ) dγ.
+Recurrence: x·Hₖ = H_{k+1} + H'ₖ gives ∫ f·(x·Hₖ) = ∫ f·H_{k+1} + ∫ f·H'ₖ.
+Cancel ∫ f·H'ₖ from both sides.
+Depends on `memLp_f_mul_poly_gaussian` (sorry). -/
+theorem integral_deriv_mul_hermiteEval
+    (f f' : ℝ → ℝ) (k : ℕ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x) :
+    ∫ x, f' x * hermiteEval k x ∂stdGaussian =
+    ∫ x, f x * hermiteEval (k + 1) x ∂stdGaussian := by
+  -- L² membership for products (via sorry gap memLp_f_mul_poly_gaussian)
+  have hfHk_L2 : MemLp (fun x => f x * hermiteEval k x) 2 stdGaussian :=
+    memLp_f_mul_poly_gaussian _ hf
+  have hfHk_deriv_L2 : MemLp (fun x => f' x * hermiteEval k x +
+      f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k)))
+      2 stdGaussian :=
+    (memLp_f_mul_poly_gaussian _ hf').add (memLp_f_mul_poly_gaussian _ hf)
+  -- Apply Stein to h = f·Hₖ
+  have hstein := stein_identity
+    (fun x => f x * hermiteEval k x)
+    (fun x => f' x * hermiteEval k x +
+     f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k)))
+    hfHk_L2 hfHk_deriv_L2
+    (fun x => (hderiv x).mul (hasDerivAt_hermiteEval k x))
+  -- hstein: ∫ x·(f·Hₖ) = ∫ (f'·Hₖ + f·H'ₖ)
+  -- Rearrange LHS: ∫ x·(f·Hₖ) = ∫ f·(x·Hₖ)
+  have hrearrange : ∫ x, x * (f x * hermiteEval k x) ∂stdGaussian =
+      ∫ x, f x * (x * hermiteEval k x) ∂stdGaussian := by
+    congr 1; ext x; ring
+  -- Recurrence: x·Hₖ(x) = H_{k+1}(x) + H'ₖ(x)
+  have hrecurrence : ∀ x : ℝ,
+      x * hermiteEval k x = hermiteEval (k + 1) x +
+        Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k)) := by
+    intro x
+    simp only [hermiteEval, Polynomial.hermite_succ, map_sub, Polynomial.aeval_mul,
+      Polynomial.aeval_X]
+    ring
+  -- Substitute recurrence into LHS
+  have hLHS : ∫ x, f x * (x * hermiteEval k x) ∂stdGaussian =
+      ∫ x, f x * hermiteEval (k + 1) x ∂stdGaussian +
+      ∫ x, f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k))
+        ∂stdGaussian := by
+    have heq : (fun x => f x * (x * hermiteEval k x)) =
+        (fun x => f x * hermiteEval (k + 1) x +
+         f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k))) := by
+      ext x; rw [hrecurrence x, mul_add]
+    rw [heq]
+    exact integral_add (integrable_f_mul_hermiteEval (k + 1) hf)
+      (integrable_f_mul_poly_gaussian _ hf)
+  -- Expand RHS: ∫ (f'·Hₖ + f·H'ₖ) = ∫ f'·Hₖ + ∫ f·H'ₖ
+  have hRHS : ∫ x, (f' x * hermiteEval k x +
+      f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k)))
+      ∂stdGaussian =
+      ∫ x, f' x * hermiteEval k x ∂stdGaussian +
+      ∫ x, f x * Polynomial.aeval x (Polynomial.derivative (Polynomial.hermite k))
+        ∂stdGaussian := by
+    exact integral_add (integrable_f_mul_hermiteEval k hf')
+      (integrable_f_mul_poly_gaussian _ hf)
+  -- Chain: LHS = ∫ f·H_{k+1} + ∫ f·H'ₖ = ∫ x·(f·Hₖ) = ∫ (f'·Hₖ + f·H'ₖ) = ∫ f'·Hₖ + ∫ f·H'ₖ
+  -- Cancel ∫ f·H'ₖ
+  linarith [hrearrange, hstein, hLHS, hRHS]
+
+/-- **Hermite coefficient of derivative** (normalized):
+`∫ f'·eₖ dγ = √(k+1) · ∫ f·e_{k+1} dγ`. -/
+theorem integral_deriv_mul_hermiteNorm
+    (f f' : ℝ → ℝ) (k : ℕ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x) :
+    ∫ x, f' x * hermiteNorm k x ∂stdGaussian =
+    Real.sqrt (↑(k + 1)) * ∫ x, f x * hermiteNorm (k + 1) x ∂stdGaussian := by
+  -- Unfold normalization and use the unnormalized version
+  simp only [hermiteNorm]
+  rw [show (fun x => f' x * (hermiteEval k x / Real.sqrt ↑k.factorial)) =
+      (fun x => (1 / Real.sqrt ↑k.factorial) * (f' x * hermiteEval k x)) from by
+    ext x; ring]
+  rw [show (fun x => f x * (hermiteEval (k + 1) x / Real.sqrt ↑(k + 1).factorial)) =
+      (fun x => (1 / Real.sqrt ↑(k + 1).factorial) * (f x * hermiteEval (k + 1) x)) from by
+    ext x; ring]
+  rw [integral_const_mul, integral_const_mul]
+  rw [integral_deriv_mul_hermiteEval f f' k hf hf' hderiv]
+  -- Now: (1/√(k!)) · ∫f·H_{k+1} = √(k+1) · (1/√((k+1)!)) · ∫f·H_{k+1}
+  -- i.e., 1/√(k!) = √(k+1)/√((k+1)!)
+  have hsqrt_fact : Real.sqrt ↑(k + 1).factorial =
+      Real.sqrt ↑(k + 1) * Real.sqrt ↑k.factorial := by
+    rw [Nat.factorial_succ, Nat.cast_mul, Real.sqrt_mul (Nat.cast_nonneg _)]
+  rw [hsqrt_fact]
+  have hsk : Real.sqrt ↑k.factorial ≠ 0 := Real.sqrt_ne_zero'.mpr (by positivity)
+  have hsk1 : Real.sqrt ↑(k + 1) ≠ 0 := Real.sqrt_ne_zero'.mpr (by positivity)
+  field_simp
+
+/-! ## Polynomial density in L²(γ) -/
+
+/-- Polynomials are dense in L²(stdGaussian): if g ∈ L²(γ) satisfies
+∫ p·g dγ = 0 for every polynomial p, then g = 0 a.e.
+
+Proof sketch: The function F(t) = E_γ[e^{tX}·g(X)] is entire and
+F(t) = Σ tⁿ/n! · E[Xⁿg] = 0. So the Fourier transform of g·φ vanishes,
+giving g = 0 a.e. by Fourier injectivity. -/
+theorem polynomial_dense_L2_gaussian
+    (g : ℝ → ℝ) (hg : MemLp g 2 stdGaussian)
+    (hg_orth : ∀ n : ℕ, ∫ x, (x ^ n) * g x ∂stdGaussian = 0) :
+    g =ᵐ[stdGaussian] 0 := by
+  sorry
+
+/-- Hermite polynomials span is dense in L²(γ): if g ∈ L²(γ) satisfies
+∫ Hₙ·g dγ = 0 for all n, then g = 0 a.e. -/
+theorem hermite_span_dense_L2
+    (g : ℝ → ℝ) (hg : MemLp g 2 stdGaussian)
+    (hg_orth : ∀ n : ℕ, ∫ x, hermiteEval n x * g x ∂stdGaussian = 0) :
+    g =ᵐ[stdGaussian] 0 := by
+  -- Hermite polynomials span all polynomials, so ∫ p·g = 0 for all p.
+  -- Apply polynomial_dense_L2_gaussian.
+  sorry
+
 end
