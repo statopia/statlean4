@@ -20,19 +20,13 @@ lemma integral_sub_const_sq_eq (X : Ω → ℝ) (c : ℝ) [IsProbabilityMeasure 
     (hX : MemLp X 2 μ) :
     ∫ ω, (X ω - c) ^ 2 ∂μ = Var[X; μ] + (∫ ω, X ω ∂μ - c) ^ 2 := by
   have hXi : Integrable X μ := hX.integrable one_le_two
-  -- Var[X - c] = E[(X-c)²] - (E[X-c])²  (variance_eq_sub)
-  -- So: E[(X-c)²] = Var[X-c] + (E[X-c])²
   have hXc : MemLp (fun ω => X ω - c) 2 μ := hX.sub (memLp_const c)
   have h1 := variance_eq_sub hXc
   simp only [Pi.pow_apply] at h1
-  -- h1 : Var[fun ω => X ω - c; μ] = ∫ (X ω - c)² - (∫ (X ω - c))²
-  -- Var[X-c] = Var[X]
   have h2 := variance_sub_const hX.aestronglyMeasurable c
-  -- E[X-c] = E[X] - c
   have h3 : ∫ ω, (X ω - c) ∂μ = ∫ ω, X ω ∂μ - c := by
     rw [integral_sub hXi (integrable_const c), integral_const]
     simp [Measure.real]
-  -- Combine: E[(X-c)²] = Var[X-c] + (E[X-c])² = Var[X] + (E[X] - c)²
   have h4 : ∫ ω, (X ω - c) ^ 2 ∂μ = Var[fun ω => X ω - c; μ] +
       (∫ ω, (X ω - c) ∂μ) ^ 2 := by linarith
   rw [h4, h2, h3]
@@ -272,8 +266,7 @@ theorem condVar_integral_eq_zero_of_measurable
     μ[Var[Y; μ | G]] = 0 :=
   condVar_integral_eq_zero_of_stronglyMeasurable (μ := μ) G hG Y hY hYm.stronglyMeasurable
 
-/-- Equality in MSE reduction is equivalent to equality in variance reduction:
-both are equivalent to vanishing integrated conditional variance. -/
+/-- Equality in MSE reduction is equivalent to equality in variance reduction. -/
 theorem rb_mse_reduction_eq_iff_variance_reduction_eq
     (G : MeasurableSpace Ω) (hG : G ≤ m₀)
     (Y : Ω → ℝ) (θ : ℝ)

@@ -1,6 +1,6 @@
 import Statlean.Regression.Basic
 import Statlean.EmpiricalProcess.Dudley
-import Statlean.Concentration.GaussianLipschitz
+import Statlean.Gaussian.Basic
 
 /-! # Master Error Bound (Theorem 4.1) and Capacity Control (Theorem 4.2)
 

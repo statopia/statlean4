@@ -1,18 +1,29 @@
 import Statlean.Basic
-import Statlean.RaoBlackwell_MSE
 
--- Phase 1: Concentration Inequalities
-import Statlean.Concentration.Basic
-import Statlean.Concentration.EfronSteinProved
-import Statlean.Concentration.EfronStein
-import Statlean.Concentration.GaussianPoincareProved
-import Statlean.Concentration.GaussianPoincare
-import Statlean.Concentration.Density
-import Statlean.Concentration.LogSobolevProved
-import Statlean.Concentration.LogSobolev
-import Statlean.Concentration.GaussianLipschitzProved
-import Statlean.Concentration.GaussianLipschitz
-import Statlean.Concentration.BerryEsseen
+-- Gaussian infrastructure
+import Statlean.Gaussian.Basic
+import Statlean.Gaussian.Stein
+import Statlean.Gaussian.Hermite
+import Statlean.Gaussian.Poincare
+import Statlean.Gaussian.Sobolev
+
+-- Variance inequalities
+import Statlean.Variance.RaoBlackwell
+import Statlean.Variance.EfronStein
+
+-- Entropy and log-Sobolev
+import Statlean.Entropy.Basic
+import Statlean.Entropy.LogSobolev
+
+-- Sub-Gaussian and Lipschitz concentration
+import Statlean.SubGaussian.Herbst
+import Statlean.SubGaussian.Lipschitz
+
+-- Characteristic function Taylor bounds
+import Statlean.CharFun.Taylor
+
+-- Berry-Esseen theorem
+import Statlean.BerryEsseen
 
 -- Phase 2: Empirical Process Theory
 import Statlean.EmpiricalProcess.CoveringNumber
@@ -23,7 +34,7 @@ import Statlean.Regression.Basic
 import Statlean.Regression.MasterBound
 import Statlean.Regression.Linear
 
--- Phase 4: SPD Statistics (Log-Cholesky Mean Layer)
-import Statlean.Statistics.SPD.Basic
-import Statlean.Statistics.SPD.FrechetMean
-import Statlean.Statistics.SPD.Determinant
+-- SPD matrices (Log-Cholesky Fréchet means)
+import Statlean.SPD.FrechetMean
+import Statlean.SPD.Determinant
+import Statlean.SPD.Geodesic

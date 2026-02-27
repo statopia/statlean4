@@ -1,15 +1,19 @@
-import Statlean.Statistics.SPD.FrechetMean
+import Statlean.SPD.FrechetMean
 
-/-! # SPD Statistical Layer — Determinant Identities
+/-! # SPD Determinant Identities
 
-Determinant/log-determinant identities associated with SPD Fréchet means and
-their finite-sample analogues.
+Log-determinant identities for SPD Fréchet means and their finite-sample analogues.
+
+## Main results
+- `logdet_frechet_mean` — log-det at Fréchet mean = mean of log-det
+- `det_empirical_mean` — det of empirical mean = exp of mean log-det
+- `det_averaging_equality` — determinant equality across three SPD averaging schemes
 -/
 
-namespace Statlean.Statistics.SPD
+namespace Statlean.SPD
 
 /-- Abstract log-determinant identity at a Fréchet mean. -/
-theorem proposition_010_proposition_11
+theorem logdet_frechet_mean
     {Q : Type*}
     (IsFrechetMean : Q → Prop)
     (meanOp : (Q → Real) → Real)
@@ -30,7 +34,7 @@ theorem proposition_010_proposition_11
           simp [hfun]
 
 /-- Determinant form of a finite-sample Log-Cholesky mean identity. -/
-theorem corollary_012_corollary_13
+theorem det_empirical_mean
     {LPlus : Type*}
     {n : Nat}
     (samples : Fin n → LPlus)
@@ -63,7 +67,7 @@ theorem corollary_012_corollary_13
           rw [h_log_det_mean]
 
 /-- Determinant equality bridge between three SPD averaging schemes. -/
-theorem corollary_013_corollary_13
+theorem det_averaging_equality
     {M : Type*}
     (det : M → Real)
     (logCholeskyAverage : M)
@@ -80,4 +84,4 @@ theorem corollary_013_corollary_13
       exact h_det_lc_eq_le
     _ = det affineInvariantAverage := h_det_lc_eq_ai
 
-end Statlean.Statistics.SPD
+end Statlean.SPD

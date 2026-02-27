@@ -1,3 +1,23 @@
+-- Core
+import Statlean.Basic
+
+-- Gaussian infrastructure (verified)
+import Statlean.Gaussian.Basic
+import Statlean.Gaussian.Stein
+import Statlean.Gaussian.Hermite
+import Statlean.Gaussian.Sobolev
+
+-- Variance (verified)
+import Statlean.Variance.RaoBlackwell
+-- Note: Statlean.Variance.EfronStein has 2 sorry gaps (condVar/Jensen, core_gen)
+-- The 16 proved declarations there are still usable but not imported here
+
+-- Entropy definitions (verified)
+import Statlean.Entropy.Basic
+
+-- Characteristic function Taylor bounds (verified)
+import Statlean.CharFun.Taylor
+
 /-! # Statlean Verified Library
 
 **Every declaration reachable from this import is fully proved (zero sorry).**
@@ -10,27 +30,12 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 
 ## Contents
 
-- **RaoBlackwell_MSE**: Rao-Blackwell MSE theorem and variants (20 declarations)
-- **Concentration/Basic**: σ-algebra infrastructure (4 declarations)
-- **Concentration/Density**: Mollification, Sobolev density (2 declarations)
-- **Concentration/EfronSteinProved**: Efron-Stein clean core (16 declarations)
-- **Concentration/GaussianPoincareProved**: Stein identity, Lp integrability (13 declarations)
-- **Concentration/LogSobolevProved**: LSI definitions and parametric theorems (13 declarations)
-- **Concentration/GaussianLipschitzProved**: Integrability, parametric bounds (11 declarations)
-- **Concentration/HermiteOrthogonality**: Hermite derivative + orthogonality (11 declarations)
-- **Concentration/BerryEsseenProved**: Charfun chain, Taylor bounds, Lyapunov (17 declarations)
+- **Gaussian/Basic**: stdGaussian, stdGaussianPi, integrability infrastructure
+- **Gaussian/Stein**: Stein identity
+- **Gaussian/Hermite**: Hermite derivative + orthogonality
+- **Gaussian/Sobolev**: Mollification, Sobolev density
+- **Variance/RaoBlackwell**: Rao-Blackwell MSE theorem and variants
+- **Variance/EfronStein**: Efron-Stein clean core (sigma-algebras, ANOVA, condVar)
+- **Entropy/Basic**: Entropy definitions, LSI interfaces
+- **CharFun/Taylor**: Charfun chain, Taylor bounds, Lyapunov (Berry-Esseen chain)
 -/
-
--- Core
-import Statlean.Basic
-import Statlean.RaoBlackwell_MSE
-
--- Concentration: verified parts only
-import Statlean.Concentration.Basic
-import Statlean.Concentration.Density
-import Statlean.Concentration.EfronSteinProved
-import Statlean.Concentration.GaussianPoincareProved
-import Statlean.Concentration.HermiteOrthogonality
-import Statlean.Concentration.LogSobolevProved
-import Statlean.Concentration.GaussianLipschitzProved
-import Statlean.Concentration.BerryEsseenProved

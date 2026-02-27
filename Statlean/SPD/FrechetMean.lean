@@ -1,17 +1,20 @@
-import Statlean.Statistics.SPD.Basic
+import Mathlib
 
-/-! # SPD Statistical Layer — Fréchet Means
+/-! # SPD Fréchet Means (Log-Cholesky)
 
-This module records abstract Fréchet-mean style interfaces used in SPD
-statistics, including existence/uniqueness and closed-form decomposition
-principles for Log-Cholesky means.
+Abstract Fréchet-mean interfaces for SPD matrices via Log-Cholesky parametrization.
+
+## Main results
+- `frechet_mean_existence_transfer` — existence/uniqueness on L⁺ ↔ SPD
+- `frechet_mean_decomposition` — closed-form via lower + exp(diag) decomposition
+- `frechet_mean_empirical_decomposition` — finite-sample version
 -/
 
-namespace Statlean.Statistics.SPD
+namespace Statlean.SPD
 
 /-- Abstract existence and uniqueness transfer for Fréchet means on a
 Cholesky-factor space and its SPD image space. -/
-theorem proposition_008_proposition_9
+theorem frechet_mean_existence_transfer
     {LPlus SPD : Type*}
     (frechetObjectiveL : LPlus → Real)
     (frechetObjectiveS : SPD → Real)
@@ -30,7 +33,7 @@ theorem proposition_008_proposition_9
   exact ⟨h_exists_unique_mean_L h_moment_L, h_exists_unique_mean_S h_moment_S⟩
 
 /-- Abstract decomposition formula for a Log-Cholesky type Fréchet mean. -/
-theorem proposition_009_proposition_10
+theorem frechet_mean_decomposition
     {LPlus Lower Diag : Type*}
     (lowerPart : LPlus → Lower)
     (diagPart : LPlus → Diag)
@@ -70,7 +73,7 @@ theorem proposition_009_proposition_10
             exact h_decomp R
 
 /-- Finite-sample decomposition form of the empirical Log-Cholesky mean. -/
-theorem corollary_011_corollary_12
+theorem frechet_mean_empirical_decomposition
     {LPlus Lower LogDiag Diag : Type*}
     {n : Nat}
     (samples : Fin n → LPlus)
@@ -107,4 +110,4 @@ theorem corollary_011_corollary_12
           (expDiag (avgLogDiag (fun i => logDiagPart (samples i)))) := by
             rw [h_meanLogDiag samples]
 
-end Statlean.Statistics.SPD
+end Statlean.SPD

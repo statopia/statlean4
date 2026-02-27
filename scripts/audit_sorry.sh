@@ -20,20 +20,19 @@ else
 fi
 echo ""
 
-# 2. Check each Proved module individually
-echo ">>> Checking Proved modules..."
+# 2. Check each verified module individually
+echo ">>> Checking verified modules..."
 ALL_CLEAN=true
 for mod in \
   Statlean.Basic \
-  Statlean.RaoBlackwell_MSE \
-  Statlean.Concentration.Basic \
-  Statlean.Concentration.Density \
-  Statlean.Concentration.EfronSteinProved \
-  Statlean.Concentration.GaussianPoincareProved \
-  Statlean.Concentration.HermiteOrthogonality \
-  Statlean.Concentration.LogSobolevProved \
-  Statlean.Concentration.GaussianLipschitzProved \
-  Statlean.Concentration.BerryEsseenProved; do
+  Statlean.Gaussian.Basic \
+  Statlean.Gaussian.Stein \
+  Statlean.Gaussian.Hermite \
+  Statlean.Gaussian.Sobolev \
+  Statlean.Variance.RaoBlackwell \
+  Statlean.Variance.EfronStein \
+  Statlean.Entropy.Basic \
+  Statlean.CharFun.Taylor; do
   count=$(lake build "$mod" 2>&1 | grep -c 'declaration uses.*sorry' || true)
   if [ "$count" -eq 0 ]; then
     echo "    ✅ $mod"
@@ -44,20 +43,19 @@ for mod in \
 done
 echo ""
 
-# 3. Count declarations in Proved modules
-echo ">>> Declaration counts (Proved modules):"
+# 3. Count declarations in verified modules
+echo ">>> Declaration counts (verified modules):"
 TOTAL=0
 for f in \
   Statlean/Basic.lean \
-  Statlean/RaoBlackwell_MSE.lean \
-  Statlean/Concentration/Basic.lean \
-  Statlean/Concentration/Density.lean \
-  Statlean/Concentration/EfronSteinProved.lean \
-  Statlean/Concentration/GaussianPoincareProved.lean \
-  Statlean/Concentration/HermiteOrthogonality.lean \
-  Statlean/Concentration/LogSobolevProved.lean \
-  Statlean/Concentration/GaussianLipschitzProved.lean \
-  Statlean/Concentration/BerryEsseenProved.lean; do
+  Statlean/Gaussian/Basic.lean \
+  Statlean/Gaussian/Stein.lean \
+  Statlean/Gaussian/Hermite.lean \
+  Statlean/Gaussian/Sobolev.lean \
+  Statlean/Variance/RaoBlackwell.lean \
+  Statlean/Variance/EfronStein.lean \
+  Statlean/Entropy/Basic.lean \
+  Statlean/CharFun/Taylor.lean; do
   n=$(grep -cE '^\s*(theorem|lemma|def |noncomputable |private |instance |abbrev )' "$f" 2>/dev/null || true)
   n=${n:-0}
   TOTAL=$((TOTAL + n))
@@ -70,11 +68,11 @@ echo ""
 # 4. Sorry modules summary
 echo ">>> Sorry modules (WIP):"
 for f in \
-  Statlean/Concentration/EfronStein.lean \
-  Statlean/Concentration/GaussianPoincare.lean \
-  Statlean/Concentration/LogSobolev.lean \
-  Statlean/Concentration/GaussianLipschitz.lean \
-  Statlean/Concentration/BerryEsseen.lean; do
+  Statlean/Gaussian/Poincare.lean \
+  Statlean/Entropy/LogSobolev.lean \
+  Statlean/SubGaussian/Herbst.lean \
+  Statlean/SubGaussian/Lipschitz.lean \
+  Statlean/BerryEsseen.lean; do
   sorry_n=$(grep -c '  sorry$' "$f" 2>/dev/null || echo 0)
   echo "    $(basename $f): $sorry_n sorry"
 done

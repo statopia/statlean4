@@ -2,13 +2,10 @@
 Copyright (c) 2026 StatLean Contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
-import Statlean.Concentration.BerryEsseenProved
+import Statlean.CharFun.Taylor
 
 /-!
-# Berry-Esseen Theorem -- Sorry Declarations
-
-This file contains the sorry-bearing declarations for the Berry-Esseen theorem.
-All fully proved lemmas live in `Statlean.Concentration.BerryEsseenProved`.
+# Berry-Esseen Theorem — Sorry Declarations
 
 ## Honest sorry (2 remaining)
 - `berry_esseen_smoothing`: smoothing inequality (needs mollifier + Fourier inversion)
