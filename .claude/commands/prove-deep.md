@@ -56,17 +56,22 @@ For each sub-lemma (sorted by difficulty: leaf → intermediate → hard):
    - Only after exhausting alternatives → leave honest sorry with structured comment.
 4. Report progress after each sub-lemma.
 
-## Phase 3.5: Infrastructure Extraction (MANDATORY)
+## Phase 3.5: 基础设施入库（强制 — 每证完一个子引理立即执行）
 
-After Phase 3, BEFORE attempting assembly:
-1. Identify all proved sub-lemmas and new definitions that are **independent of
-   remaining sorry**.
-2. Move these into a `<Module>Proved.lean` companion file (zero sorry).
-3. Register the Proved file in `Statlean/Verified.lean`.
-4. Build `lake build Statlean.Verified` to confirm zero sorry pollution.
-5. The sorry-bearing main theorem imports from the Proved file.
+**不要等到 Phase 4。每证完一个子引理，按类型处理：**
 
-This ensures that even partial progress is captured in the project.
+**A. 零 sorry 基础设施**（自身无 sorry，依赖链也无 sorry）→ **立即入库**：
+1. 按数学对象放入 `Statlean/` 正确子目录（不存在则创建，加 module docstring）
+2. 已有主题文件 → 追加到合适 section
+3. 更新 import 链 + `Statlean.lean`；整文件零 sorry 则同时更新 `Verified.lean`
+4. `lake build Statlean.<Module>` 验证
+
+**B. 含 sorry 的定理**（自身或依赖有 sorry）→ **同文件存放**：
+1. 放在同一数学对象文件中，用 section 隔离
+2. 添加结构化 sorry 注释
+3. 注册到 `sorry_backlog.yaml`
+
+记录入库内容到 Phase 5 报告的 Infrastructure 段。
 
 ## Phase 4: Assembly
 
@@ -106,13 +111,17 @@ When target is `all-leaves`:
 
 ## Acceleration Rules
 
-1. **Index first**: ALWAYS read `theme/mathlib_api_index.md` before any grep/`#check`.
-   If the API is in the index, use it directly (0 cost).
+1. **三级搜索强制执行**（违反 = 浪费 token）：
+   - 第一级：`theme/mathlib_api_index.md`（必须首先查）
+   - 第二级：`#check` / `exact?`（索引没有时）
+   - 第三级：grep Mathlib 源码（前两级都失败，必须注明升级理由）
+   - **给 subagent 的 prompt 必须包含**："先读 `theme/mathlib_api_index.md` 查找相关 API，只有索引不够时才升级到 grep Mathlib 源码"
 2. **Incremental build**: `lake build Statlean.<Module>` not `lake build` (saves minutes).
 3. **Parallel search**: When searching for 3+ APIs, spawn parallel haiku agents.
 4. **No redundant search**: If a subagent already searched, trust its results.
 5. **Cache proof patterns**: When a proof technique works, record it in MEMORY.md
    for future sessions.
+6. **入库不等待**：见 Phase 3.5，证完子引理立即入库，不等主定理。
 
 ## Key Context
 

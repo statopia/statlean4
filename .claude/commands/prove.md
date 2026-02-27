@@ -16,10 +16,11 @@ You are attacking a specific `sorry` in the StatLean project. Follow this exact 
 ### Phase 1: Understand (do NOT edit yet)
 1. Read the file containing the sorry. Identify the exact theorem statement, hypotheses, and goal.
 2. Read surrounding context (imports, helper lemmas, upstream definitions).
-3. Search Mathlib for relevant API:
-   - Grep for key type names in the goal (e.g., `variance`, `condExp`, `integral`)
-   - Search for lemma names that match patterns in the statement
-   - Check `Mathlib.MeasureTheory`, `Mathlib.Probability`, `Mathlib.Analysis` namespaces
+3. **三级搜索（强制）**：
+   - **第一级**：先读 `theme/mathlib_api_index.md` 查找相关 API（80% 在这步解决）
+   - **第二级**：索引没有 → `#check` / `exact?`
+   - **第三级**：前两级都失败 → grep Mathlib 源码（必须注明升级理由）
+   - 给 subagent 的 prompt 必须包含："先读 `theme/mathlib_api_index.md`"
 
 ### Phase 2: Strategy
 4. List 2-3 possible proof strategies with tradeoffs.
@@ -29,6 +30,13 @@ You are attacking a specific `sorry` in the StatLean project. Follow this exact 
 6. Write the proof replacement (edit the sorry line).
 7. Build with `lake build <module>` to check.
 8. If build fails, read errors carefully. Fix and rebuild (max 5 iterations).
+
+### Phase 3.5: 基础设施入库（强制 — 证完子引理立即执行）
+每产生一个新引理/定义，立即：
+1. 按数学对象放入正确 `Statlean/` 子目录（不存在则创建）
+2. 与 sorry 共存于同一文件用 section 隔离即可，不搞 FooBase 拆分
+3. 更新 `Statlean.lean` import
+4. `lake build Statlean.<Module>` 验证编译通过
 
 ### Phase 4: Verify
 9. Run `lake build` (full project) to ensure no regressions.

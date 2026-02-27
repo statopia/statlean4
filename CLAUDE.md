@@ -10,6 +10,12 @@
 
 **无需逐次确认，直接执行。**
 
+## 沟通语言
+
+- **用中文回答用户问题**（除非用户用英文提问）
+- Lean 代码中的注释和 docstring 用英文
+- commit message 用中英文均可
+
 ---
 
 ## 模块组织原则
@@ -19,11 +25,10 @@
 - 一个数学对象的所有内容（定义、已证定理、sorry gap）放同一文件，用 section 隔离
 - 定理名必须语义化：`frechet_mean_existence_transfer`，不是 `proposition_008_proposition_9`
 
-### Proved/Sorry 分离（大模块）
-- 当一个定理的证明产生 ≥3 个可复用子引理时，拆分为 `FooProved.lean`（零 sorry）+ `Foo.lean`（含 sorry 的主定理）
-- `Statlean/Verified.lean` 是零 sorry 入口点，只 import 完全无 sorry 的模块
-- 拆分后必须检查 Verified 链是否被 sorry 污染
-- 小模块（≤2 个辅助引理）保持单文件，用 section 隔离
+### 同一文件内 sorry 和已证引理共存
+- 已证引理和 sorry gap 可以放在同一文件中，用 `section` 隔离
+- **不需要**拆分为 `FooBase.lean` + `Foo.lean`
+- `Statlean/Verified.lean` 是附加验收工具（只 import 整文件零 sorry 的模块），**不驱动文件拆分**
 
 ### 薄封装必须删除
 - 如果 `f x` 只是 Mathlib `g x` 的别名，不保留 wrapper，直接内联替换调用点
@@ -65,15 +70,20 @@
 
 ---
 
-## Mathlib 搜索策略（省 token 三级法）
+## Mathlib / StatLib 搜索策略（省 token 三级法）— 强制执行
 
-搜索 Mathlib API 时按以下顺序，**逐级升级**，不要跳级：
+**本节是硬性规则，所有证明流程（`/prove`、`/prove-deep`、subagent）必须遵循。**
+**违反本节 = 浪费 token + 搜索结果不可靠，用户有权拒绝。**
 
-### 第一级：查静态索引（0 token 成本）
-- 先读 `theme/mathlib_api_index.md`（~650+ 条，按 namespace 分 section）
-- 覆盖范围：variance、MGF/CGF、charFun、Independence、IdentDistrib、condExp、condVar、Gaussian、MemLp、integral、Measure.map、exp bounds、convexity/Jensen、polynomial derivatives、IBP、Grönwall、tilted measures、Lp density、**Topology/Metric**、**Compactness**、**StrongLaw/SLLN**、**Filter/ae**
+搜索 Mathlib 或 StatLib API 时按以下顺序，**逐级升级**，不要跳级：
+
+### 第一级：查静态索引（0 token 成本）— 必须首先执行
+- **每次**搜索前先读 `theme/mathlib_api_index.md`（~650+ 条，按 namespace 分 section）
+- 同时读 `Statlean/Verified.lean` 获取已入库模块列表
+- 覆盖范围：variance、MGF/CGF、charFun、Independence、IdentDistrib、condExp、condVar、Gaussian、MemLp、integral、Measure.map、exp bounds、convexity/Jensen、polynomial derivatives、IBP、Grönwall、tilted measures、Lp density、Topology/Metric、Compactness、StrongLaw/SLLN、Filter/ae
 - **80% 的搜索在这一步就能解决**
 - 索引路径是 `theme/mathlib_api_index.md`（不是 `mathlib_stats_index.md`）
+- **给 subagent 的 prompt 必须包含**: "先读 `theme/mathlib_api_index.md` 查找相关 API，只有索引不够时才 grep Mathlib 源码"
 
 ### 第二级：`#check` / `exact?`（精确但慢）
 - 已知名字查签名：`echo '#check @ProbabilityTheory.foo' | lake env lean --stdin`
@@ -82,6 +92,7 @@
 
 ### 第三级：grep Mathlib 源码（最后手段）
 - 只在前两级都失败时才用
+- **使用前必须注明**："索引无此条目，第二级 #check 也未找到，升级到 grep"
 - 限定目录：`Mathlib/Probability/`、`Mathlib/MeasureTheory/`、`Mathlib/Analysis/`
 - 用 `Grep` 工具搜关键词，不要全目录扫描
 
@@ -101,4 +112,21 @@
 - **不重复搜索**：委派给 subagent 的搜索不要自己再做一遍
 - **深度预算**：`/prove` 模式 3 轮发散即 triage；`/prove-deep` 模式不设轮数限制，可以运行数小时
 - **上下文保护**：大量搜索结果放 subagent 消化，只返回结论到主会话
-- **基础设施优先入库**：证明过程中产生的可复用定义和引理，即使主定理仍 sorry，也必须拆分入 `Statlean/` 并注册到 `Verified.lean`
+- **基础设施增量入库（强制 — 证明过程中实时执行，不等主定理完成）**：
+  证明过程中产生的内容分两类处理：
+
+  **A. 零 sorry 基础设施**（自身无 sorry，且依赖链也无 sorry 的引理/定义）→ **立即入库**：
+  1. **确定归属模块**：按数学对象确定属于哪个 `Statlean/` 子目录
+     - 例：Gaussian 相关 → `Statlean/Gaussian/`，熵相关 → `Statlean/Entropy/`
+     - 如果目标目录或文件不存在，**创建之**（Mathlib-style 命名 + module docstring）
+  2. **放入正确文件**：已有对应主题文件 → 追加到合适 section
+  3. **更新 import 链**：使用方添加 import，`Statlean.lean` 同步更新
+  4. **验证**：`lake build Statlean.<Module>` 编译通过
+  5. 如果整个文件零 sorry → 同时更新 `Verified.lean`
+  6. **不要等**——每个子引理独立入库，不等主定理完成
+
+  **B. 含 sorry 的定理**（自身有 sorry，或依赖链有 sorry）→ **同文件存放，等待攻击**：
+  1. 放在同一数学对象文件中，用 `section` 与零 sorry 部分隔离
+  2. 添加结构化 sorry 注释（blocker、proof sketch、estimated effort）
+  3. 在 `sorry_backlog.yaml` 中注册，标明依赖关系和优先级
+  4. 以后有资源时通过 `/prove-deep` 攻击
