@@ -111,7 +111,7 @@ private def hermiteProj (f : ℝ → ℝ) (N : ℕ) (x : ℝ) : ℝ :=
 
 /-- hermiteNorm k is in L²(γ). -/
 private lemma memLp_hermiteNorm (k : ℕ) : MemLp (hermiteNorm k) 2 stdGaussian := by
-  show MemLp (fun x => hermiteNorm k x) 2 stdGaussian
+  change MemLp (fun x => hermiteNorm k x) 2 stdGaussian
   have : (fun x => hermiteNorm k x) = (fun x => (1 / Real.sqrt ↑k.factorial) *
       Polynomial.aeval x (Polynomial.hermite k)) := by
     ext x; simp [hermiteNorm, hermiteEval]; ring
@@ -133,7 +133,7 @@ private lemma integrable_hermiteNorm_mul_hermiteNorm (j k : ℕ) :
 
 /-- Inner product ∫ (hermiteProj) · eₖ using orthonormality. -/
 private lemma integral_hermiteProj_mul_hermiteNorm (f : ℝ → ℝ)
-    (hf : MemLp f 2 stdGaussian) (N k : ℕ) :
+    (_hf : MemLp f 2 stdGaussian) (N k : ℕ) :
     ∫ x, hermiteProj f N x * hermiteNorm k x ∂stdGaussian =
     if k < N then hermiteCoeff f k else 0 := by
   simp only [hermiteProj, Finset.sum_mul]
@@ -255,6 +255,14 @@ private lemma hermite_parseval_tail (f : ℝ → ℝ) (hf : MemLp f 2 stdGaussia
     ∀ ε > 0, ∃ N : ℕ,
     ∫ x, f x ^ 2 ∂stdGaussian -
       ∑ k ∈ Finset.range N, hermiteCoeff f k ^ 2 < ε := by
+  -- By Bessel, the partial sums ∑_{k<N} aₖ² are bounded by ∫ f².
+  -- The partial sums are monotone increasing and bounded, so they converge.
+  -- We need: their limit equals ∫ f².
+  -- Proof: the sum ∑ aₖ² is summable.
+  -- The Hermite projection residual ∫ (f - S_N)² = ∫ f² - ∑ aₖ² ≥ 0.
+  -- S_N is L²-Cauchy (‖S_M - S_N‖² = tail of summable series → 0).
+  -- By L² completeness, S_N → S. All Hermite coefficients of f - S vanish.
+  -- By hermite_span_dense_L2, f = S a.e. So ∫ (f - S_N)² → 0.
   sorry
 
 /-- **Coefficient bound for f'**: `∑_{k=1}^{N} aₖ² ≤ ∫ f'²`.
