@@ -46,6 +46,31 @@ Iterate until clean compilation (max 5 cycles).
 - `--prove-depth shallow`: Only prove leaf lemmas, leave hard theorems as honest sorry.
 - `--prove-depth deep`: Full deep prove mode (sub-lemma extraction, parallel agents).
 
+## Step 5.5: Infrastructure Extraction
+
+For each sorry-bearing theorem, analyze what intermediate definitions and lemmas were
+created during Step 5 or are needed for future deep proving:
+
+1. **Identify reusable infrastructure**: Definitions (e.g., `oscEnvelope`), helper lemmas
+   (e.g., `le_oscEnvelope`, `oscEnvelope_measurable`), and proved sub-results that are
+   **independent of the main sorry** and could be imported by other modules.
+2. **Split into Proved + Sorry files**: Move all zero-sorry declarations into a
+   `<Module>Proved.lean` companion file. The sorry-bearing theorem imports from it.
+   Register `<Module>Proved` in `Statlean/Verified.lean`.
+3. **Build to verify the split**: `lake build Statlean.<Module>Proved` must pass with
+   zero sorry warnings.
+4. **Sub-lemma declaration for remaining sorry**: For each remaining sorry, extract the
+   proof structure into named sub-lemma declarations (with sorry) that capture:
+   - The exact goal type
+   - A structured comment with proof sketch and Mathlib API hints
+   - The dependency ordering (which sub-lemmas feed into which)
+5. **Update sorry_backlog.yaml**: Add new sub-lemma sorry items with `sub_lemmas_needed`,
+   `dependencies`, and `proof_hint` fields.
+
+This step ensures that even when the main theorem cannot be fully proved in the pipeline's
+time budget, all **independently useful infrastructure** is captured in Statlean and
+available for `Verified.lean` import.
+
 ## Step 6: Gate & Commit
 
 1. Count remaining sorry

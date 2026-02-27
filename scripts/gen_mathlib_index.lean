@@ -196,4 +196,78 @@ open Lean Elab Command in
   emitSection "Smooth Density in Lp"
     #[ "MeasureTheory.Lp.dense_hasCompactSupport" ]
 
+  -- ── 19. Strong Law of Large Numbers ──
+  emitSection "Strong Law of Large Numbers"
+    #[ "ProbabilityTheory.strong_law_ae",
+       "ProbabilityTheory.strong_law_Lp",
+       "ProbabilityTheory.tendsto_sum_div" ]
+
+  -- ── 20. Topology: Compact Spaces & Finite Covers ──
+  emitSection "Compactness & Finite Covers"
+    #[ "isCompact_univ",
+       "IsCompact.elim_finite_subcover",
+       "IsCompact.elim_finite_open_cover",
+       "CompactSpace.isCompact_univ",
+       "CompactSpace.uniformContinuous_of_continuous",
+       "Metric.isCompact_iff_isClosed_bounded",
+       "isCompact_iff_finite_subcover" ]
+
+  -- ── 21. Metric Space & Uniform Continuity ──
+  emitSection "Metric & Uniform Continuity"
+    #[ "Metric.uniformContinuous_iff",
+       "Metric.continuous_iff",
+       "Metric.tendsto_atTop",
+       "UniformContinuous.",
+       "Metric.ball",
+       "mem_ball",
+       "mem_ball_self",
+       "dist_comm",
+       "dist_triangle" ]
+    #[ "UniformContinuous.comp", "UniformContinuous.prod_mk" ]
+
+  -- ── 22. Filter & ae lemmas ──
+  emitSection "Filter & ae Combinators"
+    #[ "MeasureTheory.ae_all_iff",
+       "MeasureTheory.ae_ball_iff",
+       "MeasureTheory.ae_restrict",
+       "Filter.Eventually.mono",
+       "Filter.eventually_atTop",
+       "Filter.Tendsto.comp" ]
+
+  -- ── 23. Supremum / iSup / ciSup ──
+  emitSection "Supremum & iSup"
+    #[ "ciSup_le",
+       "le_ciSup",
+       "iSup_le",
+       "le_iSup",
+       "Measurable.iSup",
+       "measurable_iSup",
+       "Real.iSup_eq",
+       "EReal.iSup" ]
+
+  -- ── 24. Dense Range & Countable ──
+  emitSection "Dense Range & Countable Density"
+    #[ "DenseRange.exists_dist_lt",
+       "TopologicalSpace.denseSeq",
+       "TopologicalSpace.exists_countable_dense",
+       "Dense." ]
+    #[ "Dense.mono", "Dense.inter_of_isOpen_left", "Dense.inter_of_isOpen_right" ]
+
+  -- ── 25. Dominated Convergence ──
+  emitSection "Dominated Convergence Theorem"
+    #[ "MeasureTheory.tendsto_integral_of_dominated_convergence",
+       "MeasureTheory.hasSum_integral_of_dominated_convergence",
+       "continuous_of_dominated" ]
+
+  -- ── 26. Norm & Triangle Inequality ──
+  emitSection "Norm & Inequalities"
+    #[ "norm_add_le",
+       "norm_sub_le",
+       "norm_sum_le",
+       "norm_div",
+       "Real.norm_eq_abs",
+       "Real.dist_eq",
+       "div_le_div_of_nonneg_right",
+       "norm_nonneg" ]
+
   IO.println "<!-- End of auto-generated index -->"
