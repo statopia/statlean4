@@ -5,10 +5,12 @@ set -euo pipefail
 
 REPO_ROOT=${1:?usage: prove_loop.sh <repo_root>}
 REPO_ROOT=$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$REPO_ROOT")
-MAX_ITERS=${MAX_ITERS:-3}
+MAX_ITERS=${MAX_ITERS:-10}
 AUTO_AGENT=${AUTO_AGENT:-1}
 AGENT_TIMEOUT_SECONDS=${AGENT_TIMEOUT_SECONDS:-600}
 MAX_PARALLEL=${MAX_PARALLEL:-3}
+PROVE_BUDGET=${PROVE_BUDGET:-3600}   # global time budget in seconds, 0 = unlimited
+START_TIME=$(date +%s)
 LOG_DIR="$REPO_ROOT/theme/out/logs"
 mkdir -p "$LOG_DIR"
 
@@ -89,7 +91,15 @@ echo "[prove-loop] sorry count: $(count_sorry), pipeline IDs: $(count_pipeline_i
 for i in $(seq 1 "$MAX_ITERS"); do
   LOG="$LOG_DIR/build_iter_${i}.log"
 
-  echo "[prove-loop] iteration $i/$MAX_ITERS"
+  # Global time budget check
+  elapsed=$(( $(date +%s) - START_TIME ))
+  if [[ "$PROVE_BUDGET" -gt 0 && "$elapsed" -ge "$PROVE_BUDGET" ]]; then
+    echo "[prove-loop] time budget exhausted (${elapsed}s >= ${PROVE_BUDGET}s)"
+    break
+  fi
+
+  remaining=$(( PROVE_BUDGET - elapsed ))
+  echo "[prove-loop] iteration $i/$MAX_ITERS (elapsed=${elapsed}s, remaining=${remaining}s)"
 
   # Build check
   build_ok=0
@@ -110,13 +120,13 @@ for i in $(seq 1 "$MAX_ITERS"); do
   echo "{\"phase\":\"prove-loop\",\"iter\":$i,\"build_ok\":$build_ok,\"sorry\":$sorry_count,\"pipeline_ids\":$pipeline_count}" >> "$LOG_DIR/pipeline.jsonl"
 
   if [[ "$i" -eq "$MAX_ITERS" ]]; then
-    echo "[prove-loop] reached max iterations" >&2
-    exit 1
+    echo "[prove-loop] reached max iterations ($MAX_ITERS)"
+    break
   fi
 
   if [[ "$AUTO_AGENT" != "1" ]]; then
-    echo "[prove-loop] AUTO_AGENT=0, stopping" >&2
-    exit 1
+    echo "[prove-loop] AUTO_AGENT=0, stopping"
+    break
   fi
 
   if ! command -v claude >/dev/null 2>&1; then
@@ -145,8 +155,22 @@ for it in items[:$MAX_PARALLEL]:
     fix_log="$LOG_DIR/fix_${i}_${theorem}.log"
 
     generate_sorry_prompt "$file" "$theorem" "$prompt_file"
-    echo "[prove-loop] attacking $file:$theorem"
-    run_claude_agent "$prompt_file" "$fix_log" "$AGENT_TIMEOUT_SECONDS" || \
+
+    # Dynamic per-agent timeout: min(AGENT_TIMEOUT_SECONDS, remaining budget)
+    agent_elapsed=$(( $(date +%s) - START_TIME ))
+    agent_remaining=$(( PROVE_BUDGET - agent_elapsed ))
+    if [[ "$PROVE_BUDGET" -gt 0 && "$agent_remaining" -le 0 ]]; then
+      echo "[prove-loop] time budget exhausted before agent dispatch"
+      break 2  # break out of both the while-read and for loops
+    fi
+    if [[ "$PROVE_BUDGET" -gt 0 && "$agent_remaining" -lt "$AGENT_TIMEOUT_SECONDS" ]]; then
+      effective_timeout="$agent_remaining"
+    else
+      effective_timeout="$AGENT_TIMEOUT_SECONDS"
+    fi
+
+    echo "[prove-loop] attacking $file:$theorem (timeout=${effective_timeout}s)"
+    run_claude_agent "$prompt_file" "$fix_log" "$effective_timeout" || \
       echo "[prove-loop] agent for $theorem exited with rc=$?"
   done
 done

@@ -21,6 +21,9 @@ echo "[gate] build: PASS"
 sorry_count=$(grep -roE '\bsorry\b' "$REPO_ROOT/Statlean/" --include='*.lean' 2>/dev/null | wc -l | tr -d ' ' || true)
 sorry_count=${sorry_count:-0}
 echo "[gate] sorry count: $sorry_count"
+if [[ "$sorry_count" -gt 0 ]]; then
+  echo "[gate] WARNING: $sorry_count sorry remaining — consider /prove-deep to continue"
+fi
 
 # Gate 3: PIPELINE_ID check (unresolved pipeline markers)
 STRICT_PIPELINE=${STRICT_PIPELINE:-0}

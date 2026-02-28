@@ -69,7 +69,49 @@ grep -rn "sorry" Statlean/ --include="*.lean" | grep -v "\-\-.*sorry"
 
 ## Step 2: Prove
 
-### With Claude Code (recommended)
+### Automatic (built into pipeline)
+
+`make formalize` now includes a **prove stage** that automatically attacks all newly generated sorry gaps:
+
+```bash
+# Default: 1h budget, deep prove
+make -C theme formalize CONCEPTS="lehmann_scheffe"
+# → generate skeletons → sync backlog → prove (up to 1h) → gate
+
+# Custom budget: 2h
+make -C theme formalize CONCEPTS="cramer_rao" PROVE_BUDGET=7200
+
+# Short budget for quick iteration
+make -C theme formalize CONCEPTS="lehmann_scheffe" PROVE_BUDGET=300
+
+# Skip prove (only generate skeletons)
+make -C theme formalize CONCEPTS="james_stein" PROVE_DEPTH=shallow
+
+# Offline mode + skip prove
+make -C theme formalize CONCEPTS="cramer_rao" NO_CLAUDE=1 PROVE_DEPTH=shallow
+```
+
+**Prove stage parameters:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PROVE_BUDGET` | `3600` | Global time budget in seconds (1h) |
+| `PROVE_MAX_ITERS` | `10` | Maximum iteration rounds (each attacks up to 3 sorry) |
+| `PROVE_DEPTH` | `deep` | `deep` = run prove loop; `shallow` = skip |
+
+The prove stage is **non-blocking** — if time runs out or sorry remain, the pipeline continues to `gate` which reports the final sorry count.
+
+You can also run the prove loop standalone:
+
+```bash
+# Run prove loop on existing sorry gaps
+make -C theme prove PROVE_BUDGET=1800
+
+# Or directly
+PROVE_BUDGET=600 MAX_ITERS=5 theme/scripts/prove_loop.sh .
+```
+
+### With Claude Code (interactive)
 
 ```bash
 # Install Claude Code CLI

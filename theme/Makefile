@@ -9,17 +9,18 @@ PDF ?=
 CONCEPTS ?=
 NO_DEPS ?=
 NO_CLAUDE ?=
+PROVE_BUDGET ?= 3600
+PROVE_MAX_ITERS ?= 10
+PROVE_DEPTH ?= deep
 
-.PHONY: formalize resolve ingest plan generate infra-audit sync-backlog gate clean \
+.PHONY: formalize resolve ingest plan generate infra-audit sync-backlog prove gate clean \
         from-tex tex-formalize from-pdf pdf-formalize \
         prove-fallback refresh-index
 
 # ══════════════════════════════════════════════════════════
-# Full pipeline: LaTeX → Lean → sync-backlog → gate
-# (prove stage is handled by /prove-deep inside Claude Code,
-#  not by this Makefile)
+# Full pipeline: LaTeX → Lean → sync-backlog → prove → gate
 # ══════════════════════════════════════════════════════════
-formalize: resolve ingest plan generate infra-audit sync-backlog gate
+formalize: resolve ingest plan generate infra-audit sync-backlog prove gate
 
 # Concept resolution: CONCEPTS → theorems.yaml (no-op if CONCEPTS is empty)
 resolve:
@@ -46,6 +47,17 @@ infra-audit:
 
 sync-backlog:
 	cd "$(ROOT)" && python3 theme/scripts/sync_sorry_backlog.py
+
+prove:
+	@if [ "$(PROVE_DEPTH)" = "shallow" ]; then \
+	  echo "[prove] PROVE_DEPTH=shallow, skipping"; \
+	else \
+	  PROVE_BUDGET=$(PROVE_BUDGET) \
+	  MAX_ITERS=$(PROVE_MAX_ITERS) \
+	  MAX_PARALLEL=3 \
+	  $(THEME_DIR)/scripts/prove_loop.sh "$(ROOT)" || \
+	    echo "[prove] prove loop ended with remaining sorry (non-blocking)"; \
+	fi
 
 gate:
 	$(THEME_DIR)/scripts/gate.sh "$(ROOT)"
