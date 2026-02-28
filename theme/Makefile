@@ -6,8 +6,10 @@ INPUT_DIR ?= $(THEME_DIR)/input
 OUT_DIR ?= $(THEME_DIR)/out
 TEX ?= $(ROOT)/output.tex
 PDF ?=
+CONCEPTS ?=
+NO_DEPS ?=
 
-.PHONY: formalize ingest plan generate infra-audit sync-backlog gate clean \
+.PHONY: formalize resolve ingest plan generate infra-audit sync-backlog gate clean \
         from-tex tex-formalize from-pdf pdf-formalize \
         prove-fallback refresh-index
 
@@ -16,7 +18,17 @@ PDF ?=
 # (prove stage is handled by /prove-deep inside Claude Code,
 #  not by this Makefile)
 # ══════════════════════════════════════════════════════════
-formalize: ingest plan generate infra-audit sync-backlog gate
+formalize: resolve ingest plan generate infra-audit sync-backlog gate
+
+# Concept resolution: CONCEPTS → theorems.yaml (no-op if CONCEPTS is empty)
+resolve:
+	@if [ -n "$(CONCEPTS)" ]; then \
+	  python3 $(THEME_DIR)/scripts/resolve_concepts.py \
+	    --concepts "$(CONCEPTS)" \
+	    --output "$(INPUT_DIR)/theorems.yaml" \
+	    $(if $(PDF),--pdf "$(PDF)") \
+	    $(if $(NO_DEPS),--no-deps) ; \
+	fi
 
 ingest:
 	$(THEME_DIR)/scripts/ingest.sh "$(INPUT_DIR)" "$(OUT_DIR)"
