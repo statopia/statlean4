@@ -12,10 +12,15 @@ import Mathlib.Analysis.InnerProductSpace.l2Space
 - `gaussian_poincare_of_efron_stein` — via Efron-Stein + coordinate bound
 - `gaussian_poincare_of_condVar_sum` — via conditional variance sum
 
-## Sorry gaps (1 sorry)
-- `condVar_le_condExp_gradf_sq_ae` — fiberwise 1D Poincaré bound for conditional variance.
-  Needs Fubini/disintegration for `Measure.pi` to connect abstract `condVar`/`condExp`
-  to concrete fiber integrals over `Function.update x i ·`.
+## Sorry gaps (2 sorry, both Fubini consequences for Measure.pi)
+- `condExp_eq_fiberAvg_pi` — disintegration identity: `condExp[g|G_i] =ᵃᵉ fiberAvg`.
+  Needs `ae_eq_condExp_of_forall_setIntegral_eq` with Fubini for measurable sets.
+- `ae_memLp_fiber` — `f ∈ L²(π)` implies fiber `∈ L²(γ)` a.e.
+  Needs Fubini for `f²` via `measurePreserving_piFinSuccAbove` + product decomposition.
+
+## Proved (was sorry)
+- `condVar_le_condExp_gradf_sq_ae` — proved modulo above 2 sorry, via:
+  disintegration + `condVar_ae_eq_condExp_sq_sub_sq_condExp` + `gaussian_poincare_1d_core`.
 -/
 
 open MeasureTheory ProbabilityTheory Filter Topology Real NNReal
@@ -583,30 +588,105 @@ private lemma fiber_variance_le_fiber_grad_sq
     rw [variance_eq_integral hf_fiber.aemeasurable]
   linarith [hVar, hpoincare]
 
-/-- **Fiberwise Poincaré bound for conditional variance** (infrastructure sorry).
+/-- **Disintegration identity for Measure.pi** (infrastructure sorry).
+
+For the standard Gaussian product measure and coordinate `i`, the conditional
+expectation of `g` given all other coordinates equals the fiber average:
+
+  `E[g | G_i](x) =ᵃᵉ ∫ g(update x i t) dγ(t)`
+
+The fiber average is `StronglyMeasurable[sigmaAlgExcept i]` (factors through
+`Fin.removeNth i`, which is `sigmaAlgExcept i`-measurable, composed with a
+`StronglyMeasurable` integral function via `StronglyMeasurable.integral_prod_right'`).
+The proof would verify the set-integral characterization via
+`ae_eq_condExp_of_forall_setIntegral_eq` using Fubini for measurable sets. -/
+private lemma condExp_eq_fiberAvg_pi
+    {m : ℕ} (i : Fin (m + 1))
+    (g : (Fin (m + 1) → ℝ) → ℝ)
+    (hg : Integrable g (stdGaussianPi (m + 1))) :
+    (stdGaussianPi (m + 1))[g | sigmaAlgExcept (X := fun _ : Fin (m + 1) => ℝ) i]
+      =ᵐ[stdGaussianPi (m + 1)]
+    fun x => ∫ t, g (Function.update x i t) ∂stdGaussian := by
+  sorry
+
+/-- `f ∈ L²(π)` implies the 1D fiber `t ↦ f(update x i t)` is in `L²(γ)` for a.e. `x`.
+This is a Fubini consequence: `f² ∈ L¹(π)` and the product decomposition via
+`measurePreserving_piFinSuccAbove` give `∫ f(update x i t)² dγ(t) < ∞` a.e.,
+combined with `AEStronglyMeasurable` from the product structure. -/
+private lemma ae_memLp_fiber
+    {m : ℕ} (i : Fin (m + 1)) (f : (Fin (m + 1) → ℝ) → ℝ)
+    (hf : MemLp f 2 (stdGaussianPi (m + 1))) :
+    ∀ᵐ x ∂(stdGaussianPi (m + 1)),
+      MemLp (fun t => f (Function.update x i t)) 2 stdGaussian := by
+  sorry
+
+/-- Fiberwise Poincaré bound for `n = m+1`. Uses:
+1. Disintegration: `condExp[g|G_i] =ᵃᵉ fiberAvg` to convert condVar/condExp to fiber integrals
+2. `condVar = E[f²|G] - E[f|G]²` (Mathlib's `condVar_ae_eq_condExp_sq_sub_sq_condExp`)
+3. 1D Gaussian Poincaré (`gaussian_poincare_1d_core`) applied to each fiber -/
+private lemma condVar_le_condExp_gradf_sq_ae_succ
+    {m : ℕ} (f : (Fin (m + 1) → ℝ) → ℝ)
+    (gradf : Fin (m + 1) → (Fin (m + 1) → ℝ) → ℝ)
+    (hf : MemLp f 2 (stdGaussianPi (m + 1)))
+    (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi (m + 1)))
+    (hderiv : ∀ x i,
+      HasDerivAt (fun t => f (Function.update x i t))
+        (gradf i x) (x i))
+    (i : Fin (m + 1)) :
+    Var[f; stdGaussianPi (m + 1) |
+      sigmaAlgExcept (X := fun _ : Fin (m + 1) => ℝ) i]
+      ≤ᵐ[stdGaussianPi (m + 1)]
+    (stdGaussianPi (m + 1))[(fun x => (gradf i x) ^ 2) |
+      sigmaAlgExcept (X := fun _ : Fin (m + 1) => ℝ) i] := by
+  haveI : IsFiniteMeasure (stdGaussianPi (m + 1)) := by
+    unfold stdGaussianPi; infer_instance
+  haveI : IsProbabilityMeasure (stdGaussianPi (m + 1)) := by
+    unfold stdGaussianPi; exact Measure.pi.instIsProbabilityMeasure _
+  have hm_le := sigmaAlgExcept_le (X := fun _ : Fin (m + 1) => ℝ) i
+  filter_upwards [condVar_ae_eq_condExp_sq_sub_sq_condExp hm_le hf,
+    condExp_eq_fiberAvg_pi i f (hf.integrable one_le_two),
+    condExp_eq_fiberAvg_pi i (f ^ 2) (hf.integrable_sq),
+    condExp_eq_fiberAvg_pi i (fun x => (gradf i x) ^ 2)
+      ((hgradf i).integrable_sq),
+    ae_memLp_fiber i f hf,
+    ae_memLp_fiber i (gradf i) (hgradf i)]
+    with x hcv_x hef_x hef2_x heg_x hf_fib hg_fib
+  simp only [Pi.sub_apply, Pi.pow_apply] at hcv_x ⊢
+  rw [hcv_x, hef2_x, heg_x, hef_x]; simp only [Pi.pow_apply]
+  -- Goal: ∫ f(update x i t)² dγ - (∫ f(update x i t) dγ)² ≤ ∫ (gradf i (update x i t))² dγ
+  -- This is Var_γ[φ] ≤ ∫ (φ')² dγ, which is 1D Gaussian Poincaré.
+  have hderiv_fiber : ∀ t,
+      HasDerivAt (fun s => f (Function.update x i s))
+        (gradf i (Function.update x i t)) t := by
+    intro t; have h := hderiv (Function.update x i t) i
+    have h1 : (fun s => f (Function.update (Function.update x i t) i s)) =
+        (fun s => f (Function.update x i s)) := by
+      ext s; congr 1; ext j
+      by_cases hj : j = i <;> simp [Function.update, hj]
+    rw [h1, Function.update_self i t x] at h; exact h
+  have hvar := variance_eq_sub hf_fib
+  simp only [Pi.pow_apply] at hvar
+  linarith [hvar, gaussian_poincare_1d_core _ _ hf_fib hg_fib hderiv_fiber]
+
+/-- **Fiberwise Poincaré bound for conditional variance**.
 
 For the standard Gaussian product measure `π = γ^n` on `Fin n → ℝ`, and coordinate `i`,
 the conditional variance of `f` given all other coordinates is bounded a.e. by the
 conditional expectation of `(∂ᵢf)²`:
 
-  `condVar[f; π | G_i] ≤ᵃ·ₑ π[(∂ᵢf)² | G_i]`
+  `condVar[f; π | G_i] ≤ᵃᵉ π[(∂ᵢf)² | G_i]`
 
 where `G_i = sigmaAlgExcept i`.
 
-**Mathematical proof**: For a.e. `x`, both sides are `G_i`-measurable (depend only on
-`x_{-i}`). For fixed `x_{-i}`, define `φ(t) := f(update x i t)` and
-`φ'(t) := gradf i (update x i t)`. Then:
-- LHS(x) = `Var_γ[φ]` = `∫ (φ - ∫φ)² dγ`
-- RHS(x) = `∫ (φ')² dγ`
+**Proof**: For `n = 0`, vacuous (no coordinates). For `n = m+1`, uses:
+1. Disintegration identity (`condExp_eq_fiberAvg_pi`, sorry): converts abstract
+   `condVar`/`condExp` to concrete fiber integrals via `Function.update x i ·`
+2. Fiber MemLp (`ae_memLp_fiber`, sorry): `f ∈ L²(π)` implies fiber `∈ L²(γ)` a.e.
+3. `condVar = E[f²|G] - E[f|G]²` (Mathlib)
+4. 1D Gaussian Poincaré (`gaussian_poincare_1d_core`, proved) on each fiber
 
-By 1D Gaussian Poincaré (`gaussian_poincare_1d_core`): `LHS(x) ≤ RHS(x)`.
-
-**Infrastructure gap**: Connecting abstract `condVar`/`condExp` (Radon-Nikodym) to
-concrete fiber integrals over `Function.update x i ·`. Requires:
-- `condExp[g | sigmaAlgExcept i](x) = ∫ g(update x i t) dγ(t)` a.e.
-  for integrable `g` on Gaussian product space
-- This is Fubini/disintegration for `Measure.pi` single-coordinate marginalization,
-  currently absent from Mathlib's abstract conditional expectation interface. -/
+**Sorry status**: 2 sorry (disintegration + fiber MemLp), both Fubini consequences
+for `Measure.pi` single-coordinate marginalization. -/
 private lemma condVar_le_condExp_gradf_sq_ae
     {n : ℕ} (f : (Fin n → ℝ) → ℝ)
     (gradf : Fin n → (Fin n → ℝ) → ℝ)
@@ -621,7 +701,9 @@ private lemma condVar_le_condExp_gradf_sq_ae
       ≤ᵐ[stdGaussianPi n]
     (stdGaussianPi n)[(fun x => (gradf i x) ^ 2) |
       sigmaAlgExcept (X := fun _ : Fin n => ℝ) i] := by
-  sorry
+  cases n with
+  | zero => exact Fin.elim0 i
+  | succ m => exact condVar_le_condExp_gradf_sq_ae_succ f gradf hf hgradf hderiv i
 
 /-- **Per-coordinate Poincaré bound core**.
 

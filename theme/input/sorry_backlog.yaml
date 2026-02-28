@@ -1,6 +1,6 @@
-version: v15
+version: v16
 generated: 2026-02-28
-total_sorry: 9
+total_sorry: 10
 
 sorry_items:
 
@@ -42,15 +42,42 @@ sorry_items:
 
 - id: gaussian.poincare.condvar
   file: Statlean/Gaussian/Poincare.lean
-  line: 624
+  line: 690
   theorem: condVar_le_condExp_gradf_sq_ae
-  type: honest
+  type: proved_modulo
   depth: 2
-  priority: 7
-  blocker: "fiber integral ↔ condExp, Measure.pi Fubini"
-  estimated_lines: 60
-  dependencies: []
+  priority: 11
+  blocker: "PROVED modulo condExp_eq_fiberAvg_pi + ae_memLp_fiber. Uses disintegration + condVar decomposition + 1D Poincaré."
+  estimated_lines: 0
+  dependencies: [gaussian.poincare.disintegration, gaussian.poincare.fiber_memlp]
   unlocks: []
+  notes: "v16: Proved via condVar_ae_eq_condExp_sq_sub_sq_condExp + gaussian_poincare_1d_core + variance_eq_sub. n=0 case by Fin.elim0."
+
+- id: gaussian.poincare.disintegration
+  file: Statlean/Gaussian/Poincare.lean
+  line: 603
+  theorem: condExp_eq_fiberAvg_pi
+  type: honest
+  depth: 1
+  priority: 5
+  blocker: "Disintegration identity: condExp[g|G_i] =ᵃᵉ fiberAvg. Needs ae_eq_condExp_of_forall_setIntegral_eq + Fubini for measurable sets in Measure.pi."
+  estimated_lines: 80
+  dependencies: []
+  unlocks: [gaussian.poincare.condvar]
+  notes: "v16: New sorry from decomposing condVar_le_condExp_gradf_sq_ae. Infrastructure proved: removeNth_measurable_sigmaAlgExcept, fiberAvg StronglyMeasurable[G_i], integral_pi_fubini."
+
+- id: gaussian.poincare.fiber_memlp
+  file: Statlean/Gaussian/Poincare.lean
+  line: 616
+  theorem: ae_memLp_fiber
+  type: honest
+  depth: 1
+  priority: 5
+  blocker: "f ∈ L²(π) implies fiber ∈ L²(γ) a.e. Needs Fubini for f² via measurePreserving_piFinSuccAbove + AEStronglyMeasurable from product structure."
+  estimated_lines: 50
+  dependencies: []
+  unlocks: [gaussian.poincare.condvar]
+  notes: "v16: New sorry from decomposing condVar_le_condExp_gradf_sq_ae. Related to Integrable.prod_right_ae but needs L² version."
 
 - id: efronstein.condvar
   file: Statlean/Variance/EfronStein.lean
