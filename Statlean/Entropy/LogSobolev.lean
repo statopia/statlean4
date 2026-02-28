@@ -227,31 +227,52 @@ lemma abs_mul_log_le_sq_add_one (t : ℝ) (ht : 0 ≤ t) :
       nlinarith [mul_inv_cancel₀ (ne_of_gt htp)]
     linarith [sq_nonneg t]
 
-/-- **Sub-lemma 1 (integrability)**: For the Gaussian, `f ∈ L²(γ)` and `HasDerivAt f f'`
-    implies the entropy integrand `f²·log(f²)` is in `L¹(γ)`.
+/-- **Gaussian hypercontractivity (W^{1,2}(γ) → L⁴(γ))**: If `f ∈ L²(γ)` and `f' ∈ L²(γ)`
+    with `HasDerivAt`, then `f ∈ L⁴(γ)`.
 
-    **Blocker**: Requires `f ∈ L⁴(γ)`, which follows from Gaussian hypercontractivity
-    (Nelson's theorem / Gaussian Sobolev embedding `W^{1,2}(γ) ↪ L⁴(γ)`).
-    Neither is available in Mathlib as of v4.28.
+    This is the 1D case of the Nelson hypercontractivity theorem (1973).
+    The standard proof uses the Ornstein-Uhlenbeck semigroup: `P_t f ∈ L^q(γ)`
+    for `q ≤ 1 + (p-1)e^{2t}` when `f ∈ L^p(γ)`. Taking p=2, t=½ log 3 gives q=4.
 
-    **Proof sketch**: The bound `|t·log(t)| ≤ t² + 1` (`abs_mul_log_le_sq_add_one`)
-    gives `|f²·log(f²)| ≤ f⁴ + 1`. So integrability reduces to `f ∈ L⁴(γ)`.
-    For `f ∈ W^{1,2}(γ)` (i.e., `f, f' ∈ L²(γ)`), the Gaussian Sobolev embedding
-    `W^{1,2}(γ) ↪ L^p(γ)` for all finite p (Nelson '73) gives `f ∈ L⁴(γ)`.
+    **Blocker**: Not available in Mathlib v4.28. Requires either:
+    - Ornstein-Uhlenbeck semigroup theory, or
+    - Fine structure of Hermite polynomial products (linearization formula). -/
+lemma memLp_four_of_W12_gaussian
+    (f f' : ℝ → ℝ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x) :
+    MemLp f 4 stdGaussian := by
+  sorry
 
-    **Dependency**: Would be resolved by proving:
-    `memLp_four_of_memLp_two_deriv : MemLp f 2 γ → MemLp f' 2 γ → HasDerivAt f f' → MemLp f 4 γ`
-    which is Gaussian hypercontractivity / the Nelson bound. -/
 lemma integrable_sq_mul_log_sq_of_memLp
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
     (hf' : MemLp f' 2 stdGaussian)
     (hderiv : ∀ x, HasDerivAt f (f' x) x) :
     Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian := by
-  -- Strategy: |f²·log(f²)| ≤ f⁴ + 1 by abs_mul_log_le_sq_add_one
-  -- Integrability of f⁴ under Gaussian requires f ∈ L⁴(γ), which needs
-  -- Gaussian hypercontractivity (not available in Mathlib).
-  sorry
+  -- Step 1: f ∈ L⁴(γ) by Gaussian hypercontractivity
+  have hf4 : MemLp f 4 stdGaussian := memLp_four_of_W12_gaussian f f' hf hf' hderiv
+  -- Step 2: f⁴ is integrable under γ (MemLp f 4 ⟹ ∫ ‖f‖⁴ < ∞ ⟹ ∫ f⁴ < ∞)
+  have hf4_int : Integrable (fun x => f x ^ 4) stdGaussian := by
+    have h4eq : (4 : ENNReal) = Nat.cast (4 : Nat) := by norm_cast
+    rw [h4eq] at hf4
+    exact hf4.integrable_norm_pow'.congr (ae_of_all _ fun x => by
+      simp [Real.norm_eq_abs, Even.pow_abs ⟨2, rfl⟩])
+  -- Step 3: |f²·log(f²)| ≤ f⁴ + 1 by abs_mul_log_le_sq_add_one
+  -- Therefore f²·log(f²) is integrable by domination
+  refine (hf4_int.norm.add (integrable_const 1)).mono'
+    ((hf.aestronglyMeasurable.pow _).mul
+      ((Real.measurable_log.comp_aemeasurable
+        (hf.aestronglyMeasurable.pow _).aemeasurable).aestronglyMeasurable))
+    (ae_of_all _ fun x => ?_)
+  -- Pointwise bound: ‖f²·log(f²)‖ ≤ ‖f⁴‖ + 1
+  change ‖f x ^ 2 * Real.log (f x ^ 2)‖ ≤ ‖f x ^ 4‖ + 1
+  simp only [Real.norm_eq_abs]
+  calc |f x ^ 2 * Real.log (f x ^ 2)|
+      ≤ (f x ^ 2) ^ 2 + 1 := abs_mul_log_le_sq_add_one (f x ^ 2) (sq_nonneg _)
+    _ = f x ^ 4 + 1 := by ring_nf
+    _ ≤ |f x ^ 4| + 1 := by gcongr; exact le_abs_self _
 
 /-! ### Regularized Stein IBP infrastructure (proved, supporting Gross's argument)
 
