@@ -2,7 +2,7 @@
 description: Full pipeline — PDF theorem → Lean 4 formalization (extract → ingest → skeleton → prove → gate)
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash, Agent, Skill, Task, WebSearch, WebFetch
 model: opus
-argument-hint: <pdf-file> [--theorem <name>] [--pages <range>] [--prove-depth deep|shallow] [--time-budget 2h]
+argument-hint: <pdf-file> [--theorem <name>] [--pages <range>] [--prove-depth deep|shallow] [--time-budget 1h]
 ---
 
 # Full Formalization Pipeline
@@ -43,7 +43,7 @@ Iterate until clean compilation (max 5 cycles).
 
 ## Step 5: Prove (DAG-driven)
 
-Parse `--time-budget` from arguments (default: 2h).
+Parse `--time-budget` from arguments (default: 1h).
 Parse `--prove-depth` from arguments (default: deep).
 
 If `--prove-depth shallow`:

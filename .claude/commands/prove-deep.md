@@ -9,9 +9,17 @@ argument-hint: [sorry-id from backlog, or "next" for highest priority, or "all-l
 
 Target: $ARGUMENTS
 
-**Time budget: configurable via `--time-budget` (default: UNLIMITED).**
+**Time budget: configurable via `--time-budget` (default: 1h).**
 This mode keeps 3 agents saturated, dispatching new work as soon as any agent completes.
 When one sorry is proved → incremental commit → unlock downstream → dispatch next ready task.
+
+**Timeout policy (hard enforcement):**
+- **Soft deadline** = `--time-budget` (default 1h): stop dispatching new tasks.
+- **Hard deadline** = soft deadline + 1h: force-stop all remaining agents via `TaskStop`,
+  even if they haven't finished. Before stopping, dump their partial progress to
+  `sorry_backlog.yaml` (mark as `stuck`, record last error / partial proof sketch)
+  and update `MEMORY.md` with any patterns learned.
+- This ensures every `/prove-deep` session terminates within 2× budget at most.
 
 ---
 
@@ -85,8 +93,12 @@ LOOP:
       goto LOOP
 
   # ── Check time budget ──
-  if time_budget exceeded:
-    wait for all active agents to finish
+  if soft_deadline exceeded:
+    stop dispatching new tasks (but keep polling active agents)
+  if hard_deadline exceeded (soft + 1h):
+    for each active agent:
+      TaskStop(task_id)
+      record partial progress in sorry_backlog.yaml (status: stuck)
     break
 
   # ── Brief pause then re-poll ──

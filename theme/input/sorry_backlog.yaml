@@ -1,6 +1,6 @@
-version: v7
+version: v9
 generated: 2026-02-28
-total_sorry: 43
+total_sorry: 12
 
 sorry_items:
 
@@ -40,6 +40,42 @@ sorry_items:
   dependencies: []
   unlocks: []
 
+- id: sufficiency.factorization.factorization_backward
+  file: Statlean/Sufficiency/Factorization.lean
+  line: 69
+  theorem: factorization_backward
+  type: honest
+  depth: 2
+  priority: 5
+  blocker: "condExp w.r.t. comap sub-σ-algebra + rnDeriv factorization"
+  estimated_lines: 60
+  dependencies: []
+  unlocks: []
+
+- id: sufficiency.factorization.factorization_forward
+  file: Statlean/Sufficiency/Factorization.lean
+  line: 80
+  theorem: factorization_forward
+  type: honest
+  depth: 2
+  priority: 6
+  blocker: "construct Q = c₁μ + c₂ν, extract g from dμ/dQ restricted to σ(T)"
+  estimated_lines: 80
+  dependencies: []
+  unlocks: []
+
+- id: gaussian.poincare.condvar
+  file: Statlean/Gaussian/Poincare.lean
+  line: 624
+  theorem: condVar_le_condExp_gradf_sq_ae
+  type: honest
+  depth: 2
+  priority: 7
+  blocker: "fiber integral ↔ condExp, Measure.pi Fubini"
+  estimated_lines: 60
+  dependencies: []
+  unlocks: []
+
 - id: berry_esseen.fourier
   file: Statlean/LimitTheorems/BerryEsseen.lean
   line: 241
@@ -64,370 +100,52 @@ sorry_items:
   dependencies: [berry_esseen.fourier]
   unlocks: []
 
-- id: charfun.taylor.anonymous_L20
-  file: Statlean/CharFun/Taylor.lean
-  line: 20
-  theorem: anonymous_L20
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: entropy.basic.anonymous_L15
-  file: Statlean/Entropy/Basic.lean
-  line: 15
-  theorem: anonymous_L15
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: entropy.logsobolev.anonymous_L16
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 16
-  theorem: anonymous_L16
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: entropy.logsobolev.anonymous_L42
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 42
-  theorem: anonymous_L42
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: entropy.logsobolev.anonymous_L56
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 56
-  theorem: anonymous_L56
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: entropy.logsobolev.anonymous_L7
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 7
-  theorem: anonymous_L7
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: entropy.logsobolev.integrable_sq_of_memLp
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 184
-  sorry_lines: [184, 190]
-  theorem: integrable_sq_of_memLp
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: entropy.logsobolev.two_mul_le_sq_add_sq
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 321
-  theorem: two_mul_le_sq_add_sq
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: gaussian.poincare.anonymous_L15
-  file: Statlean/Gaussian/Poincare.lean
-  line: 15
-  theorem: anonymous_L15
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: gaussian.poincare.anonymous_L26
-  file: Statlean/Gaussian/Poincare.lean
-  line: 26
-  theorem: anonymous_L26
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: gaussian.poincare.gaussian_poincare_1d
-  file: Statlean/Gaussian/Poincare.lean
-  line: 624
-  theorem: gaussian_poincare_1d
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.berryesseen.anonymous_L11
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 11
-  theorem: anonymous_L11
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.berryesseen.anonymous_L12
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 12
-  theorem: anonymous_L12
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.berryesseen.anonymous_L21
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 21
-  theorem: anonymous_L21
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.berryesseen.anonymous_L24
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 24
-  theorem: anonymous_L24
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.berryesseen.anonymous_L33
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 33
-  theorem: anonymous_L33
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.berryesseen.cdf_smoothing_bound
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 175
-  sorry_lines: [175, 185]
-  theorem: cdf_smoothing_bound
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.uslln.anonymous_L13
-  file: Statlean/LimitTheorems/USLLN.lean
-  line: 13
-  theorem: anonymous_L13
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.uslln.anonymous_L20
-  file: Statlean/LimitTheorems/USLLN.lean
-  line: 20
-  theorem: anonymous_L20
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.uslln.anonymous_L5
-  file: Statlean/LimitTheorems/USLLN.lean
-  line: 5
-  theorem: anonymous_L5
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: subgaussian.herbst.anonymous_L11
-  file: Statlean/SubGaussian/Herbst.lean
-  line: 11
-  theorem: anonymous_L11
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: subgaussian.herbst.herbstBound_neg
-  file: Statlean/SubGaussian/Herbst.lean
-  line: 77
-  theorem: herbstBound_neg
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: subgaussian.lipschitz.anonymous_L21
-  file: Statlean/SubGaussian/Lipschitz.lean
-  line: 21
-  theorem: anonymous_L21
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: subgaussian.lipschitz.anonymous_L6
-  file: Statlean/SubGaussian/Lipschitz.lean
-  line: 6
-  theorem: anonymous_L6
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: sufficiency.factorization.factorization_backward
-  file: Statlean/Sufficiency/Factorization.lean
-  line: 57
-  theorem: factorization_backward
-  type: honest
-  depth: 2
-  priority: 5
-  blocker: "condExp w.r.t. comap sub-σ-algebra + rnDeriv factorization"
-  estimated_lines: 60
-  dependencies: []
-  unlocks: [sufficiency.factorization.factorization_forward]
-
-- id: sufficiency.factorization.factorization_forward
-  file: Statlean/Sufficiency/Factorization.lean
-  line: 69
-  theorem: factorization_forward
-  type: honest
-  depth: 2
-  priority: 6
-  blocker: "construct Q = c₁μ + c₂ν, extract g from dμ/dQ restricted to σ(T)"
-  estimated_lines: 80
-  dependencies: []
-  unlocks: []
-
-- id: variance.anova.anonymous_L21
-  file: Statlean/Variance/ANOVA.lean
-  line: 21
-  theorem: anonymous_L21
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: variance.efronstein.anonymous_L17
-  file: Statlean/Variance/EfronStein.lean
-  line: 17
-  theorem: anonymous_L17
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: variance.efronstein.anonymous_L24
-  file: Statlean/Variance/EfronStein.lean
-  line: 24
-  theorem: anonymous_L24
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: variance.efronstein.efron_stein_core_unique
+- id: efronstein.condvar
   file: Statlean/Variance/EfronStein.lean
   line: 237
   sorry_lines: [237, 250, 422, 495]
   theorem: efron_stein_core_unique
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
+  type: honest
+  depth: 2
+  priority: 8
+  blocker: "Measure.pi Fubini + quotient reduction"
+  estimated_lines: 80
   dependencies: []
   unlocks: []
 
-- id: verified.anonymous_L26
-  file: Statlean/Verified.lean
-  line: 26
-  theorem: anonymous_L26
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
+- id: herbst.subgaussian
+  file: Statlean/SubGaussian/Herbst.lean
+  line: 77
+  theorem: herbstBound_neg
+  type: honest
+  depth: 2
+  priority: 9
+  blocker: "LSI + Grönwall ODE argument"
+  estimated_lines: 60
+  dependencies: [lsi.normalized]
+  unlocks: []
+
+- id: logsobolev.integrable_sq
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 184
+  sorry_lines: [184, 190]
+  theorem: integrable_sq_of_memLp
+  type: honest
+  depth: 2
+  priority: 10
+  blocker: "L² → L¹ via Gaussian Sobolev"
+  estimated_lines: 40
   dependencies: []
   unlocks: []
 
-- id: verified.anonymous_L29
-  file: Statlean/Verified.lean
-  line: 29
-  theorem: anonymous_L29
-  type: unknown
+- id: logsobolev.two_mul
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 321
+  theorem: two_mul_le_sq_add_sq
+  type: honest
   depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: verified.anonymous_L32
-  file: Statlean/Verified.lean
-  line: 32
-  theorem: anonymous_L32
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
+  priority: 15
+  blocker: "AM-GM type bound in regularization"
+  estimated_lines: 20
   dependencies: []
   unlocks: []

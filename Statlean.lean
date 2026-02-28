@@ -38,3 +38,7 @@ import Statlean.Regression.Linear
 import Statlean.SPD.FrechetMean
 import Statlean.SPD.Determinant
 import Statlean.SPD.Geodesic
+
+-- Sufficiency
+import Statlean.Sufficiency.Factorization
+import Statlean.Sufficiency.Basu
