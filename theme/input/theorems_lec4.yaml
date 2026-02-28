@@ -21,3 +21,74 @@ theorems:
     lean_proof: ""
     keywords: ["sufficiency", "factorization", "Radon-Nikodym", "dominated family"]
     layer: statlib
+
+  - id: lec4.completeness
+    title: "Completeness of a Statistic"
+    kind: definition
+    latex_statement: |
+      A statistic $T(X)$ is said to be complete for $P \in \mathcal{P}$ if and only if,
+      for any Borel function $f$, $E_P[f(T)] = 0$ for all $P \in \mathcal{P}$ implies
+      that $f(T) = 0$ $P$-a.s.
+    latex_proof_hint: ""
+    lean_namespace: "Statlean.Statistic"
+    lean_name: "IsComplete"
+    lean_statement: ""
+    lean_proof: ""
+    keywords: ["completeness", "complete statistic"]
+    layer: statlib
+    priority: 2
+    dependencies: []
+
+  - id: lec4.bounded_completeness
+    title: "Bounded Completeness of a Statistic"
+    kind: definition
+    latex_statement: |
+      $T$ is said to be boundedly complete if and only if, for any bounded Borel function $f$,
+      $E_P[f(T)] = 0$ for all $P \in \mathcal{P}$ implies that $f(T) = 0$ $P$-a.s.
+    latex_proof_hint: ""
+    lean_namespace: "Statlean.Statistic"
+    lean_name: "IsBoundedlyComplete"
+    lean_statement: ""
+    lean_proof: ""
+    keywords: ["bounded completeness", "complete statistic"]
+    layer: statlib
+    priority: 2
+    dependencies: []
+
+  - id: lec4.ancillary
+    title: "Ancillary Statistic"
+    kind: definition
+    latex_statement: |
+      A statistic $V(X)$ is ancillary for $P \in \mathcal{P}$ if the distribution of $V(X)$
+      does not depend on $P$.
+    latex_proof_hint: ""
+    lean_namespace: "Statlean.Statistic"
+    lean_name: "IsAncillary"
+    lean_statement: ""
+    lean_proof: ""
+    keywords: ["ancillary", "ancillarity"]
+    layer: statlib
+    priority: 2
+    dependencies: []
+
+  - id: lec4.basu
+    title: "Basu's Theorem"
+    kind: theorem
+    latex_statement: |
+      Let $V$ and $T$ be two statistics of $X$ from a population $P \in \mathcal{P}$.
+      If $V$ is ancillary and $T$ is boundedly complete and sufficient for $P \in \mathcal{P}$,
+      then $V$ and $T$ are independent w.r.t. any $P \in \mathcal{P}$.
+    latex_proof_hint: |
+      Since V is ancillary, P(V in B) is constant c_B.
+      Since T is sufficient, E_P[I_B(V)|T] = h_B(T).
+      By tower: E_P[h_B(T) - c_B] = 0 for all P.
+      By bounded completeness: h_B(T) = c_B a.s.
+      Then P(T in A, V in B) = E[I_A(T) h_B(T)] = P(T in A) P(V in B).
+    lean_namespace: "Statlean.Sufficiency"
+    lean_name: "basu_theorem"
+    lean_statement: ""
+    lean_proof: ""
+    keywords: ["basu", "ancillary", "complete sufficient", "independence"]
+    layer: statlib
+    priority: 3
+    dependencies: [lec4.bounded_completeness, lec4.ancillary]

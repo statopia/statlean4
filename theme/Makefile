@@ -7,7 +7,7 @@ OUT_DIR ?= $(THEME_DIR)/out
 TEX ?= $(ROOT)/output.tex
 PDF ?=
 
-.PHONY: formalize ingest plan generate sync-backlog gate clean \
+.PHONY: formalize ingest plan generate infra-audit sync-backlog gate clean \
         from-tex tex-formalize from-pdf pdf-formalize \
         prove-fallback refresh-index
 
@@ -16,7 +16,7 @@ PDF ?=
 # (prove stage is handled by /prove-deep inside Claude Code,
 #  not by this Makefile)
 # ══════════════════════════════════════════════════════════
-formalize: ingest plan generate sync-backlog gate
+formalize: ingest plan generate infra-audit sync-backlog gate
 
 ingest:
 	$(THEME_DIR)/scripts/ingest.sh "$(INPUT_DIR)" "$(OUT_DIR)"
@@ -26,6 +26,9 @@ plan:
 
 generate:
 	$(THEME_DIR)/scripts/generate.sh "$(INPUT_DIR)" "$(OUT_DIR)" "$(ROOT)"
+
+infra-audit:
+	cd "$(ROOT)" && python3 theme/scripts/infra_audit.py .
 
 sync-backlog:
 	cd "$(ROOT)" && python3 theme/scripts/sync_sorry_backlog.py

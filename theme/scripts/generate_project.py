@@ -56,13 +56,14 @@ def safe_comment(s: str, max_chars: int = 1200) -> str:
 
 
 def theorem_block(item: Dict[str, Any], used_names: set[str]) -> Tuple[str, str, bool]:
-    """Generate a Lean 4 theorem block.
+    """Generate a Lean 4 theorem or definition block.
 
     Returns (block_text, lean_name, has_pipeline_id).
     """
     tid = str(item.get("id", "unknown.id"))
     title = str(item.get("title", tid))
     kind = str(item.get("kind", "theorem"))
+    is_def = kind.lower().strip() in {"definition", "structure", "class", "abbrev", "def"}
 
     lean_name = sanitize_lean_ident(str(item.get("lean_name", tid.split(".")[-1])))
     lean_name = unique_name(lean_name, used_names)
@@ -72,10 +73,8 @@ def theorem_block(item: Dict[str, Any], used_names: set[str]) -> Tuple[str, str,
 
     has_pipeline_id = False
     if not stmt or not str(stmt).strip():
-        stmt = "True"
         has_pipeline_id = True
-    if not proof or not str(proof).strip():
-        proof = "sorry"
+    if not is_def and (not proof or not str(proof).strip()):
         has_pipeline_id = True
 
     latex_stmt = safe_comment(str(item.get("latex_statement", "")))
@@ -95,9 +94,23 @@ def theorem_block(item: Dict[str, Any], used_names: set[str]) -> Tuple[str, str,
     lines.append("LaTeX proof hint:")
     lines.append(latex_hint or "(empty)")
     lines.append("-/")
-    lines.append(f"theorem {lean_name} : {stmt} := by")
-    for ln in str(proof).splitlines() or ["sorry"]:
-        lines.append(f"  {ln}" if ln.strip() else "")
+
+    if is_def:
+        if stmt and str(stmt).strip():
+            # User provided full Lean definition — emit as-is
+            for ln in str(stmt).splitlines():
+                lines.append(ln)
+        else:
+            # Placeholder definition
+            lines.append(f"def {lean_name} : Sorry := sorry  -- TODO: fill Lean definition")
+    else:
+        if not stmt or not str(stmt).strip():
+            stmt = "True"
+        if not proof or not str(proof).strip():
+            proof = "sorry"
+        lines.append(f"theorem {lean_name} : {stmt} := by")
+        for ln in str(proof).splitlines() or ["sorry"]:
+            lines.append(f"  {ln}" if ln.strip() else "")
     lines.append("")
 
     return "\n".join(lines), lean_name, has_pipeline_id
@@ -203,8 +216,9 @@ def build_project(
         title = str(item.get("title", ""))
         namespace = str(item.get("lean_namespace", ""))
         stmt = str(item.get("lean_statement", ""))
+        kind = str(item.get("kind", "theorem"))
 
-        subdir, submodule = classify_theorem(title, namespace, stmt)
+        subdir, submodule = classify_theorem(title, namespace, stmt, kind=kind)
         block, lean_name, has_pipeline_id = theorem_block(item, used_names)
 
         rel_path = classify_file_path(subdir, submodule)

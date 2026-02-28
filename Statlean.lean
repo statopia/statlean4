@@ -39,6 +39,9 @@ import Statlean.SPD.FrechetMean
 import Statlean.SPD.Determinant
 import Statlean.SPD.Geodesic
 
+-- Statistic foundations (completeness, ancillary)
+import Statlean.Statistic.Basic
+
 -- Sufficiency
 import Statlean.Sufficiency.Factorization
 import Statlean.Sufficiency.Basu
