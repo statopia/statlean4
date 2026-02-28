@@ -1,6 +1,6 @@
-version: v14
+version: v15
 generated: 2026-02-28
-total_sorry: 8
+total_sorry: 9
 
 sorry_items:
 
@@ -78,28 +78,54 @@ sorry_items:
   dependencies: [lsi.normalized]
   unlocks: []
 
+- id: berry_esseen.esseen_concentration
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 310
+  theorem: esseen_concentration_universal
+  type: honest
+  depth: 1
+  priority: 8
+  blocker: "Stieltjes inversion formula for CDF differences — not in Mathlib. Needs: (1) Fourier inversion for distributions, (2) truncation error bounded by C₂/T using bounded density of Gaussian. Classical result (Esseen 1945) but substantial formalization effort."
+  estimated_lines: 250
+  dependencies: []
+  unlocks: [berry_esseen.charfun_integral_bound]
+  notes: "v15: Extracted from esseen_charfun_integral_bound. Constants C₁,C₂ are universal (∃ C₁ C₂, ∀ T > 0, ∀ μ prob, ...). This is the Fourier-analytic core of Esseen's inequality."
+
 - id: berry_esseen.charfun_integral
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 320
-  theorem: esseen_charfun_integral_bound
+  line: 337
+  theorem: charfun_integral_bound
   type: honest
   depth: 1
   priority: 6
-  blocker: "Charfun modulus decay |φ(s)| ≤ 1-σ²s²/4 for small s → exponential decay e^{-t²/4} in charfun bound → convergent Fourier integral. Needs: (1) charfun modulus lower bound from variance (Cauchy-Schwarz on cos(sY)), (2) product decay (1-t²/(4n))^n ≤ e^{-t²/4}, (3) integration of t²·e^{-t²/4} (Gaussian moments). Esseen smoothing lemma (Fourier inversion bridge from charFun to CDF) also needed inside."
-  estimated_lines: 200
+  blocker: "Charfun modulus decay |φ_Y(s)| ≤ 1-σ²s²/4 for small s → exponential decay e^{-t²/4} in charfun product bound → convergent Fourier integral. Needs: (1) charfun modulus bound from cos decomposition (Cauchy-Schwarz on E[cos(sY)]), (2) product decay (1-t²/(4n))^n ≤ e^{-t²/4} [already have Real.one_sub_div_pow_le_exp_neg], (3) integration of t²·e^{-t²/4} (Gaussian moments)."
+  estimated_lines: 150
   dependencies: []
+  unlocks: [berry_esseen.charfun_integral_bound]
+  notes: "v15: Extracted from esseen_charfun_integral_bound. Bounds ∫_{-T}^{T} ‖φ_S-φ_Φ‖/|t| dt ≤ C₃*δ where δ=ρ/(σ³√n). Key input: charfun_normalized_sum_bound (C=8, proved in Taylor.lean) gives ‖φ_S(t)-φ_Φ(t)‖ ≤ 8δ(1+|t|)³ for |t|ρ ≤ σ³√n. Need exponential decay to make integral converge."
+
+- id: berry_esseen.charfun_integral_bound
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 371
+  theorem: esseen_charfun_integral_bound
+  type: proved_modulo
+  depth: 1
+  priority: 11
+  blocker: "PROVED from esseen_concentration_universal + charfun_integral_bound. C = C₁*C₃ + C₂."
+  estimated_lines: 0
+  dependencies: [berry_esseen.esseen_concentration, berry_esseen.charfun_integral]
   unlocks: [berry_esseen.theorem]
-  notes: "Replaces old berry_esseen.theorem sorry. Previous sorry was at berry_esseen_theorem itself (line 292). Now berry_esseen_theorem is proved from esseen_charfun_integral_bound. Internal lemmas charfun_prod_vs_pow_bound, complex_pow_approx_exp, charfun_iid_sum_eq_prod made public in Taylor.lean."
+  notes: "v15: Fully proved assembly. Extracts C₁,C₂ from esseen_concentration_universal and C₃ from charfun_integral_bound, sets C=C₁*C₃+C₂, then calc chain: |F-Φ| ≤ C₁*I + C₂/T ≤ C₁*(C₃*δ) + C₂*δ = C*δ."
 
 - id: berry_esseen.theorem
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 365
+  line: 443
   theorem: berry_esseen_theorem
   type: proved_modulo
   depth: 1
   priority: 11
   blocker: "PROVED modulo esseen_charfun_integral_bound"
   estimated_lines: 0
-  dependencies: [berry_esseen.charfun_integral]
+  dependencies: [berry_esseen.charfun_integral_bound]
   unlocks: []
-  notes: "v14: berry_esseen_theorem now proved from esseen_charfun_integral_bound. Sorry moved to more precise location (charfun integral bound with exponential decay)."
+  notes: "v14: berry_esseen_theorem proved from esseen_charfun_integral_bound."

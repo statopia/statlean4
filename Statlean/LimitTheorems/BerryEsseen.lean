@@ -8,42 +8,34 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **1 honest sorry** remains: `esseen_charfun_integral_bound`
-- **berry_esseen_theorem PROVED** modulo `esseen_charfun_integral_bound`
+- **2 honest sorry** remain: `esseen_concentration_universal` and `charfun_integral_bound`
+- **berry_esseen_theorem PROVED** modulo these 2 sorry
+- **esseen_charfun_integral_bound PROVED** from the 2 sub-lemmas (zero sorry of its own)
 - **5 fully proved** infrastructure sub-lemmas in this file
 
 ## Architecture
 
 The proof follows the classical Fourier-analytic approach:
 
-1. **Esseen smoothing** (`esseen_smoothing_lemma`): For probability measures `μ, ν` on `ℝ`
-   where `ν` has bounded density,
-   `|cdf μ y - cdf ν y| ≤ C₁ ∫_{-T}^{T} ‖φ_μ - φ_ν‖/|t| dt + C₂/T`
+1. **Esseen concentration** (`esseen_concentration_universal`): Universal constants `C₁, C₂`
+   such that for all probability measures `μ` on `ℝ` and all `T > 0`:
+   `|cdf μ y - cdf Φ y| ≤ C₁ ∫_{-T}^{T} ‖φ_μ - φ_Φ‖/|t| dt + C₂/T`
+   **Blocker**: Stieltjes inversion formula (not in Mathlib).
 
-2. **Charfun integral bound** (`esseen_charfun_integral_bound`): The integral from step 1
-   is bounded by `C * ρ/(σ³√n)` when choosing `T = σ³√n/ρ` and using the charfun Taylor
-   bound with exponential decay factor `e^{-t²/4}`.
+2. **Charfun integral bound** (`charfun_integral_bound`): The integral from step 1
+   is bounded by `C₃ * ρ/(σ³√n)` when `T = σ³√n/ρ`, using charfun Taylor bounds
+   and exponential decay of the charfun modulus.
+   **Blocker**: Charfun modulus decay `|φ_Y(s)| ≤ 1 - σ²s²/4` for small s.
 
-3. **Assembly** (`berry_esseen_theorem`): Combine steps 1-2 with `T = σ³√n/ρ`.
+3. **Assembly** (`esseen_charfun_integral_bound`): PROVED from steps 1-2.
+   Sets `C = C₁*C₃ + C₂` and combines: `|F-Φ| ≤ C₁*(C₃*δ) + C₂*δ = C*δ`.
+
+4. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 3.
 
 ## Remaining sorry
 
-- `esseen_charfun_integral_bound`: Bounds the Fourier integral
-  `∫_{-T}^{T} ‖φ_S(t) - φ_Φ(t)‖/|t| dt ≤ C * ρ/(σ³√n)`
-  using the charfun Taylor chain plus exponential decay of charfun modulus.
-
-  **Blocker**: Needs (a) charfun modulus decay `|φ(s)| ≤ e^{-σ²s²/4}` for small s, which
-  gives the exponential factor `e^{-t²/4}` in the charfun bound
-  `‖φ_S(t) - φ_Φ(t)‖ ≤ Cδ|t|³ · e^{-t²/4}`, making the integral convergent over
-  all of ℝ. Without this decay, the integral diverges for large T.
-
-  **Proof sketch**:
-  1. Prove `|φ_Y(s)|² ≤ 1 - σ²s²/2 + O(s³)` using variance (Cauchy-Schwarz)
-  2. Deduce `|φ_Y(s)| ≤ 1 - σ²s²/4` for small s
-  3. Product bound: `|φ_S(t)| = |φ_Y(t/(σ√n))|ⁿ ≤ (1-t²/(4n))ⁿ ≤ e^{-t²/4}`
-  4. Combine with Taylor: `‖φ_S - φ_Φ‖ ≤ (Cδ|t|³ + t⁴/(4n)) · e^{-t²/4}`
-  5. Integrate: `∫(Cδ|t|² + |t|³/(4n)) · e^{-t²/4} dt ≤ C'δ` (Gaussian moments)
-  **Estimated effort**: P6
+- `esseen_concentration_universal` (P8): Requires Stieltjes inversion formula.
+- `charfun_integral_bound` (P6): Requires charfun modulus decay.
 -/
 
 namespace Statlean.BerryEsseen
@@ -294,29 +286,88 @@ lemma berry_esseen_smoothing (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
 
 /-! ## Esseen's charfun integral bound -/
 
-/-- **Charfun integral bound with exponential decay.**
+/-- **Esseen's concentration inequality with universal constants.**
 
-For the standardized sum `S`, the Fourier integral used in the smoothing inequality
-is bounded by `O(ρ/(σ³√n))`:
+For any probability measure `μ` on `ℝ`, there exist **universal** constants `C₁, C₂ > 0`
+(independent of `μ`, `T`, `y`) such that for all `T > 0`:
 
-  `∫_{-T}^{T} ‖φ_S(t) - φ_Φ(t)‖ / |t| dt ≤ C * ρ / (σ³ * √n)`
+  `|cdf μ y - cdf(gaussianReal 0 1) y| ≤ C₁ * ∫_{-T}^{T} ‖φ_μ(t) - φ_Φ(t)‖/|t| dt + C₂/T`
 
-when `T = σ³√n / ρ`. This combines:
-- Taylor remainder: `‖φ_S(t) - φ_Φ(t)‖ ≤ 4δ|t|³ + t⁴/(4n)` from `charfun_prod_vs_pow_bound`
-  and `complex_pow_approx_exp`
-- Exponential decay: `|φ_S(t)| ≤ e^{-t²/4}` for the product of charfuns, which ensures
-  the integral converges even as T → ∞
-- Esseen's inequality: `|F_n(y) - Φ(y)| ≤ C₁ · I + C₂ / T`
+This is the classical Esseen inequality (1945). The constants are universal because
+the standard Gaussian has a bounded continuous density `φ(x) = (2π)^{-1/2} e^{-x²/2}`.
+
+## Proof sketch
+Uses the Stieltjes inversion formula: for measures with bounded density,
+`F(y) - G(y) = (1/(2πi)) lim_{T→∞} ∫_{-T}^{T} (φ_F(t) - φ_G(t)) e^{-ity} / t dt`.
+The truncation error `|∫_{|t|>T} ...| ≤ C₂/T` uses the bounded density of Φ.
 
 ## Blocker
-Charfun modulus decay: proving `|φ_Y(s)| ≤ 1 - σ²s²/4` for small s, which gives
-`|φ_Y(t/(σ√n))|ⁿ ≤ (1 - t²/(4n))ⁿ ≤ e^{-t²/4}`. This is the standard argument
-using `E[e^{isY}] = E[cos(sY)] + iE[sin(sY)]` and `|E[cos(sY)]| ≤ 1 - E[1-cos(sY)]
-= 1 - σ²s²/2 + O(s³)`.
+Stieltjes inversion formula for CDF differences is not in Mathlib.
 -/
--- sorry count: 1 (charfun modulus decay + integration)
--- proof sketch: see docstring above
+-- sorry count: 1 (Stieltjes inversion formula)
+-- blocker: Stieltjes inversion formula not in Mathlib
+-- estimated effort: P8
+lemma esseen_concentration_universal :
+    ∃ C₁ C₂ : ℝ, 0 < C₁ ∧ 0 < C₂ ∧
+      ∀ (T : ℝ), 0 < T →
+        ∀ (μ : Measure ℝ) [IsProbabilityMeasure μ],
+          ∀ y : ℝ, |cdf μ y - cdf (gaussianReal 0 1) y| ≤
+            C₁ * (∫ t in Set.Icc (-T) T,
+              ‖charFun μ t - charFun (gaussianReal 0 1) t‖ / |t|) +
+            C₂ / T := by
+  sorry
+
+/-- **Charfun integral bound for the standardized sum.**
+
+The integral `∫_{-T}^{T} ‖φ_S(t) - φ_Φ(t)‖/|t| dt` is bounded by `C * ρ/(σ³√n)`
+when `T = σ³√n/ρ`. Uses:
+- Near zero (`|t| ≤ 1`): Taylor bound `‖φ_S-φ_Φ‖ ≤ (4δ|t|³ + t⁴/(4n))`, so
+  the integrand `≤ 4δ|t|² + |t|³/(4n)`, which integrates to `O(δ)`.
+- Away from zero (`1 < |t| ≤ T`): charfun modulus decay `|φ_S(t)| ≤ e^{-t²/4}`
+  combined with `|φ_Φ(t)| = e^{-t²/2}` gives exponential decay, so the
+  integral over `[1,T]` is bounded by a universal constant times `δ`.
+
+## Blocker
+Charfun modulus decay: `|φ_Y(s)| ≤ 1 - σ²s²/4` for small `s`, which gives
+`|φ_S(t)| ≤ e^{-t²/4}` by the product bound `(1-t²/(4n))ⁿ ≤ e^{-t²/4}`.
+-/
+-- sorry count: 1 (charfun modulus decay + Gaussian moment integrals)
+-- blocker: charfun modulus decay |φ_Y(s)|² ≤ 1 - σ²s²/2 + O(s³)
 -- estimated effort: P6
+lemma charfun_integral_bound :
+    ∃ C : ℝ, 0 < C ∧
+      ∀ {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+        {n : ℕ} (hn : 0 < n)
+        {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ),
+        (∀ i, Measurable (Y i)) →
+        iIndepFun (m := fun _ => inferInstance) Y μ →
+        (∀ i j, IdentDistrib (Y i) (Y j) μ μ) →
+        (∀ i, ∫ ω, Y i ω ∂μ = 0) →
+        (∀ i, ∫ ω, (Y i ω) ^ 2 ∂μ = σ ^ 2) →
+        (∀ i, ∫ ω, |Y i ω| ^ 3 ∂μ = ρ) →
+        (∀ i, MemLp (Y i) 3 μ) →
+        let S : Ω → ℝ := fun ω => (∑ i : Fin n, Y i ω) / (σ * Real.sqrt n)
+        let T := σ ^ 3 * Real.sqrt ↑n / ρ
+        ∫ t in Set.Icc (-T) T,
+          ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ / |t| ≤
+          C * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
+  sorry
+
+/-- **Berry-Esseen core bound (assembly).**
+
+For the standardized sum `S`, the CDF difference is bounded by `O(ρ/(σ³√n))`:
+
+  `|cdf(μ.map S) y - cdf(gaussianReal 0 1) y| ≤ C * ρ / (σ³ * √n)`
+
+Combines `esseen_concentration_universal` (Esseen's inequality with universal `C₁, C₂`)
+and `charfun_integral_bound` (integral bound `I ≤ C₃ * δ`).
+
+With `T = σ³√n/ρ` and `δ = ρ/(σ³√n) = 1/T`:
+- From `esseen_concentration_universal`: `|F-Φ| ≤ C₁ * I + C₂/T`
+- From `charfun_integral_bound`: `I ≤ C₃ * δ`
+- So `|F-Φ| ≤ C₁ * C₃ * δ + C₂ * δ = (C₁*C₃ + C₂) * δ`
+-/
+-- sorry count: 0 (proved from esseen_concentration_universal + charfun_integral_bound)
 lemma esseen_charfun_integral_bound :
     ∃ C : ℝ, 0 < C ∧
       ∀ {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
@@ -334,7 +385,44 @@ lemma esseen_charfun_integral_bound :
         ∀ y : ℝ,
           |cdf (μ.map S) y - cdf (gaussianReal 0 1) y| ≤
             C * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
-  sorry
+  -- Extract universal constants from both sub-lemmas FIRST
+  obtain ⟨C₁, C₂, hC₁_pos, hC₂_pos, hesseen⟩ := esseen_concentration_universal
+  obtain ⟨C₃, hC₃_pos, hintegral⟩ := charfun_integral_bound
+  -- Set C = C₁ * C₃ + C₂ (the combined constant)
+  refine ⟨C₁ * C₃ + C₂, by positivity, ?_⟩
+  intro Ω mΩ μ hprob n hn Y σ ρ hσ hm hindep hiid hmean hvar h3 hLp S T y
+  -- Derive basic positivity facts
+  have hn' : (0 : ℝ) < ↑n := Nat.cast_pos.mpr hn
+  have hsqrt_pos : 0 < Real.sqrt ↑n := Real.sqrt_pos.mpr hn'
+  have hσ3_pos : 0 < σ ^ 3 := pow_pos hσ 3
+  have hρσ : σ ^ 3 ≤ ρ :=
+    lyapunov_third_moment hσ (hm ⟨0, by omega⟩) (hmean ⟨0, by omega⟩)
+      (hvar ⟨0, by omega⟩) (h3 ⟨0, by omega⟩) (hLp ⟨0, by omega⟩)
+  have hρ_pos : 0 < ρ := lt_of_lt_of_le hσ3_pos hρσ
+  have hden_pos : 0 < σ ^ 3 * Real.sqrt ↑n := mul_pos hσ3_pos hsqrt_pos
+  have hT_pos : 0 < T := div_pos hden_pos hρ_pos
+  -- S is measurable, so μ.map S is a probability measure
+  have hsn_ne : σ * Real.sqrt ↑n ≠ 0 := ne_of_gt (mul_pos hσ hsqrt_pos)
+  have hS_meas : Measurable S :=
+    (Finset.measurable_sum Finset.univ (fun i _ => hm i)).div_const _
+  have : IsProbabilityMeasure (μ.map S) := isProbabilityMeasure_map hS_meas.aemeasurable
+  -- Apply Esseen's inequality: |F-Φ| ≤ C₁ * I + C₂/T
+  have hess := hesseen T hT_pos (μ.map S) y
+  -- Apply the integral bound: I ≤ C₃ * δ where δ = ρ/(σ³√n)
+  have hint := hintegral hn hσ hm hindep hiid hmean hvar h3 hLp
+  -- Key: C₂/T = C₂ * ρ/(σ³√n) since T = σ³√n/ρ
+  have hC2T : C₂ / T = C₂ * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
+    simp only [T]; field_simp
+  -- Combine: |F-Φ| ≤ C₁ * (C₃ * δ) + C₂ * δ = (C₁*C₃ + C₂) * δ
+  calc |cdf (μ.map S) y - cdf (gaussianReal 0 1) y|
+      ≤ C₁ * (∫ t in Set.Icc (-T) T,
+          ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ / |t|) +
+        C₂ / T := hess
+    _ ≤ C₁ * (C₃ * ρ / (σ ^ 3 * Real.sqrt ↑n)) + C₂ / T := by
+        gcongr
+    _ = C₁ * (C₃ * ρ / (σ ^ 3 * Real.sqrt ↑n)) +
+        C₂ * ρ / (σ ^ 3 * Real.sqrt ↑n) := by rw [hC2T]
+    _ = (C₁ * C₃ + C₂) * ρ / (σ ^ 3 * Real.sqrt ↑n) := by ring
 
 /-! ## Main theorem -/
 
