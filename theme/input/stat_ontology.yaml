@@ -14,6 +14,7 @@
 #   lean_module   — Statlean submodule (Basic for definitions, specific for theorems)
 #   mathlib       — Mathlib module path (if exists)
 #   statlean      — Statlean file path (if implemented)
+#   lean_sketch   — optional Lean 4 skeleton (def/structure + sorry)
 #   keywords      — search keywords for classify.py matching
 
 version: v1
@@ -300,6 +301,10 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["parametric family", "statistical model", "parametric model"]
+    lean_sketch: |
+      structure ParametricFamily (Θ Ω : Type*) [MeasurableSpace Ω] where
+        measure : Θ → Measure Ω
+        isProbability : ∀ θ, IsProbabilityMeasure (measure θ)
 
   - id: dominated_model
     name: "Dominated Statistical Model"
@@ -313,6 +318,12 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["dominated model", "dominated family", "dominating measure"]
+    lean_sketch: |
+      structure DominatedModel (Θ Ω : Type*) [MeasurableSpace Ω]
+          extends ParametricFamily Θ Ω where
+        base : Measure Ω
+        isSigmaFinite : SigmaFinite base
+        absolutelyContinuous : ∀ θ, measure θ ≪ base
 
   - id: density_likelihood
     name: "Density / Likelihood"
@@ -326,6 +337,11 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["density", "likelihood", "pdf"]
+    lean_sketch: |
+      noncomputable def density (M : DominatedModel Θ Ω) (θ : Θ) : Ω → ℝ≥0∞ :=
+        (M.measure θ).rnDeriv M.base
+      noncomputable def likelihood (M : DominatedModel Θ Ω) (x : Ω) : Θ → ℝ≥0∞ :=
+        fun θ => density M θ x
 
   - id: identifiable
     name: "Identifiable Model"
@@ -339,6 +355,9 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["identifiable", "identifiability"]
+    lean_sketch: |
+      def Identifiable (P : ParametricFamily Θ Ω) : Prop :=
+        Function.Injective P.measure
 
   - id: sample
     name: "Random Sample"
@@ -352,6 +371,11 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["random sample", "iid sample", "sample"]
+    lean_sketch: |
+      def IsSample {Ω : Type*} [MeasurableSpace Ω] {n : ℕ}
+          (X : Fin n → Ω → ℝ) (μ : Measure Ω) [IsProbabilityMeasure μ] : Prop :=
+        iIndepFun (fun _ => inferInstance) X μ ∧
+        ∀ i j, IdentDistrib (X i) (X j) μ μ
 
   - id: statistic
     name: "Statistic"
@@ -365,6 +389,10 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["statistic"]
+    lean_sketch: |
+      def IsStatistic {Ω α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
+          (T : Ω → α) : Prop :=
+        Measurable T
 
   # ─────────────────────────────────────────────────────────────
   # L3: Structured Families
@@ -381,6 +409,16 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["exponential family", "natural parameter", "natural exponential"]
+    lean_sketch: |
+      structure ExponentialFamily (Θ Ω : Type*) [MeasurableSpace Ω]
+          extends DominatedModel Θ Ω where
+        k : ℕ
+        T : Ω → Fin k → ℝ            -- sufficient statistic
+        η : Θ → Fin k → ℝ            -- natural parameter
+        A : Θ → ℝ                     -- log-partition function
+        h : Ω → ℝ≥0∞                  -- base measure density
+        density_eq : ∀ θ x, density ⟨toParametricFamily, base, isSigmaFinite, absolutelyContinuous⟩ θ x =
+          h x * .ofReal (exp (∑ j, η θ j * T x j - A θ))
 
   - id: natural_parameter
     name: "Natural Parameter Space"
@@ -394,6 +432,9 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["natural parameter", "canonical parameter"]
+    lean_sketch: |
+      def NaturalParameterSpace (E : ExponentialFamily Θ Ω) : Set (Fin E.k → ℝ) :=
+        {η | ∫⁻ x, E.h x * .ofReal (exp (∑ j, η j * E.T x j)) ∂E.base < ⊤}
 
   - id: log_partition
     name: "Log-Partition Function"
@@ -407,6 +448,9 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["log partition", "cumulant generating", "cgf"]
+    lean_sketch: |
+      noncomputable def logPartition (E : ExponentialFamily Θ Ω) (η : Fin E.k → ℝ) : ℝ :=
+        Real.log (∫⁻ x, E.h x * .ofReal (exp (∑ j, η j * E.T x j)) ∂E.base).toReal
 
   - id: location_scale
     name: "Location-Scale Family"
@@ -488,6 +532,14 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["sufficient statistic", "sufficiency"]
+    lean_sketch: |
+      def IsSufficient {Ω α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
+          (P : ParametricFamily Θ Ω) (T : Ω → α) : Prop :=
+        Measurable T ∧
+        ∀ (s : Set Ω), MeasurableSet s →
+          ∀ θ₁ θ₂ : Θ,
+            (P.measure θ₁)[fun ω => s.indicator 1 ω | MeasurableSpace.comap T ‹_›] =ᵐ[P.measure θ₁]
+            (P.measure θ₂)[fun ω => s.indicator 1 ω | MeasurableSpace.comap T ‹_›]
 
   - id: complete
     name: "Complete Statistic"
@@ -501,6 +553,12 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["complete statistic", "completeness"]
+    lean_sketch: |
+      def IsComplete {Ω α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
+          (P : ParametricFamily Θ Ω) (T : Ω → α) : Prop :=
+        ∀ (g : α → ℝ), Measurable g →
+          (∀ θ, ∫ ω, g (T ω) ∂(P.measure θ) = 0) →
+          ∀ θ, ∀ᵐ ω ∂(P.measure θ), g (T ω) = 0
 
   - id: bounded_complete
     name: "Boundedly Complete Statistic"
@@ -514,6 +572,12 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["boundedly complete", "bounded completeness"]
+    lean_sketch: |
+      def IsBoundedComplete {Ω α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
+          (P : ParametricFamily Θ Ω) (T : Ω → α) : Prop :=
+        ∀ (g : α → ℝ), Measurable g → (∃ C, ∀ a, |g a| ≤ C) →
+          (∀ θ, ∫ ω, g (T ω) ∂(P.measure θ) = 0) →
+          ∀ θ, ∀ᵐ ω ∂(P.measure θ), g (T ω) = 0
 
   - id: ancillary
     name: "Ancillary Statistic"
@@ -527,6 +591,10 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["ancillary", "ancillarity"]
+    lean_sketch: |
+      def IsAncillary {Ω α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
+          (P : ParametricFamily Θ Ω) (T : Ω → α) : Prop :=
+        Measurable T ∧ ∀ θ₁ θ₂ : Θ, (P.measure θ₁).map T = (P.measure θ₂).map T
 
   - id: minimal_sufficient
     name: "Minimal Sufficient Statistic"
@@ -540,6 +608,13 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["minimal sufficient"]
+    lean_sketch: |
+      def IsMinimalSufficient {Ω α β : Type*}
+          [MeasurableSpace Ω] [MeasurableSpace α] [MeasurableSpace β]
+          (P : ParametricFamily Θ Ω) (T : Ω → α) : Prop :=
+        IsSufficient P T ∧
+          ∀ (U : Ω → β), Measurable U → IsSufficient P U →
+            ∃ (f : β → α), Measurable f ∧ T = f ∘ U
 
   - id: factorization_theorem
     name: "Fisher-Neyman Factorization Theorem"
@@ -634,6 +709,10 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["estimator"]
+    lean_sketch: |
+      def IsEstimator {Ω : Type*} [MeasurableSpace Ω]
+          (δ : Ω → ℝ) : Prop :=
+        Measurable δ
 
   - id: unbiased
     name: "Unbiased Estimator"
@@ -647,6 +726,10 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["unbiased", "bias"]
+    lean_sketch: |
+      def IsUnbiased {Ω : Type*} [MeasurableSpace Ω]
+          (P : ParametricFamily Θ Ω) (δ : Ω → ℝ) (g : Θ → ℝ) : Prop :=
+        ∀ θ, ∫ ω, δ ω ∂(P.measure θ) = g θ
 
   - id: umvue
     name: "UMVUE"
@@ -699,6 +782,11 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["risk", "loss function", "risk function"]
+    lean_sketch: |
+      noncomputable def risk {Ω : Type*} [MeasurableSpace Ω]
+          (P : ParametricFamily Θ Ω) (L : Θ → ℝ → ℝ → ℝ) (δ : Ω → ℝ) (g : Θ → ℝ)
+          (θ : Θ) : ℝ :=
+        ∫ ω, L θ (g θ) (δ ω) ∂(P.measure θ)
 
   - id: admissible
     name: "Admissible Estimator"
@@ -1030,6 +1118,10 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["fisher information", "fisher info"]
+    lean_sketch: |
+      noncomputable def fisherInformation {Ω : Type*} [MeasurableSpace Ω]
+          (M : DominatedModel ℝ Ω) (θ : ℝ) : ℝ :=
+        ∫ ω, (scoreFunction M θ ω) ^ 2 ∂(M.measure θ)
 
   - id: score_function
     name: "Score Function"
@@ -1043,6 +1135,10 @@ concepts:
     mathlib: ""
     statlean: ""
     keywords: ["score function", "score"]
+    lean_sketch: |
+      noncomputable def scoreFunction {Ω : Type*} [MeasurableSpace Ω]
+          (M : DominatedModel ℝ Ω) (θ : ℝ) (ω : Ω) : ℝ :=
+        deriv (fun θ' => Real.log (density M θ' ω).toReal) θ
 
   - id: cramer_rao
     name: "Cramér-Rao Lower Bound"

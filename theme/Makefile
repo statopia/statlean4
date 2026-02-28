@@ -8,6 +8,7 @@ TEX ?= $(ROOT)/output.tex
 PDF ?=
 CONCEPTS ?=
 NO_DEPS ?=
+NO_CLAUDE ?=
 
 .PHONY: formalize resolve ingest plan generate infra-audit sync-backlog gate clean \
         from-tex tex-formalize from-pdf pdf-formalize \
@@ -27,7 +28,8 @@ resolve:
 	    --concepts "$(CONCEPTS)" \
 	    --output "$(INPUT_DIR)/theorems.yaml" \
 	    $(if $(PDF),--pdf "$(PDF)") \
-	    $(if $(NO_DEPS),--no-deps) ; \
+	    $(if $(NO_DEPS),--no-deps) \
+	    $(if $(NO_CLAUDE),--no-claude) ; \
 	fi
 
 ingest:

@@ -16,6 +16,7 @@ Concept matching priority:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -350,6 +351,83 @@ def _match_md_blocks(
 
 
 # ---------------------------------------------------------------------------
+# Claude sketch generation (fallback when ontology has no lean_sketch)
+# ---------------------------------------------------------------------------
+
+def call_claude_sketch(concept: dict) -> str:
+    """Generate a Lean 4 skeleton for a concept using Claude API.
+
+    Tries Anthropic SDK first, falls back to Claude CLI.
+    Returns Lean 4 code string, or "" on failure.
+    """
+    cid = concept.get("id", "unknown")
+    name = concept.get("name", cid)
+    kind = concept.get("kind", "definition")
+    keywords = concept.get("keywords", [])
+    mathlib = concept.get("mathlib", "")
+    requires = concept.get("requires", [])
+
+    prompt = (
+        f"Generate a Lean 4 {kind} skeleton for \"{name}\".\n"
+        f"Context: {', '.join(keywords)}. "
+        f"Mathlib: {mathlib or 'not in Mathlib'}.\n"
+        f"Dependencies: {', '.join(requires) if requires else 'none'}.\n"
+        f"Output ONLY the Lean 4 code (def/structure/theorem + sorry), no explanation.\n"
+        f"Use Mathlib conventions (MeasureTheory, ProbabilityTheory namespaces). Keep it minimal.\n"
+        f"For theorems, use `theorem name : <type> := sorry`.\n"
+        f"For definitions, use `def name ... := ...` or `structure name ... where`."
+    )
+
+    # Method 1: Anthropic Python SDK
+    try:
+        import anthropic
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            client = anthropic.Anthropic()
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text.strip()
+            # Strip markdown fences if present
+            if text.startswith("```"):
+                lines = text.split("\n")
+                lines = [l for l in lines if not l.startswith("```")]
+                text = "\n".join(lines).strip()
+            print(f"[resolve]   Claude SDK generated sketch for {cid}")
+            return text
+    except ImportError:
+        pass
+    except Exception as e:
+        print(f"[resolve]   Claude SDK error for {cid}: {e}", file=sys.stderr)
+
+    # Method 2: Claude CLI (unset CLAUDECODE to allow nesting)
+    try:
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+        result = subprocess.run(
+            ["claude", "-p", "--output-format", "text", "--model", "claude-haiku-4-5-20251001"],
+            input=prompt,
+            capture_output=True, text=True, timeout=60,
+            env=env,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            text = result.stdout.strip()
+            if text.startswith("```"):
+                lines = text.split("\n")
+                lines = [l for l in lines if not l.startswith("```")]
+                text = "\n".join(lines).strip()
+            print(f"[resolve]   Claude CLI generated sketch for {cid}")
+            return text
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[resolve]   Claude CLI error for {cid}: {e}", file=sys.stderr)
+
+    print(f"[resolve]   no Claude available for {cid}, using placeholder")
+    return ""
+
+
+# ---------------------------------------------------------------------------
 # YAML generation
 # ---------------------------------------------------------------------------
 
@@ -377,13 +455,17 @@ def generate_theorems_yaml(
     resolved: list[dict],
     pdf_matches: dict[str, dict],
     output: Path,
+    *,
+    no_claude: bool = False,
 ) -> None:
     """Generate theorems.yaml from resolved ontology concepts + optional PDF LaTeX.
 
     Each concept becomes a theorem entry. Fields from ontology:
       - id, title (name), kind, lean routing (topic/module)
+      - lean_sketch (if present) → lean_statement
     Fields from PDF (if matched):
       - latex_statement, latex_proof_hint
+    If no lean_sketch and not no_claude, calls Claude to generate a sketch.
     """
     id_map = {c["id"]: c for c in resolved}
 
@@ -396,6 +478,16 @@ def generate_theorems_yaml(
         topic = concept.get("lean_topic", "Misc")
         module = concept.get("lean_module", "Basic")
         namespace = f"Statlean.{topic}.{module}" if topic else "Statlean.Misc.Pipeline"
+
+        # --- lean_statement: ontology lean_sketch → Claude fallback → empty ---
+        lean_stmt = concept.get("lean_sketch", "")
+        if isinstance(lean_stmt, str):
+            lean_stmt = lean_stmt.strip()
+        else:
+            lean_stmt = ""
+
+        if not lean_stmt and not no_claude:
+            lean_stmt = call_claude_sketch(concept)
 
         # Compute dependencies (only those in the resolved set)
         deps = []
@@ -410,6 +502,7 @@ def generate_theorems_yaml(
             "latex_statement": pdf.get("latex_statement", ""),
             "latex_proof_hint": pdf.get("latex_proof_hint", ""),
             "lean_name": lean_name,
+            "lean_statement": lean_stmt,
             "lean_namespace": namespace,
             "layer": "formalization",
             "priority": 3,
@@ -494,6 +587,11 @@ def main() -> None:
         action="store_true",
         help="Do not expand dependency tree, only include listed concepts",
     )
+    parser.add_argument(
+        "--no-claude",
+        action="store_true",
+        help="Do not call Claude API for missing lean_sketch (offline/CI mode)",
+    )
     args = parser.parse_args()
 
     concepts = load_ontology()
@@ -548,7 +646,8 @@ def main() -> None:
         print(f"[resolve] matched {len(pdf_matches)} concepts to PDF blocks")
 
     # Generate output
-    generate_theorems_yaml(resolved_concepts, pdf_matches, args.output)
+    generate_theorems_yaml(resolved_concepts, pdf_matches, args.output,
+                           no_claude=args.no_claude)
     print(f"[resolve] wrote {args.output} ({len(resolved_concepts)} entries)")
 
 
