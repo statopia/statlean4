@@ -2,10 +2,14 @@
 # Review and edit as needed
 
 symbols:
+  "\exp": "exponential"
   "\inf": "infimum"
   "\int": "integral"
-  "\lim": "limit"
   "\log": "logarithm"
   "\mathbb{E}": "expectation"
+  "\mathbb{R}": "real numbers"
+  "\mathcal{N}": "normal distribution"
+  "\operatorname{Var}": "variance"
+  "\partial": "partial derivative"
+  "\prod": "product"
   "\sum": "summation"
-  "\sup": "supremum"

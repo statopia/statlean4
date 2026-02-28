@@ -55,6 +55,46 @@ def safe_comment(s: str, max_chars: int = 1200) -> str:
     return t
 
 
+def _is_full_lean_file(stmt: str) -> bool:
+    """Detect if lean_statement is a full Lean file (Claude SDK sketch) rather than a
+    single declaration body.  Heuristics: contains `import` or `namespace` lines."""
+    for line in stmt.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("import ") or stripped.startswith("namespace "):
+            return True
+    return False
+
+
+_DECL_KW_RE = re.compile(
+    r"^\s*(?:noncomputable\s+)?(?:private\s+)?(?:protected\s+)?"
+    r"(?:theorem|lemma|def|abbrev|structure|class|instance)\s",
+    re.MULTILINE,
+)
+
+
+def _strip_lean_file_wrapper(stmt: str) -> str:
+    """Strip import/open/namespace/end/variable lines from a Claude SDK sketch,
+    keeping only declaration bodies (def/theorem/structure/etc.)."""
+    keep: List[str] = []
+    skip_prefixes = ("import ", "open ", "namespace ", "end ", "variable ", "section ",
+                     "noncomputable section", "set_option ")
+    for line in stmt.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("--"):
+            continue
+        if any(stripped.startswith(p) for p in skip_prefixes):
+            continue
+        keep.append(line)
+    return "\n".join(keep).strip()
+
+
+def _stmt_has_decl_keyword(stmt: str) -> bool:
+    """Check if stmt already starts with a declaration keyword (def/theorem/structure/etc.)."""
+    return bool(_DECL_KW_RE.match(stmt))
+
+
 def theorem_block(item: Dict[str, Any], used_names: set[str]) -> Tuple[str, str, bool]:
     """Generate a Lean 4 theorem or definition block.
 
@@ -71,10 +111,23 @@ def theorem_block(item: Dict[str, Any], used_names: set[str]) -> Tuple[str, str,
     stmt = item.get("lean_statement")
     proof = item.get("lean_proof")
 
+    # Sanitize Claude SDK sketches: if lean_statement is a full Lean file
+    # (contains import/namespace lines), strip the wrapper and keep only
+    # the declaration bodies.  Mark as pipeline_id since the sketch is
+    # likely low-quality.
+    sdk_sketch = False
+    if stmt and _is_full_lean_file(str(stmt)):
+        stmt = _strip_lean_file_wrapper(str(stmt))
+        sdk_sketch = True
+        if not stmt:
+            stmt = None  # fully stripped → treat as empty
+
     has_pipeline_id = False
     if not stmt or not str(stmt).strip():
         has_pipeline_id = True
     if not is_def and (not proof or not str(proof).strip()):
+        has_pipeline_id = True
+    if sdk_sketch:
         has_pipeline_id = True
 
     latex_stmt = safe_comment(str(item.get("latex_statement", "")))
@@ -95,7 +148,12 @@ def theorem_block(item: Dict[str, Any], used_names: set[str]) -> Tuple[str, str,
     lines.append(latex_hint or "(empty)")
     lines.append("-/")
 
-    if is_def:
+    if stmt and str(stmt).strip() and _stmt_has_decl_keyword(str(stmt).strip()):
+        # lean_statement already contains the full declaration (def/theorem/structure)
+        # — emit as-is, don't wrap with another keyword
+        for ln in str(stmt).strip().splitlines():
+            lines.append(ln)
+    elif is_def:
         if stmt and str(stmt).strip():
             # User provided full Lean definition — emit as-is
             for ln in str(stmt).splitlines():
@@ -226,29 +284,81 @@ def build_project(
             file_groups[rel_path] = []
         file_groups[rel_path].append((item, block, lean_name, has_pipeline_id))
 
-    # Write to files
+    # Write to files (with deduplication)
     for rel_path, group in file_groups.items():
         parts = rel_path.replace("Statlean/", "").replace(".lean", "").split("/")
         subdir, submodule = parts[0], parts[1]
 
         target = ensure_target_file(repo_root, subdir, submodule)
-        blocks = [g[1] for g in group]
-        first_line = append_to_section(target, blocks)
+        existing_content = target.read_text(encoding="utf-8")
 
-        # Record manifest entries
-        offset = 0
+        # Filter out blocks whose concept ID already has a comment block in the file,
+        # OR whose lean_name (in any case variant) is already declared.
+        new_group = []
         for item, block, lean_name, has_pipeline_id in group:
             tid = str(item.get("id", "unknown.id"))
-            line_num = first_line + offset
-            manifest_entries[tid] = {
-                "file": rel_path,
-                "line": line_num,
-                "lean_name": lean_name,
-                "status": "pipeline_id" if has_pipeline_id else "skeleton",
-            }
-            if has_pipeline_id:
-                pipeline_ids.append(tid)
-            offset += block.count("\n") + 1
+
+            # Check 1: Is this concept ID already present as a comment?
+            id_already_present = f"ID: {tid}" in existing_content
+
+            # Check 2: Is the lean_name already declared (any case variant)?
+            # Generate both snake_case and PascalCase variants
+            name_variants = {lean_name}
+            # snake_case → PascalCase
+            pascal = "".join(w.capitalize() for w in lean_name.split("_"))
+            name_variants.add(pascal)
+            # PascalCase → snake_case (basic)
+            snake = re.sub(r'(?<!^)(?=[A-Z])', '_', lean_name).lower()
+            name_variants.add(snake)
+
+            name_declared = False
+            for variant in name_variants:
+                decl_pattern = re.compile(
+                    rf'(?:^|\n)\s*(?:noncomputable\s+)?(?:def|theorem|lemma|structure|class|abbrev)\s+{re.escape(variant)}\b'
+                )
+                if decl_pattern.search(existing_content):
+                    name_declared = True
+                    break
+
+            if id_already_present or name_declared:
+                # Find existing line number for manifest
+                line_num = 1
+                for i, line in enumerate(existing_content.splitlines(), 1):
+                    for variant in name_variants:
+                        if re.search(rf'\b(?:def|theorem|lemma|structure|class|abbrev)\s+{re.escape(variant)}\b', line):
+                            line_num = i
+                            break
+                    if line_num > 1:
+                        break
+                manifest_entries[tid] = {
+                    "file": rel_path,
+                    "line": line_num,
+                    "lean_name": lean_name,
+                    "status": "existing",
+                }
+                if has_pipeline_id:
+                    pipeline_ids.append(tid)
+                continue
+            new_group.append((item, block, lean_name, has_pipeline_id))
+
+        if new_group:
+            blocks = [g[1] for g in new_group]
+            first_line = append_to_section(target, blocks)
+
+            # Record manifest entries
+            offset = 0
+            for item, block, lean_name, has_pipeline_id in new_group:
+                tid = str(item.get("id", "unknown.id"))
+                line_num = first_line + offset
+                manifest_entries[tid] = {
+                    "file": rel_path,
+                    "line": line_num,
+                    "lean_name": lean_name,
+                    "status": "pipeline_id" if has_pipeline_id else "skeleton",
+                }
+                if has_pipeline_id:
+                    pipeline_ids.append(tid)
+                offset += block.count("\n") + 1
 
     # Write manifest
     out_dir.mkdir(parents=True, exist_ok=True)

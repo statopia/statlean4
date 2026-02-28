@@ -1,4 +1,4 @@
-% Auto-extracted from: lecture-10-handout.pdf
+% Auto-extracted from: lecture-7-handout.pdf
 % Backend: claude
 % Review formulas marked with % OCR_UNCERTAIN before proceeding.
 
@@ -9,34 +9,94 @@
 \newtheorem{corollary}[theorem]{Corollary}
 \newtheorem{proposition}[theorem]{Proposition}
 \newtheorem{definition}[theorem]{Definition}
-% === Quality Warnings ===
-% WARNING: Line 17: possible merged mathbb
-% WARNING: Line 19: possible merged mathbb
-
 \begin{document}
 
-\begin{theorem}[USLLN, C]
-Let $X_1, \ldots, X_n, \ldots$ be i.i.d. sample from $P$ on the space $\mathcal{X}$. Let $U(x,\theta)$ be a measurable function on $\mathcal{X} \times \Theta$. Suppose
-1. $U(x,\theta)$ is continuous in $\theta$ for any fixed $x$,
-2. for each $\theta$, $\mu(\theta) = \mathbb{E}U(X,\theta)$ is finite,
-3. $\Theta$ is compact,
-4. there exists a function $M(x)$ such that $\mathbb{E}M(X) < \infty$ and $|U(x,\theta)| \leq M(x)$ for all $x$ and $\theta$.
-
-Then
-\[P\left\{\lim_{n \to \infty} \sup_{\theta \in \Theta} \left|\frac{1}{n} \sum_{j=1}^n U(X_j, \theta) - \mu(\theta)\right| = 0\right\} = 1\]
-\end{theorem}
-
-\begin{definition}[Kullback-Leibler Information]
-The limit of the log-likelihood ratio is $-\mathbb{E}_{\theta_0} \log \frac{f(X|\theta_0)}{f(X|\theta)}$.
-
-Define the **Kullback-Leibler (KL) information number** as
-\[K(f_0, f_1) = \mathbb{E}_0 \log \frac{f_0(X)}{f_1(X)} = \int \log \left(\frac{f_0(x)}{f_1(x)}\right) f_0(x) d\nu(x)\]
-
-When $f$ is indexed by $\theta$, we may also write $K(\theta_0, \theta_1)$ for short.
+\begin{definition}[Fisher Information]
+Suppose $\mathcal{P} = \{f_\theta : \theta \in \Theta\}$ where $f_\theta(x)$ is a p.d.f. with parameter $\theta$ w.r.t. $\nu$ and $\Theta$ is an open subset of $\mathbb{R}$. Suppose for any $\theta \in \Theta$, $\frac{\partial f_\theta(x)}{\partial\theta}$ exists and is finite, $P_\theta$-a.s. Let $X$ be a sample from $P_\theta \in \mathcal{P}$. To measure the amount of information that an observation $X$ carries about $\theta$, we look at the Fisher information defined as
+\[I(\theta) = \mathbb{E}\left(\frac{\partial}{\partial\theta}\log f_\theta(X)\right)^2 = \int\left(\frac{\partial}{\partial\theta}\log f_\theta(X)\right)^2 f_\theta(X)d\nu(x)\]
 \end{definition}
 
-\begin{theorem}[Shannon-Kolmogorov Information Inequality]
-$K(f_0, f_1) \geq 0$ with equality if and only if $f_1(\omega) = f_0(\omega)$ $\nu$-a.e.
+\begin{theorem}[Poisson Families]
+Suppose $(X_1,\ldots,X_n)$ is a i.i.d. sample from a Poisson distribution $\mathcal{P}(\lambda)$. Then the joint PMF is
+\[f_\lambda(x) = \prod_{i=1}^n \frac{\lambda^{x_i}}{x_i!}\exp(-\lambda)\]
+
+We have:
+- $\log f_\lambda(x) = \sum_i x_i \log(\lambda) - n\lambda - \sum_i \log(x_i!)$
+- $\frac{\partial}{\partial\lambda} \log f_\lambda(x) = \frac{\sum_{i=1}^n x_i}{\lambda} - n$
+- $I(\lambda) = \operatorname{Var}\left(\frac{\sum_{i=1}^n X_i}{\lambda}\right) = \frac{n\lambda}{\lambda^2} = \frac{n}{\lambda}$
+
+Here we've used $\mathbb{E}\frac{\partial}{\partial\lambda}\log f_\lambda(X) = 0$ and thus $I(\lambda) = \operatorname{Var}\left(\frac{\partial}{\partial\lambda}\log f_\lambda(X)\right)$
 \end{theorem}
+
+\begin{theorem}[Normal Families with Known Variance]
+Let $X_1,\ldots,X_n$ be i.i.d. from the $\mathcal{N}(\mu,\sigma^2)$ distribution with an unknown $\mu \in \mathbb{R}$ and a known $\sigma^2$. The joint Lebesgue p.d.f. is
+\[f_\mu(x) = \frac{1}{(2\pi\sigma^2)^{n/2}}\exp\left(-\frac{1}{2\sigma^2}\sum(x_i - \mu)^2\right)\]
+
+Then
+\[\frac{\partial}{\partial\mu}\log f_\mu(x) = \sum_{i=1}^n (x_i - \mu)/\sigma^2\]
+
+\[I(\mu) = \operatorname{Var}\left(\frac{\sum_{i=1}^n(X_i-\mu)}{\sigma^2}\right) = n\sigma^2/\sigma^4 = n/\sigma^2\]
+
+## Properties of Fisher Information
+
+1. $I(\theta)$ depends on the particular parameterization: If $\theta = \psi(\eta)$ and $\psi$ is differentiable, then the Fisher information about $\eta$ is
+\[\tilde{I}(\eta) = \psi'(\eta)^2 I(\psi(\eta))\]
+where $I(\theta)$ is the Fisher information about $\theta$.
+
+2. Suppose that $f_\theta$ is twice differentiable in $\theta$ and that
+\[\int \frac{\partial^2}{\partial\theta^2}f_\theta(x)I_{f_\theta(x)>0}d\nu = 0\]
+Then $I(\theta) = -\mathbb{E}\left[\frac{\partial^2}{\partial\theta^2}\log f_\theta(X)\right]$
+
+3. Regularity condition $(\star)$: $\int \frac{\partial}{\partial\theta}f_\theta(x)d\nu = 0$
+
+4. Let $X$ and $Y$ be independent with the Fisher information about $\theta$ $I_X(\theta)$ and $I_Y(\theta)$, respectively. Suppose $(\star)$ holds for both density functions. Then, the Fisher information about $\theta$ contained in $(X,Y)$ is $I_X(\theta) + I_Y(\theta)$.
+
+5. Fisher information about $\theta$ contained in i.i.d. sample $(X_1,\ldots,X_n)$ is $nI_1(\theta)$ where $I_1(\theta)$ is the Fisher information about $\theta$ contained in a single $X_i$ provided that $(\star)$ holds.
+\end{theorem}
+
+\begin{theorem}[Cramér-Rao Lower Bound]
+Suppose $\mathcal{P} = \{P_\theta : \theta \in \Theta\}$ satisfies the following conditions:
+- $\Theta$ is an open set in $\mathbb{R}$; $P_\theta$ has a p.d.f. $f_\theta$ w.r.t. a measure $\nu$ for all $\theta \in \Theta$
+- $f_\theta$ is differentiable as a function of $\theta$ and satisfies
+\[0 = \frac{\partial}{\partial\theta} \int f_\theta(x)d\nu = \int \frac{\partial}{\partial\theta} f_\theta(x)d\nu, \quad \theta \in \Theta \quad (1)\]
+
+Suppose that $g(\theta)$ is a differentiable function.
+Let $X$ be a sample from $P \in \mathcal{P}$. Suppose $T(X)$ is an unbiased estimator of $g(\theta)$ such that
+\[g'(\theta) = \frac{\partial}{\partial\theta} \int T(x) f_\theta(x)d\nu = \int T(x) \frac{\partial}{\partial\theta} f_\theta(x)d\nu, \quad \theta \in \Theta \quad (2)\]
+
+Then $\operatorname{Var}(T(X)) \geq \frac{g'(\theta)^2}{I(\theta)}$ where $I(\theta) > 0$ for any $\theta \in \Theta$.
+\end{theorem}
+
+\begin{theorem}[Multivariate C-R Lower Bound]  % Original number: 3.3
+When $\theta$ is $k$-dimensional, $g : \Theta \mapsto \mathbb{R}$, the inequality in the Cramér-Rao Lower Bound for $ET = g(\theta)$ $(\theta \in \Theta)$
+\[\operatorname{Var}(T(X)) \geq \left[\frac{\partial}{\partial\theta} g(\theta)\right]^T [I(\theta)]^{-1} \frac{\partial}{\partial\theta} g(\theta),\]
+
+where the gradient $\frac{\partial}{\partial\theta} g(\theta) = \left(\frac{\partial}{\partial\theta_1} g(\theta), \ldots, \frac{\partial}{\partial\theta_k} g(\theta)\right)^T$ is assumed to satisfy the regularity condition:
+\[\frac{\partial}{\partial\theta} g(\theta) = \int T(x) \frac{\partial}{\partial\theta} f_\theta(x)d\nu.\]
+
+Here we also assume $\mathcal{P} = \{P_\theta : \theta \in \Theta\}$ satisfies the following conditions:
+- $\Theta$ is an open set in $\mathbb{R}^k$; $P_\theta$ has a p.d.f. $f_\theta$ w.r.t. a measure $\nu$ for all $\theta \in \Theta$
+- $f_\theta$ is differentiable as a function of $\theta$ and satisfies
+\[0 = \frac{\partial}{\partial\theta} \int f_\theta(x)d\nu = \int \frac{\partial}{\partial\theta} f_\theta(x)d\nu, \quad \theta \in \Theta.\]
+\end{theorem}
+
+\begin{proposition}
+Suppose that the distribution of $X$ is from an exponential family $\{f_\theta : \theta \in \Theta\}$, i.e., the p.d.f. of $X$ w.r.t. a $\sigma$-finite measure is
+\[f_\theta(x) = \exp\{[\eta(\theta)]^T T(x) - \zeta(\theta)\} h(x),\]
+where $\Theta$ is an open subset of $\mathbb{R}^k$.
+
+(i) For any $S$ with $\mathbb{E}|S(X)| < \infty$, it holds that
+\[\frac{\partial}{\partial\theta} \int S(x)f_\theta(x)d\nu = \int S(x) \frac{\partial}{\partial\theta} f_\theta(x)d\nu, \quad \theta \in \Theta\]
+and
+\[I(\theta) = -\mathbb{E}\left[\frac{\partial^2}{\partial\theta\partial\theta^T} \log f_\theta(X)\right].\]
+\end{proposition}
+
+\begin{proposition}[Cont.]
+(ii) If $I(\eta)$ is the Fisher information matrix for the natural parameter $\eta$, then the covariance matrix $\operatorname{Var}(T) = I(\eta)$.
+\end{proposition}
+
+\begin{proposition}[Cont.]
+(iii) Let $\psi = \mathbb{E}[T(X)]$. Suppose $I(\psi)$ is the Fisher information matrix for the parameter $\psi$, then $\operatorname{Var}(T) = [I(\psi)]^{-1}$.
+\end{proposition}
 
 \end{document}

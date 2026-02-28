@@ -1,24 +1,12 @@
-version: v17
-generated: 2026-02-28
-total_sorry: 11
+version: v39
+generated: 2026-03-01
+total_sorry: 45
 
 sorry_items:
 
-- id: lsi.hypercontractivity
-  file: Statlean/Gaussian/Poincare.lean
-  line: 508
-  theorem: memLp_four_of_W12_gaussian
-  type: honest
-  depth: 2
-  priority: 3
-  blocker: "Gaussian hypercontractivity W^{1,2}(γ) → L⁴(γ) — Nelson 1973. Requires Hermite product linearization formula Hₘ·Hₙ = Σ C(m,k)·C(n,k)·k!·H_{m+n-2k} (~150 lines) to get uniform L⁴ bound for Hermite partial sums, then Fatou's lemma. FTC+Cauchy-Schwarz fails (divergent exp(x²/2) bound). Poincaré+truncation fails (bound grows with truncation level). Moved from LogSobolev.lean to Poincare.lean for access to private Hermite basis infrastructure."
-  estimated_lines: 200
-  dependencies: []
-  unlocks: [lsi.normalized]
-
 - id: lsi.normalized
   file: Statlean/Entropy/LogSobolev.lean
-  line: 381
+  line: 355
   theorem: gaussian_lsi_normalized
   type: blocked
   depth: 3
@@ -28,9 +16,21 @@ sorry_items:
   dependencies: [lsi.hypercontractivity]
   unlocks: []
 
+- id: lsi.hypercontractivity
+  file: Statlean/Gaussian/Poincare.lean
+  line: 528
+  theorem: memLp_four_of_W12_gaussian
+  type: honest
+  depth: 2
+  priority: 3
+  blocker: "Gaussian hypercontractivity W^{1,2}(γ) → L⁴(γ) — Nelson 1973. Requires Hermite product linearization formula Hₘ·Hₙ = Σ C(m,k)·C(n,k)·k!·H_{m+n-2k} (~150 lines) to get uniform L⁴ bound for Hermite partial sums, then Fatou's lemma. FTC+Cauchy-Schwarz fails (divergent exp(x²/2) bound). Poincaré+truncation fails (bound grows with truncation level). Moved from LogSobolev.lean to Poincare.lean for access to private Hermite basis infrastructure."
+  estimated_lines: 200
+  dependencies: []
+  unlocks: [lsi.normalized]
+
 - id: lsi.tensorization
   file: Statlean/Entropy/LogSobolev.lean
-  line: 646
+  line: 609
   theorem: tensorization_lsi_core
   type: honest
   depth: 3
@@ -40,98 +40,9 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: gaussian.poincare.condexp_fiberavg
-  file: Statlean/Gaussian/Poincare.lean
-  line: 603
-  theorem: condExp_eq_fiberAvg_pi
-  type: honest
-  depth: 2
-  priority: 6
-  blocker: "Disintegration identity: condExp[g|G_i] =ᵃᵉ ∫ g(update x i t) dγ(t). Needs ae_eq_condExp_of_forall_setIntegral_eq + Fubini for measurable rectangles under Measure.pi."
-  estimated_lines: 80
-  dependencies: []
-  unlocks: [gaussian.poincare.condvar]
-
-- id: gaussian.poincare.ae_memlp_fiber
-  file: Statlean/Gaussian/Poincare.lean
-  line: 616
-  theorem: ae_memLp_fiber
-  type: honest
-  depth: 2
-  priority: 6
-  blocker: "Fubini consequence: f ∈ L²(π) ⟹ fiber t ↦ f(update x i t) ∈ L²(γ) a.e. Needs Integrable.prod_right_ae on f² + AEStronglyMeasurable.prodMk_left via Measure.prod_swap."
-  estimated_lines: 40
-  dependencies: []
-  unlocks: [gaussian.poincare.condvar]
-
-- id: gaussian.poincare.condvar
-  file: Statlean/Gaussian/Poincare.lean
-  line: 690
-  theorem: condVar_le_condExp_gradf_sq_ae
-  type: proved_modulo
-  depth: 2
-  priority: 11
-  blocker: "PROVED from condExp_eq_fiberAvg_pi + ae_memLp_fiber + gaussian_poincare_1d_core"
-  estimated_lines: 0
-  dependencies: [gaussian.poincare.condexp_fiberavg, gaussian.poincare.ae_memlp_fiber]
-  unlocks: []
-  notes: "v16: Main proof fully constructed. n=0 case by Fin.elim0, n=m+1 case by fiber decomposition + 1D Poincaré."
-
-- id: efronstein.condvar
-  file: Statlean/Variance/EfronStein.lean
-  line: 248
-  sorry_lines: [254, 529]
-  theorem: efron_stein_core
-  type: honest
-  depth: 2
-  priority: 8
-  blocker: "Measure.pi Fubini: condExp_condExp_comm_pi (line 254) + dimension reduction (line 529)"
-  estimated_lines: 60
-  dependencies: []
-  unlocks: []
-  notes: "h_main variance contraction (was line 422) PROVED v13"
-
-- id: herbst.subgaussian
-  file: Statlean/SubGaussian/Herbst.lean
-  line: 70
-  theorem: hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi
-  type: blocked
-  depth: 2
-  priority: 9
-  blocker: "LSI + Grönwall ODE argument"
-  estimated_lines: 60
-  dependencies: [lsi.normalized]
-  unlocks: []
-
-- id: berry_esseen.esseen_concentration
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 508
-  theorem: esseen_concentration_universal
-  type: honest
-  depth: 1
-  priority: 8
-  blocker: "Stieltjes inversion formula for CDF differences — not in Mathlib. Needs: (1) Fourier inversion for distributions, (2) truncation error bounded by C₂/T using bounded density of Gaussian. Classical result (Esseen 1945) but substantial formalization effort."
-  estimated_lines: 250
-  dependencies: []
-  unlocks: [berry_esseen.charfun_integral_bound]
-  notes: "v15: Extracted from esseen_charfun_integral_bound. Constants C₁,C₂ are universal."
-
-- id: berry_esseen.charfun_diff_exp
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 625
-  theorem: charfun_diff_exp_bound
-  type: honest
-  depth: 1
-  priority: 4
-  blocker: "Tighter telescope bound with exponential decay factor. Needs norm_prod_sub_prod_le_sum variant that carries through individual norm bounds: ‖∏z_i - w^n‖ ≤ n·‖z_i-w‖·max(‖z_i‖,‖w‖)^{n-1}. Plus tighter power-vs-exp bound (1-u)^n - e^{-nu} with exponential factor."
-  estimated_lines: 100
-  dependencies: []
-  unlocks: [berry_esseen.charfun_integral]
-  notes: "v17: NEW. Key missing piece for integral bound. Mathematical proof: telescope with modulus decay (1-t²/(4n))^{n-1} ≤ e^{-t²/8} gives ‖φ_S-φ_Φ‖ ≤ Cδ(|t|³+t⁴)·e^{-t²/8}, making Fourier integral O(δ) via Gaussian moments."
-
 - id: berry_esseen.charfun_integral
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 647
+  line: 673
   theorem: charfun_integral_bound
   type: blocked
   depth: 1
@@ -139,31 +50,415 @@ sorry_items:
   blocker: "Blocked by charfun_diff_exp_bound. Once that is proved, charfun_integral_bound follows by integrating 5δ(t²+|t|³)e^{-t²/8} over [-T,T] and using Gaussian moment bounds."
   estimated_lines: 60
   dependencies: [berry_esseen.charfun_diff_exp]
-  unlocks: [berry_esseen.charfun_integral_bound]
-  notes: "v17: Updated. Infrastructure proved: norm_charFun_le_one_sub, charfun_prod_exp_decay, charfun_diff_taylor_bound, charfun_integrand_bound (all zero sorry). Reduced from P6 to blocked-by-sub-lemma."
-
-- id: berry_esseen.charfun_integral_bound
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 388
-  theorem: esseen_charfun_integral_bound
-  type: proved_modulo
-  depth: 1
-  priority: 11
-  blocker: "PROVED from esseen_concentration_universal + charfun_integral_bound."
-  estimated_lines: 0
-  dependencies: [berry_esseen.esseen_concentration, berry_esseen.charfun_integral]
-  unlocks: [berry_esseen.theorem]
-  notes: "v15: Fully proved assembly."
-
-- id: berry_esseen.theorem
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 460
-  theorem: berry_esseen_theorem
-  type: proved_modulo
-  depth: 1
-  priority: 11
-  blocker: "PROVED modulo esseen_charfun_integral_bound"
-  estimated_lines: 0
-  dependencies: [berry_esseen.charfun_integral_bound]
   unlocks: []
-  notes: "v14: berry_esseen_theorem proved from esseen_charfun_integral_bound."
+
+- id: berry_esseen.esseen_concentration
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 522
+  sorry_lines: [522, 646]
+  theorem: esseen_concentration_universal
+  type: honest
+  depth: 1
+  priority: 8
+  blocker: "Stieltjes inversion formula for CDF differences — not in Mathlib. Needs: (1) Fourier inversion for distributions, (2) truncation error bounded by C₂/T using bounded density of Gaussian. Classical result (Esseen 1945) but substantial formalization effort."
+  estimated_lines: 250
+  dependencies: []
+  unlocks: []
+
+- id: charfun.taylor.anonymous_L20
+  file: Statlean/CharFun/Taylor.lean
+  line: 20
+  theorem: anonymous_L20
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: entropy.basic.anonymous_L15
+  file: Statlean/Entropy/Basic.lean
+  line: 15
+  theorem: anonymous_L15
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: entropy.logsobolev.anonymous_L16
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 16
+  theorem: anonymous_L16
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: entropy.logsobolev.anonymous_L42
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 42
+  theorem: anonymous_L42
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: entropy.logsobolev.anonymous_L56
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 56
+  theorem: anonymous_L56
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: entropy.logsobolev.anonymous_L7
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 7
+  theorem: anonymous_L7
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: entropy.logsobolev.integrable_sq_of_memLp
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 184
+  sorry_lines: [184, 190]
+  theorem: integrable_sq_of_memLp
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: entropy.logsobolev.two_mul_le_sq_add_sq
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 327
+  theorem: two_mul_le_sq_add_sq
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: expfamily.basic.exponential_family
+  file: Statlean/ExpFamily/Basic.lean
+  line: 27
+  theorem: exponential_family
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: gaussian.poincare.anonymous_L15
+  file: Statlean/Gaussian/Poincare.lean
+  line: 15
+  theorem: anonymous_L15
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: gaussian.poincare.anonymous_L19
+  file: Statlean/Gaussian/Poincare.lean
+  line: 19
+  theorem: anonymous_L19
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: gaussian.poincare.anonymous_L31
+  file: Statlean/Gaussian/Poincare.lean
+  line: 31
+  theorem: anonymous_L31
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: gaussian.poincare.gaussian_poincare_1d
+  file: Statlean/Gaussian/Poincare.lean
+  line: 507
+  theorem: gaussian_poincare_1d
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: information.cramerrao.cramer_rao
+  file: Statlean/Information/CramerRao.lean
+  line: 28
+  theorem: cramer_rao
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.berryesseen.anonymous_L11
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 11
+  theorem: anonymous_L11
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.berryesseen.anonymous_L13
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 13
+  theorem: anonymous_L13
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.berryesseen.anonymous_L14
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 14
+  theorem: anonymous_L14
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.berryesseen.anonymous_L39
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 39
+  theorem: anonymous_L39
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.uslln.anonymous_L13
+  file: Statlean/LimitTheorems/USLLN.lean
+  line: 13
+  theorem: anonymous_L13
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.uslln.anonymous_L20
+  file: Statlean/LimitTheorems/USLLN.lean
+  line: 20
+  theorem: anonymous_L20
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.uslln.anonymous_L5
+  file: Statlean/LimitTheorems/USLLN.lean
+  line: 5
+  theorem: anonymous_L5
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: subgaussian.herbst.anonymous_L11
+  file: Statlean/SubGaussian/Herbst.lean
+  line: 11
+  theorem: anonymous_L11
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: subgaussian.herbst.herbstBound_neg
+  file: Statlean/SubGaussian/Herbst.lean
+  line: 77
+  theorem: herbstBound_neg
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: subgaussian.lipschitz.anonymous_L21
+  file: Statlean/SubGaussian/Lipschitz.lean
+  line: 21
+  theorem: anonymous_L21
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: subgaussian.lipschitz.anonymous_L6
+  file: Statlean/SubGaussian/Lipschitz.lean
+  line: 6
+  theorem: anonymous_L6
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: sufficiency.lehmannscheffe.lehmann_scheffe
+  file: Statlean/Sufficiency/LehmannScheffe.lean
+  line: 29
+  theorem: lehmann_scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.anova.anonymous_L21
+  file: Statlean/Variance/ANOVA.lean
+  line: 21
+  theorem: anonymous_L21
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.basic.variance
+  file: Statlean/Variance/Basic.lean
+  line: 27
+  theorem: variance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.efronstein.anonymous_L17
+  file: Statlean/Variance/EfronStein.lean
+  line: 17
+  theorem: anonymous_L17
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.efronstein.anonymous_L24
+  file: Statlean/Variance/EfronStein.lean
+  line: 24
+  theorem: anonymous_L24
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.efronstein.anonymous_L32
+  file: Statlean/Variance/EfronStein.lean
+  line: 32
+  theorem: anonymous_L32
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.efronstein.anonymous_L35
+  file: Statlean/Variance/EfronStein.lean
+  line: 35
+  theorem: anonymous_L35
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.efronstein.efron_stein_core_unique
+  file: Statlean/Variance/EfronStein.lean
+  line: 241
+  sorry_lines: [241, 254, 529]
+  theorem: efron_stein_core_unique
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: verified.anonymous_L30
+  file: Statlean/Verified.lean
+  line: 30
+  theorem: anonymous_L30
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: verified.anonymous_L33
+  file: Statlean/Verified.lean
+  line: 33
+  theorem: anonymous_L33
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: verified.anonymous_L36
+  file: Statlean/Verified.lean
+  line: 36
+  theorem: anonymous_L36
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []

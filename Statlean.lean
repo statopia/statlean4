@@ -45,3 +45,10 @@ import Statlean.Statistic.Basic
 -- Sufficiency
 import Statlean.Sufficiency.Factorization
 import Statlean.Sufficiency.Basu
+import Statlean.ExpFamily.Basic
+import Statlean.Estimator.Basic
+import Statlean.Sufficiency.LehmannScheffe
+
+-- Fisher information and Cramér-Rao
+import Statlean.Information.Basic
+import Statlean.Information.CramerRao
