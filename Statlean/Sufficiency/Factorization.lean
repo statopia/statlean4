@@ -2,6 +2,8 @@ import Mathlib.MeasureTheory.Measure.MeasureSpace
 import Mathlib.MeasureTheory.Measure.Decomposition.RadonNikodym
 import Mathlib.MeasureTheory.Function.ConditionalExpectation.Basic
 import Mathlib.MeasureTheory.Function.ConditionalExpectation.PullOut
+import Mathlib.MeasureTheory.Function.FactorsThrough
+import Mathlib.MeasureTheory.Function.AEEqOfLIntegral
 
 /-! # Fisher-Neyman Factorization Theorem
 
@@ -12,7 +14,7 @@ derivative dμ/dν is σ(T)-measurable, i.e., factors as g(T(x)).
 
 - `IsSufficientFor`: definition of a sufficient statistic
 - `factorization_backward`: σ(T)-measurable density ⟹ sufficiency (PROVED)
-- `factorization_forward`: sufficiency ⟹ σ(T)-measurable density (sorry)
+- `factorization_forward`: sufficiency ⟹ σ(T)-measurable density (PROVED)
 
 ## References
 
@@ -147,15 +149,109 @@ theorem factorization_backward
   · exact stronglyMeasurable_condExp.aestronglyMeasurable
 
 /-- **Factorization Theorem (forward direction)**:
-If `T` is sufficient for `(μ, ν)`, then `dμ/dν` is `σ(T)`-measurable. -/
+If `T` is sufficient for `(μ, ν)`, then `dμ/dν` is `σ(T)`-measurable.
+
+The proof constructs the trimmed Radon-Nikodym derivative `d(μ.trim)/d(ν.trim)` on `σ(T)`,
+factors it through `T` via the Doob-Dynkin lemma, and shows it equals `μ.rnDeriv ν` a.e.
+using a change-of-measure chain with the pullout property, tower law, and sufficiency. -/
 theorem factorization_forward
-    {μ : Measure Ω} [SigmaFinite ν] (_hμ : μ ≪ ν)
-    (_hsuff : IsSufficientFor T μ ν) :
+    {μ : Measure Ω} [IsFiniteMeasure μ] [IsFiniteMeasure ν]
+    (hμ : μ ≪ ν)
+    (hsuff : IsSufficientFor T μ ν) :
     ∃ (g : S → ENNReal),
       Measurable g ∧
       ∀ᵐ x ∂ν, μ.rnDeriv ν x = g (T x) := by
-  -- blocker: construct g from the conditional rnDeriv on σ(T) fibers
-  sorry
+  set m_T := MeasurableSpace.comap T ‹MeasurableSpace S›
+  have hle : m_T ≤ mΩ := hT.comap_le
+  -- SigmaFinite instances for trimmed measures
+  haveI : @SigmaFinite Ω m_T (ν.trim hle) := by
+    haveI : @IsFiniteMeasure Ω m_T (ν.trim hle) :=
+      ⟨by rw [trim_measurableSet_eq hle .univ]; exact measure_lt_top ν _⟩
+    infer_instance
+  haveI : @SigmaFinite Ω m_T (μ.trim hle) := by
+    haveI : @IsFiniteMeasure Ω m_T (μ.trim hle) :=
+      ⟨by rw [trim_measurableSet_eq hle .univ]; exact measure_lt_top μ _⟩
+    infer_instance
+  -- Setup: trimmed Radon-Nikodym derivative (σ(T)-measurable by construction)
+  set rn_T := (μ.trim hle).rnDeriv (ν.trim hle)
+  set rn_T_real := fun x => (rn_T x).toReal
+  have hμν_trim : μ.trim hle ≪ ν.trim hle := hμ.trim hle
+  have hrn_meas : @Measurable _ _ m_T _ rn_T := Measure.measurable_rnDeriv _ _
+  have hrn_real_sm : @StronglyMeasurable _ _ _ m_T rn_T_real :=
+    hrn_meas.ennreal_toReal.stronglyMeasurable
+  -- Integrability of rn_T_real under ν
+  have hrn_real_int : Integrable rn_T_real ν := by
+    refine integrable_toReal_of_lintegral_ne_top (hrn_meas.mono hle le_rfl).aemeasurable ?_
+    exact ne_top_of_le_ne_top (measure_ne_top μ _) <| by
+      calc ∫⁻ x, rn_T x ∂ν
+          = ∫⁻ x, rn_T x ∂(ν.trim hle) := (lintegral_trim hle hrn_meas).symm
+        _ ≤ (μ.trim hle) Set.univ := Measure.lintegral_rnDeriv_le
+        _ = μ Set.univ := trim_measurableSet_eq hle .univ
+  -- Factor rn_T as g ∘ T via Doob-Dynkin lemma
+  obtain ⟨g, hg, hgT⟩ := hrn_meas.exists_eq_measurable_comp (f := T)
+  refine ⟨g, hg, ?_⟩
+  -- Suffices to show μ.rnDeriv ν =ᵐ[ν] rn_T
+  suffices key : ∀ᵐ x ∂ν, μ.rnDeriv ν x = rn_T x by
+    filter_upwards [key] with x hx
+    rw [hx, ← Function.comp_apply (f := g) (g := T), ← hgT]
+  -- Prove rnDeriv = rn_T by showing equal set integrals
+  refine ae_eq_of_forall_setLIntegral_eq_of_sigmaFinite
+    (Measure.measurable_rnDeriv μ ν) (hrn_meas.mono hle le_rfl)
+    (fun s hs _ => ?_)
+  rw [Measure.setLIntegral_rnDeriv hμ]
+  -- Goal: μ s = ∫⁻_s rn_T dν — convert to Bochner integral equality
+  have h_lhs_ne_top : μ s ≠ ⊤ := measure_ne_top μ s
+  have h_rhs_ne_top : ∫⁻ x in s, rn_T x ∂ν ≠ ⊤ := by
+    have : ∫⁻ x in s, rn_T x ∂ν ≤ μ Set.univ := by
+      calc ∫⁻ x in s, rn_T x ∂ν
+          ≤ ∫⁻ x, rn_T x ∂ν := setLIntegral_le_lintegral s _
+        _ = ∫⁻ x, rn_T x ∂(ν.trim hle) := (lintegral_trim hle hrn_meas).symm
+        _ ≤ (μ.trim hle) Set.univ := Measure.lintegral_rnDeriv_le
+        _ = μ Set.univ := trim_measurableSet_eq hle .univ
+    exact ne_top_of_le_ne_top (measure_ne_top μ Set.univ) this
+  rw [← ENNReal.toReal_eq_toReal_iff' h_lhs_ne_top h_rhs_ne_top]
+  have h_rn_T_lt_top : ∀ᵐ x ∂ν, rn_T x < ⊤ :=
+    ae_of_ae_trim hle (Measure.rnDeriv_lt_top _ _)
+  rw [← integral_toReal (hrn_meas.mono hle le_rfl).aemeasurable
+        (ae_restrict_of_ae h_rn_T_lt_top)]
+  -- Goal: (μ s).toReal = ∫_s rn_T_real dν
+  -- Chain: ∫_s rn_T_real dν = ∫ rn_T_real·E_ν[1_s|m_T] dν = ∫ E_ν[1_s|m_T] dμ
+  --        = ∫ E_μ[1_s|m_T] dμ = μ.real s = (μ s).toReal
+  set φ := s.indicator (1 : Ω → ℝ)
+  have hφ_ν : Integrable φ ν := (integrable_const (1 : ℝ)).indicator hs
+  have hφ_μ : Integrable φ μ := (integrable_const (1 : ℝ)).indicator hs
+  have hrn_φ_eq : rn_T_real * φ = s.indicator rn_T_real := by
+    ext x; simp only [Pi.mul_apply, φ]
+    by_cases hx : x ∈ s <;> simp [hx]
+  have hrn_φ_int : Integrable (rn_T_real * φ) ν := by
+    rw [hrn_φ_eq]; exact hrn_real_int.indicator hs
+  -- (a) Pullout + tower: ∫ rn_T_real * E_ν[φ|m_T] dν = ∫_s rn_T_real dν
+  have h_pull := condExp_mul_of_aestronglyMeasurable_left (m := m_T) (μ := ν)
+    hrn_real_sm.aestronglyMeasurable hrn_φ_int hφ_ν
+  have step1 : ∫ x, rn_T_real x * (ν[φ|m_T]) x ∂ν = ∫ x in s, rn_T_real x ∂ν := by
+    have : ∫ x, rn_T_real x * (ν[φ|m_T]) x ∂ν
+        = ∫ x, (rn_T_real * ν[φ|m_T]) x ∂ν := rfl
+    rw [this, ← integral_congr_ae h_pull, integral_condExp hle, hrn_φ_eq,
+        integral_indicator hs]
+  -- (b) Trimmed change of measure: ∫ rn_T_real * E_ν[φ|m_T] dν = ∫ E_ν[φ|m_T] dμ
+  have hcond_sm : StronglyMeasurable[m_T] (ν[φ|m_T]) := stronglyMeasurable_condExp
+  have step2 : ∫ x, rn_T_real x * (ν[φ|m_T]) x ∂ν = ∫ x, (ν[φ|m_T]) x ∂μ := by
+    have hmul_eq : (fun x => rn_T_real x * (ν[φ|m_T]) x)
+        = (fun x => (rn_T x).toReal • (ν[φ|m_T]) x) := by
+      ext x; simp [rn_T_real, smul_eq_mul]
+    rw [hmul_eq, integral_trim hle (hrn_real_sm.smul hcond_sm),
+        @integral_rnDeriv_smul Ω m_T (μ.trim hle) (ν.trim hle) ℝ _ _ _ _
+          (fun x => (ν[φ|m_T]) x) hμν_trim,
+        ← integral_trim hle hcond_sm]
+  -- (c) Sufficiency: ∫ E_ν[φ|m_T] dμ = ∫ E_μ[φ|m_T] dμ
+  have step3 : ∫ x, (ν[φ|m_T]) x ∂μ = ∫ x, (μ[φ|m_T]) x ∂μ :=
+    (integral_congr_ae (hsuff s hs)).symm
+  -- (d) Tower + indicator: ∫ E_μ[φ|m_T] dμ = μ.real s
+  have step4 : ∫ x, (μ[φ|m_T]) x ∂μ = μ.real s :=
+    integral_condExp_indicator hT hs
+  -- Combine the chain
+  have h_real : μ.real s = (μ s).toReal := rfl
+  linarith [step1, step2, step3, step4, h_real]
 
 end Factorization
 
