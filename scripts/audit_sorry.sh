@@ -28,7 +28,7 @@ for mod in \
   Statlean.Gaussian.Basic \
   Statlean.Gaussian.Stein \
   Statlean.Gaussian.Hermite \
-  Statlean.Gaussian.Sobolev \
+  Statlean.Variance.ANOVA \
   Statlean.Variance.RaoBlackwell \
   Statlean.Variance.EfronStein \
   Statlean.Entropy.Basic \
@@ -51,7 +51,7 @@ for f in \
   Statlean/Gaussian/Basic.lean \
   Statlean/Gaussian/Stein.lean \
   Statlean/Gaussian/Hermite.lean \
-  Statlean/Gaussian/Sobolev.lean \
+  Statlean/Variance/ANOVA.lean \
   Statlean/Variance/RaoBlackwell.lean \
   Statlean/Variance/EfronStein.lean \
   Statlean/Entropy/Basic.lean \

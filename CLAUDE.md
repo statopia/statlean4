@@ -30,6 +30,13 @@
 - **不需要**拆分为 `FooBase.lean` + `Foo.lean`
 - `Statlean/Verified.lean` 是附加验收工具（只 import 整文件零 sorry 的模块），**不驱动文件拆分**
 
+### Mathlib 文件组织规则（强制）
+- **中间引理和主定理放同一文件**，用 section/namespace 隔离（Mathlib 标准：Taylor、Hahn-Banach 等）
+- **只有「独立可复用」的基础设施才拆出单独文件**（如 ANOVA 方差分解可被 Poincaré、LSI 复用）
+- **没有 `*Base.lean` 模式**：不按证明状态（已证/未证）拆分文件
+- **500-900 行的单文件完全正常**：不必因为行数多就拆分
+- **按数学对象/抽象层级组织**：文件路径反映数学概念，不反映证明项目或状态
+
 ### 薄封装必须删除
 - 如果 `f x` 只是 Mathlib `g x` 的别名，不保留 wrapper，直接内联替换调用点
 - 例：`memLp_three_to_two hLp` → `hLp.mono_exponent (by norm_num : (2 : ENNReal) ≤ 3)`
@@ -105,10 +112,11 @@
 
 ## 效率规则
 
-- **并行 subagent（强制）**：`/prove-deep` 和多 sorry 攻击时，**每个待攻击子任务必须启动独立 agent 并行**
+- **并行 subagent（强制，上限 5 个）**：`/prove-deep` 和多 sorry 攻击时，启动独立 agent 并行，**同时运行的 agent 不超过 5 个**
   - 不同模块的 sorry（如 Poincaré vs LSI vs BerryEsseen）→ 同时启动多个 Task agent
   - 同一定理的 sub-lemma 如果互不依赖 → 也可以并行
   - 仅当有数据依赖时才串行（如 A 的输出是 B 的输入）
+  - **硬性上限 5 并发**：待攻击任务超过 5 个时，按优先级选前 5 个并行，剩余排队等空位
   - 纯研究/搜索型 agent → `model: haiku`；需要写代码的 agent → `model: sonnet` 或默认
 - **subagent 用 haiku**：纯搜索、grep、读文件指定 `model: haiku`
 - **增量编译**：`lake build Statlean.Gaussian.Poincare` 只编目标，不要每次全量 build

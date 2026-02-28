@@ -5,9 +5,9 @@ import Statlean.Basic
 import Statlean.Gaussian.Basic
 import Statlean.Gaussian.Stein
 import Statlean.Gaussian.Hermite
-import Statlean.Gaussian.Sobolev
 
 -- Variance (verified)
+import Statlean.Variance.ANOVA
 import Statlean.Variance.RaoBlackwell
 -- Note: Statlean.Variance.EfronStein has 2 sorry gaps (condVar/Jensen, core_gen)
 -- The 16 proved declarations there are still usable but not imported here
@@ -36,9 +36,8 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Gaussian/Basic**: stdGaussian, stdGaussianPi, integrability infrastructure
 - **Gaussian/Stein**: Stein identity
 - **Gaussian/Hermite**: Hermite derivative, orthogonality, Parseval, density, IBP
-- **Gaussian/Sobolev**: Mollification, Sobolev density
+- **Variance/ANOVA**: Jensen squared, marginal L², ANOVA two-factor inequality
 - **Variance/RaoBlackwell**: Rao-Blackwell MSE theorem and variants
-- **Variance/EfronStein**: Efron-Stein clean core (sigma-algebras, ANOVA, condVar)
 - **Entropy/Basic**: Entropy definitions, LSI interfaces
 - **CharFun/Taylor**: Charfun chain, Taylor bounds, Lyapunov (Berry-Esseen chain)
 - **LimitTheorems/USLLN**: Uniform Strong Law of Large Numbers (full theorem + infrastructure)
