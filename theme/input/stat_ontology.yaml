@@ -1,0 +1,1126 @@
+# Statistical Inference Knowledge Ontology
+# Sources: MSC 2020, Wikipedia dependency chains, Fritz Markov categories,
+#          ProbOnto, Mathlib module structure
+#
+# Each concept has:
+#   id            — unique snake_case identifier
+#   name          — human-readable name
+#   level         — hierarchy layer (0–7)
+#   kind          — definition | theorem | structure
+#   parent        — parent concept ID (taxonomic)
+#   requires      — list of concept IDs this concept's definition depends on
+#   msc           — MSC 2020 classification code
+#   lean_topic    — Statlean subdirectory for classify.py routing
+#   lean_module   — Statlean submodule (Basic for definitions, specific for theorems)
+#   mathlib       — Mathlib module path (if exists)
+#   statlean      — Statlean file path (if implemented)
+#   keywords      — search keywords for classify.py matching
+
+version: v1
+
+concepts:
+  # ─────────────────────────────────────────────────────────────
+  # L0: Foundations
+  # ─────────────────────────────────────────────────────────────
+  - id: measurable_space
+    name: "Measurable Space"
+    level: 0
+    kind: structure
+    parent: null
+    requires: []
+    msc: "28A05"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.MeasurableSpace.Basic"
+    statlean: ""
+    keywords: ["measurable space", "sigma algebra", "σ-algebra"]
+
+  - id: measure
+    name: "Measure"
+    level: 0
+    kind: structure
+    parent: measurable_space
+    requires: [measurable_space]
+    msc: "28A10"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Measure.MeasureSpace"
+    statlean: ""
+    keywords: ["measure"]
+
+  - id: sigma_finite
+    name: "Sigma-Finite Measure"
+    level: 0
+    kind: definition
+    parent: measure
+    requires: [measure]
+    msc: "28A10"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Measure.MeasureSpace"
+    statlean: ""
+    keywords: ["sigma finite", "σ-finite"]
+
+  - id: integral
+    name: "Bochner Integral"
+    level: 0
+    kind: definition
+    parent: measure
+    requires: [measure, measurable_space]
+    msc: "28A25"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Integral.Bochner"
+    statlean: ""
+    keywords: ["integral", "bochner"]
+
+  - id: conditional_expectation
+    name: "Conditional Expectation"
+    level: 0
+    kind: definition
+    parent: integral
+    requires: [integral, measurable_space]
+    msc: "60A10"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Function.ConditionalExpectation.Basic"
+    statlean: ""
+    keywords: ["conditional expectation", "condexp"]
+
+  - id: radon_nikodym
+    name: "Radon-Nikodym Derivative"
+    level: 0
+    kind: definition
+    parent: measure
+    requires: [measure, sigma_finite]
+    msc: "28A15"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Decomposition.RadonNikodym"
+    statlean: ""
+    keywords: ["radon nikodym", "rnderiv", "density"]
+
+  - id: lp_space
+    name: "Lp Space"
+    level: 0
+    kind: structure
+    parent: integral
+    requires: [integral, measure]
+    msc: "46E30"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Function.LpSpace"
+    statlean: ""
+    keywords: ["lp space", "memlp", "l2", "l4"]
+
+  - id: product_measure
+    name: "Product Measure"
+    level: 0
+    kind: definition
+    parent: measure
+    requires: [measure, measurable_space]
+    msc: "28A35"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Measure.Prod"
+    statlean: ""
+    keywords: ["product measure", "measure.prod", "fubini"]
+
+  # ─────────────────────────────────────────────────────────────
+  # L1: Probability
+  # ─────────────────────────────────────────────────────────────
+  - id: probability_measure
+    name: "Probability Measure"
+    level: 1
+    kind: structure
+    parent: measure
+    requires: [measure]
+    msc: "60A10"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Measure.MeasureSpace"
+    statlean: ""
+    keywords: ["probability measure", "probability"]
+
+  - id: random_variable
+    name: "Random Variable"
+    level: 1
+    kind: definition
+    parent: probability_measure
+    requires: [measurable_space, probability_measure]
+    msc: "60A05"
+    lean_topic: null
+    lean_module: null
+    mathlib: "ProbabilityTheory.Independence.Basic"
+    statlean: ""
+    keywords: ["random variable"]
+
+  - id: expectation
+    name: "Expectation"
+    level: 1
+    kind: definition
+    parent: random_variable
+    requires: [integral, probability_measure]
+    msc: "60E05"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Integral.Bochner"
+    statlean: ""
+    keywords: ["expectation", "expected value", "mean"]
+
+  - id: variance
+    name: "Variance"
+    level: 1
+    kind: definition
+    parent: expectation
+    requires: [expectation, lp_space]
+    msc: "60E05"
+    lean_topic: "Variance"
+    lean_module: "Basic"
+    mathlib: "ProbabilityTheory.Variance"
+    statlean: ""
+    keywords: ["variance", "var"]
+
+  - id: conditional_variance
+    name: "Conditional Variance"
+    level: 1
+    kind: definition
+    parent: variance
+    requires: [variance, conditional_expectation]
+    msc: "60E05"
+    lean_topic: "Variance"
+    lean_module: "Basic"
+    mathlib: "ProbabilityTheory.Variance"
+    statlean: ""
+    keywords: ["conditional variance", "condvar"]
+
+  - id: covariance
+    name: "Covariance"
+    level: 1
+    kind: definition
+    parent: variance
+    requires: [expectation, variance]
+    msc: "60E05"
+    lean_topic: "Variance"
+    lean_module: "Basic"
+    mathlib: "ProbabilityTheory.Variance"
+    statlean: ""
+    keywords: ["covariance", "cov"]
+
+  - id: independence
+    name: "Independence"
+    level: 1
+    kind: definition
+    parent: probability_measure
+    requires: [probability_measure, measurable_space]
+    msc: "60A05"
+    lean_topic: null
+    lean_module: null
+    mathlib: "ProbabilityTheory.Independence.Basic"
+    statlean: ""
+    keywords: ["independence", "independent"]
+
+  - id: mgf
+    name: "Moment Generating Function"
+    level: 1
+    kind: definition
+    parent: expectation
+    requires: [expectation]
+    msc: "60E10"
+    lean_topic: null
+    lean_module: null
+    mathlib: "ProbabilityTheory.MomentGeneratingFunction"
+    statlean: ""
+    keywords: ["mgf", "moment generating"]
+
+  - id: charfun
+    name: "Characteristic Function"
+    level: 1
+    kind: definition
+    parent: expectation
+    requires: [expectation]
+    msc: "60E10"
+    lean_topic: "CharFun"
+    lean_module: "Basic"
+    mathlib: "ProbabilityTheory.CharFun"
+    statlean: ""
+    keywords: ["charfun", "characteristic function", "fourier"]
+
+  - id: gaussian_measure
+    name: "Gaussian Measure"
+    level: 1
+    kind: definition
+    parent: probability_measure
+    requires: [probability_measure]
+    msc: "60E05"
+    lean_topic: "Gaussian"
+    lean_module: "Basic"
+    mathlib: "ProbabilityTheory.Distributions.Gaussian"
+    statlean: "Statlean/Gaussian/Basic.lean"
+    keywords: ["gaussian", "normal distribution", "stdgaussian"]
+
+  - id: identically_distributed
+    name: "Identically Distributed"
+    level: 1
+    kind: definition
+    parent: random_variable
+    requires: [random_variable, probability_measure]
+    msc: "60A05"
+    lean_topic: null
+    lean_module: null
+    mathlib: "ProbabilityTheory.IdentDistrib"
+    statlean: ""
+    keywords: ["identically distributed", "identdistrib", "iid"]
+
+  - id: measure_map
+    name: "Pushforward Measure"
+    level: 1
+    kind: definition
+    parent: measure
+    requires: [measure, measurable_space]
+    msc: "28A25"
+    lean_topic: null
+    lean_module: null
+    mathlib: "MeasureTheory.Measure.Map"
+    statlean: ""
+    keywords: ["pushforward", "measure.map", "image measure"]
+
+  # ─────────────────────────────────────────────────────────────
+  # L2: Parametric Models
+  # ─────────────────────────────────────────────────────────────
+  - id: parametric_family
+    name: "Parametric Family"
+    level: 2
+    kind: definition
+    parent: probability_measure
+    requires: [probability_measure]
+    msc: "62F10"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["parametric family", "statistical model", "parametric model"]
+
+  - id: dominated_model
+    name: "Dominated Statistical Model"
+    level: 2
+    kind: definition
+    parent: parametric_family
+    requires: [parametric_family, sigma_finite, radon_nikodym]
+    msc: "62B05"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["dominated model", "dominated family", "dominating measure"]
+
+  - id: density_likelihood
+    name: "Density / Likelihood"
+    level: 2
+    kind: definition
+    parent: dominated_model
+    requires: [dominated_model, radon_nikodym]
+    msc: "62F10"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["density", "likelihood", "pdf"]
+
+  - id: identifiable
+    name: "Identifiable Model"
+    level: 2
+    kind: definition
+    parent: parametric_family
+    requires: [parametric_family]
+    msc: "62F10"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["identifiable", "identifiability"]
+
+  - id: sample
+    name: "Random Sample"
+    level: 2
+    kind: definition
+    parent: random_variable
+    requires: [random_variable, independence, identically_distributed, product_measure]
+    msc: "62D05"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["random sample", "iid sample", "sample"]
+
+  - id: statistic
+    name: "Statistic"
+    level: 2
+    kind: definition
+    parent: random_variable
+    requires: [random_variable, measurable_space]
+    msc: "62B05"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["statistic"]
+
+  # ─────────────────────────────────────────────────────────────
+  # L3: Structured Families
+  # ─────────────────────────────────────────────────────────────
+  - id: exponential_family
+    name: "Exponential Family"
+    level: 3
+    kind: definition
+    parent: dominated_model
+    requires: [dominated_model, density_likelihood]
+    msc: "62E10"
+    lean_topic: "ExpFamily"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["exponential family", "natural parameter", "natural exponential"]
+
+  - id: natural_parameter
+    name: "Natural Parameter Space"
+    level: 3
+    kind: definition
+    parent: exponential_family
+    requires: [exponential_family]
+    msc: "62E10"
+    lean_topic: "ExpFamily"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["natural parameter", "canonical parameter"]
+
+  - id: log_partition
+    name: "Log-Partition Function"
+    level: 3
+    kind: definition
+    parent: exponential_family
+    requires: [exponential_family, mgf]
+    msc: "62E10"
+    lean_topic: "ExpFamily"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["log partition", "cumulant generating", "cgf"]
+
+  - id: location_scale
+    name: "Location-Scale Family"
+    level: 3
+    kind: definition
+    parent: parametric_family
+    requires: [parametric_family]
+    msc: "62E10"
+    lean_topic: "ExpFamily"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["location scale", "location-scale family"]
+
+  - id: natural_exp_family
+    name: "Natural Exponential Family"
+    level: 3
+    kind: definition
+    parent: exponential_family
+    requires: [exponential_family, natural_parameter]
+    msc: "62E10"
+    lean_topic: "ExpFamily"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["natural exponential family", "nef"]
+
+  - id: curved_exp_family
+    name: "Curved Exponential Family"
+    level: 3
+    kind: definition
+    parent: exponential_family
+    requires: [exponential_family]
+    msc: "62E10"
+    lean_topic: "ExpFamily"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["curved exponential", "curved family"]
+
+  - id: conjugate_prior
+    name: "Conjugate Prior"
+    level: 3
+    kind: definition
+    parent: exponential_family
+    requires: [exponential_family, probability_measure]
+    msc: "62F15"
+    lean_topic: "ExpFamily"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["conjugate prior", "conjugate family"]
+
+  - id: minimal_representation
+    name: "Minimal Representation"
+    level: 3
+    kind: definition
+    parent: exponential_family
+    requires: [exponential_family]
+    msc: "62E10"
+    lean_topic: "ExpFamily"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["minimal representation", "full rank"]
+
+  # ─────────────────────────────────────────────────────────────
+  # L4: Statistics & Reduction
+  # ─────────────────────────────────────────────────────────────
+  - id: sufficient
+    name: "Sufficient Statistic"
+    level: 4
+    kind: definition
+    parent: statistic
+    requires: [statistic, conditional_expectation, parametric_family]
+    msc: "62B05"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["sufficient statistic", "sufficiency"]
+
+  - id: complete
+    name: "Complete Statistic"
+    level: 4
+    kind: definition
+    parent: statistic
+    requires: [statistic, expectation, parametric_family]
+    msc: "62B05"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["complete statistic", "completeness"]
+
+  - id: bounded_complete
+    name: "Boundedly Complete Statistic"
+    level: 4
+    kind: definition
+    parent: complete
+    requires: [complete]
+    msc: "62B05"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["boundedly complete", "bounded completeness"]
+
+  - id: ancillary
+    name: "Ancillary Statistic"
+    level: 4
+    kind: definition
+    parent: statistic
+    requires: [statistic, parametric_family, measure_map]
+    msc: "62B05"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["ancillary", "ancillarity"]
+
+  - id: minimal_sufficient
+    name: "Minimal Sufficient Statistic"
+    level: 4
+    kind: definition
+    parent: sufficient
+    requires: [sufficient]
+    msc: "62B05"
+    lean_topic: "Statistic"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["minimal sufficient"]
+
+  - id: factorization_theorem
+    name: "Fisher-Neyman Factorization Theorem"
+    level: 4
+    kind: theorem
+    parent: sufficient
+    requires: [sufficient, dominated_model, radon_nikodym]
+    msc: "62B05"
+    lean_topic: "Sufficiency"
+    lean_module: "Factorization"
+    mathlib: ""
+    statlean: "Statlean/Sufficiency/Factorization.lean"
+    keywords: ["factorization", "fisher neyman"]
+
+  - id: basu_theorem
+    name: "Basu's Theorem"
+    level: 4
+    kind: theorem
+    parent: ancillary
+    requires: [ancillary, bounded_complete, sufficient, independence]
+    msc: "62B05"
+    lean_topic: "Sufficiency"
+    lean_module: "Basu"
+    mathlib: ""
+    statlean: "Statlean/Sufficiency/Basu.lean"
+    keywords: ["basu"]
+
+  - id: bahadur_theorem
+    name: "Bahadur's Theorem"
+    level: 4
+    kind: theorem
+    parent: complete
+    requires: [complete, sufficient, minimal_sufficient]
+    msc: "62B05"
+    lean_topic: "Sufficiency"
+    lean_module: "Bahadur"
+    mathlib: ""
+    statlean: ""
+    keywords: ["bahadur"]
+
+  - id: lehmann_scheffe
+    name: "Lehmann-Scheffé Theorem"
+    level: 4
+    kind: theorem
+    parent: complete
+    requires: [complete, sufficient, unbiased]
+    msc: "62B05"
+    lean_topic: "Sufficiency"
+    lean_module: "LehmannScheffe"
+    mathlib: ""
+    statlean: ""
+    keywords: ["lehmann scheffe", "lehmann-scheffe", "umvue"]
+
+  - id: completeness_exp_family
+    name: "Completeness of Exponential Family"
+    level: 4
+    kind: theorem
+    parent: complete
+    requires: [complete, exponential_family, minimal_representation]
+    msc: "62E10"
+    lean_topic: "Sufficiency"
+    lean_module: "Completeness"
+    mathlib: ""
+    statlean: ""
+    keywords: ["completeness exponential", "complete sufficient"]
+
+  - id: rao_blackwell_theorem
+    name: "Rao-Blackwell Theorem"
+    level: 4
+    kind: theorem
+    parent: sufficient
+    requires: [sufficient, conditional_expectation, variance]
+    msc: "62C05"
+    lean_topic: "Variance"
+    lean_module: "RaoBlackwell"
+    mathlib: ""
+    statlean: "Statlean/Variance/RaoBlackwell.lean"
+    keywords: ["rao blackwell", "rao-blackwell", "raoblackwell", "mse"]
+
+  # ─────────────────────────────────────────────────────────────
+  # L5: Estimators
+  # ─────────────────────────────────────────────────────────────
+  - id: estimator
+    name: "Estimator"
+    level: 5
+    kind: definition
+    parent: statistic
+    requires: [statistic, parametric_family]
+    msc: "62F10"
+    lean_topic: "Estimator"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["estimator"]
+
+  - id: unbiased
+    name: "Unbiased Estimator"
+    level: 5
+    kind: definition
+    parent: estimator
+    requires: [estimator, expectation]
+    msc: "62F10"
+    lean_topic: "Estimator"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["unbiased", "bias"]
+
+  - id: umvue
+    name: "UMVUE"
+    level: 5
+    kind: definition
+    parent: unbiased
+    requires: [unbiased, variance]
+    msc: "62F10"
+    lean_topic: "Estimator"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["umvue", "uniformly minimum variance"]
+
+  - id: bayes_estimator
+    name: "Bayes Estimator"
+    level: 5
+    kind: definition
+    parent: estimator
+    requires: [estimator, probability_measure]
+    msc: "62F15"
+    lean_topic: "Estimator"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["bayes estimator", "bayes risk", "posterior"]
+
+  - id: mle
+    name: "Maximum Likelihood Estimator"
+    level: 5
+    kind: definition
+    parent: estimator
+    requires: [estimator, density_likelihood]
+    msc: "62F10"
+    lean_topic: "Estimator"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["mle", "maximum likelihood"]
+
+  - id: risk
+    name: "Risk Function"
+    level: 5
+    kind: definition
+    parent: estimator
+    requires: [estimator, expectation]
+    msc: "62C05"
+    lean_topic: "Estimator"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["risk", "loss function", "risk function"]
+
+  - id: admissible
+    name: "Admissible Estimator"
+    level: 5
+    kind: definition
+    parent: risk
+    requires: [risk]
+    msc: "62C15"
+    lean_topic: "Estimator"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["admissible", "inadmissible"]
+
+  - id: minimax
+    name: "Minimax Estimator"
+    level: 5
+    kind: definition
+    parent: risk
+    requires: [risk]
+    msc: "62C20"
+    lean_topic: "Estimator"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["minimax"]
+
+  - id: consistency
+    name: "Consistent Estimator"
+    level: 5
+    kind: definition
+    parent: estimator
+    requires: [estimator, probability_measure]
+    msc: "62F12"
+    lean_topic: "Estimator"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["consistent", "consistency"]
+
+  - id: james_stein
+    name: "James-Stein Estimator"
+    level: 5
+    kind: theorem
+    parent: admissible
+    requires: [admissible, gaussian_measure, risk]
+    msc: "62C15"
+    lean_topic: "Estimator"
+    lean_module: "JamesStein"
+    mathlib: ""
+    statlean: ""
+    keywords: ["james stein", "james-stein", "shrinkage"]
+
+  # ─────────────────────────────────────────────────────────────
+  # L6: Concentration & Limit Theorems
+  # ─────────────────────────────────────────────────────────────
+  - id: slln
+    name: "Strong Law of Large Numbers"
+    level: 6
+    kind: theorem
+    parent: expectation
+    requires: [expectation, independence, identically_distributed]
+    msc: "60F15"
+    lean_topic: "LimitTheorems"
+    lean_module: "USLLN"
+    mathlib: "ProbabilityTheory.StrongLaw"
+    statlean: "Statlean/LimitTheorems/USLLN.lean"
+    keywords: ["slln", "strong law", "law of large numbers"]
+
+  - id: uniform_slln
+    name: "Uniform SLLN"
+    level: 6
+    kind: theorem
+    parent: slln
+    requires: [slln]
+    msc: "60F15"
+    lean_topic: "LimitTheorems"
+    lean_module: "USLLN"
+    mathlib: ""
+    statlean: "Statlean/LimitTheorems/USLLN.lean"
+    keywords: ["uniform slln", "uniform law of large numbers", "uniform strong law"]
+
+  - id: clt
+    name: "Central Limit Theorem"
+    level: 6
+    kind: theorem
+    parent: charfun
+    requires: [charfun, variance, independence, identically_distributed]
+    msc: "60F05"
+    lean_topic: "LimitTheorems"
+    lean_module: "CLT"
+    mathlib: ""
+    statlean: ""
+    keywords: ["clt", "central limit"]
+
+  - id: berry_esseen
+    name: "Berry-Esseen Theorem"
+    level: 6
+    kind: theorem
+    parent: clt
+    requires: [clt, charfun]
+    msc: "60F05"
+    lean_topic: "LimitTheorems"
+    lean_module: "BerryEsseen"
+    mathlib: ""
+    statlean: "Statlean/LimitTheorems/BerryEsseen.lean"
+    keywords: ["berry esseen", "berry-esseen", "berryesseen", "normal approximation"]
+
+  - id: charfun_taylor
+    name: "Characteristic Function Taylor Expansion"
+    level: 6
+    kind: theorem
+    parent: charfun
+    requires: [charfun, expectation, variance]
+    msc: "60E10"
+    lean_topic: "CharFun"
+    lean_module: "Taylor"
+    mathlib: ""
+    statlean: "Statlean/CharFun/Taylor.lean"
+    keywords: ["charfun taylor", "characteristic function expansion"]
+
+  - id: poincare_inequality
+    name: "Poincaré Inequality"
+    level: 6
+    kind: theorem
+    parent: gaussian_measure
+    requires: [gaussian_measure, variance, lp_space]
+    msc: "60E15"
+    lean_topic: "Gaussian"
+    lean_module: "Poincare"
+    mathlib: ""
+    statlean: "Statlean/Gaussian/Poincare.lean"
+    keywords: ["poincare", "poincaré", "spectral gap"]
+
+  - id: log_sobolev
+    name: "Logarithmic Sobolev Inequality"
+    level: 6
+    kind: theorem
+    parent: gaussian_measure
+    requires: [gaussian_measure, entropy_def, lp_space]
+    msc: "60E15"
+    lean_topic: "Entropy"
+    lean_module: "LogSobolev"
+    mathlib: ""
+    statlean: "Statlean/Entropy/LogSobolev.lean"
+    keywords: ["log sobolev", "logsobolev", "log-sobolev", "lsi", "gross"]
+
+  - id: hypercontractivity
+    name: "Hypercontractivity (Nelson)"
+    level: 6
+    kind: theorem
+    parent: gaussian_measure
+    requires: [gaussian_measure, lp_space]
+    msc: "60E15"
+    lean_topic: "Entropy"
+    lean_module: "LogSobolev"
+    mathlib: ""
+    statlean: ""
+    keywords: ["hypercontractivity", "nelson", "hypercontractive"]
+
+  - id: subgaussian
+    name: "Sub-Gaussian Random Variable"
+    level: 6
+    kind: definition
+    parent: mgf
+    requires: [mgf, variance]
+    msc: "60E15"
+    lean_topic: "SubGaussian"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["subgaussian", "sub-gaussian", "sub gaussian"]
+
+  - id: herbst_argument
+    name: "Herbst Argument"
+    level: 6
+    kind: theorem
+    parent: subgaussian
+    requires: [subgaussian, log_sobolev, mgf]
+    msc: "60E15"
+    lean_topic: "SubGaussian"
+    lean_module: "Herbst"
+    mathlib: ""
+    statlean: "Statlean/SubGaussian/Herbst.lean"
+    keywords: ["herbst", "herbst argument"]
+
+  - id: lipschitz_concentration
+    name: "Lipschitz Concentration"
+    level: 6
+    kind: theorem
+    parent: subgaussian
+    requires: [subgaussian, herbst_argument, gaussian_measure]
+    msc: "60E15"
+    lean_topic: "SubGaussian"
+    lean_module: "Lipschitz"
+    mathlib: ""
+    statlean: "Statlean/SubGaussian/Lipschitz.lean"
+    keywords: ["lipschitz concentration", "concentration inequality"]
+
+  - id: efron_stein
+    name: "Efron-Stein Inequality"
+    level: 6
+    kind: theorem
+    parent: conditional_variance
+    requires: [conditional_variance, product_measure, independence]
+    msc: "60E15"
+    lean_topic: "Variance"
+    lean_module: "EfronStein"
+    mathlib: ""
+    statlean: "Statlean/Variance/EfronStein.lean"
+    keywords: ["efron stein", "efron-stein", "efronstein", "jackknife"]
+
+  - id: anova
+    name: "ANOVA Variance Decomposition"
+    level: 6
+    kind: theorem
+    parent: conditional_variance
+    requires: [conditional_variance, conditional_expectation]
+    msc: "62J10"
+    lean_topic: "Variance"
+    lean_module: "ANOVA"
+    mathlib: ""
+    statlean: "Statlean/Variance/ANOVA.lean"
+    keywords: ["anova", "variance decomposition", "marginal l2"]
+
+  - id: hermite_polynomials
+    name: "Hermite Polynomials (Probabilist)"
+    level: 6
+    kind: definition
+    parent: gaussian_measure
+    requires: [gaussian_measure, lp_space]
+    msc: "33C45"
+    lean_topic: "Gaussian"
+    lean_module: "Hermite"
+    mathlib: ""
+    statlean: "Statlean/Gaussian/Hermite.lean"
+    keywords: ["hermite", "hermite polynomial", "hermitebasis"]
+
+  - id: stein_identity
+    name: "Stein's Identity"
+    level: 6
+    kind: theorem
+    parent: gaussian_measure
+    requires: [gaussian_measure, expectation]
+    msc: "60E05"
+    lean_topic: "Gaussian"
+    lean_module: "Stein"
+    mathlib: ""
+    statlean: "Statlean/Gaussian/Stein.lean"
+    keywords: ["stein identity", "stein method"]
+
+  - id: ldp
+    name: "Large Deviation Principle"
+    level: 6
+    kind: definition
+    parent: probability_measure
+    requires: [probability_measure, mgf]
+    msc: "60F10"
+    lean_topic: "LimitTheorems"
+    lean_module: "LDP"
+    mathlib: ""
+    statlean: ""
+    keywords: ["large deviation", "ldp", "cramér"]
+
+  # ─────────────────────────────────────────────────────────────
+  # L7: Information Theory
+  # ─────────────────────────────────────────────────────────────
+  - id: entropy_def
+    name: "Shannon Entropy"
+    level: 7
+    kind: definition
+    parent: expectation
+    requires: [expectation, probability_measure]
+    msc: "94A17"
+    lean_topic: "Entropy"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: "Statlean/Entropy/Basic.lean"
+    keywords: ["entropy", "shannon entropy"]
+
+  - id: conditional_entropy
+    name: "Conditional Entropy"
+    level: 7
+    kind: definition
+    parent: entropy_def
+    requires: [entropy_def, conditional_expectation]
+    msc: "94A17"
+    lean_topic: "Entropy"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: "Statlean/Entropy/Basic.lean"
+    keywords: ["conditional entropy", "condentropy"]
+
+  - id: kl_divergence
+    name: "KL Divergence"
+    level: 7
+    kind: definition
+    parent: entropy_def
+    requires: [entropy_def, radon_nikodym]
+    msc: "94A17"
+    lean_topic: "Entropy"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: "Statlean/Entropy/Basic.lean"
+    keywords: ["kl divergence", "kullback leibler", "relative entropy"]
+
+  - id: mutual_information
+    name: "Mutual Information"
+    level: 7
+    kind: definition
+    parent: entropy_def
+    requires: [entropy_def, kl_divergence]
+    msc: "94A17"
+    lean_topic: "Entropy"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["mutual information"]
+
+  - id: fisher_information
+    name: "Fisher Information"
+    level: 7
+    kind: definition
+    parent: density_likelihood
+    requires: [density_likelihood, expectation, variance]
+    msc: "62B10"
+    lean_topic: "Information"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["fisher information", "fisher info"]
+
+  - id: score_function
+    name: "Score Function"
+    level: 7
+    kind: definition
+    parent: density_likelihood
+    requires: [density_likelihood]
+    msc: "62B10"
+    lean_topic: "Information"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["score function", "score"]
+
+  - id: cramer_rao
+    name: "Cramér-Rao Lower Bound"
+    level: 7
+    kind: theorem
+    parent: fisher_information
+    requires: [fisher_information, unbiased, variance]
+    msc: "62B10"
+    lean_topic: "Information"
+    lean_module: "CramerRao"
+    mathlib: ""
+    statlean: ""
+    keywords: ["cramer rao", "cramér-rao", "information bound"]
+
+  - id: data_processing
+    name: "Data Processing Inequality"
+    level: 7
+    kind: theorem
+    parent: mutual_information
+    requires: [mutual_information, sufficient]
+    msc: "94A17"
+    lean_topic: "Information"
+    lean_module: "DataProcessing"
+    mathlib: ""
+    statlean: ""
+    keywords: ["data processing inequality"]
+
+  # ─────────────────────────────────────────────────────────────
+  # Additional: SPD / Regression (for classify.py coverage)
+  # ─────────────────────────────────────────────────────────────
+  - id: frechet_mean
+    name: "Fréchet Mean"
+    level: 5
+    kind: definition
+    parent: estimator
+    requires: [estimator]
+    msc: "62H11"
+    lean_topic: "SPD"
+    lean_module: "FrechetMean"
+    mathlib: ""
+    statlean: ""
+    keywords: ["frechet mean", "fréchet mean", "barycenter"]
+
+  - id: regression
+    name: "Regression"
+    level: 5
+    kind: definition
+    parent: estimator
+    requires: [estimator, conditional_expectation]
+    msc: "62J05"
+    lean_topic: "Regression"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["regression", "least squares"]
+
+  - id: empirical_process
+    name: "Empirical Process"
+    level: 6
+    kind: definition
+    parent: random_variable
+    requires: [random_variable, sample]
+    msc: "62G20"
+    lean_topic: "EmpiricalProcess"
+    lean_module: "Basic"
+    mathlib: ""
+    statlean: ""
+    keywords: ["empirical process", "empirical measure"]
+
+  - id: covering_number
+    name: "Covering Number"
+    level: 6
+    kind: definition
+    parent: empirical_process
+    requires: [empirical_process]
+    msc: "62G20"
+    lean_topic: "EmpiricalProcess"
+    lean_module: "CoveringNumber"
+    mathlib: ""
+    statlean: ""
+    keywords: ["covering number", "bracketing", "metric entropy"]

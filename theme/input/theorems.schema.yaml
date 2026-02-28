@@ -85,5 +85,12 @@ properties:
             type: string
         notes:
           type: string
+        ontology_concepts:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-z0-9_]+$"
+          uniqueItems: true
+          description: "References to concept IDs in stat_ontology.yaml"
       additionalProperties: false
 additionalProperties: false

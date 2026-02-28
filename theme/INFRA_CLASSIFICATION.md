@@ -178,3 +178,73 @@ make formalize  =  ingest → plan → generate → infra-audit → sync-backlog
 Pipeline 会：
 - completeness → `Statistic/Basic.lean`（infra，kind=definition）
 - Basu → `Sufficiency/Basu.lean`（theorem，import Statistic.Basic）
+
+---
+
+## 知识图谱：`stat_ontology.yaml`（v1）
+
+### 设计动机
+
+硬编码正则规则有三个问题：
+1. 关键词是扁平的，不反映数学概念层次
+2. 不知道 completeness 和 sufficiency 是平级概念（而非从属）
+3. 新定理需要手动添加规则
+
+### 数据来源
+
+综合 5 个资源构建知识图谱：
+- **MSC 2020**：提供分类码（如 62B05 = sufficient statistics）
+- **Wikipedia**：提供概念间的依赖链
+- **Fritz Markov Category**：范畴论视角的统计推断层次
+- **ProbOnto**：概率分布本体论
+- **Mathlib**：实际实现对应关系
+
+### 8 层结构
+
+| 层级 | 概念数 | 举例 |
+|------|--------|------|
+| L0 Foundations | ~8 | MeasurableSpace, Measure, σ-algebra, Integral |
+| L1 Probability | ~12 | ProbMeasure, RV, Expectation, Variance, MGF, CharFun |
+| L2 Parametric | ~6 | ParametricFamily, DominatedModel, Density, Statistic |
+| L3 Families | ~8 | ExponentialFamily, LocationScale, NEF |
+| L4 Statistics | ~12 | Sufficient, Complete, Ancillary, Factorization, Basu |
+| L5 Estimators | ~10 | Unbiased, UMVUE, Bayes, MLE, Risk |
+| L6 Concentration | ~15 | CLT, SLLN, BerryEsseen, Poincaré, LSI, EfronStein |
+| L7 Information | ~8 | FisherInfo, KL, Entropy, CramerRao |
+
+### YAML Schema
+
+```yaml
+- id: "poincare_inequality"       # snake_case 唯一标识
+  name: "Poincaré Inequality"     # 人类可读名称
+  level: 6                        # 层级 (0–7)
+  kind: theorem                   # definition | theorem | structure
+  parent: gaussian_measure        # 父概念（分类层次）
+  requires: [gaussian_measure, variance, lp_space]  # 定义依赖
+  msc: "60E15"                    # MSC 2020 分类码
+  lean_topic: "Gaussian"          # classify.py 路由目标 subdir
+  lean_module: "Poincare"         # classify.py 路由目标 submodule
+  mathlib: ""                     # Mathlib 模块（如有）
+  statlean: "Statlean/Gaussian/Poincare.lean"  # 实际文件
+  keywords: ["poincare", "spectral gap"]  # 匹配关键词
+```
+
+### classify.py 集成
+
+三阶段分类（优先级从高到低）：
+1. **Namespace shortcut**：`Statlean.Gaussian.Poincare` → 直接提取
+2. **Ontology lookup**：匹配 keywords + name，按匹配长度评分（去重子串）
+3. **Hardcoded rules**：原有 `_INFRA_RULES` + `_THEOREM_RULES` 作为 fallback
+
+### infra_audit.py 集成
+
+新增检查：
+- `requires` 引用的概念 ID 是否存在
+- `parent` 引用的概念 ID 是否存在
+- `statlean` 指定的文件是否存在
+- `lean_topic`/`lean_module` 是否与 `statlean` 路径一致
+
+### theorems.yaml 集成
+
+新增可选字段 `ontology_concepts: [str]`，引用知识图谱中的概念 ID，
+便于自动推断定理的分类和依赖关系。

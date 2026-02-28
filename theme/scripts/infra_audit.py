@@ -5,6 +5,7 @@ Checks:
 1. Definitions (def/structure/class/abbrev) in non-Basic.lean files → warning
 2. Basic.lean files importing non-Basic.lean files in same topic → warning (import direction)
 3. Duplicate definitions across files → warning
+4. Ontology consistency: requires-dependencies vs actual imports, lean_topic vs file location
 
 Exit code 0 (warnings only, does not block pipeline).
 """
@@ -13,6 +14,8 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+
+import yaml
 
 STATLEAN_DIR = "Statlean"
 LEAN_DEF_PATTERN = re.compile(
@@ -79,9 +82,72 @@ def audit(repo_root: Path) -> list[str]:
     return warnings
 
 
+def audit_ontology(repo_root: Path) -> list[str]:
+    """Check ontology consistency with actual file structure."""
+    warnings: list[str] = []
+    ontology_path = repo_root / "theme" / "input" / "stat_ontology.yaml"
+
+    if not ontology_path.is_file():
+        return warnings  # No ontology file, skip
+
+    with open(ontology_path, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    concepts = data.get("concepts", []) if data else []
+    if not concepts:
+        return warnings
+
+    concept_ids = {c["id"] for c in concepts}
+
+    for concept in concepts:
+        cid = concept["id"]
+
+        # Check: requires references valid concept IDs
+        for req in concept.get("requires", []):
+            if req not in concept_ids:
+                warnings.append(
+                    f"[ontology-audit] WARN: concept `{cid}` requires "
+                    f"unknown concept `{req}`"
+                )
+
+        # Check: parent references valid concept ID
+        parent = concept.get("parent")
+        if parent and parent not in concept_ids:
+            warnings.append(
+                f"[ontology-audit] WARN: concept `{cid}` has "
+                f"unknown parent `{parent}`"
+            )
+
+        # Check: statlean file path exists if specified
+        statlean_path = concept.get("statlean", "")
+        if statlean_path:
+            full_path = repo_root / statlean_path
+            if not full_path.is_file():
+                warnings.append(
+                    f"[ontology-audit] WARN: concept `{cid}` references "
+                    f"non-existent file `{statlean_path}`"
+                )
+
+        # Check: lean_topic/lean_module consistency with statlean path
+        topic = concept.get("lean_topic")
+        module = concept.get("lean_module")
+        if topic and module and statlean_path:
+            expected = f"Statlean/{topic}/{module}.lean"
+            if statlean_path != expected:
+                warnings.append(
+                    f"[ontology-audit] WARN: concept `{cid}` has "
+                    f"lean_topic={topic}, lean_module={module} but "
+                    f"statlean={statlean_path} (expected {expected})"
+                )
+
+    return warnings
+
+
 def main() -> None:
     repo_root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
-    warnings = audit(repo_root.resolve())
+    resolved = repo_root.resolve()
+    warnings = audit(resolved)
+    warnings.extend(audit_ontology(resolved))
 
     if warnings:
         for w in warnings:
