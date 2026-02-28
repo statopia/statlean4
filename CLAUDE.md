@@ -133,6 +133,14 @@
   - Claude 会自动读取 `sorry_backlog.yaml` + `MEMORY.md` 恢复状态并继续
   - **不要在中间轮次停下来写总结报告** — 持续推进直到上下文真正用完
   - 用户可以用 `claude --continue` 在同一会话续接，或新会话中靠 backlog 恢复
+- **subagent 实时落盘（强制）**：
+  - subagent 证明过程中，每完成一个 sub-lemma 或发现关键 pattern，**立即写入目标 .lean 文件**（即使主定理还有 sorry）
+  - 这样 subagent 上下文耗尽时，已完成的部分已经落盘，新 agent 可以从文件当前状态续接
+  - 给 subagent 的 prompt 必须包含："每证完一个子引理立即写入 .lean 文件并 lake build 验证，不要攒到最后一起写"
+- **subagent 返回后自动检查续派**：
+  - subagent 返回后，主会话检查目标 sorry 是否已关闭（grep sorry 或 lake build）
+  - 若未关闭且 subagent 有实质进展（文件已修改），立即派新 agent 续接，prompt 注明"从文件当前状态继续，前任已完成 X"
+  - 若无进展（策略耗尽），记录到 sorry_backlog.yaml 并转攻下一个目标，不无限重试
 - **基础设施增量入库（强制 — 证明过程中实时执行，不等主定理完成）**：
   证明过程中产生的内容分两类处理：
 
