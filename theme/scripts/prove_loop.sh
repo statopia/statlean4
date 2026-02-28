@@ -12,7 +12,9 @@ MAX_PARALLEL=${MAX_PARALLEL:-3}
 PROVE_BUDGET=${PROVE_BUDGET:-3600}   # global time budget in seconds, 0 = unlimited
 START_TIME=$(date +%s)
 LOG_DIR="$REPO_ROOT/theme/out/logs"
+FAILED_FILE="$LOG_DIR/prove_failed_this_run.txt"
 mkdir -p "$LOG_DIR"
+: > "$FAILED_FILE"  # reset per-run failure list
 
 # --- List PIPELINE_ID markers in Statlean/ ---
 list_pipeline_ids() {
@@ -138,13 +140,41 @@ for i in $(seq 1 "$MAX_ITERS"); do
   echo "[prove-loop] syncing backlog and dispatching agents..."
   (cd "$REPO_ROOT" && python3 theme/scripts/sync_sorry_backlog.py) || true
 
-  # Simple sequential attack: read backlog, attack first N by priority
+  # Select targets: by priority, skipping theorems that already failed this run
+  # If MANIFEST is set and exists, only attack sorry in manifest files (pipeline mode)
+  # Otherwise, attack all backlog entries (standalone/fallback mode)
   python3 -c "
-import yaml, json, sys
+import yaml, json, sys, os
 with open('$REPO_ROOT/theme/input/sorry_backlog.yaml') as f:
     data = yaml.safe_load(f) or {}
+failed = set()
+try:
+    with open('$FAILED_FILE') as ff:
+        failed = {l.strip() for l in ff if l.strip()}
+except FileNotFoundError:
+    pass
+
+manifest_path = os.environ.get('MANIFEST', '')
+manifest_files = None
+if manifest_path and os.path.isfile(manifest_path):
+    try:
+        with open(manifest_path) as mf:
+            manifest = json.load(mf)
+        manifest_files = {e['file'] for e in manifest.get('entries', {}).values() if 'file' in e}
+        print(f'[prove-loop] pipeline mode: targeting {len(manifest_files)} files from manifest', file=sys.stderr)
+        for f_name in sorted(manifest_files):
+            print(f'  - {f_name}', file=sys.stderr)
+    except (json.JSONDecodeError, KeyError) as exc:
+        print(f'[prove-loop] manifest parse error ({exc}), falling back to full backlog', file=sys.stderr)
+        manifest_files = None
+else:
+    print('[prove-loop] standalone mode: targeting full backlog by priority', file=sys.stderr)
+
 items = [it for it in (data.get('sorry_items') or [])
-         if it.get('type') not in ('blocked',)]
+         if it.get('type') not in ('blocked',)
+         and it.get('theorem','') not in failed]
+if manifest_files is not None:
+    items = [it for it in items if it.get('file','') in manifest_files]
 items.sort(key=lambda x: x.get('priority', 99))
 for it in items[:$MAX_PARALLEL]:
     print(json.dumps({'file': it['file'], 'theorem': it['theorem']}))
@@ -170,8 +200,13 @@ for it in items[:$MAX_PARALLEL]:
     fi
 
     echo "[prove-loop] attacking $file:$theorem (timeout=${effective_timeout}s)"
-    run_claude_agent "$prompt_file" "$fix_log" "$effective_timeout" || \
-      echo "[prove-loop] agent for $theorem exited with rc=$?"
+    if run_claude_agent "$prompt_file" "$fix_log" "$effective_timeout"; then
+      echo "[prove-loop] agent for $theorem completed successfully"
+    else
+      rc=$?
+      echo "[prove-loop] agent for $theorem exited with rc=$rc — skipping in future iterations"
+      echo "$theorem" >> "$FAILED_FILE"
+    fi
   done
 done
 

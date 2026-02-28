@@ -55,6 +55,7 @@ prove:
 	  PROVE_BUDGET=$(PROVE_BUDGET) \
 	  MAX_ITERS=$(PROVE_MAX_ITERS) \
 	  MAX_PARALLEL=3 \
+	  MANIFEST=$(OUT_DIR)/manifest.json \
 	  $(THEME_DIR)/scripts/prove_loop.sh "$(ROOT)" || \
 	    echo "[prove] prove loop ended with remaining sorry (non-blocking)"; \
 	fi
