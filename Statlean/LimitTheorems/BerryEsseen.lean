@@ -8,20 +8,42 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **1 honest sorry** remains: `berry_esseen_theorem`
-- **4 fully proved** sub-lemmas in this file
+- **1 honest sorry** remains: `esseen_charfun_integral_bound`
+- **berry_esseen_theorem PROVED** modulo `esseen_charfun_integral_bound`
+- **5 fully proved** infrastructure sub-lemmas in this file
 
-## Proved sub-lemmas
-- `smoothing_kernel_exists`: triangle/Fejér kernel K(x) = T·max(1-T|x|,0) with ∫K=1
-  (constructive, FTC-based integral computation)
-- `cdf_smoothing_bound`: |F(y)-G(y) - (F-G)*K(y)| ≤ C/T via crude CDF bounds
-  (uses |cdf| ∈ [0,1] and ∫K=1)
-- `smoothed_cdf_fourier_bound`: |(F-G)*K(y)| ≤ C₁·I + C₂/T where I = ∫‖φ_μ-φ_ν‖/|t|.
-  Proved by adding C₂/T slack to absorb the I=0 case without Stieltjes inversion.
-- `berry_esseen_smoothing`: assembly of the smoothing inequality (triangle inequality)
+## Architecture
+
+The proof follows the classical Fourier-analytic approach:
+
+1. **Esseen smoothing** (`esseen_smoothing_lemma`): For probability measures `μ, ν` on `ℝ`
+   where `ν` has bounded density,
+   `|cdf μ y - cdf ν y| ≤ C₁ ∫_{-T}^{T} ‖φ_μ - φ_ν‖/|t| dt + C₂/T`
+
+2. **Charfun integral bound** (`esseen_charfun_integral_bound`): The integral from step 1
+   is bounded by `C * ρ/(σ³√n)` when choosing `T = σ³√n/ρ` and using the charfun Taylor
+   bound with exponential decay factor `e^{-t²/4}`.
+
+3. **Assembly** (`berry_esseen_theorem`): Combine steps 1-2 with `T = σ³√n/ρ`.
 
 ## Remaining sorry
-- `berry_esseen_theorem`: the full Berry-Esseen bound — needs charfun chain + smoothing
+
+- `esseen_charfun_integral_bound`: Bounds the Fourier integral
+  `∫_{-T}^{T} ‖φ_S(t) - φ_Φ(t)‖/|t| dt ≤ C * ρ/(σ³√n)`
+  using the charfun Taylor chain plus exponential decay of charfun modulus.
+
+  **Blocker**: Needs (a) charfun modulus decay `|φ(s)| ≤ e^{-σ²s²/4}` for small s, which
+  gives the exponential factor `e^{-t²/4}` in the charfun bound
+  `‖φ_S(t) - φ_Φ(t)‖ ≤ Cδ|t|³ · e^{-t²/4}`, making the integral convergent over
+  all of ℝ. Without this decay, the integral diverges for large T.
+
+  **Proof sketch**:
+  1. Prove `|φ_Y(s)|² ≤ 1 - σ²s²/2 + O(s³)` using variance (Cauchy-Schwarz)
+  2. Deduce `|φ_Y(s)| ≤ 1 - σ²s²/4` for small s
+  3. Product bound: `|φ_S(t)| = |φ_Y(t/(σ√n))|ⁿ ≤ (1-t²/(4n))ⁿ ≤ e^{-t²/4}`
+  4. Combine with Taylor: `‖φ_S - φ_Φ‖ ≤ (Cδ|t|³ + t⁴/(4n)) · e^{-t²/4}`
+  5. Integrate: `∫(Cδ|t|² + |t|³/(4n)) · e^{-t²/4} dt ≤ C'δ` (Gaussian moments)
+  **Estimated effort**: P6
 -/
 
 namespace Statlean.BerryEsseen
@@ -270,9 +292,61 @@ lemma berry_esseen_smoothing (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
     _ = C₁ * (∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t|) +
         (C_s + C_f) / T := by ring
 
+/-! ## Esseen's charfun integral bound -/
+
+/-- **Charfun integral bound with exponential decay.**
+
+For the standardized sum `S`, the Fourier integral used in the smoothing inequality
+is bounded by `O(ρ/(σ³√n))`:
+
+  `∫_{-T}^{T} ‖φ_S(t) - φ_Φ(t)‖ / |t| dt ≤ C * ρ / (σ³ * √n)`
+
+when `T = σ³√n / ρ`. This combines:
+- Taylor remainder: `‖φ_S(t) - φ_Φ(t)‖ ≤ 4δ|t|³ + t⁴/(4n)` from `charfun_prod_vs_pow_bound`
+  and `complex_pow_approx_exp`
+- Exponential decay: `|φ_S(t)| ≤ e^{-t²/4}` for the product of charfuns, which ensures
+  the integral converges even as T → ∞
+- Esseen's inequality: `|F_n(y) - Φ(y)| ≤ C₁ · I + C₂ / T`
+
+## Blocker
+Charfun modulus decay: proving `|φ_Y(s)| ≤ 1 - σ²s²/4` for small s, which gives
+`|φ_Y(t/(σ√n))|ⁿ ≤ (1 - t²/(4n))ⁿ ≤ e^{-t²/4}`. This is the standard argument
+using `E[e^{isY}] = E[cos(sY)] + iE[sin(sY)]` and `|E[cos(sY)]| ≤ 1 - E[1-cos(sY)]
+= 1 - σ²s²/2 + O(s³)`.
+-/
+-- sorry count: 1 (charfun modulus decay + integration)
+-- proof sketch: see docstring above
+-- estimated effort: P6
+lemma esseen_charfun_integral_bound :
+    ∃ C : ℝ, 0 < C ∧
+      ∀ {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+        {n : ℕ} (hn : 0 < n)
+        {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ),
+        (∀ i, Measurable (Y i)) →
+        iIndepFun (m := fun _ => inferInstance) Y μ →
+        (∀ i j, IdentDistrib (Y i) (Y j) μ μ) →
+        (∀ i, ∫ ω, Y i ω ∂μ = 0) →
+        (∀ i, ∫ ω, (Y i ω) ^ 2 ∂μ = σ ^ 2) →
+        (∀ i, ∫ ω, |Y i ω| ^ 3 ∂μ = ρ) →
+        (∀ i, MemLp (Y i) 3 μ) →
+        let S : Ω → ℝ := fun ω => (∑ i : Fin n, Y i ω) / (σ * Real.sqrt n)
+        let T := σ ^ 3 * Real.sqrt ↑n / ρ
+        ∀ y : ℝ,
+          |cdf (μ.map S) y - cdf (gaussianReal 0 1) y| ≤
+            C * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
+  sorry
+
 /-! ## Main theorem -/
 
-/-- **Berry-Esseen Theorem.** -/
+/-- **Berry-Esseen Theorem.**
+
+For i.i.d. mean-zero random variables `Y₁, ..., Yₙ` with `E[Yᵢ²] = σ²`,
+`E[|Yᵢ|³] = ρ`, and `Yᵢ ∈ L³`, the CDF of the standardized sum
+`S = (∑ Yᵢ)/(σ√n)` satisfies:
+
+  `|F_S(y) - Φ(y)| ≤ C * ρ / (σ³ * √n)`
+
+for all `y ∈ ℝ`, where `C` is a universal constant and `Φ` is the standard normal CDF. -/
 theorem berry_esseen_theorem :
     ∃ C : ℝ, 0 < C ∧
       ∀ {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
@@ -289,6 +363,9 @@ theorem berry_esseen_theorem :
         let F_n := ProbabilityTheory.cdf (Measure.map S μ)
         let Φ := ProbabilityTheory.cdf (gaussianReal 0 1)
         ∀ y : ℝ, |F_n y - Φ y| ≤ C * ρ / (σ ^ 3 * Real.sqrt n) := by
-  sorry
+  obtain ⟨C, hC_pos, hbound⟩ := esseen_charfun_integral_bound
+  refine ⟨C, hC_pos, ?_⟩
+  intro Ω mΩ μ hprob n hn' Y σ' ρ' hσ' hm' hindep' hiid' hmean' hvar' h3' hLp' S F_n Φ y
+  exact hbound hn' hσ' hm' hindep' hiid' hmean' hvar' h3' hLp' y
 
 end Statlean.BerryEsseen

@@ -225,7 +225,7 @@ private lemma norm_prod_sub_prod_le_sum :
 
 /-- The standard Gaussian characteristic function:
 `charFun (gaussianReal 0 1) t = exp(-t²/2)`. -/
-private lemma charFun_gaussianReal_standard (t : ℝ) :
+lemma charFun_gaussianReal_standard (t : ℝ) :
     charFun (gaussianReal 0 1) t = Complex.exp (-(↑(t ^ 2) / 2)) := by
   rw [charFun_gaussianReal]
   congr 1
@@ -237,7 +237,7 @@ private lemma charFun_gaussianReal_standard (t : ℝ) :
 /-- **Charfun factorization for iid sum.**
 The characteristic function of the standardized sum `S = (∑ Yᵢ) / (σ√n)` equals
 the product `∏ᵢ φ_{Yᵢ}(t/(σ√n))` by independence + scaling. -/
-private lemma charfun_iid_sum_eq_prod
+lemma charfun_iid_sum_eq_prod
     {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
     {n : ℕ} (hn : 0 < n)
     {Y : Fin n → Ω → ℝ} {σ : ℝ} (hσ : 0 < σ)
@@ -299,7 +299,7 @@ private lemma charfun_iid_sum_eq_prod
 /-! ## Complex power approximation -/
 
 /-- **Bound on `‖(1 - t²/(2n))^n - exp(-t²/2)‖` as a complex norm.** -/
-private lemma complex_pow_approx_exp (n : ℕ) (hn : 0 < n) (t : ℝ)
+lemma complex_pow_approx_exp (n : ℕ) (hn : 0 < n) (t : ℝ)
     (ht : t ^ 2 ≤ 2 * ↑n) :
     ‖((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) ^ n -
       Complex.exp (-((↑(t ^ 2) : ℂ) / 2))‖ ≤
@@ -350,7 +350,7 @@ private lemma complex_pow_approx_exp (n : ℕ) (hn : 0 < n) (t : ℝ)
 /-! ## Product vs power bound -/
 
 /-- **Product vs power bound.** -/
-private lemma charfun_prod_vs_pow_bound
+lemma charfun_prod_vs_pow_bound
     {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
     {n : ℕ} (hn : 0 < n)
     {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ)
@@ -493,7 +493,7 @@ private lemma charfun_final_arithmetic
 /-! ## Lyapunov inequality -/
 
 /-- **Lyapunov inequality:** `σ³ ≤ ρ` when `E[Y²] = σ²` and `E[|Y|³] = ρ`. -/
-private lemma lyapunov_third_moment
+lemma lyapunov_third_moment
     {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
     {Y : Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ)
     (_hm : Measurable Y)

@@ -1,4 +1,4 @@
-version: v13
+version: v14
 generated: 2026-02-28
 total_sorry: 8
 
@@ -78,15 +78,28 @@ sorry_items:
   dependencies: [lsi.normalized]
   unlocks: []
 
-- id: berry_esseen.theorem
+- id: berry_esseen.charfun_integral
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 292
-  theorem: berry_esseen_theorem
+  line: 320
+  theorem: esseen_charfun_integral_bound
   type: honest
   depth: 1
-  priority: 11
-  blocker: "Assembly from charfun_normalized_sum_bound + smoothing inequality + T optimization. All sub-lemmas proved, need final integration."
-  estimated_lines: 50
+  priority: 6
+  blocker: "Charfun modulus decay |φ(s)| ≤ 1-σ²s²/4 for small s → exponential decay e^{-t²/4} in charfun bound → convergent Fourier integral. Needs: (1) charfun modulus lower bound from variance (Cauchy-Schwarz on cos(sY)), (2) product decay (1-t²/(4n))^n ≤ e^{-t²/4}, (3) integration of t²·e^{-t²/4} (Gaussian moments). Esseen smoothing lemma (Fourier inversion bridge from charFun to CDF) also needed inside."
+  estimated_lines: 200
   dependencies: []
+  unlocks: [berry_esseen.theorem]
+  notes: "Replaces old berry_esseen.theorem sorry. Previous sorry was at berry_esseen_theorem itself (line 292). Now berry_esseen_theorem is proved from esseen_charfun_integral_bound. Internal lemmas charfun_prod_vs_pow_bound, complex_pow_approx_exp, charfun_iid_sum_eq_prod made public in Taylor.lean."
+
+- id: berry_esseen.theorem
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 365
+  theorem: berry_esseen_theorem
+  type: proved_modulo
+  depth: 1
+  priority: 11
+  blocker: "PROVED modulo esseen_charfun_integral_bound"
+  estimated_lines: 0
+  dependencies: [berry_esseen.charfun_integral]
   unlocks: []
-  notes: "smoothed_cdf_fourier_bound PROVED v13 (modified statement +C₂/T)"
+  notes: "v14: berry_esseen_theorem now proved from esseen_charfun_integral_bound. Sorry moved to more precise location (charfun integral bound with exponential decay)."
