@@ -21,15 +21,20 @@ import Mathlib.MeasureTheory.Integral.Prod
 See also `Statlean.Variance.ANOVA` for `sq_integral_le_integral_sq`,
 `variance_marginals_le_variance_prod`, and other ANOVA infrastructure.
 
-## Sorry gaps (2 sorry, both blocked by missing Mathlib infrastructure)
-- `efron_stein_condVar_le_of_condExp` — variance contraction under condExp on product space.
-  **Blocked by**: Bochner Fubini for `Measure.pi` single-coordinate marginalization
-  (needed for commutativity `P_M ∘ P_N = P_N ∘ P_M` of conditional expectations).
-  Mathematical proof complete (L² orthogonal decomposition), see detailed docstring.
+## Sorry gaps (2 sorry, blocked by missing Mathlib infrastructure)
+- `condExp_condExp_comm_pi` — commutativity of conditional expectations on product spaces.
+  **Blocked by**: Bochner Fubini for `Measure.pi` single-coordinate marginalization.
 - `efron_stein_core_gen/hg_es` — Efron-Stein applied to `g = E[f|N]` on reduced index set.
   **Blocked by**: quotient reduction `∏_ι X → ∏_{ι\{i₀}} X` with Var/condVar transfer
   via `measurePreserving_piEquivPiSubtypeProd`. Rest of inductive step fully proved
   (sum splitting, i₀ term = 0, j≠i₀ comparison via `efron_stein_condVar_le_of_condExp`).
+
+## Proved sorry (was h_main in efron_stein_condVar_le_of_condExp)
+- `∫ Var[E[f|M]|N] ≤ ∫ Var[f|N]` now **fully proved** via:
+  1. `setIntegral_condVar` converts both sides to squared-difference integrals
+  2. Commutativity (`condExp_condExp_comm_pi`, sorry) + linearity (`condExp_sub`)
+     gives ae equality `(E[f|M] - E[E[f|M]|N])² =ᵃᵉ (E[h|M])²` where `h = f - g`
+  3. `integral_sq_condExp_le` (L² contraction) closes the gap
 -/
 
 open MeasureTheory ProbabilityTheory MeasurableSpace Finset
@@ -288,7 +293,8 @@ private lemma integral_sq_condExp_le
     linarith
   -- ∫ (E[h|m])² = Var[E[h|m]] + (E[h])² by variance_eq_sub
   have hPh_sq : ∫ ω, ((Measure.pi μ)[h | m] ω) ^ 2 ∂(Measure.pi μ) =
-      Var[(Measure.pi μ)[h | m]; Measure.pi μ] + (∫ ω, (Measure.pi μ)[h | m] ω ∂(Measure.pi μ)) ^ 2 := by
+      Var[(Measure.pi μ)[h | m]; Measure.pi μ] +
+        (∫ ω, (Measure.pi μ)[h | m] ω ∂(Measure.pi μ)) ^ 2 := by
     rw [variance_eq_sub hPh]; simp [Pi.pow_apply]
   -- ∫ h² = Var[h] + (E[h])² by variance_eq_sub
   have hh_sq : ∫ ω, h ω ^ 2 ∂(Measure.pi μ) =
@@ -415,20 +421,57 @@ private lemma efron_stein_condVar_le_of_condExp
       condExp_sub (hf.integrable (by norm_num)) (hg.integrable (by norm_num)) M
     -- Use integral_sq_condExp_le: ∫ (E[h|M])² ≤ ∫ h²
     have h_contraction := integral_sq_condExp_le μ h hh M hM
-    -- Algebraic: from h_contraction + LTV equations, derive the bound.
-    -- The full chain requires relating Var[E[h|M]] to ∫ Var[E[f|M]|N]
-    -- and Var[h] to ∫ Var[f|N], which needs additional variance identities.
-    sorry
+    -- Step 1: P[Var[f|N]] = ∫ h² via setIntegral_condVar
+    have hfi_N : Integrable (fun ω => (f ω - P[f | N] ω) ^ 2) P :=
+      (hf.sub hf.condExp).integrable_sq
+    have h_rhs : P[Var[f; P | N]] = ∫ ω, (h ω) ^ 2 ∂P := by
+      rw [show P[Var[f; P | N]] = ∫ ω in Set.univ, (Var[f; P | N]) ω ∂P from by simp]
+      rw [setIntegral_condVar (hm := hN) hfi_N (by simp)]
+      simp only [Measure.restrict_univ]
+      -- h = f - g = f - P[f|N], so (f ω - P[f|N] ω)² = h ω²
+      rfl
+    -- Step 2: P[Var[P[f|M]|N]] = ∫ (P[f|M] - P[P[f|M]|N])² via setIntegral_condVar
+    have hfMi_N : Integrable (fun ω => (P[f | M] ω - P[P[f | M] | N] ω) ^ 2) P :=
+      (hfM.sub hfM.condExp).integrable_sq
+    have h_lhs_step1 : P[Var[P[f | M]; P | N]] =
+        ∫ ω, (P[f | M] ω - P[P[f | M] | N] ω) ^ 2 ∂P := by
+      rw [show P[Var[P[f | M]; P | N]] =
+        ∫ ω in Set.univ, (Var[P[f | M]; P | N]) ω ∂P from by simp]
+      rw [setIntegral_condVar (hm := hN) hfMi_N (by simp)]
+      simp
+    -- Step 3: (P[f|M] - P[P[f|M]|N])² =ᵃᵉ (P[h|M])² using commutativity
+    -- hcomm : P[g|M] =ᵃᵉ P[P[f|M]|N], so P[P[f|M]|N] =ᵃᵉ P[g|M]
+    -- hEhM : P[h|M] =ᵃᵉ P[f|M] - P[g|M]
+    -- So P[f|M] - P[P[f|M]|N] =ᵃᵉ P[f|M] - P[g|M] =ᵃᵉ P[h|M]
+    have h_ae_eq : (fun ω => (P[f | M] ω - P[P[f | M] | N] ω) ^ 2) =ᵐ[P]
+        (fun ω => (P[h | M] ω) ^ 2) := by
+      filter_upwards [hcomm.symm, hEhM] with ω hcomm_ω hEhM_ω
+      simp only [Pi.sub_apply] at hEhM_ω
+      rw [hcomm_ω, hEhM_ω]
+    have h_lhs : P[Var[P[f | M]; P | N]] = ∫ ω, (P[h | M] ω) ^ 2 ∂P := by
+      rw [h_lhs_step1]
+      exact integral_congr_ae h_ae_eq
+    -- Combine: P[Var[P[f|M]|N]] = ∫ (P[h|M])² ≤ ∫ h² = P[Var[f|N]]
+    rw [h_lhs, h_rhs]
+    exact h_contraction
   -- From h_main + LTV equations (algebra verified, see docstring above):
   -- ∫ Var[g|M] = Var[g] - Var[E[g|M]]
   -- ∫ Var[f|M] = Var[f] - Var[E[f|M]]
   -- diff = (Var[g] - Var[f]) + (Var[E[f|M]] - Var[E[g|M]])
   --      = -∫ Var[f|N] + ∫ Var[E[f|M]|N]  (using hvar_comm + hltv_fMN)
   --      ≤ 0  (from h_main)
-  -- Note: linarith cannot see P[f|N] = g definitionally; needs explicit simp.
-  -- Since this block already depends on sorry (condExp_condExp_comm_pi), we leave
-  -- the algebra step as sorry as well.
-  sorry
+  -- Normalize hltv_fN: P[f|N] = g definitionally (g = condExpExceptCoord μ i₀ f = P[f|N])
+  -- linarith cannot see through definitional equality, so we rewrite explicitly.
+  have hgN_eq : P[f | N] = g := rfl
+  rw [hgN_eq] at hltv_fN
+  -- Now hltv_fN : P[Var[f;P|N]] + Var[g;P] = Var[f;P]
+  -- The algebra:
+  -- P[Var[g|M]] = Var[g] - Var[E[g|M]]                          (from hltv_gM)
+  --            = (Var[f] - P[Var[f|N]]) - Var[E[P[f|M]|N]]      (from hltv_fN, hvar_comm)
+  --            = (Var[f] - P[Var[f|N]]) - (Var[P[f|M]] - P[Var[P[f|M]|N]])  (from hltv_fMN)
+  -- P[Var[f|M]] = Var[f] - Var[P[f|M]]                          (from hltv_fM)
+  -- Difference = P[Var[P[f|M]|N]] - P[Var[f|N]] ≤ 0             (from h_main)
+  linarith [hltv_gM, hltv_fM, hltv_fN, hltv_fMN, hvar_comm, h_main]
 
 private theorem efron_stein_core_gen (n : ℕ) :
     ∀ {ι : Type*} [Fintype ι]

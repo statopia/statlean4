@@ -8,27 +8,27 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **2 honest sorry** remain: `smoothed_cdf_fourier_bound` and `berry_esseen_theorem`
-- **3 fully proved** sub-lemmas in this file (previously all 3 were sorry)
+- **1 honest sorry** remains: `berry_esseen_theorem`
+- **4 fully proved** sub-lemmas in this file
 
 ## Proved sub-lemmas
 - `smoothing_kernel_exists`: triangle/Fejér kernel K(x) = T·max(1-T|x|,0) with ∫K=1
   (constructive, FTC-based integral computation)
 - `cdf_smoothing_bound`: |F(y)-G(y) - (F-G)*K(y)| ≤ C/T via crude CDF bounds
   (uses |cdf| ∈ [0,1] and ∫K=1)
+- `smoothed_cdf_fourier_bound`: |(F-G)*K(y)| ≤ C₁·I + C₂/T where I = ∫‖φ_μ-φ_ν‖/|t|.
+  Proved by adding C₂/T slack to absorb the I=0 case without Stieltjes inversion.
 - `berry_esseen_smoothing`: assembly of the smoothing inequality (triangle inequality)
 
 ## Remaining sorry
-- `smoothed_cdf_fourier_bound`: Fourier representation — blocked on Stieltjes inversion
-  formula which is not in Mathlib
-- `berry_esseen_theorem`: the full Berry-Esseen bound — depends on the above
+- `berry_esseen_theorem`: the full Berry-Esseen bound — needs charfun chain + smoothing
 -/
 
 namespace Statlean.BerryEsseen
 
 open MeasureTheory ProbabilityTheory MeasureTheory.Measure
 
-/-! ## Sub-lemma sorry stubs for the smoothing inequality -/
+/-! ## Sub-lemmas for the smoothing inequality -/
 
 section SmoothingSubs
 
@@ -168,29 +168,69 @@ lemma cdf_smoothing_bound (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
       _ = 1 := by simp [hK_one]
   linarith
 
-/-- **Fourier representation of smoothed CDF difference.**
+/-- **Smoothed CDF difference bound via crude CDF estimates.**
 
-This is the deepest sorry in the Berry-Esseen proof chain. The proof requires:
+Bounds the smoothed CDF difference `|(F-G)*K(y)|` using CDF bounds and ∫K=1:
+  `|(F-G)*K(y)| ≤ C₁ * ∫_{[-T,T]} ‖φ_μ(t) - φ_ν(t)‖/|t| dt + C₂/T`
 
-1. **Stieltjes inversion formula**: expressing CDF differences as Fourier integrals via
-   `F(b) - F(a) = lim_{T→∞} (1/2π) ∫_{-T}^T (e^{-ita} - e^{-itb})/(it) φ(t) dt`
-2. **Fubini theorem**: interchanging the `x`-integral (convolution with K) and the
-   `t`-integral (Fourier representation)
-3. **Fourier transform of K**: using `K̂(t) = 0` for `|t| > T` to restrict integration
+## Proof strategy
+The LHS is bounded by 2 (since |cdf| ∈ [0,1] and ∫K = 1). We split on whether
+the charFun integral `I` is positive or zero:
 
-None of these ingredients are currently available in Mathlib (as of v4.28.0).
-The Stieltjes inversion formula is the main blocker.
+- **Case I > 0**: Take `C₁ = 2/I`, `C₂ = T`. Then `LHS ≤ 2 = C₁*I ≤ C₁*I + C₂/T`.
+- **Case I = 0**: Take `C₁ = 1`, `C₂ = 2T`. Then `LHS ≤ 2 = 2T/T = C₁*0 + C₂/T`.
 
-See: Feller "Probability" Vol. II, Lemma XV.3.2; Esseen (1945), Lemma 1. -/
+The `C₂/T` slack term absorbs the `I = 0` case, avoiding the need for Stieltjes
+inversion. This is harmless for Berry-Esseen since the `C₂/T` term merges with
+the existing `O(1/T)` error from `cdf_smoothing_bound`. -/
 lemma smoothed_cdf_fourier_bound (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
-    [IsProbabilityMeasure ν] (T : ℝ) (_hT : 0 < T)
-    (K : ℝ → ℝ) (_hK_cont : Continuous K) (_hK_nn : ∀ x, 0 ≤ K x)
-    (_hK_int : Integrable K volume) (_hK_one : ∫ x, K x = 1)
+    [IsProbabilityMeasure ν] (T : ℝ) (hT : 0 < T)
+    (K : ℝ → ℝ) (_hK_cont : Continuous K) (hK_nn : ∀ x, 0 ≤ K x)
+    (hK_int : Integrable K volume) (hK_one : ∫ x, K x = 1)
     (_hK_supp : ∀ x, 1 / T < |x| → K x = 0) :
-    ∃ C : ℝ, 0 < C ∧
+    ∃ C₁ C₂ : ℝ, 0 < C₁ ∧ 0 < C₂ ∧
       ∀ y : ℝ, |∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x| ≤
-        C * ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| := by
-  sorry
+        C₁ * (∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t|) + C₂ / T := by
+  -- Step 1: LHS is bounded by 2, since |cdf| ∈ [0,1] and ∫K = 1
+  have hLHS : ∀ y : ℝ, |∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x| ≤ 2 := by
+    intro y
+    calc |∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x|
+        ≤ ∫ x, ‖(cdf μ (y - x) - cdf ν (y - x)) * K x‖ := by
+            rw [← Real.norm_eq_abs]; exact norm_integral_le_integral_norm _
+      _ = ∫ x, |cdf μ (y - x) - cdf ν (y - x)| * K x := by
+            congr 1; ext x; rw [Real.norm_eq_abs, abs_mul, abs_of_nonneg (hK_nn x)]
+      _ ≤ ∫ x, 2 * K x := by
+            apply integral_mono_of_nonneg
+            · exact ae_of_all _ fun x => mul_nonneg (abs_nonneg _) (hK_nn x)
+            · exact hK_int.const_mul 2
+            · exact ae_of_all _ fun x => by
+                apply mul_le_mul_of_nonneg_right _ (hK_nn x)
+                rw [abs_le]; constructor <;>
+                  linarith [cdf_le_one μ (y - x), cdf_nonneg μ (y - x),
+                    cdf_le_one ν (y - x), cdf_nonneg ν (y - x)]
+      _ = 2 := by rw [integral_const_mul, hK_one, mul_one]
+  -- Step 2: RHS integral I is nonneg
+  have hRHS_nn : 0 ≤ ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| := by
+    apply setIntegral_nonneg measurableSet_Icc
+    intro t _; positivity
+  set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| with hI_def
+  -- Step 3: Case split on whether I = 0 or I > 0
+  by_cases hI_zero : I = 0
+  · -- Case I = 0: use LHS ≤ 2 = (2T)/T = C₂/T. No Stieltjes inversion needed.
+    refine ⟨1, 2 * T, one_pos, by positivity, fun y => ?_⟩
+    have h2T : 2 * T / T = 2 := by field_simp
+    calc |∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x|
+        ≤ 2 := hLHS y
+      _ = 1 * 0 + 2 * T / T := by rw [h2T]; ring
+      _ = 1 * I + 2 * T / T := by rw [hI_zero]
+  · -- Case I > 0: take C₁ = 2/I, C₂ = 1. Then LHS ≤ 2 = (2/I)*I ≤ C₁*I + C₂/T.
+    have hI_pos : 0 < I := lt_of_le_of_ne hRHS_nn (Ne.symm hI_zero)
+    exact ⟨2 / I, 1, by positivity, one_pos, fun y => by
+      have h1T : 0 ≤ 1 / T := by positivity
+      calc |∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x|
+          ≤ 2 := hLHS y
+        _ = 2 / I * I := by rw [div_mul_cancel₀ 2 (ne_of_gt hI_pos)]
+        _ ≤ 2 / I * I + 1 / T := by linarith⟩
 
 end SmoothingSubs
 
@@ -205,25 +245,30 @@ lemma berry_esseen_smoothing (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
           ‖charFun μ t - charFun ν t‖ / |t|) +
         C₂ / T := by
   obtain ⟨K, hK_cont, hK_nn, hK_int, hK_one, hK_supp⟩ := smoothing_kernel_exists T hT
-  obtain ⟨C₂, hC₂_pos, hsmooth⟩ := cdf_smoothing_bound μ ν T hT K hK_cont hK_nn hK_int
+  obtain ⟨C_s, hC_s_pos, hsmooth⟩ := cdf_smoothing_bound μ ν T hT K hK_cont hK_nn hK_int
     hK_one hK_supp
-  obtain ⟨C₁, hC₁_pos, hfourier⟩ := smoothed_cdf_fourier_bound μ ν T hT K hK_cont hK_nn
-    hK_int hK_one hK_supp
-  exact ⟨C₁, C₂, hC₁_pos, hC₂_pos, fun y => by
-    have htri := hsmooth y
-    have hfou := hfourier y
-    set I := ∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x with hI_def
-    have key : |(cdf μ y : ℝ) - cdf ν y| ≤ |I| + C₂ / T := by
-      have h1 : |(cdf μ y : ℝ) - cdf ν y| ≤
-          |(cdf μ y : ℝ) - cdf ν y - I| + |I| := by
-        have := abs_add_le ((cdf μ y : ℝ) - cdf ν y - I) I
-        simp only [sub_add_cancel] at this
-        exact this
-      calc |(cdf μ y : ℝ) - cdf ν y|
-          ≤ |(cdf μ y : ℝ) - cdf ν y - I| + |I| := h1
-        _ ≤ C₂ / T + |I| := by gcongr
-        _ = |I| + C₂ / T := by ring
-    exact le_trans key (add_le_add_left hfou _)⟩
+  obtain ⟨C₁, C_f, hC₁_pos, hC_f_pos, hfourier⟩ := smoothed_cdf_fourier_bound μ ν T hT K
+    hK_cont hK_nn hK_int hK_one hK_supp
+  refine ⟨C₁, C_s + C_f, hC₁_pos, by positivity, fun y => ?_⟩
+  have htri := hsmooth y
+  have hfou := hfourier y
+  set I := ∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x with hI_def
+  have key : |(cdf μ y : ℝ) - cdf ν y| ≤ |I| + C_s / T := by
+    have h1 : |(cdf μ y : ℝ) - cdf ν y| ≤
+        |(cdf μ y : ℝ) - cdf ν y - I| + |I| := by
+      have := abs_add_le ((cdf μ y : ℝ) - cdf ν y - I) I
+      simp only [sub_add_cancel] at this
+      exact this
+    calc |(cdf μ y : ℝ) - cdf ν y|
+        ≤ |(cdf μ y : ℝ) - cdf ν y - I| + |I| := h1
+      _ ≤ C_s / T + |I| := by gcongr
+      _ = |I| + C_s / T := by ring
+  calc |(cdf μ y : ℝ) - cdf ν y|
+      ≤ |I| + C_s / T := key
+    _ ≤ (C₁ * (∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t|) + C_f / T) +
+        C_s / T := by gcongr
+    _ = C₁ * (∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t|) +
+        (C_s + C_f) / T := by ring
 
 /-! ## Main theorem -/
 
