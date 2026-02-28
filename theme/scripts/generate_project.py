@@ -101,8 +101,8 @@ def theorem_block(item: Dict[str, Any], used_names: set[str]) -> Tuple[str, str,
             for ln in str(stmt).splitlines():
                 lines.append(ln)
         else:
-            # Placeholder definition
-            lines.append(f"def {lean_name} : Sorry := sorry  -- TODO: fill Lean definition")
+            # Placeholder definition — use Prop := sorry so it compiles
+            lines.append(f"def {lean_name} : Prop := sorry  -- TODO: fill Lean definition")
     else:
         if not stmt or not str(stmt).strip():
             stmt = "True"
