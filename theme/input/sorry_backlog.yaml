@@ -6,7 +6,7 @@ sorry_items:
 
 - id: lsi.hypercontractivity
   file: Statlean/Entropy/LogSobolev.lean
-  line: 269
+  line: 263
   theorem: memLp_four_of_W12_gaussian
   type: honest
   depth: 2
@@ -18,7 +18,7 @@ sorry_items:
 
 - id: lsi.normalized
   file: Statlean/Entropy/LogSobolev.lean
-  line: 393
+  line: 381
   theorem: gaussian_lsi_normalized
   type: blocked
   depth: 3
@@ -30,7 +30,7 @@ sorry_items:
 
 - id: lsi.tensorization
   file: Statlean/Entropy/LogSobolev.lean
-  line: 647
+  line: 646
   theorem: tensorization_lsi_core
   type: honest
   depth: 3
@@ -40,6 +40,30 @@ sorry_items:
   dependencies: []
   unlocks: []
 
+- id: gaussian.poincare.condexp_fiberavg
+  file: Statlean/Gaussian/Poincare.lean
+  line: 603
+  theorem: condExp_eq_fiberAvg_pi
+  type: honest
+  depth: 2
+  priority: 6
+  blocker: "Disintegration identity: condExp[g|G_i] =ᵃᵉ ∫ g(update x i t) dγ(t). Needs ae_eq_condExp_of_forall_setIntegral_eq + Fubini for measurable rectangles under Measure.pi."
+  estimated_lines: 80
+  dependencies: []
+  unlocks: [gaussian.poincare.condvar]
+
+- id: gaussian.poincare.ae_memlp_fiber
+  file: Statlean/Gaussian/Poincare.lean
+  line: 616
+  theorem: ae_memLp_fiber
+  type: honest
+  depth: 2
+  priority: 6
+  blocker: "Fubini consequence: f ∈ L²(π) ⟹ fiber t ↦ f(update x i t) ∈ L²(γ) a.e. Needs Integrable.prod_right_ae on f² + AEStronglyMeasurable.prodMk_left via Measure.prod_swap."
+  estimated_lines: 40
+  dependencies: []
+  unlocks: [gaussian.poincare.condvar]
+
 - id: gaussian.poincare.condvar
   file: Statlean/Gaussian/Poincare.lean
   line: 690
@@ -47,37 +71,11 @@ sorry_items:
   type: proved_modulo
   depth: 2
   priority: 11
-  blocker: "PROVED modulo condExp_eq_fiberAvg_pi + ae_memLp_fiber. Uses disintegration + condVar decomposition + 1D Poincaré."
+  blocker: "PROVED from condExp_eq_fiberAvg_pi + ae_memLp_fiber + gaussian_poincare_1d_core"
   estimated_lines: 0
-  dependencies: [gaussian.poincare.disintegration, gaussian.poincare.fiber_memlp]
+  dependencies: [gaussian.poincare.condexp_fiberavg, gaussian.poincare.ae_memlp_fiber]
   unlocks: []
-  notes: "v16: Proved via condVar_ae_eq_condExp_sq_sub_sq_condExp + gaussian_poincare_1d_core + variance_eq_sub. n=0 case by Fin.elim0."
-
-- id: gaussian.poincare.disintegration
-  file: Statlean/Gaussian/Poincare.lean
-  line: 603
-  theorem: condExp_eq_fiberAvg_pi
-  type: honest
-  depth: 1
-  priority: 5
-  blocker: "Disintegration identity: condExp[g|G_i] =ᵃᵉ fiberAvg. Needs ae_eq_condExp_of_forall_setIntegral_eq + Fubini for measurable sets in Measure.pi."
-  estimated_lines: 80
-  dependencies: []
-  unlocks: [gaussian.poincare.condvar]
-  notes: "v16: New sorry from decomposing condVar_le_condExp_gradf_sq_ae. Infrastructure proved: removeNth_measurable_sigmaAlgExcept, fiberAvg StronglyMeasurable[G_i], integral_pi_fubini."
-
-- id: gaussian.poincare.fiber_memlp
-  file: Statlean/Gaussian/Poincare.lean
-  line: 616
-  theorem: ae_memLp_fiber
-  type: honest
-  depth: 1
-  priority: 5
-  blocker: "f ∈ L²(π) implies fiber ∈ L²(γ) a.e. Needs Fubini for f² via measurePreserving_piFinSuccAbove + AEStronglyMeasurable from product structure."
-  estimated_lines: 50
-  dependencies: []
-  unlocks: [gaussian.poincare.condvar]
-  notes: "v16: New sorry from decomposing condVar_le_condExp_gradf_sq_ae. Related to Integrable.prod_right_ae but needs L² version."
+  notes: "v16: Main proof fully constructed. n=0 case by Fin.elim0, n=m+1 case by fiber decomposition + 1D Poincaré."
 
 - id: efronstein.condvar
   file: Statlean/Variance/EfronStein.lean
@@ -95,7 +93,7 @@ sorry_items:
 
 - id: herbst.subgaussian
   file: Statlean/SubGaussian/Herbst.lean
-  line: 77
+  line: 70
   theorem: hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi
   type: blocked
   depth: 2
@@ -107,7 +105,7 @@ sorry_items:
 
 - id: berry_esseen.esseen_concentration
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 310
+  line: 318
   theorem: esseen_concentration_universal
   type: honest
   depth: 1
@@ -116,37 +114,37 @@ sorry_items:
   estimated_lines: 250
   dependencies: []
   unlocks: [berry_esseen.charfun_integral_bound]
-  notes: "v15: Extracted from esseen_charfun_integral_bound. Constants C₁,C₂ are universal (∃ C₁ C₂, ∀ T > 0, ∀ μ prob, ...). This is the Fourier-analytic core of Esseen's inequality."
+  notes: "v15: Extracted from esseen_charfun_integral_bound. Constants C₁,C₂ are universal."
 
 - id: berry_esseen.charfun_integral
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 337
+  line: 354
   theorem: charfun_integral_bound
   type: honest
   depth: 1
   priority: 6
-  blocker: "Charfun modulus decay |φ_Y(s)| ≤ 1-σ²s²/4 for small s → exponential decay e^{-t²/4} in charfun product bound → convergent Fourier integral. Needs: (1) charfun modulus bound from cos decomposition (Cauchy-Schwarz on E[cos(sY)]), (2) product decay (1-t²/(4n))^n ≤ e^{-t²/4} [already have Real.one_sub_div_pow_le_exp_neg], (3) integration of t²·e^{-t²/4} (Gaussian moments)."
+  blocker: "Charfun modulus decay |φ_Y(s)| ≤ 1-σ²s²/4 for small s → exponential decay e^{-t²/4} in charfun product bound → convergent Fourier integral."
   estimated_lines: 150
   dependencies: []
   unlocks: [berry_esseen.charfun_integral_bound]
-  notes: "v15: Extracted from esseen_charfun_integral_bound. Bounds ∫_{-T}^{T} ‖φ_S-φ_Φ‖/|t| dt ≤ C₃*δ where δ=ρ/(σ³√n). Key input: charfun_normalized_sum_bound (C=8, proved in Taylor.lean) gives ‖φ_S(t)-φ_Φ(t)‖ ≤ 8δ(1+|t|)³ for |t|ρ ≤ σ³√n. Need exponential decay to make integral converge."
+  notes: "v15: Extracted from esseen_charfun_integral_bound."
 
 - id: berry_esseen.charfun_integral_bound
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 371
+  line: 388
   theorem: esseen_charfun_integral_bound
   type: proved_modulo
   depth: 1
   priority: 11
-  blocker: "PROVED from esseen_concentration_universal + charfun_integral_bound. C = C₁*C₃ + C₂."
+  blocker: "PROVED from esseen_concentration_universal + charfun_integral_bound."
   estimated_lines: 0
   dependencies: [berry_esseen.esseen_concentration, berry_esseen.charfun_integral]
   unlocks: [berry_esseen.theorem]
-  notes: "v15: Fully proved assembly. Extracts C₁,C₂ from esseen_concentration_universal and C₃ from charfun_integral_bound, sets C=C₁*C₃+C₂, then calc chain: |F-Φ| ≤ C₁*I + C₂/T ≤ C₁*(C₃*δ) + C₂*δ = C*δ."
+  notes: "v15: Fully proved assembly."
 
 - id: berry_esseen.theorem
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 443
+  line: 460
   theorem: berry_esseen_theorem
   type: proved_modulo
   depth: 1
