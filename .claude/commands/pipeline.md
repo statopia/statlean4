@@ -1,8 +1,8 @@
 ---
 description: Full pipeline — PDF theorem → Lean 4 formalization (extract → ingest → skeleton → prove → gate)
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash, Task, WebSearch, WebFetch
+allowed-tools: Read, Edit, Write, Grep, Glob, Bash, Agent, Skill, Task, WebSearch, WebFetch
 model: opus
-argument-hint: <pdf-file> [--theorem <name>] [--pages <range>] [--prove-depth deep|shallow]
+argument-hint: <pdf-file> [--theorem <name>] [--pages <range>] [--prove-depth deep|shallow] [--time-budget 2h]
 ---
 
 # Full Formalization Pipeline
@@ -41,43 +41,38 @@ For each theorem in YAML:
 
 Iterate until clean compilation (max 5 cycles).
 
-## Step 5: Prove (use /prove or /prove-deep skill)
+## Step 5: Prove (DAG-driven)
 
-- `--prove-depth shallow`: Only prove leaf lemmas, leave hard theorems as honest sorry.
-- `--prove-depth deep`: Full deep prove mode (sub-lemma extraction, parallel agents).
+Parse `--time-budget` from arguments (default: 2h).
+Parse `--prove-depth` from arguments (default: deep).
 
-## Step 5.5: Infrastructure Extraction
+If `--prove-depth shallow`:
+  - Skip prove, proceed to Step 6 (sorry 留在 backlog 等后续攻击)
 
-For each sorry-bearing theorem, analyze what intermediate definitions and lemmas were
-created during Step 5 or are needed for future deep proving:
+If `--prove-depth deep`:
+  - **Execute**: Use the Skill tool to invoke `/prove-deep all-leaves --time-budget <budget>`
+  - prove-deep 内部执行 DAG 调度（3 agents 饱和、work-stealing、增量 commit）
+  - prove-deep 完成后自动返回本 pipeline，继续 Step 6
+  - 如果 prove-deep 报告有 stuck sorry → 不阻塞 pipeline，记入 backlog
 
-1. **Identify reusable infrastructure**: Definitions (e.g., `oscEnvelope`), helper lemmas
-   (e.g., `le_oscEnvelope`, `oscEnvelope_measurable`), and proved sub-results that are
-   **independent of the main sorry** and could be imported by other modules.
-2. **Split into Proved + Sorry files**: Move all zero-sorry declarations into a
-   `<Module>Proved.lean` companion file. The sorry-bearing theorem imports from it.
-   Register `<Module>Proved` in `Statlean/Verified.lean`.
-3. **Build to verify the split**: `lake build Statlean.<Module>Proved` must pass with
-   zero sorry warnings.
-4. **Sub-lemma declaration for remaining sorry**: For each remaining sorry, extract the
-   proof structure into named sub-lemma declarations (with sorry) that capture:
-   - The exact goal type
-   - A structured comment with proof sketch and Mathlib API hints
-   - The dependency ordering (which sub-lemmas feed into which)
-5. **Update sorry_backlog.yaml**: Add new sub-lemma sorry items with `sub_lemmas_needed`,
-   `dependencies`, and `proof_hint` fields.
+## Step 5.5: Infrastructure Extraction (inline, per CLAUDE.md rules)
 
-This step ensures that even when the main theorem cannot be fully proved in the pipeline's
-time budget, all **independently useful infrastructure** is captured in Statlean and
-available for `Verified.lean` import.
+Infrastructure extraction happens **during** Step 5, not as a separate pass:
 
-## Step 6: Gate & Commit
+1. **Zero-sorry infrastructure** (self + deps have no sorry) → placed in same file,
+   isolated by `section`. Only extracted to a separate file if independently reusable
+   across multiple modules (e.g., ANOVA variance decomposition).
+2. **No `*Proved.lean` splitting** — CLAUDE.md forbids splitting by proof status.
+3. **Whole-file zero sorry** → update `Verified.lean`.
+4. **Remaining sorry** → structured comment + `sorry_backlog.yaml` registration.
+5. **Sync**: Run `sync_sorry_backlog.py` to reconcile code ↔ backlog.
 
-1. Count remaining sorry
-2. Full project build
+## Step 6: Sync Backlog & Gate
+
+1. Run `python3 theme/scripts/sync_sorry_backlog.py` to reconcile code ↔ backlog
+2. Run `bash theme/scripts/gate.sh` for full project build + sorry count + PIPELINE_ID check
 3. Commit with structured message
-4. Update `sorry_backlog.yaml`
-5. Report metrics (time, tokens, sorry count)
+4. Report metrics (time, tokens, sorry count before/after)
 
 ## Progress Reporting
 
