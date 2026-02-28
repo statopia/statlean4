@@ -1,0 +1,23 @@
+theorems:
+  - id: lec4.factorization
+    title: "Factorization Theorem (Fisher-Neyman)"
+    kind: theorem
+    latex_statement: |
+      Suppose that $X$ is a sample from $P \in \mathcal{P}$ and $\mathcal{P}$ is a family of probability
+      measures on $(\mathbb{R}^n, \mathcal{B}^n)$ dominated by a $\sigma$-finite measure $\nu$.
+      Then $T(X)$ is sufficient for $P \in \mathcal{P}$ if and only if there are nonnegative Borel functions
+      $h(x)$ (which does not depend on $P$) on $(\mathbb{R}^n, \mathcal{B}^n)$, and
+      $g_P(t)$ (which depends on $P$) on the range of $T$,
+      such that $\frac{dP}{d\nu}(x) = g_P(T(x)) h(x)$.
+    latex_proof_hint: |
+      Forward direction: Use conditional expectation and Radon-Nikodym derivatives.
+      Construct dominating measure Q = sum c_i P_i. Show P(A|T) = E_Q(I_A|T).
+      Then dP/dnu = g_P(T(x)) * dQ/dnu(x).
+      Backward direction: Given factorization dP/dnu = g_P(T) h(x),
+      show dP/dQ is a function of T, then P(A|T) = E_Q(I_A|T).
+    lean_namespace: "Statlean.Sufficiency"
+    lean_name: "factorization_theorem"
+    lean_statement: ""
+    lean_proof: ""
+    keywords: ["sufficiency", "factorization", "Radon-Nikodym", "dominated family"]
+    layer: statlib

@@ -62,12 +62,14 @@ private def clip (g : S → ℝ) : S → ℝ := fun s => max (-1) (min 1 (g s))
 private lemma clip_measurable {g : S → ℝ} (hg : Measurable g) : Measurable (clip g) :=
   measurable_const.max (measurable_const.min hg)
 
+omit [MeasurableSpace S] in
 private lemma clip_bounded (g : S → ℝ) : ∀ s, |clip g s| ≤ 1 := fun s => by
   simp only [clip, abs_le]
   constructor
   · exact le_max_left _ _
   · exact (max_le_max_left _ (min_le_left _ _)).trans (by norm_num)
 
+omit [MeasurableSpace S] in
 private lemma clip_eq {g : S → ℝ} {s : S} (h0 : 0 ≤ g s) (h1 : g s ≤ 1) :
     clip g s = g s := by
   simp only [clip, min_eq_right h1, max_eq_right (by linarith : -1 ≤ g s)]
@@ -117,7 +119,7 @@ theorem basu_theorem
   have hanc_eq : ∀ j, (P j) (V ⁻¹' B) = (P i) (V ⁻¹' B) := fun j => by
     rw [← map_apply hV hB, ← map_apply hV hB, hanc j i]
   have hanc_real : ∀ j, (P j).real (V ⁻¹' B) = c_B := fun j => by
-    show ((P j) (V ⁻¹' B)).toReal = ((P i) (V ⁻¹' B)).toReal
+    change ((P j) (V ⁻¹' B)).toReal = ((P i) (V ⁻¹' B)).toReal
     rw [hanc_eq j]
   -- STEP 1: condExp of indicator ∈ [0, 1] a.e., so g(T x) ∈ [0, 1] a.e. under each P j
   have condExp_bound_j : ∀ j, ∀ᵐ x ∂(P j), 0 ≤ g (T x) ∧ g (T x) ≤ 1 := by
@@ -222,7 +224,7 @@ theorem basu_theorem
     have h1 : ((P i) (T ⁻¹' A ∩ V ⁻¹' B)).toReal = c_B * ((P i) (T ⁻¹' A)).toReal := by
       linarith [step_a, step_b, step_c, step_d]
     rw [h1, hc_B_def, Measure.real]; ring
-  rw [← ENNReal.toReal_eq_toReal (measure_ne_top _ _)
+  rw [← ENNReal.toReal_eq_toReal_iff' (measure_ne_top _ _)
       (ENNReal.mul_ne_top (measure_ne_top _ _) (measure_ne_top _ _)),
       ENNReal.toReal_mul]
   exact key

@@ -176,10 +176,29 @@ Claude advantages over Codex for this pipeline:
 - Larger batch sizes feasible (5-10 IDs per iteration vs 3)
 - No separate CLI login required (uses `claude` CLI directly)
 - Better mathematical reasoning for statistical theorems
+- **Parallel mode**: one agent per theorem ID for maximum throughput
 
 Requirements:
 - `claude` CLI installed and authenticated
 - Recommended: set `BATCH_SIZE=5` (Claude handles larger batches well)
+
+### Parallel Claude Mode
+
+Launch one independent Claude agent per unresolved theorem ID:
+
+```bash
+# Parallel mode (all IDs at once, max 4 concurrent agents)
+PARALLEL=1 MAX_PARALLEL=4 AGENT_BACKEND=claude make -C theme formalize
+
+# Or use the shortcut
+make -C theme formalize-parallel
+
+# Full recommended parallel run
+PARALLEL=1 MAX_PARALLEL=4 AUTO_AGENT=1 STRICT_TRANSLATION=1 AGENT_TIMEOUT_SECONDS=300 MAX_ITERS=3 make -C theme tex-formalize TEX=./berry_esseen.tex
+```
+
+Each agent receives a focused prompt for its assigned theorem and works independently.
+Agents share the target file, so for best results use `MAX_PARALLEL=1` if theorems have inter-dependencies, or split into independent files.
 
 ## Troubleshooting
 

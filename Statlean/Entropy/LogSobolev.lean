@@ -1,5 +1,5 @@
 import Statlean.Entropy.Basic
-import Statlean.Gaussian.Stein
+import Statlean.Gaussian.Poincare
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 
 /-! # Gaussian Log-Sobolev Inequality
@@ -227,46 +227,8 @@ lemma abs_mul_log_le_sq_add_one (t : ℝ) (ht : 0 ≤ t) :
       nlinarith [mul_inv_cancel₀ (ne_of_gt htp)]
     linarith [sq_nonneg t]
 
-/-- **Gaussian hypercontractivity (W^{1,2}(γ) → L⁴(γ))**: If `f ∈ L²(γ)` and `f' ∈ L²(γ)`
-    with `HasDerivAt`, then `f ∈ L⁴(γ)`.
-
-    This is the 1D case of the Nelson hypercontractivity theorem (1973).
-    The standard proof uses the Ornstein-Uhlenbeck semigroup: `P_t f ∈ L^q(γ)`
-    for `q ≤ 1 + (p-1)e^{2t}` when `f ∈ L^p(γ)`. Taking p=2, t=½ log 3 gives q=4.
-
-    **Blocker**: Not available in Mathlib v4.28. Requires either:
-    - Ornstein-Uhlenbeck semigroup theory, or
-    - Fine structure of Hermite polynomial products (linearization formula).
-
-    **Strategies attempted and why they fail**:
-
-    1. **FTC + Cauchy-Schwarz**: `f(x) = f(0) + ∫₀ˣ f'(t) dt`. Using C-S with
-       Gaussian weight: `(∫₀ˣ f')² ≤ (∫₀ˣ f'² exp(-t²/2) dt)(∫₀ˣ exp(t²/2) dt)`.
-       The second factor grows as `exp(x²/2)/x`, giving `|f(x)|⁴ ~ exp(x²)` for large x.
-       Then `∫ f⁴ dγ ~ ∫ exp(x²/2) dx = ∞`. **Divergent bound**.
-
-    2. **Stein identity on f³**: `∫ x·f³ dγ = 3∫ f²f' dγ` relates L³ to mixed terms
-       but doesn't close: bounding `∫ f⁴` requires `∫ f⁴` on the RHS via Hölder.
-
-    3. **Hermite expansion**: `f = Σ aₙ eₙ` with `Σ aₙ² < ∞` and `Σ n·aₙ² < ∞`.
-       Computing `‖f‖₄⁴ = ‖f²‖₂²` requires the Hermite product linearization formula
-       `Hₘ·Hₙ = Σ k!·C(m,k)·C(n,k)·H_{m+n-2k}` — a significant algebraic formalization
-       effort (~200 lines) not present in Mathlib.
-
-    4. **Gross regularization bypass**: The regularized LSI approach (proving the LSI
-       first, deriving L⁴ as a consequence) creates a circular dependency: the
-       regularized Stein IBP requires `f·ψ_ε ∈ L²(γ)`, which needs `f·log|f| ∈ L²(γ)`,
-       which needs `f ∈ L⁴(γ)` (since `(f·log|f|)² ≤ C·f⁴ + C`).
-
-    **Estimated effort**: ~400 lines of new infrastructure (Hermite product formula
-    + L⁴ bound from coefficients), or ~600 lines (OU semigroup from scratch). -/
-lemma memLp_four_of_W12_gaussian
-    (f f' : ℝ → ℝ)
-    (hf : MemLp f 2 stdGaussian)
-    (hf' : MemLp f' 2 stdGaussian)
-    (hderiv : ∀ x, HasDerivAt f (f' x) x) :
-    MemLp f 4 stdGaussian := by
-  sorry
+-- `memLp_four_of_W12_gaussian` is defined and exported from
+-- `Statlean.Gaussian.Poincare` (sorry-ed, blocked by Hermite product linearization).
 
 lemma integrable_sq_mul_log_sq_of_memLp
     (f f' : ℝ → ℝ)

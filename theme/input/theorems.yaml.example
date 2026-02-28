@@ -1,0 +1,52 @@
+version: v1
+theorem_set: slt-paper-batch-001
+defaults:
+  lean_namespace: Statlib
+  layer: statlib
+  allow_axiom: false
+
+theorems:
+  - id: concentration.efron_stein.core
+    title: Efron-Stein core inequality
+    kind: theorem
+    latex_statement: |
+      Let X_1, ..., X_n be independent and f \in L^2.
+      Then Var(f(X)) <= \sum_i E[Var(f(X) | G_i^{except})].
+    latex_proof_hint: |
+      Use martingale telescoping decomposition and conditional Jensen.
+    lean_name: efron_stein_core
+    lean_namespace: Statlib.Concentration.EfronStein
+    layer: statlib
+    priority: 1
+    dependencies: []
+    assumptions:
+      - product probability space
+      - L2 integrability of f
+    lean_statement: |
+      Var[f; Measure.pi μ] ≤
+        ∑ i : ι, (Measure.pi μ)[Var[f; Measure.pi μ | sigmaAlgExcept i]]
+    acceptance:
+      - lake build passes
+      - theorem contains no sorry
+      - theorem contains no axiom
+
+  - id: concentration.gaussian_poincare.from_efron_stein
+    title: Gaussian Poincare via Efron-Stein and coordinate bounds
+    kind: theorem
+    latex_statement: |
+      Var_{gamma^n}(f) <= \sum_i E[(\partial_i f)^2].
+    latex_proof_hint: |
+      Combine efron_stein_core with per-coordinate one-dimensional bound.
+    lean_name: gaussian_poincare_of_efron_stein
+    lean_namespace: Formalization.Concentration.GaussianPoincare
+    layer: formalization
+    priority: 2
+    dependencies:
+      - concentration.efron_stein.core
+    assumptions:
+      - differentiability assumptions
+      - coordinate conditional variance bound
+    acceptance:
+      - imports Statlib for reusable components
+      - no sorry
+      - no axiom

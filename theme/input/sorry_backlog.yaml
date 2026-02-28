@@ -1,18 +1,18 @@
-version: v16
+version: v17
 generated: 2026-02-28
-total_sorry: 10
+total_sorry: 11
 
 sorry_items:
 
 - id: lsi.hypercontractivity
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 263
+  file: Statlean/Gaussian/Poincare.lean
+  line: 508
   theorem: memLp_four_of_W12_gaussian
   type: honest
   depth: 2
   priority: 3
-  blocker: "Gaussian hypercontractivity W^{1,2}(γ) → L⁴(γ) — Nelson 1973, needs OU semigroup or Hermite product linearization (not in Mathlib v4.28). Best path: Hermite product formula ~400 lines."
-  estimated_lines: 400
+  blocker: "Gaussian hypercontractivity W^{1,2}(γ) → L⁴(γ) — Nelson 1973. Requires Hermite product linearization formula Hₘ·Hₙ = Σ C(m,k)·C(n,k)·k!·H_{m+n-2k} (~150 lines) to get uniform L⁴ bound for Hermite partial sums, then Fatou's lemma. FTC+Cauchy-Schwarz fails (divergent exp(x²/2) bound). Poincaré+truncation fails (bound grows with truncation level). Moved from LogSobolev.lean to Poincare.lean for access to private Hermite basis infrastructure."
+  estimated_lines: 200
   dependencies: []
   unlocks: [lsi.normalized]
 
@@ -105,7 +105,7 @@ sorry_items:
 
 - id: berry_esseen.esseen_concentration
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 318
+  line: 508
   theorem: esseen_concentration_universal
   type: honest
   depth: 1
@@ -116,18 +116,31 @@ sorry_items:
   unlocks: [berry_esseen.charfun_integral_bound]
   notes: "v15: Extracted from esseen_charfun_integral_bound. Constants C₁,C₂ are universal."
 
-- id: berry_esseen.charfun_integral
+- id: berry_esseen.charfun_diff_exp
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 354
-  theorem: charfun_integral_bound
+  line: 625
+  theorem: charfun_diff_exp_bound
   type: honest
   depth: 1
-  priority: 6
-  blocker: "Charfun modulus decay |φ_Y(s)| ≤ 1-σ²s²/4 for small s → exponential decay e^{-t²/4} in charfun product bound → convergent Fourier integral."
-  estimated_lines: 150
+  priority: 4
+  blocker: "Tighter telescope bound with exponential decay factor. Needs norm_prod_sub_prod_le_sum variant that carries through individual norm bounds: ‖∏z_i - w^n‖ ≤ n·‖z_i-w‖·max(‖z_i‖,‖w‖)^{n-1}. Plus tighter power-vs-exp bound (1-u)^n - e^{-nu} with exponential factor."
+  estimated_lines: 100
   dependencies: []
+  unlocks: [berry_esseen.charfun_integral]
+  notes: "v17: NEW. Key missing piece for integral bound. Mathematical proof: telescope with modulus decay (1-t²/(4n))^{n-1} ≤ e^{-t²/8} gives ‖φ_S-φ_Φ‖ ≤ Cδ(|t|³+t⁴)·e^{-t²/8}, making Fourier integral O(δ) via Gaussian moments."
+
+- id: berry_esseen.charfun_integral
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 647
+  theorem: charfun_integral_bound
+  type: blocked
+  depth: 1
+  priority: 6
+  blocker: "Blocked by charfun_diff_exp_bound. Once that is proved, charfun_integral_bound follows by integrating 5δ(t²+|t|³)e^{-t²/8} over [-T,T] and using Gaussian moment bounds."
+  estimated_lines: 60
+  dependencies: [berry_esseen.charfun_diff_exp]
   unlocks: [berry_esseen.charfun_integral_bound]
-  notes: "v15: Extracted from esseen_charfun_integral_bound."
+  notes: "v17: Updated. Infrastructure proved: norm_charFun_le_one_sub, charfun_prod_exp_decay, charfun_diff_taylor_bound, charfun_integrand_bound (all zero sorry). Reduced from P6 to blocked-by-sub-lemma."
 
 - id: berry_esseen.charfun_integral_bound
   file: Statlean/LimitTheorems/BerryEsseen.lean

@@ -1,0 +1,14 @@
+{
+  "pdf": "/home/gavin/statlean/lecture-10-handout.pdf",
+  "backend": "claude",
+  "blocks_extracted": 4,
+  "block_kinds": {
+    "definition": 1,
+    "proof": 1,
+    "theorem": 2
+  },
+  "latex_warnings": 2,
+  "output_tex": "/home/gavin/statlean/theme/input/paper.tex",
+  "notation_yaml": "/home/gavin/statlean/theme/input/notation.yaml",
+  "raw_output": "/home/gavin/statlean/theme/input/raw/lecture-10-handout_claude.md"
+}

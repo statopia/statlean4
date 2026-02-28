@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "repo-index": {
+      "command": "python3",
+      "args": ["/home/gavin/statlean/theme/mcp/servers/repo_index_server.py", "--workspace", "/home/gavin/statlean"]
+    },
+    "tex-parser": {
+      "command": "python3",
+      "args": ["/home/gavin/statlean/theme/mcp/servers/tex_parser_server.py", "--workspace", "/home/gavin/statlean"]
+    },
+    "lean-lsp": {
+      "command": "python3",
+      "args": ["/home/gavin/statlean/theme/mcp/servers/lean_lsp_server.py", "--workspace", "/home/gavin/statlean"]
+    },
+    "lake-build": {
+      "command": "python3",
+      "args": ["/home/gavin/statlean/theme/mcp/servers/lake_build_server.py", "--workspace", "/home/gavin/statlean"]
+    }
+  }
+}

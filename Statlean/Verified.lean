@@ -21,6 +21,10 @@ import Statlean.CharFun.Taylor
 -- USLLN (fully verified — uniform SLLN + all infrastructure)
 import Statlean.LimitTheorems.USLLN
 
+-- Sufficiency (fully verified — Fisher-Neyman factorization + Basu's theorem)
+import Statlean.Sufficiency.Factorization
+import Statlean.Sufficiency.Basu
+
 /-! # Statlean Verified Library
 
 **Every declaration reachable from this import is fully proved (zero sorry).**
@@ -41,4 +45,6 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Entropy/Basic**: Entropy definitions, LSI interfaces
 - **CharFun/Taylor**: Charfun chain, Taylor bounds, Lyapunov (Berry-Esseen chain)
 - **LimitTheorems/USLLN**: Uniform Strong Law of Large Numbers (full theorem + infrastructure)
+- **Sufficiency/Factorization**: Fisher-Neyman factorization (both directions)
+- **Sufficiency/Basu**: Basu's theorem
 -/

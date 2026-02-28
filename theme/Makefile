@@ -6,17 +6,17 @@ INPUT_DIR ?= $(THEME_DIR)/input
 OUT_DIR ?= $(THEME_DIR)/out
 TEX ?= $(ROOT)/output.tex
 PDF ?=
-# Agent backend for prove-loop: "codex" (default) or "claude"
-export AGENT_BACKEND ?= codex
 
-.PHONY: formalize ingest plan generate prove-loop promote stabilize gate clean \
+.PHONY: formalize ingest plan generate sync-backlog gate clean \
         from-tex tex-formalize from-pdf pdf-formalize \
-        formalize-claude formalize-parallel prove-sorry refresh-index
+        prove-fallback refresh-index
 
 # ══════════════════════════════════════════════════════════
-# Full pipeline: LaTeX → Lean → prove → promote → gate
+# Full pipeline: LaTeX → Lean → sync-backlog → gate
+# (prove stage is handled by /prove-deep inside Claude Code,
+#  not by this Makefile)
 # ══════════════════════════════════════════════════════════
-formalize: ingest plan generate prove-loop promote stabilize gate
+formalize: ingest plan generate sync-backlog gate
 
 ingest:
 	$(THEME_DIR)/scripts/ingest.sh "$(INPUT_DIR)" "$(OUT_DIR)"
@@ -27,17 +27,11 @@ plan:
 generate:
 	$(THEME_DIR)/scripts/generate.sh "$(INPUT_DIR)" "$(OUT_DIR)" "$(ROOT)"
 
-prove-loop:
-	$(THEME_DIR)/scripts/prove_loop.sh "$(OUT_DIR)" "$(ROOT)"
-
-promote:
-	$(THEME_DIR)/scripts/promote.sh "$(OUT_DIR)" "$(ROOT)"
-
-stabilize:
-	$(THEME_DIR)/scripts/stabilize.sh "$(OUT_DIR)" "$(ROOT)"
+sync-backlog:
+	cd "$(ROOT)" && python3 theme/scripts/sync_sorry_backlog.py
 
 gate:
-	$(THEME_DIR)/scripts/gate.sh "$(OUT_DIR)" "$(ROOT)"
+	$(THEME_DIR)/scripts/gate.sh "$(ROOT)"
 
 # ══════════════════════════════════════════════════════════
 # Entry points — user-facing commands
@@ -59,20 +53,12 @@ from-tex:
 tex-formalize: from-tex formalize
 
 # ══════════════════════════════════════════════════════════
-# Shortcuts
+# Utilities
 # ══════════════════════════════════════════════════════════
 
-# Full pipeline with Claude backend
-formalize-claude:
-	AGENT_BACKEND=claude $(MAKE) formalize
-
-# Parallel Claude — one agent per theorem ID
-formalize-parallel:
-	AGENT_BACKEND=claude PARALLEL=1 $(MAKE) formalize
-
-# Sorry elimination on existing Statlean/ modules
-prove-sorry:
-	cd "$(ROOT)" && python3 scripts/auto_prove.py
+# Fallback prove loop (CI / non-Claude-Code environments)
+prove-fallback:
+	$(THEME_DIR)/scripts/prove_loop.sh "$(ROOT)"
 
 # Refresh Mathlib API index (run after Mathlib upgrade)
 refresh-index:

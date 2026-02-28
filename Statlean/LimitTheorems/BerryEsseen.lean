@@ -8,10 +8,14 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **2 honest sorry** remain: `esseen_concentration_universal` and `charfun_integral_bound`
-- **berry_esseen_theorem PROVED** modulo these 2 sorry
-- **esseen_charfun_integral_bound PROVED** from the 2 sub-lemmas (zero sorry of its own)
-- **5 fully proved** infrastructure sub-lemmas in this file
+- **3 sorry** remain: `esseen_concentration_universal`, `charfun_diff_exp_bound`, `charfun_integral_bound`
+- `charfun_integral_bound` depends only on `charfun_diff_exp_bound` (exponential telescope)
+- **berry_esseen_theorem PROVED** modulo these sorry
+- **esseen_charfun_integral_bound PROVED** from the sorry sub-lemmas (zero sorry of its own)
+- **8 fully proved** infrastructure sub-lemmas in this file:
+  `smoothing_kernel_exists`, `cdf_smoothing_bound`, `smoothed_cdf_fourier_bound`,
+  `berry_esseen_smoothing`, `norm_charFun_le_one_sub`, `charfun_prod_exp_decay`,
+  `charfun_diff_taylor_bound`, `charfun_integrand_bound`
 
 ## Architecture
 
@@ -35,7 +39,9 @@ The proof follows the classical Fourier-analytic approach:
 ## Remaining sorry
 
 - `esseen_concentration_universal` (P8): Requires Stieltjes inversion formula.
-- `charfun_integral_bound` (P6): Requires charfun modulus decay.
+- `charfun_diff_exp_bound` (P4): Tighter telescope bound with exponential decay factor.
+  Needs `‖∏φ_i - w^n‖ ≤ n·‖φ_i-w‖·max(‖φ_i‖,‖w‖)^{n-1}` with modulus decay.
+- `charfun_integral_bound` (P6): Blocked by `charfun_diff_exp_bound`.
 -/
 
 namespace Statlean.BerryEsseen
@@ -284,6 +290,204 @@ lemma berry_esseen_smoothing (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
     _ = C₁ * (∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t|) +
         (C_s + C_f) / T := by ring
 
+/-! ## Charfun modulus decay -/
+
+section CharFunDecay
+
+/-- **Charfun modulus bound for a single random variable.**
+When `16ρ|s| ≤ σ²`, the charfun modulus satisfies `‖φ_Y(s)‖ ≤ 1 - σ²s²/4`.
+This follows from the Taylor bound `‖φ_Y(s) - (1-σ²s²/2)‖ ≤ 4ρ|s|³`. -/
+lemma norm_charFun_le_one_sub {Ω : Type*} [MeasurableSpace Ω]
+    {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {Y : Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ)
+    (hm : Measurable Y)
+    (hmean : ∫ ω, Y ω ∂μ = 0)
+    (hvar : ∫ ω, (Y ω) ^ 2 ∂μ = σ ^ 2)
+    (h3 : ∫ ω, |Y ω| ^ 3 ∂μ = ρ)
+    (hLp : MemLp Y 3 μ)
+    {s : ℝ} (hs : 16 * ρ * |s| ≤ σ ^ 2) :
+    ‖charFun (μ.map Y) s‖ ≤ 1 - σ ^ 2 * s ^ 2 / 4 := by
+  have hρσ : σ ^ 3 ≤ ρ :=
+    lyapunov_third_moment hσ hm hmean hvar h3 hLp
+  have hρ_pos : 0 < ρ := lt_of_lt_of_le (pow_pos hσ 3) hρσ
+  -- From Taylor: ‖φ_Y(s) - (1-σ²s²/2)‖ ≤ 4ρ|s|³
+  have htaylor := charfun_taylor_third_moment hm hmean hvar h3 hLp s
+  -- Triangle inequality: ‖φ_Y(s)‖ ≤ |1-σ²s²/2| + 4ρ|s|³
+  have htri : ‖charFun (μ.map Y) s‖ ≤
+      ‖((1 : ℂ) - (σ ^ 2 * s ^ 2 / 2 : ℝ))‖ + 4 * ρ * |s| ^ 3 := by
+    calc ‖charFun (μ.map Y) s‖
+        = ‖charFun (μ.map Y) s - ((1 : ℂ) - (σ ^ 2 * s ^ 2 / 2 : ℝ)) +
+            ((1 : ℂ) - (σ ^ 2 * s ^ 2 / 2 : ℝ))‖ := by ring_nf
+      _ ≤ ‖charFun (μ.map Y) s - ((1 : ℂ) - (σ ^ 2 * s ^ 2 / 2 : ℝ))‖ +
+            ‖((1 : ℂ) - (σ ^ 2 * s ^ 2 / 2 : ℝ))‖ := norm_add_le _ _
+      _ ≤ 4 * ρ * |s| ^ 3 + ‖((1 : ℂ) - (σ ^ 2 * s ^ 2 / 2 : ℝ))‖ := by linarith
+      _ = ‖((1 : ℂ) - (σ ^ 2 * s ^ 2 / 2 : ℝ))‖ + 4 * ρ * |s| ^ 3 := by ring
+  -- σ²s²/2 ≤ 1 (from the hypothesis, via 16ρ|s| ≤ σ² and ρ ≥ σ³)
+  have hss : σ ^ 2 * s ^ 2 / 2 ≤ 1 := by
+    have h1 : |s| ≤ σ ^ 2 / (16 * ρ) := by
+      rw [le_div_iff₀ (by positivity : 0 < 16 * ρ)]
+      linarith
+    have h2 : s ^ 2 ≤ (σ ^ 2 / (16 * ρ)) ^ 2 := by
+      rw [← sq_abs]; exact (sq_le_sq₀ (abs_nonneg s) (by positivity)).mpr h1
+    calc σ ^ 2 * s ^ 2 / 2
+        ≤ σ ^ 2 * (σ ^ 2 / (16 * ρ)) ^ 2 / 2 := by
+          apply div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left h2 (sq_nonneg σ)) (by norm_num)
+      _ = σ ^ 6 / (512 * ρ ^ 2) := by ring
+      _ ≤ ρ ^ 2 / (512 * ρ ^ 2) := by
+          gcongr
+          calc σ ^ 6 = (σ ^ 3) ^ 2 := by ring
+            _ ≤ ρ ^ 2 := (sq_le_sq₀ (pow_nonneg hσ.le 3) (by linarith [pow_pos hσ 3])).mpr hρσ
+      _ = 1 / 512 := by field_simp
+      _ ≤ 1 := by norm_num
+  -- |1 - σ²s²/2| = 1 - σ²s²/2 (since σ²s²/2 ≤ 1)
+  have habs : ‖((1 : ℂ) - (σ ^ 2 * s ^ 2 / 2 : ℝ))‖ = 1 - σ ^ 2 * s ^ 2 / 2 := by
+    rw [show ((1 : ℂ) - (σ ^ 2 * s ^ 2 / 2 : ℝ)) = ((1 - σ ^ 2 * s ^ 2 / 2 : ℝ) : ℂ)
+      from by push_cast; ring]
+    rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg]; linarith
+  -- 4ρ|s|³ ≤ σ²s²/4 (from hypothesis: 16ρ|s| ≤ σ², so 4ρ|s|·s² ≤ σ²s²/4)
+  have hkey : 4 * ρ * |s| ^ 3 ≤ σ ^ 2 * s ^ 2 / 4 := by
+    have hab3 : |s| ^ 3 = |s| * |s| ^ 2 := by ring
+    rw [hab3, sq_abs]
+    have hab4 : 4 * ρ * (|s| * s ^ 2) = (4 * ρ * |s|) * s ^ 2 := by ring
+    rw [hab4]
+    have h16 : 4 * ρ * |s| ≤ σ ^ 2 / 4 := by linarith
+    nlinarith [sq_nonneg s]
+  -- Combine
+  calc ‖charFun (μ.map Y) s‖
+      ≤ (1 - σ ^ 2 * s ^ 2 / 2) + 4 * ρ * |s| ^ 3 := by rw [habs] at htri; linarith
+    _ ≤ (1 - σ ^ 2 * s ^ 2 / 2) + σ ^ 2 * s ^ 2 / 4 := by linarith
+    _ = 1 - σ ^ 2 * s ^ 2 / 4 := by ring
+
+/-- **Charfun modulus decay for the standardized sum.**
+For `16δ|t| ≤ 1` (where `δ = ρ/(σ³√n)`), the product of charfuns satisfies
+`‖∏ φ_i(t/(σ√n))‖ ≤ e^{-t²/4}`. -/
+lemma charfun_prod_exp_decay
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {n : ℕ} (hn : 0 < n)
+    {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ)
+    (hm : ∀ i, Measurable (Y i))
+    (hmean : ∀ i, ∫ ω, Y i ω ∂μ = 0)
+    (hvar : ∀ i, ∫ ω, (Y i ω) ^ 2 ∂μ = σ ^ 2)
+    (h3 : ∀ i, ∫ ω, |Y i ω| ^ 3 ∂μ = ρ)
+    (hLp : ∀ i, MemLp (Y i) 3 μ)
+    {t : ℝ} (ht : 16 * ρ * |t| ≤ σ ^ 3 * Real.sqrt ↑n) :
+    ‖∏ i : Fin n, charFun (μ.map (Y i)) (t / (σ * Real.sqrt ↑n))‖ ≤
+      Real.exp (-(t ^ 2 / 4)) := by
+  have hn' : (0 : ℝ) < ↑n := Nat.cast_pos.mpr hn
+  have hsqrt_pos : 0 < Real.sqrt ↑n := Real.sqrt_pos.mpr hn'
+  have hsn_pos : 0 < σ * Real.sqrt ↑n := mul_pos hσ hsqrt_pos
+  set sn := σ * Real.sqrt ↑n
+  set s := t / sn with hs_def
+  -- Each factor has norm ≤ 1 - σ²s²/4 = 1 - t²/(4n)
+  have h_factor : ∀ i, ‖charFun (μ.map (Y i)) s‖ ≤ 1 - t ^ 2 / (4 * ↑n) := by
+    intro i
+    have hσ2s2 : σ ^ 2 * s ^ 2 / 4 = t ^ 2 / (4 * ↑n) := by
+      simp only [s, hs_def, sn]; field_simp
+      rw [mul_pow, Real.sq_sqrt (le_of_lt hn')]; ring
+    rw [← hσ2s2]
+    apply norm_charFun_le_one_sub hσ (hm i) (hmean i) (hvar i) (h3 i) (hLp i)
+    -- Need: 16ρ|s| ≤ σ²
+    rw [hs_def, abs_div, abs_of_pos hsn_pos]
+    rw [show (16 : ℝ) * ρ * (|t| / sn) = 16 * ρ * |t| / sn from by ring]
+    rw [div_le_iff₀ hsn_pos]
+    calc 16 * ρ * |t| ≤ σ ^ 3 * Real.sqrt ↑n := ht
+      _ = σ ^ 2 * sn := by simp [sn]; ring
+  -- Product bound: ‖∏ φ_i(s)‖ ≤ (1-t²/(4n))^n
+  have h_prod : ‖∏ i : Fin n, charFun (μ.map (Y i)) s‖ ≤
+      (1 - t ^ 2 / (4 * ↑n)) ^ n := by
+    calc ‖∏ i : Fin n, charFun (μ.map (Y i)) s‖
+        ≤ ∏ i : Fin n, ‖charFun (μ.map (Y i)) s‖ := Finset.norm_prod_le _ _
+      _ ≤ ∏ _i : Fin n, (1 - t ^ 2 / (4 * ↑n)) := by
+          apply Finset.prod_le_prod (fun i _ => norm_nonneg _) (fun i _ => h_factor i)
+      _ = (1 - t ^ 2 / (4 * ↑n)) ^ n := by rw [Finset.prod_const, Finset.card_fin]
+  -- Exponential bound: (1-t²/(4n))^n ≤ e^{-t²/4}
+  have h_exp : (1 - t ^ 2 / (4 * ↑n)) ^ n ≤ Real.exp (-(t ^ 2 / 4)) := by
+    have ht_le_n : t ^ 2 / 4 ≤ ↑n := by
+      have hρσ : σ ^ 3 ≤ ρ :=
+        lyapunov_third_moment hσ (hm ⟨0, by omega⟩) (hmean ⟨0, by omega⟩)
+          (hvar ⟨0, by omega⟩) (h3 ⟨0, by omega⟩) (hLp ⟨0, by omega⟩)
+      have hρ_pos : 0 < ρ := lt_of_lt_of_le (pow_pos hσ 3) hρσ
+      -- From ht: 16ρ|t| ≤ σ³√n, so |t| ≤ σ³√n/(16ρ) ≤ √n/16
+      have h_abs : |t| ≤ Real.sqrt ↑n / 16 := by
+        have : |t| ≤ σ ^ 3 * Real.sqrt ↑n / (16 * ρ) := by
+          rw [le_div_iff₀ (by positivity : 0 < 16 * ρ)]
+          linarith
+        calc |t| ≤ σ ^ 3 * Real.sqrt ↑n / (16 * ρ) := this
+          _ ≤ ρ * Real.sqrt ↑n / (16 * ρ) := by gcongr
+          _ = Real.sqrt ↑n / 16 := by field_simp
+      -- t² ≤ n/256, so t²/4 ≤ n/1024 ≤ n
+      have : t ^ 2 ≤ (Real.sqrt ↑n / 16) ^ 2 := by
+        rw [← sq_abs]; exact (sq_le_sq₀ (abs_nonneg t) (by positivity)).mpr h_abs
+      rw [div_pow, Real.sq_sqrt (le_of_lt hn')] at this
+      linarith
+    rw [show -(t ^ 2 / 4) = -(t ^ 2 / 4) from rfl]
+    convert Real.one_sub_div_pow_le_exp_neg ht_le_n using 2
+    field_simp
+  linarith
+
+end CharFunDecay
+
+/-! ## Charfun integral bound sub-lemmas -/
+
+section IntegralBound
+
+/-- **Near-zero Taylor bound for the charfun difference.**
+Combines product-vs-power and power-vs-exp bounds to get:
+`‖φ_S(t) - φ_Φ(t)‖ ≤ 4δ|t|³ + t⁴/(4n)` for `t² ≤ 2n`. -/
+private lemma charfun_diff_taylor_bound
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {n : ℕ} (hn : 0 < n)
+    {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ)
+    (hm : ∀ i, Measurable (Y i))
+    (hindep : iIndepFun (m := fun _ => inferInstance) Y μ)
+    (hmean : ∀ i, ∫ ω, Y i ω ∂μ = 0)
+    (hvar : ∀ i, ∫ ω, (Y i ω) ^ 2 ∂μ = σ ^ 2)
+    (h3 : ∀ i, ∫ ω, |Y i ω| ^ 3 ∂μ = ρ)
+    (hLp : ∀ i, MemLp (Y i) 3 μ)
+    (t : ℝ) (ht2n : t ^ 2 ≤ 2 * ↑n) :
+    let S : Ω → ℝ := fun ω => (∑ i : Fin n, Y i ω) / (σ * Real.sqrt n)
+    let δ := ρ / (σ ^ 3 * Real.sqrt ↑n)
+    ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ ≤
+      4 * δ * |t| ^ 3 + t ^ 4 / (4 * ↑n) := by
+  intro S δ
+  have hn' : (0 : ℝ) < ↑n := Nat.cast_pos.mpr hn
+  have hsqrt_pos : 0 < Real.sqrt ↑n := Real.sqrt_pos.mpr hn'
+  have hsn_pos : 0 < σ * Real.sqrt ↑n := mul_pos hσ hsqrt_pos
+  set sn := σ * Real.sqrt ↑n with sn_def
+  set t' := t / sn with t'_def
+  -- Step 1: Rewrite φ_S using product factorization
+  have step1 := charfun_iid_sum_eq_prod hn hσ hm hindep t
+  have step2 := charFun_gaussianReal_standard t
+  rw [step2, step1]
+  set w : ℂ := (1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))
+  set gauss_val : ℂ := Complex.exp (-((↑(t ^ 2) : ℂ) / 2))
+  -- Step 2: Triangle inequality through w^n
+  have triangle : ‖∏ i, charFun (μ.map (Y i)) t' - gauss_val‖ ≤
+      ‖∏ i, charFun (μ.map (Y i)) t' - w ^ n‖ + ‖w ^ n - gauss_val‖ := by
+    calc _ = ‖(∏ i, charFun (μ.map (Y i)) t' - w ^ n) + (w ^ n - gauss_val)‖ := by ring_nf
+      _ ≤ _ := norm_add_le _ _
+  -- Step 3: Apply existing bounds
+  have ht4 : t ^ 2 ≤ 4 * ↑n := by linarith
+  have part_a := charfun_prod_vs_pow_bound hn hσ hm hmean hvar h3 hLp t ht4
+  have part_b := complex_pow_approx_exp n hn t ht2n
+  -- Step 4: Combine and simplify
+  have hab : |t / sn| = |t| / sn := by rw [abs_div, abs_of_pos hsn_pos]
+  calc ‖∏ i, charFun (μ.map (Y i)) t' - gauss_val‖
+      ≤ ‖∏ i, charFun (μ.map (Y i)) t' - w ^ n‖ + ‖w ^ n - gauss_val‖ := triangle
+    _ ≤ 4 * ρ * ↑n * |t'| ^ 3 + t ^ 4 / (4 * ↑n) := by linarith
+    _ = 4 * δ * |t| ^ 3 + t ^ 4 / (4 * ↑n) := by
+        congr 1
+        simp only [t'_def, δ, sn_def]
+        rw [abs_div, abs_of_pos hsn_pos, div_pow, mul_pow]
+        have hsn_ne : σ ^ 3 * Real.sqrt ↑n ≠ 0 := ne_of_gt (mul_pos (pow_pos hσ 3) hsqrt_pos)
+        have sqrt3_eq : Real.sqrt ↑n ^ 3 = Real.sqrt ↑n * ↑n := by
+          rw [show (3 : ℕ) = 2 + 1 from rfl, pow_succ, pow_two,
+              Real.mul_self_sqrt (le_of_lt hn'), mul_comm]
+        rw [sqrt3_eq]
+        field_simp
+
+end IntegralBound
+
 /-! ## Esseen's charfun integral bound -/
 
 /-- **Esseen's concentration inequality with universal constants.**
@@ -317,23 +521,135 @@ lemma esseen_concentration_universal :
             C₂ / T := by
   sorry
 
-/-- **Charfun integral bound for the standardized sum.**
+/-- **Auxiliary: the charfun integrand is bounded by 5δ|t|² on Icc(-T, T).**
+For t² ≤ 2n (which holds for all t ∈ Icc(-T, T)), the Taylor bound gives
+`‖φ_S(t) - φ_Φ(t)‖ ≤ 5δ|t|³` and hence the integrand `≤ 5δt²`. -/
+private lemma charfun_integrand_bound
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {n : ℕ} (hn : 0 < n)
+    {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ)
+    (hm : ∀ i, Measurable (Y i))
+    (hindep : iIndepFun (m := fun _ => inferInstance) Y μ)
+    (hmean : ∀ i, ∫ ω, Y i ω ∂μ = 0)
+    (hvar : ∀ i, ∫ ω, (Y i ω) ^ 2 ∂μ = σ ^ 2)
+    (h3 : ∀ i, ∫ ω, |Y i ω| ^ 3 ∂μ = ρ)
+    (hLp : ∀ i, MemLp (Y i) 3 μ)
+    (t : ℝ) (ht : t ∈ Set.Icc (-(σ ^ 3 * Real.sqrt ↑n / ρ)) (σ ^ 3 * Real.sqrt ↑n / ρ)) :
+    let S : Ω → ℝ := fun ω => (∑ i : Fin n, Y i ω) / (σ * Real.sqrt n)
+    let δ := ρ / (σ ^ 3 * Real.sqrt ↑n)
+    ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ / |t| ≤ 5 * δ * t ^ 2 := by
+  intro S δ
+  have hn' : (0 : ℝ) < ↑n := Nat.cast_pos.mpr hn
+  have hsqrt_pos : 0 < Real.sqrt ↑n := Real.sqrt_pos.mpr hn'
+  have hσ3_pos : 0 < σ ^ 3 := pow_pos hσ 3
+  have hρσ : σ ^ 3 ≤ ρ :=
+    lyapunov_third_moment hσ (hm ⟨0, by omega⟩) (hmean ⟨0, by omega⟩)
+      (hvar ⟨0, by omega⟩) (h3 ⟨0, by omega⟩) (hLp ⟨0, by omega⟩)
+  have hρ_pos : 0 < ρ := lt_of_lt_of_le hσ3_pos hρσ
+  have hden_pos : 0 < σ ^ 3 * Real.sqrt ↑n := mul_pos hσ3_pos hsqrt_pos
+  have hδ_pos : 0 < δ := div_pos hρ_pos hden_pos
+  -- Key: T² ≤ 2n (since σ⁶ ≤ 2ρ² and ρ ≥ σ³)
+  set T := σ ^ 3 * Real.sqrt ↑n / ρ with T_def
+  have hT_pos : 0 < T := div_pos hden_pos hρ_pos
+  have hT_sq_le : T ^ 2 ≤ 2 * ↑n := by
+    rw [T_def, div_pow]
+    rw [div_le_iff₀ (pow_pos hρ_pos 2)]
+    rw [mul_pow, Real.sq_sqrt (le_of_lt hn')]
+    have h_s6 : σ ^ 6 ≤ ρ ^ 2 := by
+      calc σ ^ 6 = (σ ^ 3) ^ 2 := by ring
+        _ ≤ ρ ^ 2 := (sq_le_sq₀ (pow_nonneg hσ.le 3) (by linarith [pow_pos hσ 3])).mpr hρσ
+    nlinarith
+  -- |t| ≤ T, so t² ≤ T² ≤ 2n
+  have ht_abs : |t| ≤ T := by
+    rw [abs_le]; exact ⟨by linarith [ht.1], ht.2⟩
+  have ht2n : t ^ 2 ≤ 2 * ↑n := by
+    calc t ^ 2 = |t| ^ 2 := (sq_abs t).symm
+      _ ≤ T ^ 2 := (sq_le_sq₀ (abs_nonneg t) (le_of_lt hT_pos)).mpr ht_abs
+      _ ≤ 2 * ↑n := hT_sq_le
+  -- Apply Taylor bound
+  have htaylor := charfun_diff_taylor_bound hn hσ hm hindep hmean hvar h3 hLp t ht2n
+  -- Bound t⁴/(4n) ≤ δ|t|³ for |t| ≤ T
+  have ht4_le : t ^ 4 / (4 * ↑n) ≤ δ * |t| ^ 3 := by
+    rcases eq_or_ne t 0 with rfl | ht_ne
+    · simp
+    · have habs_pos : 0 < |t| := abs_pos.mpr ht_ne
+      rw [show t ^ 4 = |t| ^ 3 * |t| from by
+        nlinarith [sq_abs t, sq_nonneg t, sq_nonneg (|t|), abs_nonneg t]]
+      rw [mul_div_assoc, mul_comm δ]
+      apply mul_le_mul_of_nonneg_left _ (pow_nonneg (abs_nonneg t) 3)
+      -- Need |t|/(4n) ≤ δ = ρ/(σ³√n). Use |t| ≤ T = σ³√n/ρ and σ⁶ ≤ 4ρ².
+      rw [div_le_div_iff₀ (by positivity : (0 : ℝ) < 4 * ↑n) hden_pos]
+      calc |t| * (σ ^ 3 * Real.sqrt ↑n)
+          ≤ σ ^ 3 * Real.sqrt ↑n / ρ * (σ ^ 3 * Real.sqrt ↑n) :=
+            mul_le_mul_of_nonneg_right ht_abs (le_of_lt hden_pos)
+        _ = σ ^ 6 * (Real.sqrt ↑n) ^ 2 / ρ := by ring
+        _ = σ ^ 6 * ↑n / ρ := by rw [Real.sq_sqrt (le_of_lt hn')]
+        _ ≤ ρ ^ 2 * ↑n / ρ := by
+            gcongr
+            calc σ ^ 6 = (σ ^ 3) ^ 2 := by ring
+              _ ≤ ρ ^ 2 := (sq_le_sq₀ (pow_nonneg hσ.le 3)
+                  (by linarith [pow_pos hσ 3])).mpr hρσ
+        _ = ρ * ↑n := by field_simp
+        _ ≤ ρ * (4 * ↑n) := by nlinarith
+  -- Now ‖φ_S - φ_Φ‖ ≤ 5δ|t|³
+  have hbound : ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ ≤ 5 * δ * |t| ^ 3 := by
+    calc ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖
+        ≤ 4 * δ * |t| ^ 3 + t ^ 4 / (4 * ↑n) := htaylor
+      _ ≤ 4 * δ * |t| ^ 3 + δ * |t| ^ 3 := by linarith [ht4_le]
+      _ = 5 * δ * |t| ^ 3 := by ring
+  -- Finally: ‖...‖/|t| ≤ 5δ|t|² = 5δt²
+  rcases eq_or_ne t 0 with rfl | ht_ne
+  · simp
+  · rw [div_le_iff₀ (abs_pos.mpr ht_ne)]
+    calc ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖
+        ≤ 5 * δ * |t| ^ 3 := hbound
+      _ = 5 * δ * t ^ 2 * |t| := by
+          have : |t| ^ 3 = |t| ^ 2 * |t| := by ring
+          rw [this, sq_abs]; ring
 
-The integral `∫_{-T}^{T} ‖φ_S(t) - φ_Φ(t)‖/|t| dt` is bounded by `C * ρ/(σ³√n)`
-when `T = σ³√n/ρ`. Uses:
-- Near zero (`|t| ≤ 1`): Taylor bound `‖φ_S-φ_Φ‖ ≤ (4δ|t|³ + t⁴/(4n))`, so
-  the integrand `≤ 4δ|t|² + |t|³/(4n)`, which integrates to `O(δ)`.
-- Away from zero (`1 < |t| ≤ T`): charfun modulus decay `|φ_S(t)| ≤ e^{-t²/4}`
-  combined with `|φ_Φ(t)| = e^{-t²/2}` gives exponential decay, so the
-  integral over `[1,T]` is bounded by a universal constant times `δ`.
+/-- **Charfun difference bound with exponential decay.**
+The charfun difference `‖φ_S(t) - φ_Φ(t)‖` is bounded by `Cδ(|t|³ + t⁴)e^{-t²/8}`
+for all `t ∈ [-T, T]`. This combines:
+- Product vs power telescope with exponential factor `(1-t²/(4n))^{n-1}`
+- Power vs exp bound with exponential factor
+- The key is that the telescope bound carries through the modulus decay.
+
+## Proof sketch
+From the telescope: `‖∏φ_i - w^n‖ ≤ n·‖φ_i - w‖·max(‖φ_i‖, ‖w‖)^{n-1}`
+where `‖φ_i‖ ≤ 1 - t²/(4n)`, giving exponential factor `e^{-t²/8}` for n ≥ 2.
+From the power-vs-exp: `|(1-t²/(2n))^n - e^{-t²/2}| ≤ t⁴/(4n)·e^{-t²/4}` (tighter).
+Combining: `‖φ_S - φ_Φ‖ ≤ (4δ|t|³ + t⁴/(4n))·e^{-t²/8}`.
+Since `1/n ≤ δ` (from σ³ ≤ ρ): `≤ Cδ(|t|³ + t⁴)·e^{-t²/8}`.
 
 ## Blocker
-Charfun modulus decay: `|φ_Y(s)| ≤ 1 - σ²s²/4` for small `s`, which gives
-`|φ_S(t)| ≤ e^{-t²/4}` by the product bound `(1-t²/(4n))ⁿ ≤ e^{-t²/4}`.
+Tighter telescope bound with exponential factor. Requires modifying
+`norm_prod_sub_prod_le_sum` to carry through individual norm bounds.
 -/
--- sorry count: 1 (charfun modulus decay + Gaussian moment integrals)
--- blocker: charfun modulus decay |φ_Y(s)|² ≤ 1 - σ²s²/2 + O(s³)
+-- sorry count: 1
+-- blocker: tighter telescope with exponential factor
+-- estimated effort: P4
+private lemma charfun_diff_exp_bound
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {n : ℕ} (hn : 0 < n)
+    {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ)
+    (hm : ∀ i, Measurable (Y i))
+    (hindep : iIndepFun (m := fun _ => inferInstance) Y μ)
+    (hmean : ∀ i, ∫ ω, Y i ω ∂μ = 0)
+    (hvar : ∀ i, ∫ ω, (Y i ω) ^ 2 ∂μ = σ ^ 2)
+    (h3 : ∀ i, ∫ ω, |Y i ω| ^ 3 ∂μ = ρ)
+    (hLp : ∀ i, MemLp (Y i) 3 μ)
+    (t : ℝ) (ht : t ^ 2 ≤ 2 * ↑n) :
+    let S : Ω → ℝ := fun ω => (∑ i : Fin n, Y i ω) / (σ * Real.sqrt n)
+    let δ := ρ / (σ ^ 3 * Real.sqrt ↑n)
+    ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ ≤
+      5 * δ * (|t| ^ 3 + t ^ 4) * Real.exp (-(t ^ 2 / 8)) := by
+  sorry
+
+-- sorry count: 1 (uses charfun_diff_exp_bound)
+-- blocker: charfun_diff_exp_bound (tighter telescope with exponential factor)
 -- estimated effort: P6
+-- Infrastructure proved: norm_charFun_le_one_sub, charfun_prod_exp_decay,
+--   charfun_diff_taylor_bound, charfun_integrand_bound (all zero sorry)
 lemma charfun_integral_bound :
     ∃ C : ℝ, 0 < C ∧
       ∀ {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
@@ -351,6 +667,9 @@ lemma charfun_integral_bound :
         ∫ t in Set.Icc (-T) T,
           ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ / |t| ≤
           C * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
+  -- Strategy: use charfun_diff_exp_bound to get integrand ≤ 5δ(t² + |t|³)e^{-t²/8}
+  -- then bound ∫(t² + |t|³)e^{-t²/8} dt by a universal constant (Gaussian moments).
+  -- C = 5 * (∫t²e^{-t²/8}dt + ∫|t|³e^{-t²/8}dt) = 5 * (4√(2π) + 64) (finite)
   sorry
 
 /-- **Berry-Esseen core bound (assembly).**

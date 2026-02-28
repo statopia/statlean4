@@ -12,15 +12,15 @@ import Mathlib.Analysis.InnerProductSpace.l2Space
 - `gaussian_poincare_of_efron_stein` — via Efron-Stein + coordinate bound
 - `gaussian_poincare_of_condVar_sum` — via conditional variance sum
 
-## Sorry gaps (2 sorry, both Fubini consequences for Measure.pi)
-- `condExp_eq_fiberAvg_pi` — disintegration identity: `condExp[g|G_i] =ᵃᵉ fiberAvg`.
-  Needs `ae_eq_condExp_of_forall_setIntegral_eq` with Fubini for measurable sets.
-- `ae_memLp_fiber` — `f ∈ L²(π)` implies fiber `∈ L²(γ)` a.e.
-  Needs Fubini for `f²` via `measurePreserving_piFinSuccAbove` + product decomposition.
+## Sorry gaps (1 sorry)
+- `memLp_four_of_W12_gaussian` — `f ∈ W^{1,2}(γ) → f ∈ L⁴(γ)`, blocked by Hermite
+  product linearization.
 
 ## Proved (was sorry)
-- `condVar_le_condExp_gradf_sq_ae` — proved modulo above 2 sorry, via:
-  disintegration + `condVar_ae_eq_condExp_sq_sub_sq_condExp` + `gaussian_poincare_1d_core`.
+- `condExp_eq_fiberAvg_pi` — disintegration identity via `ae_eq_condExp_of_forall_setIntegral_eq`,
+  Fubini (`setIntegral_prod_swap`), and `sigmaAlgExcept ≤ comap (removeNth i) pi`.
+- `ae_memLp_fiber` — Fubini for `f²` via `measurePreserving_piFinSuccAbove` + product decomposition.
+- `condVar_le_condExp_gradf_sq_ae` — proved via disintegration + `gaussian_poincare_1d_core`.
 -/
 
 open MeasureTheory ProbabilityTheory Filter Topology Real NNReal
@@ -413,6 +413,20 @@ private lemma hermite_coeff_f'_bound (f f' : ℝ → ℝ)
   have hk1 : (1 : ℝ) ≤ ↑(k + 1) := by exact_mod_cast Nat.one_le_iff_ne_zero.mpr (by omega)
   nlinarith [sq_nonneg (hermiteCoeff f (k + 1))]
 
+/-! ## Infrastructure for Measure.pi fiber decomposition -/
+
+/-- `Function.update x i t = Fin.insertNth i t (Fin.removeNth i x)`:
+expressing `update` as `insertNth ∘ removeNth`, which connects
+`Function.update` to the `piFinSuccAbove` decomposition. -/
+private lemma update_eq_insertNth {n : ℕ} (i : Fin (n+1)) (x : Fin (n+1) → ℝ) (t : ℝ) :
+    Function.update x i t = Fin.insertNth i t (Fin.removeNth i x) := by
+  ext j
+  by_cases h : j = i
+  · subst h; simp [Fin.insertNth_apply_same, Function.update_self]
+  · rw [Function.update_of_ne h]
+    obtain ⟨k, hk⟩ := Fin.exists_succAbove_eq h
+    rw [← hk, Fin.insertNth_apply_succAbove]; simp [Fin.removeNth]
+
 /-! ## Sorry-dependent declarations -/
 
 /-- **1D Gaussian Poincaré core**: `Var(f) ≤ ∫ f'² dγ`.
@@ -474,6 +488,44 @@ theorem gaussian_poincare_1d
     (hderiv : ∀ x, HasDerivAt f (f' x) x) :
     Var[f; stdGaussian] ≤ ∫ x, f' x ^ 2 ∂stdGaussian :=
   gaussian_poincare_1d_core f f' hf hf' hderiv
+
+/-! ## Gaussian hypercontractivity: W^{1,2}(γ) → L⁴(γ)
+
+The Nelson hypercontractivity theorem (1973) states that if `f ∈ W^{1,2}(γ)`
+(i.e., `f, f' ∈ L²(γ)` with `HasDerivAt`), then `f ∈ L⁴(γ)`.
+
+### Proof architecture
+
+1. **Hermite partial sums converge in L²**: By Parseval (`hermite_parseval`),
+   `S_N f = ∑_{k<N} aₖ eₖ → f` in L²(γ).
+2. **Uniform L⁴ bound for partial sums**: The Hermite product linearization
+   formula gives `‖S_N f‖₄⁴ ≤ C · (‖f‖₂² + ‖f'‖₂²)²` uniformly in N.
+3. **Fatou's lemma**: Extract an a.e. convergent subsequence from the L²
+   convergence, then apply Fatou's lemma with the uniform L⁴ bound.
+
+### Status
+The theorem is sorry-ed, blocked by the Hermite product linearization formula
+`Hₘ · Hₙ = ∑_{k} C(m,k) · C(n,k) · k! · H_{m+n-2k}` which requires ~150
+lines of algebraic formalization not present in Mathlib v4.28. -/
+
+/-- **Gaussian hypercontractivity (W^{1,2}(γ) → L⁴(γ))**: If `f ∈ L²(γ)` and `f' ∈ L²(γ)`
+with `HasDerivAt`, then `f ∈ L⁴(γ)`.
+
+This is the 1D case of the Nelson hypercontractivity theorem (1973).
+
+**Blocker**: Requires the Hermite product linearization formula, which gives a
+uniform L⁴ bound for the Hermite partial sums `S_N f`. The reduction via
+Fatou's lemma (L² convergence → a.e. subsequence → Fatou → MemLp) then
+gives the result.
+
+**Estimated effort**: ~200 lines (Hermite linearization + L⁴ bound + Fatou). -/
+theorem memLp_four_of_W12_gaussian
+    (f f' : ℝ → ℝ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x) :
+    MemLp f 4 stdGaussian := by
+  sorry
 
 /-- The fiber average: integrate f over coordinate i, keeping other coordinates fixed. -/
 private noncomputable def fiberAvg (i : Fin n) (f : (Fin n → ℝ) → ℝ) (x : Fin n → ℝ) : ℝ :=
@@ -588,18 +640,20 @@ private lemma fiber_variance_le_fiber_grad_sq
     rw [variance_eq_integral hf_fiber.aemeasurable]
   linarith [hVar, hpoincare]
 
-/-- **Disintegration identity for Measure.pi** (infrastructure sorry).
+/-- **Disintegration identity for Measure.pi**.
 
 For the standard Gaussian product measure and coordinate `i`, the conditional
 expectation of `g` given all other coordinates equals the fiber average:
 
   `E[g | G_i](x) =ᵃᵉ ∫ g(update x i t) dγ(t)`
 
-The fiber average is `StronglyMeasurable[sigmaAlgExcept i]` (factors through
-`Fin.removeNth i`, which is `sigmaAlgExcept i`-measurable, composed with a
-`StronglyMeasurable` integral function via `StronglyMeasurable.integral_prod_right'`).
-The proof would verify the set-integral characterization via
-`ae_eq_condExp_of_forall_setIntegral_eq` using Fubini for measurable sets. -/
+The proof uses `ae_eq_condExp_of_forall_setIntegral_eq` with three conditions:
+(1) Integrability of the fiber average (via Fubini on the product decomposition).
+(2) Set integral equality: both sides equal `∫_S h dμ_rest` via `setIntegral_map`
+    (LHS) and `setIntegral_preimage_emb` + `setIntegral_prod_swap` (RHS), using
+    `sigmaAlgExcept i ≤ comap (removeNth i) pi` to extract the base set `S`.
+(3) `AEStronglyMeasurable[sigmaAlgExcept i]`: the fiber average factors as
+    `h ∘ removeNth i` where `removeNth i` is `sigmaAlgExcept`-measurable. -/
 private lemma condExp_eq_fiberAvg_pi
     {m : ℕ} (i : Fin (m + 1))
     (g : (Fin (m + 1) → ℝ) → ℝ)
@@ -607,7 +661,140 @@ private lemma condExp_eq_fiberAvg_pi
     (stdGaussianPi (m + 1))[g | sigmaAlgExcept (X := fun _ : Fin (m + 1) => ℝ) i]
       =ᵐ[stdGaussianPi (m + 1)]
     fun x => ∫ t, g (Function.update x i t) ∂stdGaussian := by
-  sorry
+  set mu_pi := stdGaussianPi (m + 1)
+  set gamma := stdGaussian
+  set mu_rest := Measure.pi (fun _ : Fin m => stdGaussian)
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (m + 1) => ℝ) i
+  have hmp : MeasurePreserving e mu_pi (gamma.prod mu_rest) :=
+    measurePreserving_piFinSuccAbove (fun _ : Fin (m + 1) => stdGaussian) i
+  have hm_le := sigmaAlgExcept_le (X := fun _ : Fin (m + 1) => ℝ) i
+  haveI : IsProbabilityMeasure mu_pi := by
+    change IsProbabilityMeasure (Measure.pi (fun _ : Fin (m + 1) => stdGaussian))
+    exact Measure.pi.instIsProbabilityMeasure _
+  haveI : SigmaFinite (mu_pi.trim hm_le) := by
+    have : IsFiniteMeasure (mu_pi.trim hm_le) := by
+      constructor; rw [trim_measurableSet_eq hm_le MeasurableSet.univ]
+      exact measure_lt_top _ _
+    exact this.toSigmaFinite
+  -- g o e.symm integrable on the product space
+  have hg_prod : Integrable (fun p : ℝ × (Fin m → ℝ) => g (e.symm p))
+      (gamma.prod mu_rest) := by
+    rw [show (fun p => g (e.symm p)) = g ∘ e.symm from rfl]
+    exact (hmp.symm.integrable_comp_emb e.symm.measurableEmbedding).mpr hg
+  -- h(rest) = ∫ g(e.symm(t,rest)) dγ(t), integrable on mu_rest via Fubini
+  set h : (Fin m → ℝ) → ℝ :=
+    fun rest => ∫ t, g (e.symm (t, rest)) ∂gamma with hh_def
+  have hh_int : Integrable h mu_rest := hg_prod.swap.integral_prod_left
+  -- fAvg(x) = h(removeNth i x)
+  have hfAvg_eq : ∀ x, (∫ t, g (Function.update x i t) ∂gamma) = h (Fin.removeNth i x) := by
+    intro x; show _ = ∫ t, g (e.symm (t, Fin.removeNth i x)) ∂gamma
+    congr 1; ext t
+    simp [e, Fin.insertNthEquiv, MeasurableEquiv.piFinSuccAbove]
+  -- removeNth i is measurable from sigmaAlgExcept to MeasurableSpace.pi
+  have hremove_meas : @Measurable _ _
+      (sigmaAlgExcept (X := fun _ : Fin (m + 1) => ℝ) i) MeasurableSpace.pi
+      (Fin.removeNth i : (Fin (m + 1) → ℝ) → (Fin m → ℝ)) := by
+    refine @measurable_pi_iff _ _ _
+      (sigmaAlgExcept (X := fun _ : Fin (m + 1) => ℝ) i) _ _ |>.mpr ?_
+    intro k
+    show @Measurable _ _
+      (sigmaAlgExcept (X := fun _ : Fin (m + 1) => ℝ) i) _
+      (fun x : Fin (m + 1) → ℝ => x (i.succAbove k))
+    exact Measurable.of_comap_le
+      (le_iSup₂_of_le (i.succAbove k) (by simp [Fin.succAbove_ne i k]) le_rfl)
+  -- removeNth i is also measurable in the full sigma algebra (pi -> pi)
+  have hremove_meas_full : Measurable (Fin.removeNth i : (Fin (m + 1) → ℝ) → (Fin m → ℝ)) :=
+    measurable_pi_iff.mpr (fun k => measurable_pi_apply (i.succAbove k))
+  -- map (removeNth i) mu_pi = mu_rest (via product decomposition + marginalization)
+  have hmap_remove : Measure.map (Fin.removeNth i) mu_pi = mu_rest := by
+    have h1 : Fin.removeNth i = Prod.snd ∘ e := by
+      ext x; simp [e, Fin.removeNth, MeasurableEquiv.piFinSuccAbove]
+    rw [h1, ← Measure.map_map measurable_snd e.measurable, hmp.map_eq]
+    exact Measure.snd_prod
+  -- fAvg = h ∘ removeNth i is integrable on mu_pi
+  have hfAvg_int : Integrable (fun x => ∫ t, g (Function.update x i t) ∂gamma)
+      mu_pi := by
+    have : Integrable (h ∘ Fin.removeNth i) mu_pi :=
+      (hmap_remove ▸ hh_int).comp_measurable hremove_meas_full
+    exact this.congr (Eventually.of_forall fun x => (hfAvg_eq x).symm)
+  -- Use ae_eq_condExp_of_forall_setIntegral_eq
+  refine (ae_eq_condExp_of_forall_setIntegral_eq hm_le hg ?_ ?_ ?_).symm
+  -- (1) IntegrableOn fAvg for finite-measure sigmaAlgExcept-measurable sets
+  · intro s _hs _hmu
+    exact hfAvg_int.integrableOn
+  -- (2) Set integral equality: ∫_s fAvg dπ = ∫_s g dπ
+  · intro s hs _hmu
+    -- sigmaAlgExcept i ≤ comap (removeNth i) pi
+    have hle_comap : sigmaAlgExcept (X := fun _ : Fin (m + 1) => ℝ) i ≤
+        MeasurableSpace.comap (Fin.removeNth i) MeasurableSpace.pi := by
+      unfold sigmaAlgExcept
+      refine iSup₂_le ?_
+      intro j hj; simp at hj
+      obtain ⟨k, hk⟩ := Fin.exists_succAbove_eq hj
+      rw [← hk, show (fun x : Fin (m + 1) → ℝ => x (i.succAbove k)) =
+          (fun y : Fin m → ℝ => y k) ∘ (Fin.removeNth i) from by
+          ext x; simp [Fin.removeNth],
+        ← MeasurableSpace.comap_comp]
+      exact MeasurableSpace.comap_mono (le_iSup (fun a => MeasurableSpace.comap
+        (fun (b : Fin m → ℝ) => b a) Real.measurableSpace) k)
+    -- Extract S with s = removeNth i ⁻¹' S
+    have hms : @MeasurableSet _
+        (MeasurableSpace.comap (Fin.removeNth i) MeasurableSpace.pi) s :=
+      hle_comap s hs
+    rw [MeasurableSpace.measurableSet_comap] at hms
+    obtain ⟨S, hS_meas, hS_eq⟩ := hms
+    -- (e x).2 = removeNth i x
+    have hsnd : ∀ x, (e x).2 = Fin.removeNth i x := fun x => by
+      simp [e, MeasurableEquiv.piFinSuccAbove, Fin.insertNthEquiv]
+    -- Both sides = ∫ rest in S, h rest dmu_rest
+    -- LHS via setIntegral_map
+    have hlhs : ∫ x in s, (fun x => ∫ t, g (Function.update x i t) ∂gamma) x ∂mu_pi =
+        ∫ rest in S, h rest ∂mu_rest := by
+      simp only []
+      simp_rw [hfAvg_eq]
+      rw [← hS_eq, ← hmap_remove]
+      exact (setIntegral_map hS_meas
+        (hmap_remove ▸ hh_int.aestronglyMeasurable)
+        hremove_meas_full.aemeasurable).symm
+    -- RHS via Fubini on product decomposition
+    have he_preimage : e ⁻¹' (Set.univ ×ˢ S) = Fin.removeNth i ⁻¹' S := by
+      ext x; simp [Set.mem_preimage, Set.mem_prod, hsnd]
+    have hrhs : ∫ x in s, g x ∂mu_pi = ∫ rest in S, h rest ∂mu_rest := by
+      rw [← hS_eq, ← he_preimage]
+      -- Step 1: change of variables via e
+      have step1 := hmp.setIntegral_preimage_emb e.measurableEmbedding
+        (fun p : ℝ × (Fin m → ℝ) => g (e.symm p)) (Set.univ ×ˢ S)
+      simp only [MeasurableEquiv.symm_apply_apply] at step1
+      -- Step 2: Fubini via swap + setIntegral_prod
+      rw [step1, ← setIntegral_prod_swap]
+      have key := setIntegral_prod
+        (fun z : (Fin m → ℝ) × ℝ => g (e.symm z.swap))
+        ((hg_prod.integrableOn (s := Set.univ ×ˢ S)).swap)
+      simp only [setIntegral_univ, Prod.swap_prod_mk] at key
+      exact key
+    rw [hlhs, hrhs]
+  -- (3) AEStronglyMeasurable w.r.t. sigmaAlgExcept
+  · -- fAvg(x) = h(removeNth i x), h AESM on mu_rest, removeNth i sigmaAlgExcept-meas
+    -- Construct: mk of h is StronglyMeasurable, compose with removeNth to get SM[sigmaAlgExcept]
+    have hh_aesm : AEStronglyMeasurable h mu_rest := hh_int.aestronglyMeasurable
+    -- g' = mk of h, StronglyMeasurable[pi] and h =ᵃᵉ g'
+    set g' := hh_aesm.mk h with hg'_def
+    have hg'_sm : StronglyMeasurable g' := hh_aesm.stronglyMeasurable_mk
+    have hg'_ae : h =ᵐ[mu_rest] g' := hh_aesm.ae_eq_mk
+    -- g' ∘ removeNth is StronglyMeasurable[sigmaAlgExcept]
+    have hg'_comp_sm : @StronglyMeasurable _ _ _
+        (sigmaAlgExcept (X := fun _ : Fin (m + 1) => ℝ) i) (g' ∘ Fin.removeNth i) :=
+      hg'_sm.comp_measurable hremove_meas
+    -- fAvg =ᵃᵉ g' ∘ removeNth (pull back h =ᵃᵉ g' via QMP)
+    have hqmp_remove : Measure.QuasiMeasurePreserving (Fin.removeNth i) mu_pi mu_rest := by
+      constructor
+      · exact hremove_meas_full
+      · rw [hmap_remove]
+    have hpull_ae : ∀ᵐ x ∂mu_pi, h (Fin.removeNth i x) = g' (Fin.removeNth i x) :=
+      hqmp_remove.ae hg'_ae
+    refine ⟨g' ∘ Fin.removeNth i, hg'_comp_sm, ?_⟩
+    filter_upwards [hpull_ae] with x hx
+    rw [hfAvg_eq x, Function.comp_apply, hx]
 
 /-- `f ∈ L²(π)` implies the 1D fiber `t ↦ f(update x i t)` is in `L²(γ)` for a.e. `x`.
 This is a Fubini consequence: `f² ∈ L¹(π)` and the product decomposition via
@@ -618,7 +805,52 @@ private lemma ae_memLp_fiber
     (hf : MemLp f 2 (stdGaussianPi (m + 1))) :
     ∀ᵐ x ∂(stdGaussianPi (m + 1)),
       MemLp (fun t => f (Function.update x i t)) 2 stdGaussian := by
-  sorry
+  set mu_pi := stdGaussianPi (m + 1)
+  set gamma := stdGaussian
+  set mu_rest := Measure.pi (fun _ : Fin m => stdGaussian)
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (m+1) => ℝ) i
+  have hmp : MeasurePreserving e mu_pi (gamma.prod mu_rest) :=
+    measurePreserving_piFinSuccAbove (fun _ : Fin (m+1) => stdGaussian) i
+  -- Key equation: e.symm(t, (e x).2) = update x i t
+  have heq : ∀ x t, (e.symm (t, (e x).2) : Fin (m+1) → ℝ) = Function.update x i t := by
+    intro x t; simp [e, Fin.insertNthEquiv, MeasurableEquiv.piFinSuccAbove]
+  -- AEStronglyMeasurable of f o e.symm on the product space
+  have hf_aesm_prod : AEStronglyMeasurable
+      (fun p : ℝ × (Fin m → ℝ) => f (e.symm p)) (gamma.prod mu_rest) := by
+    have h1 : AEStronglyMeasurable (f ∘ (e.symm ∘ e)) mu_pi := by
+      simp only [MeasurableEquiv.symm_comp_self]; exact hf.aestronglyMeasurable
+    rw [show (f ∘ (e.symm ∘ e)) = ((f ∘ e.symm) ∘ e) from by
+      ext; simp [Function.comp]] at h1
+    exact (hmp.aestronglyMeasurable_comp_iff e.measurableEmbedding).mp h1
+  -- Fiber AEStronglyMeasurable: for a.e. rest, the slice is AESM
+  have hfiber_aesm : ∀ᵐ rest ∂mu_rest,
+      AEStronglyMeasurable (fun t => f (e.symm (t, rest))) gamma :=
+    hf_aesm_prod.prodMk_right
+  -- Transfer f^2 integrability to product space
+  have hf2_prod : Integrable
+      (fun p : ℝ × (Fin m → ℝ) => f (e.symm p) ^ 2) (gamma.prod mu_rest) := by
+    rw [show (fun p : ℝ × (Fin m → ℝ) => f (e.symm p) ^ 2) =
+        (fun x => f x ^ 2) ∘ e.symm from by ext p; simp [Function.comp]]
+    exact (hmp.symm.integrable_comp_emb e.symm.measurableEmbedding).mpr hf.integrable_sq
+  -- Fiber norm-squared integrability via Fubini
+  have hfiber_sq : ∀ᵐ rest ∂mu_rest,
+      Integrable (fun t => ‖f (e.symm (t, rest))‖ ^ 2) gamma :=
+    (show Integrable (fun p : ℝ × (Fin m → ℝ) => ‖f (e.symm p)‖ ^ 2)
+        (gamma.prod mu_rest) from by
+      convert hf2_prod using 1; ext p; simp [sq_abs]).prod_left_ae
+  -- Combine AESM + norm-sq integrability to get MemLp 2 for a.e. rest
+  have hfiber_memLp : ∀ᵐ rest ∂mu_rest,
+      MemLp (fun t => f (e.symm (t, rest))) 2 gamma := by
+    filter_upwards [hfiber_aesm, hfiber_sq] with rest haesm hint
+    exact (memLp_two_iff_integrable_sq_norm haesm).mpr hint
+  -- Pull back from mu_rest to mu_pi via Prod.snd o e
+  have hqmp : Measure.QuasiMeasurePreserving (Prod.snd ∘ e) mu_pi mu_rest :=
+    Measure.quasiMeasurePreserving_snd.comp hmp.quasiMeasurePreserving
+  have hpull : ∀ᵐ x ∂mu_pi,
+      MemLp (fun t => f (e.symm (t, (e x).2))) 2 gamma := hqmp.ae hfiber_memLp
+  -- Convert: f(e.symm(t, (e x).2)) = f(update x i t)
+  filter_upwards [hpull] with x hx
+  exact hx.ae_eq (Eventually.of_forall fun t => by rw [heq])
 
 /-- Fiberwise Poincaré bound for `n = m+1`. Uses:
 1. Disintegration: `condExp[g|G_i] =ᵃᵉ fiberAvg` to convert condVar/condExp to fiber integrals
@@ -679,14 +911,11 @@ conditional expectation of `(∂ᵢf)²`:
 where `G_i = sigmaAlgExcept i`.
 
 **Proof**: For `n = 0`, vacuous (no coordinates). For `n = m+1`, uses:
-1. Disintegration identity (`condExp_eq_fiberAvg_pi`, sorry): converts abstract
+1. Disintegration identity (`condExp_eq_fiberAvg_pi`): converts abstract
    `condVar`/`condExp` to concrete fiber integrals via `Function.update x i ·`
-2. Fiber MemLp (`ae_memLp_fiber`, sorry): `f ∈ L²(π)` implies fiber `∈ L²(γ)` a.e.
+2. Fiber MemLp (`ae_memLp_fiber`): `f ∈ L²(π)` implies fiber `∈ L²(γ)` a.e.
 3. `condVar = E[f²|G] - E[f|G]²` (Mathlib)
-4. 1D Gaussian Poincaré (`gaussian_poincare_1d_core`, proved) on each fiber
-
-**Sorry status**: 2 sorry (disintegration + fiber MemLp), both Fubini consequences
-for `Measure.pi` single-coordinate marginalization. -/
+4. 1D Gaussian Poincaré (`gaussian_poincare_1d_core`) on each fiber -/
 private lemma condVar_le_condExp_gradf_sq_ae
     {n : ℕ} (f : (Fin n → ℝ) → ℝ)
     (gradf : Fin n → (Fin n → ℝ) → ℝ)
