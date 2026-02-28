@@ -1,12 +1,24 @@
-version: v12
+version: v13
 generated: 2026-02-28
 total_sorry: 8
 
 sorry_items:
 
+- id: lsi.hypercontractivity
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 269
+  theorem: memLp_four_of_W12_gaussian
+  type: honest
+  depth: 2
+  priority: 3
+  blocker: "Gaussian hypercontractivity W^{1,2}(γ) → L⁴(γ) — Nelson 1973, needs OU semigroup or Hermite product linearization (not in Mathlib v4.28). Best path: Hermite product formula ~400 lines."
+  estimated_lines: 400
+  dependencies: []
+  unlocks: [lsi.normalized]
+
 - id: lsi.normalized
   file: Statlean/Entropy/LogSobolev.lean
-  line: 370
+  line: 393
   theorem: gaussian_lsi_normalized
   type: blocked
   depth: 3
@@ -16,21 +28,9 @@ sorry_items:
   dependencies: [lsi.hypercontractivity]
   unlocks: []
 
-- id: lsi.hypercontractivity
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 246
-  theorem: memLp_four_of_W12_gaussian
-  type: honest
-  depth: 2
-  priority: 3
-  blocker: "Gaussian hypercontractivity W^{1,2}(γ) → L⁴(γ) — Nelson 1973, needs Ornstein-Uhlenbeck semigroup (not in Mathlib v4.28)"
-  estimated_lines: 150
-  dependencies: []
-  unlocks: [lsi.normalized]
-
 - id: lsi.tensorization
   file: Statlean/Entropy/LogSobolev.lean
-  line: 624
+  line: 647
   theorem: tensorization_lsi_core
   type: honest
   depth: 3
@@ -39,7 +39,6 @@ sorry_items:
   estimated_lines: 80
   dependencies: []
   unlocks: []
-
 
 - id: gaussian.poincare.condvar
   file: Statlean/Gaussian/Poincare.lean
@@ -55,16 +54,17 @@ sorry_items:
 
 - id: efronstein.condvar
   file: Statlean/Variance/EfronStein.lean
-  line: 237
-  sorry_lines: [250, 422, 495]
+  line: 248
+  sorry_lines: [254, 529]
   theorem: efron_stein_core
   type: honest
   depth: 2
   priority: 8
-  blocker: "Measure.pi Fubini + quotient reduction"
-  estimated_lines: 80
+  blocker: "Measure.pi Fubini: condExp_condExp_comm_pi (line 254) + dimension reduction (line 529)"
+  estimated_lines: 60
   dependencies: []
   unlocks: []
+  notes: "h_main variance contraction (was line 422) PROVED v13"
 
 - id: herbst.subgaussian
   file: Statlean/SubGaussian/Herbst.lean
@@ -78,26 +78,15 @@ sorry_items:
   dependencies: [lsi.normalized]
   unlocks: []
 
-- id: berry_esseen.fourier
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 241
-  theorem: smoothed_cdf_fourier_bound
-  type: honest
-  depth: 3
-  priority: 11
-  blocker: "Stieltjes inversion formula + Fubini (not in Mathlib v4.28)"
-  estimated_lines: 100
-  dependencies: []
-  unlocks: [berry_esseen.theorem]
-
 - id: berry_esseen.theorem
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 301
+  line: 292
   theorem: berry_esseen_theorem
-  type: blocked
+  type: honest
   depth: 1
-  priority: 13
-  blocker: "depends on berry_esseen.fourier"
+  priority: 11
+  blocker: "Assembly from charfun_normalized_sum_bound + smoothing inequality + T optimization. All sub-lemmas proved, need final integration."
   estimated_lines: 50
-  dependencies: [berry_esseen.fourier]
+  dependencies: []
   unlocks: []
+  notes: "smoothed_cdf_fourier_bound PROVED v13 (modified statement +C₂/T)"
