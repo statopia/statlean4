@@ -487,7 +487,11 @@ def generate_theorems_yaml(
             lean_stmt = ""
 
         if not lean_stmt and not no_claude:
-            lean_stmt = call_claude_sketch(concept)
+            # NOTE: Claude API is reserved for PDF extraction only.
+            # Skeleton generation is done by Claude Code in the generate step.
+            # call_claude_sketch() is disabled by default; use --force-claude to enable.
+            print(f"[resolve]   no lean_sketch for {cid}, leaving empty (use --force-claude to generate)")
+            lean_stmt = ""
 
         # Compute dependencies (only those in the resolved set)
         deps = []
@@ -590,7 +594,12 @@ def main() -> None:
     parser.add_argument(
         "--no-claude",
         action="store_true",
-        help="Do not call Claude API for missing lean_sketch (offline/CI mode)",
+        help="(deprecated, now default) Do not call Claude API for missing lean_sketch",
+    )
+    parser.add_argument(
+        "--force-claude",
+        action="store_true",
+        help="Force Claude API for missing lean_sketch (API credits required)",
     )
     args = parser.parse_args()
 
@@ -646,8 +655,10 @@ def main() -> None:
         print(f"[resolve] matched {len(pdf_matches)} concepts to PDF blocks")
 
     # Generate output
+    # API is reserved for PDF extraction only; sketch generation is off by default
+    no_claude = not args.force_claude
     generate_theorems_yaml(resolved_concepts, pdf_matches, args.output,
-                           no_claude=args.no_claude)
+                           no_claude=no_claude)
     print(f"[resolve] wrote {args.output} ({len(resolved_concepts)} entries)")
 
 

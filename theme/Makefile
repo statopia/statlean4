@@ -8,7 +8,7 @@ TEX ?= $(ROOT)/output.tex
 PDF ?=
 CONCEPTS ?=
 NO_DEPS ?=
-NO_CLAUDE ?=
+FORCE_CLAUDE ?=
 PROVE_BUDGET ?= 3600
 PROVE_MAX_ITERS ?= 10
 PROVE_DEPTH ?= deep
@@ -30,7 +30,7 @@ resolve:
 	    --output "$(INPUT_DIR)/theorems.yaml" \
 	    $(if $(PDF),--pdf "$(PDF)") \
 	    $(if $(NO_DEPS),--no-deps) \
-	    $(if $(NO_CLAUDE),--no-claude) ; \
+	    $(if $(FORCE_CLAUDE),--force-claude) ; \
 	fi
 
 ingest:
@@ -54,16 +54,9 @@ sync-backlog:
 	cd "$(ROOT)" && python3 theme/scripts/sync_sorry_backlog.py
 
 prove:
-	@if [ "$(PROVE_DEPTH)" = "shallow" ]; then \
-	  echo "[prove] PROVE_DEPTH=shallow, skipping"; \
-	else \
-	  PROVE_BUDGET=$(PROVE_BUDGET) \
-	  MAX_ITERS=$(PROVE_MAX_ITERS) \
-	  MAX_PARALLEL=3 \
-	  MANIFEST=$(OUT_DIR)/manifest.json \
-	  $(THEME_DIR)/scripts/prove_loop.sh "$(ROOT)" || \
-	    echo "[prove] prove loop ended with remaining sorry (non-blocking)"; \
-	fi
+	@echo "[prove] prove stage is handled by /prove-deep in Claude Code session"
+	@echo "[prove] pipeline skips auto-prove to avoid API credit consumption"
+	@echo "[prove] use 'make prove-fallback' to manually invoke prove_loop.sh"
 
 gate:
 	$(THEME_DIR)/scripts/gate.sh "$(ROOT)"
