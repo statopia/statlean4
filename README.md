@@ -1,62 +1,85 @@
-# StatLean — Statistical Learning Theory in Lean 4
+# StatLean — 数理统计定理的 Lean 4 形式化
 
-Lean 4 formalization of core results from:
+用 Lean 4 + Mathlib 形式化数理统计的核心定理。
 
-> **"Statistical Learning Theory in Lean 4"**
-> Zhang, Lee, Liu (2026) — arXiv:2602.02285
+**当前规模**：33 个 Lean 文件，~170 个声明，14 个零 sorry 模块。
 
-## Project Structure
+> **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)** — 包含环境搭建、贡献方式、Pipeline 用法、验收标准等完整指南。
+
+---
+
+## 已完成定理（全部零 sorry，机器可验证）
+
+| 领域 | 定理 | 文件 |
+|------|------|------|
+| 估计 | Rao-Blackwell MSE 定理 | `Variance/RaoBlackwell.lean` |
+| 估计 | MSE = Bias² + Variance | `Estimator/Basic.lean` |
+| 估计 | Lehmann-Scheffé UMVUE | `Sufficiency/LehmannScheffe.lean` |
+| 估计 | Cramér-Rao 下界 | `Information/CramerRao.lean` |
+| 估计 | 指数族 MLE 存在唯一性 | `ExpFamily/Basic.lean` |
+| 充分性 | Fisher-Neyman 因子分解（双向） | `Sufficiency/Factorization.lean` |
+| 充分性 | Basu 定理 | `Sufficiency/Basu.lean` |
+| 充分性 | 最小充分统计量密度比判据 | `Sufficiency/MinimalSufficiency.lean` |
+| 充分性 | 子族扩展判据 | `Sufficiency/MinimalSufficiency.lean` |
+| 集中不等式 | ANOVA 方差分解 | `Variance/ANOVA.lean` |
+| 集中不等式 | Hermite 正交性 + Parseval + IBP | `Gaussian/Hermite.lean` |
+| 极限定理 | 均匀强大数律 (USLLN) | `LimitTheorems/USLLN.lean` |
+| 极限定理 | Berry-Esseen 定理（模 2 个分析引理） | `LimitTheorems/BerryEsseen.lean` |
+| 极限定理 | 特征函数 Taylor 链 | `CharFun/Taylor.lean` |
+
+**10 个 sorry 缺口**等待攻击 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
+
+---
+
+## 快速开始
+
+```bash
+git clone https://github.com/<your-username>/statlean4.git && cd statlean4
+curl https://elan-init.tracing.rs/elan-init.sh -sSf | sh   # 安装 elan（已有则跳过）
+lake exe cache get                                           # 下载 Mathlib 缓存（~5 分钟）
+lake build Statlean                                          # 验证编译
+```
+
+详细指南见 **[INSTRUCTION.md](INSTRUCTION.md)**。
+
+---
+
+## 项目结构
 
 ```
 Statlean/
-  Gaussian/
-    Basic.lean              # stdGaussian, integrability infrastructure
-    Stein.lean              # Stein identity
-    Hermite.lean            # IBP, orthogonality, density (zero sorry)
-    Poincare.lean           # 1D Poincare + multi-dim condVar bound
-  Variance/
-    ANOVA.lean              # Jensen sq, ANOVA two-factor (zero sorry)
-    RaoBlackwell.lean       # MSE theorem + variants
-    EfronStein.lean         # Efron-Stein inequality
-  Entropy/
-    Basic.lean              # entropy, condEntropy, Jensen nonneg
-    LogSobolev.lean         # Gross regularization lemmas + LSI
-  SubGaussian/
-    Herbst.lean             # sub-Gaussian MGF
-    Lipschitz.lean          # concentration theorems
-  CharFun/
-    Taylor.lean             # charfun Taylor chain (zero sorry)
-  LimitTheorems/
-    USLLN.lean              # uniform SLLN (zero sorry)
-    BerryEsseen.lean        # Berry-Esseen theorem
-  Sufficiency/
-    Factorization.lean      # Fisher-Neyman factorization (zero sorry)
-    Basu.lean               # Basu's theorem (zero sorry)
-  Verified.lean             # imports only zero-sorry modules
+  Gaussian/          # 标准高斯、Stein、Hermite、Poincaré
+  Variance/          # Rao-Blackwell、ANOVA、Efron-Stein
+  Entropy/           # 熵、Log-Sobolev
+  SubGaussian/       # Herbst、Lipschitz 集中
+  CharFun/           # 特征函数 Taylor
+  LimitTheorems/     # USLLN、Berry-Esseen
+  Sufficiency/       # 因子分解、Basu、最小充分、Lehmann-Scheffé
+  Information/       # Fisher 信息、Cramér-Rao
+  Estimator/         # MSE 分解、风险支配
+  ExpFamily/         # 指数族 MLE
+  Verified.lean      # 零 sorry 模块索引
 ```
 
-~170 declarations, 10 sorry across 5 files.
+---
 
-## Zero-sorry modules
-
-Hermite, ANOVA, CharFun.Taylor, USLLN, Factorization, Basu
-
-## Setup
+## 验收标准
 
 ```bash
-lake build
+lake build                       # 零错误
+lake build Statlean.Verified     # 零 sorry 警告
 ```
 
-Requires [elan](https://github.com/leanprover/elan) with Lean 4.28.0-rc1.
+sorry 数只减不增，详见 [INSTRUCTION.md](INSTRUCTION.md)。
 
-## Pipeline
+---
 
-See [theme/PIPELINE.md](theme/PIPELINE.md) for the full PDF-to-proof pipeline.
+## Sorry 缺口概览
 
-## Sorry backlog
+| Blocker | 阻塞 | sorry 数 |
+|---------|------|---------|
+| Measure.pi Fubini | EfronStein + Poincaré 纤维化 | 4 |
+| Gaussian hypercontractivity | LogSobolev + Herbst | 3 |
+| Stieltjes inversion | Berry-Esseen 通用常数 | 1 |
 
-See [theme/input/sorry_backlog.yaml](theme/input/sorry_backlog.yaml) for tracked proof obligations.
-
-## Tag history
-
-- `v1`: Rao-Blackwell MSE proof (first milestone)
+完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
