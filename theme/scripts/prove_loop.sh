@@ -86,7 +86,8 @@ run_claude_agent() {
 
 # === Main loop ===
 echo "[prove-loop] fallback mode — working on Statlean/ files directly"
-echo "[prove-loop] sorry count: $(count_sorry), pipeline IDs: $(count_pipeline_ids)"
+prev_sorry_count=$(count_sorry)
+echo "[prove-loop] sorry count: $prev_sorry_count, pipeline IDs: $(count_pipeline_ids)"
 
 for i in $(seq 1 "$MAX_ITERS"); do
   LOG="$LOG_DIR/build_iter_${i}.log"
@@ -125,6 +126,14 @@ for i in $(seq 1 "$MAX_ITERS"); do
     echo "[prove-loop] fix build errors first, then re-run prove"
     break
   fi
+
+  # Progress check: if sorry count didn't decrease since last iteration,
+  # nothing changed — retrying the same targets with the same prompt is pointless
+  if [[ "$i" -gt 1 && "$sorry_count" -ge "$prev_sorry_count" ]]; then
+    echo "[prove-loop] no progress (sorry: $prev_sorry_count → $sorry_count) — stopping"
+    break
+  fi
+  prev_sorry_count=$sorry_count
 
   if [[ "$i" -eq "$MAX_ITERS" ]]; then
     echo "[prove-loop] reached max iterations ($MAX_ITERS)"
