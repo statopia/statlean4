@@ -1,16 +1,14 @@
 {
-  "pdf": "/home/gavin/statlean/theme/input/raw/lecture-7-handout.pdf",
-  "backend": "claude",
-  "blocks_extracted": 13,
+  "pdf": "/home/gavin/statlean/theme/input/raw/lecture-6-handout.pdf",
+  "backend": "pymupdf",
+  "blocks_extracted": 18,
   "block_kinds": {
-    "proof": 5,
-    "definition": 1,
-    "example": 2,
-    "proposition": 3,
-    "theorem": 2
+    "example": 11,
+    "proof": 2,
+    "remark": 5
   },
-  "latex_warnings": 0,
+  "latex_warnings": 1,
   "output_tex": "/home/gavin/statlean/theme/input/paper.tex",
   "notation_yaml": "/home/gavin/statlean/theme/input/notation.yaml",
-  "raw_output": "/home/gavin/statlean/theme/input/raw/lecture-7-handout_claude.md"
+  "raw_output": "/home/gavin/statlean/theme/input/raw/lecture-6-handout.md"
 }

@@ -34,18 +34,31 @@ def select_targets(
 
     # Filter by manifest if provided
     manifest_files: set[str] | None = None
+    manifest_targets: set[tuple[str, str]] | None = None
     if manifest_path and manifest_path.is_file():
         try:
             manifest = json.loads(manifest_path.read_text())
+            entries = list((manifest.get("entries") or {}).values())
             manifest_files = {
                 e["file"]
-                for e in manifest.get("entries", {}).values()
+                for e in entries
                 if "file" in e
             }
-            print(
-                f"[prove-select] pipeline mode: {len(manifest_files)} files from manifest",
-                file=sys.stderr,
-            )
+            manifest_targets = {
+                (e.get("file", ""), e.get("lean_name", ""))
+                for e in entries
+                if e.get("file") and e.get("lean_name")
+            }
+            if manifest_targets:
+                print(
+                    f"[prove-select] pipeline mode: {len(manifest_targets)} theorem sites from manifest",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"[prove-select] pipeline mode: {len(manifest_files)} files from manifest",
+                    file=sys.stderr,
+                )
         except (json.JSONDecodeError, KeyError) as exc:
             print(
                 f"[prove-select] manifest parse error ({exc}), using full backlog",
@@ -59,7 +72,10 @@ def select_targets(
         for it in items
         if it.get("type") not in ("blocked",)
         and it.get("theorem", "") not in failed
-        and (manifest_files is None or it.get("file", "") in manifest_files)
+        and (
+            (manifest_targets is not None and (it.get("file", ""), it.get("theorem", "")) in manifest_targets)
+            or (manifest_targets is None and (manifest_files is None or it.get("file", "") in manifest_files))
+        )
     ]
 
     # Sort by priority

@@ -1,5 +1,5 @@
-% Auto-extracted from: lecture-7-handout.pdf
-% Backend: claude
+% Auto-extracted from: lecture-6-handout.pdf
+% Backend: pymupdf
 % Review formulas marked with % OCR_UNCERTAIN before proceeding.
 
 \documentclass{article}
@@ -9,94 +9,785 @@
 \newtheorem{corollary}[theorem]{Corollary}
 \newtheorem{proposition}[theorem]{Proposition}
 \newtheorem{definition}[theorem]{Definition}
+% === Quality Warnings ===
+% WARNING: Unbalanced: 2 unclosed braces at end of file
+
 \begin{document}
 
-\begin{definition}[Fisher Information]
-Suppose $\mathcal{P} = \{f_\theta : \theta \in \Theta\}$ where $f_\theta(x)$ is a p.d.f. with parameter $\theta$ w.r.t. $\nu$ and $\Theta$ is an open subset of $\mathbb{R}$. Suppose for any $\theta \in \Theta$, $\frac{\partial f_\theta(x)}{\partial\theta}$ exists and is finite, $P_\theta$-a.s. Let $X$ be a sample from $P_\theta \in \mathcal{P}$. To measure the amount of information that an observation $X$ carries about $\theta$, we look at the Fisher information defined as
-\[I(\theta) = \mathbb{E}\left(\frac{\partial}{\partial\theta}\log f_\theta(X)\right)^2 = \int\left(\frac{\partial}{\partial\theta}\log f_\theta(X)\right)^2 f_\theta(X)d\nu(x)\]
-\end{definition}
+\begin{theorem}[1]
+Suppose the parameter space is Θ = { _θA,θB,θC_ } and the rules are
+J = { _T_ 1 _,T_ 2 _,T_ 3 _,T_ 4}.
+The risk for each rule under each population is showed in the table.
+Which rule is J-optimal? Are they J-admissible?
 
-\begin{theorem}[Poisson Families]
-Suppose $(X_1,\ldots,X_n)$ is a i.i.d. sample from a Poisson distribution $\mathcal{P}(\lambda)$. Then the joint PMF is
-\[f_\lambda(x) = \prod_{i=1}^n \frac{\lambda^{x_i}}{x_i!}\exp(-\lambda)\]
 
-We have:
-- $\log f_\lambda(x) = \sum_i x_i \log(\lambda) - n\lambda - \sum_i \log(x_i!)$
-- $\frac{\partial}{\partial\lambda} \log f_\lambda(x) = \frac{\sum_{i=1}^n x_i}{\lambda} - n$
-- $I(\lambda) = \operatorname{Var}\left(\frac{\sum_{i=1}^n X_i}{\lambda}\right) = \frac{n\lambda}{\lambda^2} = \frac{n}{\lambda}$
+Rule / _θ_ _θA_ _θB_ _θC_ Optimal? Admissible?
+_T_ 1 0 2 3 No No
+_T_ 2 1 1 2 No No
+_T_ 3 1 2 3 No No
+_T_ 4 0 1 2 Yes Yes
 
-Here we've used $\mathbb{E}\frac{\partial}{\partial\lambda}\log f_\lambda(X) = 0$ and thus $I(\lambda) = \operatorname{Var}\left(\frac{\partial}{\partial\lambda}\log f_\lambda(X)\right)$
+
+Now, suppose we do not consider _T_ 4
+
+
+LIN Zhenhua (NUS) Lecture 6 2 / 32
 \end{theorem}
 
-\begin{theorem}[Normal Families with Known Variance]
-Let $X_1,\ldots,X_n$ be i.i.d. from the $\mathcal{N}(\mu,\sigma^2)$ distribution with an unknown $\mu \in \mathbb{R}$ and a known $\sigma^2$. The joint Lebesgue p.d.f. is
-\[f_\mu(x) = \frac{1}{(2\pi\sigma^2)^{n/2}}\exp\left(-\frac{1}{2\sigma^2}\sum(x_i - \mu)^2\right)\]
+\begin{theorem}[2]
+Suppose the parameter space is Θ = { _θA,θB,θC_ } and the rules are
+J = { _T_ 1 _,T_ 2 _,T_ 3}.
+The risk for each rule under each population is showed in the table.
+Which rule is J-optimal? Are they J-admissible?
 
-Then
-\[\frac{\partial}{\partial\mu}\log f_\mu(x) = \sum_{i=1}^n (x_i - \mu)/\sigma^2\]
 
-\[I(\mu) = \operatorname{Var}\left(\frac{\sum_{i=1}^n(X_i-\mu)}{\sigma^2}\right) = n\sigma^2/\sigma^4 = n/\sigma^2\]
-
-## Properties of Fisher Information
-
-1. $I(\theta)$ depends on the particular parameterization: If $\theta = \psi(\eta)$ and $\psi$ is differentiable, then the Fisher information about $\eta$ is
-\[\tilde{I}(\eta) = \psi'(\eta)^2 I(\psi(\eta))\]
-where $I(\theta)$ is the Fisher information about $\theta$.
-
-2. Suppose that $f_\theta$ is twice differentiable in $\theta$ and that
-\[\int \frac{\partial^2}{\partial\theta^2}f_\theta(x)I_{f_\theta(x)>0}d\nu = 0\]
-Then $I(\theta) = -\mathbb{E}\left[\frac{\partial^2}{\partial\theta^2}\log f_\theta(X)\right]$
-
-3. Regularity condition $(\star)$: $\int \frac{\partial}{\partial\theta}f_\theta(x)d\nu = 0$
-
-4. Let $X$ and $Y$ be independent with the Fisher information about $\theta$ $I_X(\theta)$ and $I_Y(\theta)$, respectively. Suppose $(\star)$ holds for both density functions. Then, the Fisher information about $\theta$ contained in $(X,Y)$ is $I_X(\theta) + I_Y(\theta)$.
-
-5. Fisher information about $\theta$ contained in i.i.d. sample $(X_1,\ldots,X_n)$ is $nI_1(\theta)$ where $I_1(\theta)$ is the Fisher information about $\theta$ contained in a single $X_i$ provided that $(\star)$ holds.
+Rule / _θ_ _θA_ _θB_ _θC_ Optimal? Admissible?
+_T_ 1 0 2 3 No Yes
+_T_ 2 1 1 2 No Yes
+_T_ 3 1 2 3 No No
 \end{theorem}
 
-\begin{theorem}[Cramér-Rao Lower Bound]
-Suppose $\mathcal{P} = \{P_\theta : \theta \in \Theta\}$ satisfies the following conditions:
-- $\Theta$ is an open set in $\mathbb{R}$; $P_\theta$ has a p.d.f. $f_\theta$ w.r.t. a measure $\nu$ for all $\theta \in \Theta$
-- $f_\theta$ is differentiable as a function of $\theta$ and satisfies
-\[0 = \frac{\partial}{\partial\theta} \int f_\theta(x)d\nu = \int \frac{\partial}{\partial\theta} f_\theta(x)d\nu, \quad \theta \in \Theta \quad (1)\]
+\begin{theorem}
+Although _T_ 2 is not optimal, it is **minimax**
 
-Suppose that $g(\theta)$ is a differentiable function.
-Let $X$ be a sample from $P \in \mathcal{P}$. Suppose $T(X)$ is an unbiased estimator of $g(\theta)$ such that
-\[g'(\theta) = \frac{\partial}{\partial\theta} \int T(x) f_\theta(x)d\nu = \int T(x) \frac{\partial}{\partial\theta} f_\theta(x)d\nu, \quad \theta \in \Theta \quad (2)\]
 
-Then $\operatorname{Var}(T(X)) \geq \frac{g'(\theta)^2}{I(\theta)}$ where $I(\theta) > 0$ for any $\theta \in \Theta$.
+LIN Zhenhua (NUS) Lecture 6 3 / 32
+
+
+# Exercise on Optimality and Admissibility
+
+Suppose _X_ 1 _,...,Xn_ are i.i.d. with mean _θ_ and variance _σ_ [2] .
+Assume _σ_ is known and _θ_ ∈[0 _,_ ∞).
+Consider J the class of estimators _θ_ [ˆ] _c_ = _cX_ [¯] for _c_ ∈[0 _,_ 1].
+
+  - We have known that the MSE of _θ_ [ˆ] _c_ is
+
+
+_Rc_ ( _θ_ ) = (1 − _c_ ) [2] _θ_ [2] + _c_ [2] _σ_ [2] / _n_
+
+
+In J, which estimator is optimal? Which is admissible?
+
+  - For each _θ_, _c_ [∗] _θ_ [=] _[ θ]_ [2][/(] _[θ]_ [2][ +] _[ σ]_ [2][/] _[n]_ [)] [is] [the] [unique] [minimizer] [of] _[R][c]_ [(] _[θ]_ [)][,] [so]
+there is no J-optimal rule
+√
+_c_
+
+  - For each _c_ ∈[0 _,_ 1), we can find _θc_ [∗] [=] _[ σ]_ _n_ (1− _c_ ) [such] [that] _[c]_ [is] [the]
+
+unique minimizer of _Ru_ ( _θc_ [∗][)] [(w.r.t.] _[u]_ [).] [Therefore,] _[θ]_ [ˆ] _[c]_ [is] [J][-admissible]
+for each _c_ ∈[0 _,_ 1)
+
+  - _θ_ [ˆ] 1 is J-admissible: ∀ _c_ ∈[0 _,_ 1), _Rc_ ( _θ_ )/ _R_ 1( _θ_ ) = _n_ (1 − _c_ ) [2] _θ_ [2] / _σ_ [2] + _c_ [2] .
+One can pick _θ_ large enough so that this ratio is   - 1.
+
+
+LIN Zhenhua (NUS) Lecture 6 4 / 32
+
+
+# Convex loss functions and sufficient statistics
+
+
+
+
+
+
+
+
+
+
+- Proved by Jensen’s inequality (conditional expectation version)
+
+
+LIN Zhenhua (NUS) Lecture 6 5 / 32
 \end{theorem}
 
-\begin{theorem}[Multivariate C-R Lower Bound]  % Original number: 3.3
-When $\theta$ is $k$-dimensional, $g : \Theta \mapsto \mathbb{R}$, the inequality in the Cramér-Rao Lower Bound for $ET = g(\theta)$ $(\theta \in \Theta)$
-\[\operatorname{Var}(T(X)) \geq \left[\frac{\partial}{\partial\theta} g(\theta)\right]^T [I(\theta)]^{-1} \frac{\partial}{\partial\theta} g(\theta),\]
+\begin{theorem}
+s
 
-where the gradient $\frac{\partial}{\partial\theta} g(\theta) = \left(\frac{\partial}{\partial\theta_1} g(\theta), \ldots, \frac{\partial}{\partial\theta_k} g(\theta)\right)^T$ is assumed to satisfy the regularity condition:
-\[\frac{\partial}{\partial\theta} g(\theta) = \int T(x) \frac{\partial}{\partial\theta} f_\theta(x)d\nu.\]
 
-Here we also assume $\mathcal{P} = \{P_\theta : \theta \in \Theta\}$ satisfies the following conditions:
-- $\Theta$ is an open set in $\mathbb{R}^k$; $P_\theta$ has a p.d.f. $f_\theta$ w.r.t. a measure $\nu$ for all $\theta \in \Theta$
-- $f_\theta$ is differentiable as a function of $\theta$ and satisfies
-\[0 = \frac{\partial}{\partial\theta} \int f_\theta(x)d\nu = \int \frac{\partial}{\partial\theta} f_\theta(x)d\nu, \quad \theta \in \Theta.\]
+  - **Rao-Blackwellization** : For a convex loss and any decision rule, we
+can construct a new rule that may be better than before by taking
+conditional expectation given a sufficient statistic
+
+  - Implication of Rao-Blackwell Theorem: For strictly convex loss
+function, admissible rules must be functions of sufficient statistics
+
+
+LIN Zhenhua (NUS) Lecture 6 6 / 32
 \end{theorem}
 
-\begin{proposition}
-Suppose that the distribution of $X$ is from an exponential family $\{f_\theta : \theta \in \Theta\}$, i.e., the p.d.f. of $X$ w.r.t. a $\sigma$-finite measure is
-\[f_\theta(x) = \exp\{[\eta(\theta)]^T T(x) - \zeta(\theta)\} h(x),\]
-where $\Theta$ is an open subset of $\mathbb{R}^k$.
+\begin{theorem}
+: Poisson process
 
-(i) For any $S$ with $\mathbb{E}|S(X)| < \infty$, it holds that
-\[\frac{\partial}{\partial\theta} \int S(x)f_\theta(x)d\nu = \int S(x) \frac{\partial}{\partial\theta} f_\theta(x)d\nu, \quad \theta \in \Theta\]
-and
-\[I(\theta) = -\mathbb{E}\left[\frac{\partial^2}{\partial\theta\partial\theta^T} \log f_\theta(X)\right].\]
-\end{proposition}
+Phone calls arrive at a switchboard according to a Poisson process at an
+average rate of _λ_ per minute. _λ_ is unknown, but the numbers _X_ 1 _,...,Xn_
+of phone calls that arrived during _n_ successive one-minute periods are
+observed.
+We want to estimate the probability _θ_ = _e_ [−] _[λ]_ that the next one-minute
+period passes with no phone calls.
 
-\begin{proposition}[Cont.]
-(ii) If $I(\eta)$ is the Fisher information matrix for the natural parameter $\eta$, then the covariance matrix $\operatorname{Var}(T) = I(\eta)$.
-\end{proposition}
+  - Consider squared error loss _L_ ( _θ,a_ ) = ( _θ_  - _a_ ) [2] ; strictly convex in _a_
 
-\begin{proposition}[Cont.]
-(iii) Let $\psi = \mathbb{E}[T(X)]$. Suppose $I(\psi)$ is the Fisher information matrix for the parameter $\psi$, then $\operatorname{Var}(T) = [I(\psi)]^{-1}$.
-\end{proposition}
+  - Start with the following naive estimator
+
+
+1 if _X_ 1 = 0
+
+_S_ 0 =
+
+0 otherwise
+
+⎧⎪⎪⎨⎪⎪⎩
+
+  - Poisson distributions form an exponential family. By Factorization
+theorem, _T_ = ∑ _[n]_ _i_ =1 _[X][i]_ [is] [a] [sufficient] [statistic]
+
+  - Since _S_ 0 is not a function of _T_, it is inadmissible
+
+  - Define _S_ 1( _t_ ) = E{ _S_ 0 ∣ _T_ = _t_ }. By Rao-Blackwell’s theorem, _S_ 1( _T_ ) is
+better than _S_ 0
+
+
+LIN Zhenhua (NUS) Lecture 6 7 / 32
+
+
+- In fact, ∑ _[n]_ _i_ =1 _[X][i]_ [ ∼] [Poisson][(] _[nλ]_ [)] [(using] [m.g.f.] [and] [Table] [1.1)]
+
+
+_S_ 1( _t_ ) = E{ _IX_ 1=0 ∣ _T_ = _t_ }
+
+_n_
+= _P_ ( _X_ 1 = 0 ∣ ∑ _Xi_ = _t_ )
+_i_ =1
+
+_n_ _n_
+= _P_ ( _X_ 1 = 0 _,_ ∑ _Xi_ = _t_ )/ _P_ (∑ _Xi_ = _t_ )
+_i_ =2 _i_ =1
+
+
+
+_n_ _n_
+= _P_ ( _X_ 1 = 0) _P_ (∑ _Xi_ = _t_ )/ _P_ (∑ _Xi_ = _t_ )
+_i_ =2 _i_ =1
+
+
+
+
+[((] _[n]_ [ −] [1][)] _[λ]_ [)] _[t][e]_ [−(] _[n]_ [−][1][)] _[λ]_
+= _e_ [−] _[λ]_
+
+
+
+
+[)] _[e]_ _t_ !
+
+_t_ ! ( _nλ_ ) _[t]_ _e_ [−] _[nλ]_
+
+
+
+_t_
+
+= (1 − [1] _._
+
+_n_ [)]
+
+
+
+
+- For large _n_, _T_ / _n_ concentrates around _λ_, and thus _S_ 1( _T_ ) concentrates
+around (1 − [1] _nλ_ ≈ _e_  - _λ_
+
+_n_ [)]
+
+
+LIN Zhenhua (NUS) Lecture 6 8 / 32
+
+
+# Minimaxity
+
+
+  - The risk _RT_ ( _P_ ) is defined for a given _P_ ∈P
+
+  - A decision rule that works well for one population may work extremely
+bad for another
+
+  - To find a good decision rule, we can consider some characteristic _RT_
+of _RT_ ( _P_ ) for a given decision rule _T_, and then minimize _RT_ over
+_T_ ∈ J
+
+  - One useful way is to consider the worst risk
+\end{theorem}
+
+\begin{theorem}
+. In words, a minimax rule performs as well as possible in the
+worst case.
+
+
+LIN Zhenhua (NUS) Lecture 6 9 / 32
+\end{theorem}
+
+\begin{theorem}
+Revisited
+
+Suppose _X_ 1 _,...,Xn_ are i.i.d. with mean _θ_ and variance _σ_ [2] .
+Assume _σ_ is known and _θ_ ∈[0 _,_ ∞).
+Consider J the class of estimators _θ_ [ˆ] _c_ = _cX_ [¯] for _c_ ∈[0 _,_ 1].
+
+  - The MSE of _θ_ [ˆ] _c_ is
+
+
+_Rc_ ( _θ_ ) = (1 − _c_ ) [2] _θ_ [2] + _c_ [2] _σ_ [2] / _n_
+
+
+  - For each _c_ ∈[0 _,_ 1), sup _Rc_ ( _θ_ ) = ∞
+_θ_ ∈[0 _,_ ∞)
+
+  - _X_ [¯] is J-minimax: sup _R_ 1( _θ_ ) = _σ_ [2] / _n_ < ∞
+_θ_ ∈[0 _,_ ∞)
+
+
+LIN Zhenhua (NUS) Lecture 6 10 / 32
+
+
+# Bayes Rule
+
+
+  - It is also useful to consider an average of _RT_ ( _P_ ) over _P_ ∈P:
+
+
+_rT_ (Π) = ∫P _RT_ ( _P_ ) _d_ Π( _P_ ) _,_
+
+
+where Π is a known probability measure on (P _,_ FP ) with an
+appropriate _σ_ -field FP
+
+  - _rT_ (Π) is called the _Bayes_ _risk_ of _T_ w.r.t. Π
+
+  - For a parametric family { _Pθ_ ∶ _θ_ ∈ Θ}, we can simply use a probability
+measure on Θ and define
+
+
+_rT_ ( _π_ ) = ∫ _T_ ( _Pθ_ ) _dπ_ ( _θ_ ) _,_
+Θ _R_
+
+
+If _T_ ∗ ∈ J and _rT_ ∗(Π) ≤ _rT_ (Π) for any _T_ ∈ J _,_ then _T_ ∗ is called a J _-Bayes_
+_rule_ w.r.t. Π
+
+
+  - Or _Bayes_ _rule_ when J contains all possible rules
+
+
+LIN Zhenhua (NUS) Lecture 6 11 / 32
+
+
+# Bayes risk is a frequentist’s concept
+\end{theorem}
+
+\begin{theorem}
+A Bayes risk is just one summary of _RT_ ( _P_ ) over _P_ ∈P. This
+notion does not rely on _Bayesian_ _statistics_, in which parameters are viewed
+as unobserved random variables.
+
+
+LIN Zhenhua (NUS) Lecture 6 12 / 32
+\end{theorem}
+
+\begin{theorem}
+Revisited
+
+Suppose _X_ 1 _,...,Xn_ are i.i.d. with mean _θ_ and variance _σ_ [2] .
+Assume _σ_ is known and _θ_ ∈ Θ = [0 _,_ ∞).
+Consider J the class of estimators _θ_ [ˆ] _c_ = _cX_ [¯] for _c_ ∈[0 _,_ 1].
+
+  - The MSE of _θ_ [ˆ] _c_ is
+
+
+_Rc_ ( _θ_ ) = (1 − _c_ ) [2] _θ_ [2] + _c_ [2] _σ_ [2] / _n_
+
+
+  - Now consider a probability on Θ : _π_ = Exp(1) (the exponential
+distribution with rate 1)
+
+  - The Bayes risk of _θ_ [ˆ] _c_ is _rθ_ ˆ _c_ ( _π_ ) = 2(1 − _c_ ) [2] + _c_ [2] _σ_ [2] / _n_
+
+  - When _c_ = 2/(2 + _σ_ [2] / _n_ ), _θ_ [ˆ] _c_ is the J-Bayes rule
+
+
+LIN Zhenhua (NUS) Lecture 6 13 / 32
+
+
+# Finding a Bayes rule
+
+
+  - We introduce two random elements: _θ_ [˜] ∼ _π_ and _X_ ∣ _θ_ [˜] ∼ _Pθ_ ˜ (See
+Theorem 1.7(ii) in JS)
+
+  - Then the Bayes risk _rπ_ ( _T_ ) can be expressed as _E_ [ _L_ ( _θ,T_ [˜] ( _X_ ))],
+where _E_ is taken jointly over ( _θ,X_ [˜] )
+
+  - Using the tower property of conditional expectation, we may rewrite
+the Bayes risk as
+_E_ { _E_ [ _L_ ( _θ,T_ [˜] ( _X_ )) ∣ _X_ ]}
+
+
+  - If for every _x_, _the_ _conditional_ _risk_ _E_ [ _L_ ( _θ,a_ [˜] ) ∣ _X_ = _x_ ] as a function of
+_a_ is minimized at _a_ = _T_ ∗( _x_ ), then _T_ ∗ is the Bayes rule w.r.t. _π_
+
+
+LIN Zhenhua (NUS) Lecture 6 14 / 32
+\end{theorem}
+
+\begin{theorem}
+: Squared Error
+
+
+  - Consider the squared error for estimation _L_ ( _θ,a_ ) = ( _θ_  - _a_ ) [2] and some
+probability _π_ on Θ
+
+  - After introducing _θ_ [˜] ∼ _π_ and _X_ ∣ _θ_ [˜] ∼ _Pθ_ ˜, we need to minimize over _a_
+
+
+_E_ [( _θ_ [˜]         - _a_ ) [2] ∣ _X_ = _x_ ]
+
+
+  - The Bayes estimator turns out to be the conditional expectation given
+_X_ : _T_ ( _X_ ) ∶= _E_ [ _θ_ [˜] ∣ _X_ ]
+
+    - In Bayesian statistics, the conditional distribution of _θ_ [˜] given _X_ is called
+the _posterior_ _distribution_
+
+
+LIN Zhenhua (NUS) Lecture 6 15 / 32
+
+
+# Unbiased Estimators
+
+
+  - Let _X_ be a sample from an unknown population _P_ ∈P and _θ_ be a
+real-valued parameter related to _P_
+
+  - Recall that an estimator _T_ ( _X_ ) of _θ_ is unbiased if and only if
+_E_ [ _T_ ( _X_ )] = _θ_ for any _P_ ∈P
+
+  - If there exists an unbiased estimator of _θ,_ then _θ_ is called an
+_estimable_ parameter
+
+  - For squared error loss, the risk of an unbiased estimator is equal to its
+variance
+
+  - We can compare unbiased estimators by their variance
+
+
+LIN Zhenhua (NUS) Lecture 6 16 / 32
+
+
+# UMVUE
+
+
+
+
+
+
+
+
+- “Uniformly” refers to “for any _P_ ∈P”
+
+- A UMVUE is J-optimal in MSE with J being the class of all unbiased
+estimators
+
+- Rao-Blackwell theorem implies that the variance of the conditional
+expectation of an unbiased estimator given a sufficient statistic is
+smaller
+
+- In fact, if the sufficient statistic is also complete, this variance is
+uniformly minimal
+
+
+LIN Zhenhua (NUS) Lecture 6 17 / 32
+
+
+- By assumption, there is an unbiased estimator _θ_ [ˆ] for _θ_
+
+- Let _h_ ( _T_ ) = _E_ ( _θ_ [ˆ] ∣ _T_ ); it does not depend on _P_ because _T_ is sufficient
+
+- Then _Eh_ ( _T_ ) = _Eθ_ [ˆ] = _θ_ for all _P_ ∈P, i.e., _h_ ( _T_ ) is unbiased for _θ_
+
+- **Uniqueness:** If _g_ ( _T_ ) is another unbiased estimator, we have
+_E_ { _h_ ( _T_ ) − _g_ ( _T_ )} = 0, ∀ _P_ ∈P and thus _h_ ( _T_ ) − _g_ ( _T_ ) = 0 a.s. because
+_T_ is complete
+
+- For any other unbiased estimator _θ_ [ˆ][′], since the squared error loss is
+convex, by Rao-Blackwell theorem, its conditional expectation given
+_T_, say _E_ ( _θ_ [ˆ][′] ∣ _T_ ) = _f_ ( _T_ ), is as good as _θ_ [ˆ][′]
+
+
+- By the uniqueness, _f_ ( _T_ ) = _h_ ( _T_ ) a.s., and thus _h_ ( _T_ ) is an **UMVUE**
+
+
+LIN Zhenhua (NUS) Lecture 6 18 / 32
+\end{theorem}
+
+\begin{theorem}
+: Uniform distributions
+
+Let _X_ 1 _,...,Xn_ be i.i.d. from the uniform distribution on (0 _,θ_ ), _θ_ - 0.
+Find the UMVUE of _θ_ .
+
+
+  - In previous lectures, we have shown that the order statistic _X_ ( _n_ ) is
+sufficient and complete with Lebesgue p.d.f. _nθ_ [−] _[n]_ _x_ _[n]_ [−][1] _I_ (0 _,θ_ )( _x_ )
+
+  - We observe that
+
+
+
+_θ_ _n_
+
+0 _[x][n][dx]_ [ =] _n_ + 1 _[θ.]_
+
+
+
+_EθX_ ( _n_ ) = _nθ_ [−] _[n]_ ∫
+
+
+
+_θ_
+
+
+
+
+- Therefore, _Eθ_ { [(] _[n]_ _n_ [+][1][)] _X_ ( _n_ )} = _θ_ for all _θ_ - 0
+
+- By Lehmann-Scheff´e theorem, _θ_ [ˆ] = ( _n_ + 1) _X_ ( _n_ )/ _n_ is the unique
+UMVUE of _θ_
+
+
+LIN Zhenhua (NUS) Lecture 6 19 / 32
+
+
+# How to Find UMVUE? (1)
+
+First method: solving equations for _h_ ( _T_ )
+
+
+  - Find a sufficient and complete statistic _T_ and its distribution
+
+  - Try some function _h_ to see if _Eh_ ( _T_ ) is related to _θ_
+
+  - Solve for _h_ such that _Eh_ ( _T_ ) = _θ_ for all _P_ ∈P
+
+
+LIN Zhenhua (NUS) Lecture 6 20 / 32
+\end{theorem}
+
+\begin{theorem}
+Let _X_ 1 _,...,Xn_ be i.i.d. from the uniform distribution on (0 _,θ_ ), _θ_ - 0.
+Consider _η_ = _g_ ( _θ_ ), where _g_ is a differentiable function on (0 _,_ ∞).
+
+  - The order statistic _X_ ( _n_ ) is sufficient and complete with Lebesgue
+p.d.f. _nθ_ [−] _[n]_ _x_ _[n]_ [−][1] _I_ (0 _,θ_ )( _x_ )
+
+  - An unbiased estimator _h_ ( _X_ ( _n_ )) of _η_ must satisfy
+
+
+
+for all _θ_            - 0 _._
+0 _[h]_ [(] _[x]_ [)] _[x][n]_ [−][1] _[dx]_
+
+
+
+_θ_ _[n]_ _g_ ( _θ_ ) = _n_ ∫
+
+
+
+_θ_
+
+
+
+
+- Differentiating both sides of the previous equation
+
+_nθ_ _[n]_ [−][1] _g_ ( _θ_ ) + _θ_ _[n]_ _g_ [′] ( _θ_ ) = _nh_ ( _θ_ ) _θ_ _[n]_ [−][1] _,_ a.e.
+
+
+- Solving _h_ ( _t_ ), we have _h_ ( _t_ ) = _g_ ( _t_ ) + _n_ [−][1] _tg_ [′] ( _t_ ), a.e.
+
+- Hence, the UMVUE of _η_ is given by
+
+_h_ ( _X_ ( _n_ )) = _g_ ( _X_ ( _n_ )) + _n_ [−][1] _X_ ( _n_ ) _g_ [′] ( _X_ ( _n_ ))
+
+
+LIN Zhenhua (NUS) Lecture 6 21 / 32
+
+
+# How to Find UMVUE? (2)
+
+Second method: Rao-Blackwellization
+
+
+1 Find an unbiased estimator of _θ_, say _U_ ( _X_ )
+
+
+2 Find a sufficient and complete statistic _T_ ( _X_ )
+
+
+3 E( _U_ ∣ _T_ ) is the UMVUE of _θ_ by Lehmann-Scheff´e Theorem
+\end{theorem}
+
+\begin{theorem}
+- The distribution of _T_ is not needed. We only need to work out the
+conditional expectation E( _U_ ∣ _T_ )
+
+  - From the uniqueness of the UMVUE, it does not matter which _U_ ( _X_ )
+to use
+
+  - _U_ ( _X_ ) should be chosen so as to make the calculation of E( _U_ ∣ _T_ ) as
+easy as possible
+
+
+LIN Zhenhua (NUS) Lecture 6 22 / 32
+\end{theorem}
+
+\begin{theorem}
+: Exponential Distributions
+
+Let _X_ 1 _,...,Xn_ be i.i.d. sample from Exp( _θ_ ) = E(0 _,θ_ ) where _θ_ - 0 is
+unknown. Let _Fθ_ be the c.d.f. and _t_ - 0.
+Find an UMVUE for the tail probability _g_ ( _θ_ ) = 1 − _Fθ_ ( _t_ ).
+
+  - _X_ = _n_ [−][1] ∑ _[n]_ _i_ =1 _[X][i]_ [is] [sufficient] [and] [complete,] [since] [Exp][(] _[θ]_ [)] [is] [an]
+exponential family of full rank
+
+  - _I_ ( _t,_ ∞)( _X_ 1) is unbiased: E _I_ ( _t,_ ∞)( _X_ 1) = Pr _θ_ ( _X_ 1 > _t_ ) = 1 − _Fθ_ ( _t_ )
+
+  - E( _I_ ( _t,_ ∞)( _X_ 1) ∣ _X_ ) is a UMVUE
+
+  - Note that the distribution of _X_ 1/ _X_ does not depend on _θ_, i.e., it is
+ancillary for _θ_
+
+  - By Basu’s theorem, _X_ 1/ _X_ and _X_ are independent
+
+
+_Pθ_ ( _X_ 1 > _t_ ∣ _X_ = _x_ ¯) = Pr _θ_ ( _X_ 1/ _X_        - _t_ / _X_ ∣ _X_ = _x_ ¯)
+
+
+= Pr _θ_ ( _X_ 1/ _X_                 - _t_ / _x_ ¯ ∣ _X_ = _x_ ¯)
+
+
+= Pr( _X_ 1/ _X_                 - _t_ / _x_ ¯) _._
+
+
+  - The UMVUE is _h_ ( _X_ [¯] ), where _h_ ( _x_ ) = Pr( _X_ 1/ _X_  - _t_ / _x_ )
+
+
+LIN Zhenhua (NUS) Lecture 6 23 / 32
+\end{theorem}
+
+\begin{theorem}[Cont.]
+- We need the unconditional distribution of _X_ 1/ _X_ :
+
+
+_X_ 1
+Pr( _X_ 1/ _X_          - _t_ / _x_ ¯) = _P_ (          - _[t]_
+∑ _[n]_ _i_ =1 _[X][i]_ _nx_ ¯ [)]
+
+
+  - _X_ 1 ∼ gamma( _k_ = 1 _,θ_ )
+
+  - ∑ _[n]_ _i_ =2 _[X][i]_ [ ∼] [gamma][(] _[k]_ [ =] _[ n]_ [ −] [1] _[,θ]_ [)]
+
+  - _X_ 1 [the] [p.d.f.] [is] [(] _[n]_ [ −] [1][)(][1][ −] _[x]_ [)] _[n]_ [−][2] _[I]_ [(][0] _[,]_ [1][)][(] _[x]_ [)]
+_X_ 1+∑ _i_ _[n]_ =2 _[X][i]_ [∼] [beta][(][1] _[,n]_ [ −] [1][)][,]
+
+  - Thus
+
+
+
+_n_ −1
+
+_[t]_
+
+_nx_ ¯ [)]
+
+
+
+_X_ 1
+_P_ { - _[t]_
+∑ _[n]_ _i_ =1 _[X][i]_ _n_
+
+
+
+1
+
+_t_ /( _nx_ ¯) [(][1][ −] _[x]_ [)] _[n]_ [−][2][d] _[x]_ [ = (][1][ −] _n_ _[t]_
+
+
+
+1
+
+
+
+_nx_ ¯ [} = (] _[n]_ [ −] [1][)∫]
+
+
+
+
+- So the UMVUE is
+
+
+
+_t_ _n_ −1
+_T_ ( _X_ ) = (1 − )
+_nX_
+
+
+
+LIN Zhenhua (NUS) Lecture 6 24 / 32
+
+
+# A Necessary and Sufficient Condition for UMVUE
+
+
+  - The previous methods to find UMVUEs require the existence of
+complete and sufficient statistics
+
+  - When there is no complete and sufficient statistic, we can use the
+next result.
+
+  - Let U be the set of all unbiased estimators of 0 with finite variances:
+called **zero-estimators**
+
+  - Let _T_ be an unbiased estimator of _η_ with finite variance.
+
+  - Key idea: _T_ is a UMVUE of _η_ ⇔ _T_ is “orthogonal to” U.
+
+
+LIN Zhenhua (NUS) Lecture 6 25 / 32
+
+
+- Use of this theorem:
+
+  - find a UMVUE
+
+  - check whether a particular estimator is a UMVUE
+
+  - show the nonexistence of any UMVUE
+
+
+LIN Zhenhua (NUS) Lecture 6 26 / 32
+\end{theorem}
+
+\begin{theorem}
+: Uniform Distributions
+
+Let _X_ 1 _,...,Xn_ be i.i.d. from the uniform distribution on the interval (0 _,θ_ ).
+
+
+  - Previously, we have shown that (1 + _n_ [−][1] ) _X_ ( _n_ ) is the UMVUE for _θ_
+when the parameter space is Θ0 = (0 _,_ ∞).
+
+
+Suppose now that Θ = [1 _,_ ∞).
+
+  - _X_ ( _n_ ) is **not** **complete**, although it is still sufficient for _θ_
+
+    - Using the method in Lecture 4, if _Eg_ ( _X_ ( _n_ )) = 0 for all _θ_ ∈ Θ, we can
+still get _g_ ( _x_ ) = 0 a.e. _x_         - 1
+
+    - Cannot conclude that _g_ ( _x_ ) = 0 a.e. _x_    - 0.
+1
+
+    - In fact, there exists _g_ ≠ 0 with ∫0 _[g]_ [(] _[x]_ [)] _[x][n]_ [−][1][d] _[x]_ [ =][ 0] [and] _[g]_ [(] _[x]_ [) =][ 0] [for]
+_x_     - 1. Then _Eg_ ( _X_ ( _n_ )) = 0 for all _θ_ ∈ Θ.
+
+  - Lehmann-Scheff´e Theorem does not apply to _X_ ( _n_ )
+
+  - (1 + _n_ [−][1] ) _X_ ( _n_ ) does not make use of the knowledge that _θ_ ≥ 1
+
+We now use Theorem D (ii) to find a UMVUE of _θ_ ∈ Θ.
+
+
+LIN Zhenhua (NUS) Lecture 6 30 / 32
+
+
+Consider _T_ = _h_ ( _X_ ( _n_ )) such that E( _TU_ ) = 0 for _U_ ∈U _X_ ( _n_ ).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+_T_ = _h_ ( _X_ ( _n_ )) is the UMVUE if and only if _T_ is unbiased and
+
+
+
+1
+
+
+
+0 _[h]_ [(] _[x]_ [)] _[U]_ [(] _[x]_ [)] _[x][n]_ [−][1] _[dx]_ [ =][ 0] _[.]_
+
+
+
+∫
+
+
+
+LIN Zhenhua (NUS) Lecture 6 31 / 32
+
+
+- Consider the following function, where _c_ and _b_ are some constants
+
+
+0 ≤ _x_ ≤ 1
+_h_ ( _x_ ) = { _[c]_
+_bx_ _x_               - 1 _,_
+
+- Using Equations (1) and (2), the following holds
+
+
+E[ _h_ ( _X_ ( _n_ )) _U_ ( _X_ ( _n_ ))] = 0 _,_ _θ_ ≥ 1 _._
+
+- For _h_ ( _X_ ( _n_ )) to be unbiased, we need
+
+
+_θ_ = E[ _h_ ( _X_ ( _n_ ))]
+
+= _cP_ ( _X_ ( _n_ ) ≤ 1) + _b_ E[ _X_ ( _n_ ) _I_ (1 _,_ ∞)( _X_ ( _n_ ))]
+
+= _cθ_ [−] _[n]_ + [ _bn_ /( _n_ + 1)]( _θ_        - _θ_ [−] _[n]_ ) _,_ ∀ _θ_ ≥ 1 _._
+
+
+- Thus, we only need to choose _c_ = 1 and _b_ = ( _n_ + 1)/ _n_ .
+
+- The UMVUE of _θ_ is then
+
+_h_ ( _X_ ( _n_ )) = { [1] (1 + _n_ [−][1] ) _X_ ( _n_ ) _X_ 0 ≤( _nX_ ) >( _n_ 1) ≤ _._ 1
+
+
+- In fact, _h_ ( _X_ ( _n_ )) is complete and sufficient for _θ_ ∈[1 _,_ ∞) (exercise).
+
+
+LIN Zhenhua (NUS) Lecture 6 32 / 32
+\end{theorem}
 
 \end{document}

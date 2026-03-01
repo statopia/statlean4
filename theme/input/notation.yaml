@@ -2,14 +2,4 @@
 # Review and edit as needed
 
 symbols:
-  "\exp": "exponential"
-  "\inf": "infimum"
-  "\int": "integral"
-  "\log": "logarithm"
-  "\mathbb{E}": "expectation"
-  "\mathbb{R}": "real numbers"
-  "\mathcal{N}": "normal distribution"
-  "\operatorname{Var}": "variance"
-  "\partial": "partial derivative"
-  "\prod": "product"
-  "\sum": "summation"
+  # No standard symbols detected — add mappings manually

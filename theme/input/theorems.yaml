@@ -1,132 +1,44 @@
 version: v1
-theorem_set: lec5-estimation
+theorem_set: imported-tex-batch
 defaults:
-  lean_namespace: Statlean
+  lean_namespace: Formalization.Imported
   layer: formalization
   allow_axiom: false
 theorems:
-- id: lec5.mse_bias_variance
-  title: "MSE = Bias² + Variance decomposition"
+- id: imported.theorem.001.1
+  title: '1'
   kind: theorem
-  latex_statement: |
-    For an estimator $T(X)$ estimating parameter $\theta$ under $P_\theta$,
-    $$\mathrm{MSE}_\theta(T) = E_\theta[(T(X) - \theta)^2]
-      = \mathrm{Bias}_\theta(T)^2 + \mathrm{Var}_\theta(T)$$
-    where $\mathrm{Bias}_\theta(T) = E_\theta[T(X)] - \theta$.
-  latex_proof_hint: |
-    Expand $(T - \theta)^2 = (T - E[T] + E[T] - \theta)^2$
-    and use orthogonality of centered and constant terms.
-  lean_name: "mse_eq_bias_sq_add_variance"
-  lean_namespace: Statlean.Estimator
-  lean_statement: |
-    theorem mse_eq_bias_sq_add_variance
-        {Ω : Type*} [MeasurableSpace Ω]
-        (μ : Measure Ω) [IsProbabilityMeasure μ]
-        (T : Ω → ℝ) (θ : ℝ)
-        (hT : Memℒp T 2 μ) :
-        ∫ ω, (T ω - θ) ^ 2 ∂μ =
-          (∫ ω, T ω ∂μ - θ) ^ 2 + ∫ ω, (T ω - ∫ ω', T ω' ∂μ) ^ 2 ∂μ
-  layer: formalization
-  priority: 1
-  dependencies: []
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - theorem contains no sorry
-  notes: |
-    Lecture 5, page 24: MSE = Bias² + Variance.
-    This is `integral_sub_const_sq_eq` from RaoBlackwell.lean restated
-    in estimation language. May be a direct consequence or slight variant.
+  latex_statement: 'Suppose the parameter space is Θ = { _θA,θB,θC_ } and the rules
+    are
 
-- id: lec5.risk_dominance
-  title: "Risk dominance ordering for decision rules"
-  kind: definition
-  latex_statement: |
-    Decision rule $T_1$ dominates $T_2$ under loss $L$ if
-    $R_{T_1}(P) \leq R_{T_2}(P)$ for all $P \in \mathcal{P}$
-    and strict inequality holds for some $P$.
-  latex_proof_hint: ""
-  lean_name: "Dominates"
-  lean_namespace: Statlean.Estimator
-  lean_statement: |
-    /-- Decision rule T₁ **dominates** T₂ under risk function R:
-    R(T₁, θ) ≤ R(T₂, θ) for all θ, with strict inequality for some θ. -/
-    def Dominates {Θ : Type*}
-        (R₁ R₂ : Θ → ℝ) : Prop :=
-      (∀ θ, R₁ θ ≤ R₂ θ) ∧ (∃ θ, R₁ θ < R₂ θ)
-  layer: formalization
-  priority: 2
-  dependencies: []
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - definition contains no sorry
-  notes: |
-    Lecture 5, page 22: T₁ is better than T₂ if R_{T₁}(P) ≤ R_{T₂}(P)
-    for all P and strict for some P. Pure definition, no proof needed.
+    J = { _T_ 1 _,T_ 2 _,T_ 3 _,T_ 4}.
 
-- id: lec5.unbiased_mse_eq_variance
-  title: "Unbiased estimator MSE equals variance"
-  kind: theorem
-  latex_statement: |
-    If $T$ is unbiased for $\theta$ under $P_\theta$, i.e., $E_\theta[T] = \theta$,
-    then $\mathrm{MSE}_\theta(T) = \mathrm{Var}_\theta(T)$.
-  latex_proof_hint: |
-    When bias = 0, MSE = 0² + Var = Var. Direct from the bias-variance decomposition.
-  lean_name: "mse_eq_variance_of_unbiased"
-  lean_namespace: Statlean.Estimator
-  lean_statement: |
-    theorem mse_eq_variance_of_unbiased
-        {Ω : Type*} [MeasurableSpace Ω]
-        (μ : Measure Ω) [IsProbabilityMeasure μ]
-        (T : Ω → ℝ) (θ : ℝ)
-        (hT : Memℒp T 2 μ)
-        (h_unbiased : ∫ ω, T ω ∂μ = θ) :
-        ∫ ω, (T ω - θ) ^ 2 ∂μ =
-          ∫ ω, (T ω - ∫ ω', T ω' ∂μ) ^ 2 ∂μ
-  layer: formalization
-  priority: 1
-  dependencies: [lec5.mse_bias_variance]
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - theorem contains no sorry
-  notes: |
-    Lecture 5, page 24: when T is unbiased, MSE = Variance.
-    Corollary of the bias-variance decomposition with bias = 0.
+    The risk for each rule under each population is showed in the table.
 
-- id: lec5.mle_expfamily_sufficient_stat
-  title: "MLE in natural exponential family equals sufficient statistic"
-  kind: theorem
-  latex_statement: |
-    In a natural exponential family with likelihood
-    $\ell(\eta) = \exp\{\eta^\top T(x) - \zeta(\eta)\} h(x)$,
-    if $\operatorname{Var}(T)$ is positive definite, then $T(X)$
-    is the unique MLE of $\mu(\eta) = \partial\zeta/\partial\eta$.
-    Equivalently, the likelihood equation $T(x) = \partial\zeta(\eta)/\partial\eta$
-    has a unique solution.
-  latex_proof_hint: |
-    The log-likelihood is $\eta^\top T(x) - \zeta(\eta) + \log h(x)$.
-    Its Hessian is $-\partial^2\zeta/\partial\eta^2 = -\operatorname{Var}(T)$,
-    which is negative definite. So log ℓ is strictly concave,
-    and the unique critical point T(x) = ∂ζ/∂η is the global maximum.
-  lean_name: "expFamily_mle_eq_sufficient_stat"
-  lean_namespace: Statlean.ExpFamily
-  lean_statement: |
-    /-- In a natural exponential family with strictly concave log-likelihood,
-    the sufficient statistic T(x) is the unique MLE of the mean parameter μ(η).
+    Which rule is J-optimal? Are they J-admissible?
 
-    We state this abstractly: if log_ℓ is strictly concave on Ξ with a unique
-    critical point at η₀ where the gradient equals T(x), then η₀ is the
-    unique maximizer and T(x) = μ(η₀). -/
-    theorem expFamily_mle_eq_sufficient_stat
-        {d : ℕ}
-        (log_ℓ : Fin d → ℝ → ℝ)
-        (T_obs : Fin d → ℝ)
-        (dζ : Fin d → ℝ → ℝ)
-        (h_grad : ∀ η : Fin d → ℝ, (∀ i, deriv (log_ℓ i) (η i) = T_obs i - dζ i (η i)))
-        (h_concave : ∀ i, StrictConcaveOn ℝ Set.univ (log_ℓ i)) :
-        ∃! η₀ : Fin d → ℝ, ∀ i, dζ i (η₀ i) = T_obs i
+
+
+    Rule / _θ_ _θA_ _θB_ _θC_ Optimal? Admissible?
+
+    _T_ 1 0 2 3 No No
+
+    _T_ 2 1 1 2 No No
+
+    _T_ 3 1 2 3 No No
+
+    _T_ 4 0 1 2 Yes Yes
+
+
+
+    Now, suppose we do not consider _T_ 4
+
+
+
+    LIN Zhenhua (NUS) Lecture 6 2 / 32'
+  latex_proof_hint: ''
+  lean_name: theorem_001_1
+  lean_namespace: Formalization.Imported
   layer: formalization
   priority: 3
   dependencies: []
@@ -134,8 +46,479 @@ theorems:
   acceptance:
   - lake build passes
   - theorem contains no sorry
-  notes: |
-    Lecture 5, pages 18-19: MLE in exponential families.
-    The key insight is strict concavity of log-likelihood ⟹ unique critical point.
-    This is a simplified 1D-per-coordinate version; the full multivariate version
-    would need StrictConcaveOn for functions on ℝ^d.
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.002.2
+  title: '2'
+  kind: theorem
+  latex_statement: 'Suppose the parameter space is Θ = { _θA,θB,θC_ } and the rules
+    are
+
+    J = { _T_ 1 _,T_ 2 _,T_ 3}.
+
+    The risk for each rule under each population is showed in the table.
+
+    Which rule is J-optimal? Are they J-admissible?
+
+
+
+    Rule / _θ_ _θA_ _θB_ _θC_ Optimal? Admissible?
+
+    _T_ 1 0 2 3 No Yes
+
+    _T_ 2 1 1 2 No Yes
+
+    _T_ 3 1 2 3 No No'
+  latex_proof_hint: ''
+  lean_name: theorem_002_2
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.003.theorem_3
+  title: Theorem 3
+  kind: theorem
+  latex_statement: "Although _T_ 2 is not optimal, it is **minimax**\n\n\nLIN Zhenhua\
+    \ (NUS) Lecture 6 3 / 32\n\n\n# Exercise on Optimality and Admissibility\n\nSuppose\
+    \ _X_ 1 _,...,Xn_ are i.i.d. with mean _θ_ and variance _σ_ [2] .\nAssume _σ_\
+    \ is known and _θ_ ∈[0 _,_ ∞).\nConsider J the class of estimators _θ_ [ˆ] _c_\
+    \ = _cX_ [¯] for _c_ ∈[0 _,_ 1].\n\n  - We have known that the MSE of _θ_ [ˆ]\
+    \ _c_ is\n\n\n_Rc_ ( _θ_ ) = (1 − _c_ ) [2] _θ_ [2] + _c_ [2] _σ_ [2] / _n_\n\n\
+    \nIn J, which estimator is optimal? Which is admissible?\n\n  - For each _θ_,\
+    \ _c_ [∗] _θ_ [=] _[ θ]_ [2][/(] _[θ]_ [2][ +] _[ σ]_ [2][/] _[n]_ [)] [is] [the]\
+    \ [unique] [minimizer] [of] _[R][c]_ [(] _[θ]_ [)][,] [so]\nthere is no J-optimal\
+    \ rule\n√\n_c_\n\n  - For each _c_ ∈[0 _,_ 1), we can find _θc_ [∗] [=] _[ σ]_\
+    \ _n_ (1− _c_ ) [such] [that] _[c]_ [is] [the]\n\nunique minimizer of _Ru_ ( _θc_\
+    \ [∗][)] [(w.r.t.] _[u]_ [).] [Therefore,] _[θ]_ [ˆ] _[c]_ [is] [J][-admissible]\n\
+    for each _c_ ∈[0 _,_ 1)\n\n  - _θ_ [ˆ] 1 is J-admissible: ∀ _c_ ∈[0 _,_ 1), _Rc_\
+    \ ( _θ_ )/ _R_ 1( _θ_ ) = _n_ (1 − _c_ ) [2] _θ_ [2] / _σ_ [2] + _c_ [2] .\nOne\
+    \ can pick _θ_ large enough so that this ratio is   - 1.\n\n\nLIN Zhenhua (NUS)\
+    \ Lecture 6 4 / 32\n\n\n# Convex loss functions and sufficient statistics\n\n\n\
+    \n\n\n\n\n\n\n\n- Proved by Jensen’s inequality (conditional expectation version)\n\
+    \n\nLIN Zhenhua (NUS) Lecture 6 5 / 32"
+  latex_proof_hint: ''
+  lean_name: theorem_003_theorem_3
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.004.theorem_4
+  title: Theorem 4
+  kind: theorem
+  latex_statement: "s\n\n\n  - **Rao-Blackwellization** : For a convex loss and any\
+    \ decision rule, we\ncan construct a new rule that may be better than before by\
+    \ taking\nconditional expectation given a sufficient statistic\n\n  - Implication\
+    \ of Rao-Blackwell Theorem: For strictly convex loss\nfunction, admissible rules\
+    \ must be functions of sufficient statistics\n\n\nLIN Zhenhua (NUS) Lecture 6\
+    \ 6 / 32"
+  latex_proof_hint: ''
+  lean_name: theorem_004_theorem_4
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.005.theorem_5
+  title: Theorem 5
+  kind: theorem
+  latex_statement: ": Poisson process\n\nPhone calls arrive at a switchboard according\
+    \ to a Poisson process at an\naverage rate of _λ_ per minute. _λ_ is unknown,\
+    \ but the numbers _X_ 1 _,...,Xn_\nof phone calls that arrived during _n_ successive\
+    \ one-minute periods are\nobserved.\nWe want to estimate the probability _θ_ =\
+    \ _e_ [−] _[λ]_ that the next one-minute\nperiod passes with no phone calls.\n\
+    \n  - Consider squared error loss _L_ ( _θ,a_ ) = ( _θ_  - _a_ ) [2] ; strictly\
+    \ convex in _a_\n\n  - Start with the following naive estimator\n\n\n1 if _X_\
+    \ 1 = 0\n\n_S_ 0 =\n\n0 otherwise\n\n⎧⎪⎪⎨⎪⎪⎩\n\n  - Poisson distributions form\
+    \ an exponential family. By Factorization\ntheorem, _T_ = ∑ _[n]_ _i_ =1 _[X][i]_\
+    \ [is] [a] [sufficient] [statistic]\n\n  - Since _S_ 0 is not a function of _T_,\
+    \ it is inadmissible\n\n  - Define _S_ 1( _t_ ) = E{ _S_ 0 ∣ _T_ = _t_ }. By Rao-Blackwell’s\
+    \ theorem, _S_ 1( _T_ ) is\nbetter than _S_ 0\n\n\nLIN Zhenhua (NUS) Lecture 6\
+    \ 7 / 32\n\n\n- In fact, ∑ _[n]_ _i_ =1 _[X][i]_ [ ∼] [Poisson][(] _[nλ]_ [)]\
+    \ [(using] [m.g.f.] [and] [Table] [1.1)]\n\n\n_S_ 1( _t_ ) = E{ _IX_ 1=0 ∣ _T_\
+    \ = _t_ }\n\n_n_\n= _P_ ( _X_ 1 = 0 ∣ ∑ _Xi_ = _t_ )\n_i_ =1\n\n_n_ _n_\n= _P_\
+    \ ( _X_ 1 = 0 _,_ ∑ _Xi_ = _t_ )/ _P_ (∑ _Xi_ = _t_ )\n_i_ =2 _i_ =1\n\n\n\n_n_\
+    \ _n_\n= _P_ ( _X_ 1 = 0) _P_ (∑ _Xi_ = _t_ )/ _P_ (∑ _Xi_ = _t_ )\n_i_ =2 _i_\
+    \ =1\n\n\n\n\n[((] _[n]_ [ −] [1][)] _[λ]_ [)] _[t][e]_ [−(] _[n]_ [−][1][)] _[λ]_\n\
+    = _e_ [−] _[λ]_\n\n\n\n\n[)] _[e]_ _t_ !\n\n_t_ ! ( _nλ_ ) _[t]_ _e_ [−] _[nλ]_\n\
+    \n\n\n_t_\n\n= (1 − [1] _._\n\n_n_ [)]\n\n\n\n\n- For large _n_, _T_ / _n_ concentrates\
+    \ around _λ_, and thus _S_ 1( _T_ ) concentrates\naround (1 − [1] _nλ_ ≈ _e_ \
+    \ - _λ_\n\n_n_ [)]\n\n\nLIN Zhenhua (NUS) Lecture 6 8 / 32\n\n\n# Minimaxity\n\
+    \n\n  - The risk _RT_ ( _P_ ) is defined for a given _P_ ∈P\n\n  - A decision\
+    \ rule that works well for one population may work extremely\nbad for another\n\
+    \n  - To find a good decision rule, we can consider some characteristic _RT_\n\
+    of _RT_ ( _P_ ) for a given decision rule _T_, and then minimize _RT_ over\n_T_\
+    \ ∈ J\n\n  - One useful way is to consider the worst risk"
+  latex_proof_hint: ''
+  lean_name: theorem_005_theorem_5
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.006.theorem_6
+  title: Theorem 6
+  kind: theorem
+  latex_statement: '. In words, a minimax rule performs as well as possible in the
+
+    worst case.
+
+
+
+    LIN Zhenhua (NUS) Lecture 6 9 / 32'
+  latex_proof_hint: ''
+  lean_name: theorem_006_theorem_6
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.007.theorem_7
+  title: Theorem 7
+  kind: theorem
+  latex_statement: "Revisited\n\nSuppose _X_ 1 _,...,Xn_ are i.i.d. with mean _θ_\
+    \ and variance _σ_ [2] .\nAssume _σ_ is known and _θ_ ∈[0 _,_ ∞).\nConsider J\
+    \ the class of estimators _θ_ [ˆ] _c_ = _cX_ [¯] for _c_ ∈[0 _,_ 1].\n\n  - The\
+    \ MSE of _θ_ [ˆ] _c_ is\n\n\n_Rc_ ( _θ_ ) = (1 − _c_ ) [2] _θ_ [2] + _c_ [2] _σ_\
+    \ [2] / _n_\n\n\n  - For each _c_ ∈[0 _,_ 1), sup _Rc_ ( _θ_ ) = ∞\n_θ_ ∈[0 _,_\
+    \ ∞)\n\n  - _X_ [¯] is J-minimax: sup _R_ 1( _θ_ ) = _σ_ [2] / _n_ < ∞\n_θ_ ∈[0\
+    \ _,_ ∞)\n\n\nLIN Zhenhua (NUS) Lecture 6 10 / 32\n\n\n# Bayes Rule\n\n\n  - It\
+    \ is also useful to consider an average of _RT_ ( _P_ ) over _P_ ∈P:\n\n\n_rT_\
+    \ (Π) = ∫P _RT_ ( _P_ ) _d_ Π( _P_ ) _,_\n\n\nwhere Π is a known probability measure\
+    \ on (P _,_ FP ) with an\nappropriate _σ_ -field FP\n\n  - _rT_ (Π) is called\
+    \ the _Bayes_ _risk_ of _T_ w.r.t. Π\n\n  - For a parametric family { _Pθ_ ∶ _θ_\
+    \ ∈ Θ}, we can simply use a probability\nmeasure on Θ and define\n\n\n_rT_ ( _π_\
+    \ ) = ∫ _T_ ( _Pθ_ ) _dπ_ ( _θ_ ) _,_\nΘ _R_\n\n\nIf _T_ ∗ ∈ J and _rT_ ∗(Π) ≤\
+    \ _rT_ (Π) for any _T_ ∈ J _,_ then _T_ ∗ is called a J _-Bayes_\n_rule_ w.r.t.\
+    \ Π\n\n\n  - Or _Bayes_ _rule_ when J contains all possible rules\n\n\nLIN Zhenhua\
+    \ (NUS) Lecture 6 11 / 32\n\n\n# Bayes risk is a frequentist’s concept"
+  latex_proof_hint: ''
+  lean_name: theorem_007_theorem_7
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.008.theorem_8
+  title: Theorem 8
+  kind: theorem
+  latex_statement: 'A Bayes risk is just one summary of _RT_ ( _P_ ) over _P_ ∈P.
+    This
+
+    notion does not rely on _Bayesian_ _statistics_, in which parameters are viewed
+
+    as unobserved random variables.
+
+
+
+    LIN Zhenhua (NUS) Lecture 6 12 / 32'
+  latex_proof_hint: ''
+  lean_name: theorem_008_theorem_8
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.009.theorem_9
+  title: Theorem 9
+  kind: theorem
+  latex_statement: "Revisited\n\nSuppose _X_ 1 _,...,Xn_ are i.i.d. with mean _θ_\
+    \ and variance _σ_ [2] .\nAssume _σ_ is known and _θ_ ∈ Θ = [0 _,_ ∞).\nConsider\
+    \ J the class of estimators _θ_ [ˆ] _c_ = _cX_ [¯] for _c_ ∈[0 _,_ 1].\n\n  -\
+    \ The MSE of _θ_ [ˆ] _c_ is\n\n\n_Rc_ ( _θ_ ) = (1 − _c_ ) [2] _θ_ [2] + _c_ [2]\
+    \ _σ_ [2] / _n_\n\n\n  - Now consider a probability on Θ : _π_ = Exp(1) (the exponential\n\
+    distribution with rate 1)\n\n  - The Bayes risk of _θ_ [ˆ] _c_ is _rθ_ ˆ _c_ (\
+    \ _π_ ) = 2(1 − _c_ ) [2] + _c_ [2] _σ_ [2] / _n_\n\n  - When _c_ = 2/(2 + _σ_\
+    \ [2] / _n_ ), _θ_ [ˆ] _c_ is the J-Bayes rule\n\n\nLIN Zhenhua (NUS) Lecture\
+    \ 6 13 / 32\n\n\n# Finding a Bayes rule\n\n\n  - We introduce two random elements:\
+    \ _θ_ [˜] ∼ _π_ and _X_ ∣ _θ_ [˜] ∼ _Pθ_ ˜ (See\nTheorem 1.7(ii) in JS)\n\n  -\
+    \ Then the Bayes risk _rπ_ ( _T_ ) can be expressed as _E_ [ _L_ ( _θ,T_ [˜] (\
+    \ _X_ ))],\nwhere _E_ is taken jointly over ( _θ,X_ [˜] )\n\n  - Using the tower\
+    \ property of conditional expectation, we may rewrite\nthe Bayes risk as\n_E_\
+    \ { _E_ [ _L_ ( _θ,T_ [˜] ( _X_ )) ∣ _X_ ]}\n\n\n  - If for every _x_, _the_ _conditional_\
+    \ _risk_ _E_ [ _L_ ( _θ,a_ [˜] ) ∣ _X_ = _x_ ] as a function of\n_a_ is minimized\
+    \ at _a_ = _T_ ∗( _x_ ), then _T_ ∗ is the Bayes rule w.r.t. _π_\n\n\nLIN Zhenhua\
+    \ (NUS) Lecture 6 14 / 32"
+  latex_proof_hint: ''
+  lean_name: theorem_009_theorem_9
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.010.theorem_10
+  title: Theorem 10
+  kind: theorem
+  latex_statement: ": Squared Error\n\n\n  - Consider the squared error for estimation\
+    \ _L_ ( _θ,a_ ) = ( _θ_  - _a_ ) [2] and some\nprobability _π_ on Θ\n\n  - After\
+    \ introducing _θ_ [˜] ∼ _π_ and _X_ ∣ _θ_ [˜] ∼ _Pθ_ ˜, we need to minimize over\
+    \ _a_\n\n\n_E_ [( _θ_ [˜]         - _a_ ) [2] ∣ _X_ = _x_ ]\n\n\n  - The Bayes\
+    \ estimator turns out to be the conditional expectation given\n_X_ : _T_ ( _X_\
+    \ ) ∶= _E_ [ _θ_ [˜] ∣ _X_ ]\n\n    - In Bayesian statistics, the conditional\
+    \ distribution of _θ_ [˜] given _X_ is called\nthe _posterior_ _distribution_\n\
+    \n\nLIN Zhenhua (NUS) Lecture 6 15 / 32\n\n\n# Unbiased Estimators\n\n\n  - Let\
+    \ _X_ be a sample from an unknown population _P_ ∈P and _θ_ be a\nreal-valued\
+    \ parameter related to _P_\n\n  - Recall that an estimator _T_ ( _X_ ) of _θ_\
+    \ is unbiased if and only if\n_E_ [ _T_ ( _X_ )] = _θ_ for any _P_ ∈P\n\n  - If\
+    \ there exists an unbiased estimator of _θ,_ then _θ_ is called an\n_estimable_\
+    \ parameter\n\n  - For squared error loss, the risk of an unbiased estimator is\
+    \ equal to its\nvariance\n\n  - We can compare unbiased estimators by their variance\n\
+    \n\nLIN Zhenhua (NUS) Lecture 6 16 / 32\n\n\n# UMVUE\n\n\n\n\n\n\n\n\n- “Uniformly”\
+    \ refers to “for any _P_ ∈P”\n\n- A UMVUE is J-optimal in MSE with J being the\
+    \ class of all unbiased\nestimators\n\n- Rao-Blackwell theorem implies that the\
+    \ variance of the conditional\nexpectation of an unbiased estimator given a sufficient\
+    \ statistic is\nsmaller\n\n- In fact, if the sufficient statistic is also complete,\
+    \ this variance is\nuniformly minimal\n\n\nLIN Zhenhua (NUS) Lecture 6 17 / 32\n\
+    \n\n- By assumption, there is an unbiased estimator _θ_ [ˆ] for _θ_\n\n- Let _h_\
+    \ ( _T_ ) = _E_ ( _θ_ [ˆ] ∣ _T_ ); it does not depend on _P_ because _T_ is sufficient\n\
+    \n- Then _Eh_ ( _T_ ) = _Eθ_ [ˆ] = _θ_ for all _P_ ∈P, i.e., _h_ ( _T_ ) is unbiased\
+    \ for _θ_\n\n- **Uniqueness:** If _g_ ( _T_ ) is another unbiased estimator, we\
+    \ have\n_E_ { _h_ ( _T_ ) − _g_ ( _T_ )} = 0, ∀ _P_ ∈P and thus _h_ ( _T_ ) −\
+    \ _g_ ( _T_ ) = 0 a.s. because\n_T_ is complete\n\n- For any other unbiased estimator\
+    \ _θ_ [ˆ][′], since the squared error loss is\nconvex, by Rao-Blackwell theorem,\
+    \ its conditional expectation given\n_T_, say _E_ ( _θ_ [ˆ][′] ∣ _T_ ) = _f_ (\
+    \ _T_ ), is as good as _θ_ [ˆ][′]\n\n\n- By the uniqueness, _f_ ( _T_ ) = _h_\
+    \ ( _T_ ) a.s., and thus _h_ ( _T_ ) is an **UMVUE**\n\n\nLIN Zhenhua (NUS) Lecture\
+    \ 6 18 / 32"
+  latex_proof_hint: ''
+  lean_name: theorem_010_theorem_10
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.011.theorem_11
+  title: Theorem 11
+  kind: theorem
+  latex_statement: ": Uniform distributions\n\nLet _X_ 1 _,...,Xn_ be i.i.d. from\
+    \ the uniform distribution on (0 _,θ_ ), _θ_ - 0.\nFind the UMVUE of _θ_ .\n\n\
+    \n  - In previous lectures, we have shown that the order statistic _X_ ( _n_ )\
+    \ is\nsufficient and complete with Lebesgue p.d.f. _nθ_ [−] _[n]_ _x_ _[n]_ [−][1]\
+    \ _I_ (0 _,θ_ )( _x_ )\n\n  - We observe that\n\n\n\n_θ_ _n_\n\n0 _[x][n][dx]_\
+    \ [ =] _n_ + 1 _[θ.]_\n\n\n\n_EθX_ ( _n_ ) = _nθ_ [−] _[n]_ ∫\n\n\n\n_θ_\n\n\n\
+    \n\n- Therefore, _Eθ_ { [(] _[n]_ _n_ [+][1][)] _X_ ( _n_ )} = _θ_ for all _θ_\
+    \ - 0\n\n- By Lehmann-Scheff´e theorem, _θ_ [ˆ] = ( _n_ + 1) _X_ ( _n_ )/ _n_\
+    \ is the unique\nUMVUE of _θ_\n\n\nLIN Zhenhua (NUS) Lecture 6 19 / 32\n\n\n#\
+    \ How to Find UMVUE? (1)\n\nFirst method: solving equations for _h_ ( _T_ )\n\n\
+    \n  - Find a sufficient and complete statistic _T_ and its distribution\n\n  -\
+    \ Try some function _h_ to see if _Eh_ ( _T_ ) is related to _θ_\n\n  - Solve\
+    \ for _h_ such that _Eh_ ( _T_ ) = _θ_ for all _P_ ∈P\n\n\nLIN Zhenhua (NUS) Lecture\
+    \ 6 20 / 32"
+  latex_proof_hint: ''
+  lean_name: theorem_011_theorem_11
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.012.theorem_12
+  title: Theorem 12
+  kind: theorem
+  latex_statement: "Let _X_ 1 _,...,Xn_ be i.i.d. from the uniform distribution on\
+    \ (0 _,θ_ ), _θ_ - 0.\nConsider _η_ = _g_ ( _θ_ ), where _g_ is a differentiable\
+    \ function on (0 _,_ ∞).\n\n  - The order statistic _X_ ( _n_ ) is sufficient\
+    \ and complete with Lebesgue\np.d.f. _nθ_ [−] _[n]_ _x_ _[n]_ [−][1] _I_ (0 _,θ_\
+    \ )( _x_ )\n\n  - An unbiased estimator _h_ ( _X_ ( _n_ )) of _η_ must satisfy\n\
+    \n\n\nfor all _θ_            - 0 _._\n0 _[h]_ [(] _[x]_ [)] _[x][n]_ [−][1] _[dx]_\n\
+    \n\n\n_θ_ _[n]_ _g_ ( _θ_ ) = _n_ ∫\n\n\n\n_θ_\n\n\n\n\n- Differentiating both\
+    \ sides of the previous equation\n\n_nθ_ _[n]_ [−][1] _g_ ( _θ_ ) + _θ_ _[n]_\
+    \ _g_ [′] ( _θ_ ) = _nh_ ( _θ_ ) _θ_ _[n]_ [−][1] _,_ a.e.\n\n\n- Solving _h_\
+    \ ( _t_ ), we have _h_ ( _t_ ) = _g_ ( _t_ ) + _n_ [−][1] _tg_ [′] ( _t_ ), a.e.\n\
+    \n- Hence, the UMVUE of _η_ is given by\n\n_h_ ( _X_ ( _n_ )) = _g_ ( _X_ ( _n_\
+    \ )) + _n_ [−][1] _X_ ( _n_ ) _g_ [′] ( _X_ ( _n_ ))\n\n\nLIN Zhenhua (NUS) Lecture\
+    \ 6 21 / 32\n\n\n# How to Find UMVUE? (2)\n\nSecond method: Rao-Blackwellization\n\
+    \n\n1 Find an unbiased estimator of _θ_, say _U_ ( _X_ )\n\n\n2 Find a sufficient\
+    \ and complete statistic _T_ ( _X_ )\n\n\n3 E( _U_ ∣ _T_ ) is the UMVUE of _θ_\
+    \ by Lehmann-Scheff´e Theorem"
+  latex_proof_hint: ''
+  lean_name: theorem_012_theorem_12
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.013.theorem_13
+  title: Theorem 13
+  kind: theorem
+  latex_statement: "- The distribution of _T_ is not needed. We only need to work\
+    \ out the\nconditional expectation E( _U_ ∣ _T_ )\n\n  - From the uniqueness of\
+    \ the UMVUE, it does not matter which _U_ ( _X_ )\nto use\n\n  - _U_ ( _X_ ) should\
+    \ be chosen so as to make the calculation of E( _U_ ∣ _T_ ) as\neasy as possible\n\
+    \n\nLIN Zhenhua (NUS) Lecture 6 22 / 32"
+  latex_proof_hint: ''
+  lean_name: theorem_013_theorem_13
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.014.theorem_14
+  title: Theorem 14
+  kind: theorem
+  latex_statement: ": Exponential Distributions\n\nLet _X_ 1 _,...,Xn_ be i.i.d. sample\
+    \ from Exp( _θ_ ) = E(0 _,θ_ ) where _θ_ - 0 is\nunknown. Let _Fθ_ be the c.d.f.\
+    \ and _t_ - 0.\nFind an UMVUE for the tail probability _g_ ( _θ_ ) = 1 − _Fθ_\
+    \ ( _t_ ).\n\n  - _X_ = _n_ [−][1] ∑ _[n]_ _i_ =1 _[X][i]_ [is] [sufficient] [and]\
+    \ [complete,] [since] [Exp][(] _[θ]_ [)] [is] [an]\nexponential family of full\
+    \ rank\n\n  - _I_ ( _t,_ ∞)( _X_ 1) is unbiased: E _I_ ( _t,_ ∞)( _X_ 1) = Pr\
+    \ _θ_ ( _X_ 1 > _t_ ) = 1 − _Fθ_ ( _t_ )\n\n  - E( _I_ ( _t,_ ∞)( _X_ 1) ∣ _X_\
+    \ ) is a UMVUE\n\n  - Note that the distribution of _X_ 1/ _X_ does not depend\
+    \ on _θ_, i.e., it is\nancillary for _θ_\n\n  - By Basu’s theorem, _X_ 1/ _X_\
+    \ and _X_ are independent\n\n\n_Pθ_ ( _X_ 1 > _t_ ∣ _X_ = _x_ ¯) = Pr _θ_ ( _X_\
+    \ 1/ _X_        - _t_ / _X_ ∣ _X_ = _x_ ¯)\n\n\n= Pr _θ_ ( _X_ 1/ _X_        \
+    \         - _t_ / _x_ ¯ ∣ _X_ = _x_ ¯)\n\n\n= Pr( _X_ 1/ _X_                 -\
+    \ _t_ / _x_ ¯) _._\n\n\n  - The UMVUE is _h_ ( _X_ [¯] ), where _h_ ( _x_ ) =\
+    \ Pr( _X_ 1/ _X_  - _t_ / _x_ )\n\n\nLIN Zhenhua (NUS) Lecture 6 23 / 32"
+  latex_proof_hint: ''
+  lean_name: theorem_014_theorem_14
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.015.cont
+  title: Cont.
+  kind: theorem
+  latex_statement: "- We need the unconditional distribution of _X_ 1/ _X_ :\n\n\n\
+    _X_ 1\nPr( _X_ 1/ _X_          - _t_ / _x_ ¯) = _P_ (          - _[t]_\n∑ _[n]_\
+    \ _i_ =1 _[X][i]_ _nx_ ¯ [)]\n\n\n  - _X_ 1 ∼ gamma( _k_ = 1 _,θ_ )\n\n  - ∑ _[n]_\
+    \ _i_ =2 _[X][i]_ [ ∼] [gamma][(] _[k]_ [ =] _[ n]_ [ −] [1] _[,θ]_ [)]\n\n  -\
+    \ _X_ 1 [the] [p.d.f.] [is] [(] _[n]_ [ −] [1][)(][1][ −] _[x]_ [)] _[n]_ [−][2]\
+    \ _[I]_ [(][0] _[,]_ [1][)][(] _[x]_ [)]\n_X_ 1+∑ _i_ _[n]_ =2 _[X][i]_ [∼] [beta][(][1]\
+    \ _[,n]_ [ −] [1][)][,]\n\n  - Thus\n\n\n\n_n_ −1\n\n_[t]_\n\n_nx_ ¯ [)]\n\n\n\
+    \n_X_ 1\n_P_ { - _[t]_\n∑ _[n]_ _i_ =1 _[X][i]_ _n_\n\n\n\n1\n\n_t_ /( _nx_ ¯)\
+    \ [(][1][ −] _[x]_ [)] _[n]_ [−][2][d] _[x]_ [ = (][1][ −] _n_ _[t]_\n\n\n\n1\n\
+    \n\n\n_nx_ ¯ [} = (] _[n]_ [ −] [1][)∫]\n\n\n\n\n- So the UMVUE is\n\n\n\n_t_\
+    \ _n_ −1\n_T_ ( _X_ ) = (1 − )\n_nX_\n\n\n\nLIN Zhenhua (NUS) Lecture 6 24 / 32\n\
+    \n\n# A Necessary and Sufficient Condition for UMVUE\n\n\n  - The previous methods\
+    \ to find UMVUEs require the existence of\ncomplete and sufficient statistics\n\
+    \n  - When there is no complete and sufficient statistic, we can use the\nnext\
+    \ result.\n\n  - Let U be the set of all unbiased estimators of 0 with finite\
+    \ variances:\ncalled **zero-estimators**\n\n  - Let _T_ be an unbiased estimator\
+    \ of _η_ with finite variance.\n\n  - Key idea: _T_ is a UMVUE of _η_ ⇔ _T_ is\
+    \ “orthogonal to” U.\n\n\nLIN Zhenhua (NUS) Lecture 6 25 / 32\n\n\n- Use of this\
+    \ theorem:\n\n  - find a UMVUE\n\n  - check whether a particular estimator is\
+    \ a UMVUE\n\n  - show the nonexistence of any UMVUE\n\n\nLIN Zhenhua (NUS) Lecture\
+    \ 6 26 / 32"
+  latex_proof_hint: ''
+  lean_name: theorem_015_cont
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+- id: imported.theorem.016.theorem_16
+  title: Theorem 16
+  kind: theorem
+  latex_statement: ": Uniform Distributions\n\nLet _X_ 1 _,...,Xn_ be i.i.d. from\
+    \ the uniform distribution on the interval (0 _,θ_ ).\n\n\n  - Previously, we\
+    \ have shown that (1 + _n_ [−][1] ) _X_ ( _n_ ) is the UMVUE for _θ_\nwhen the\
+    \ parameter space is Θ0 = (0 _,_ ∞).\n\n\nSuppose now that Θ = [1 _,_ ∞).\n\n\
+    \  - _X_ ( _n_ ) is **not** **complete**, although it is still sufficient for\
+    \ _θ_\n\n    - Using the method in Lecture 4, if _Eg_ ( _X_ ( _n_ )) = 0 for all\
+    \ _θ_ ∈ Θ, we can\nstill get _g_ ( _x_ ) = 0 a.e. _x_         - 1\n\n    - Cannot\
+    \ conclude that _g_ ( _x_ ) = 0 a.e. _x_    - 0.\n1\n\n    - In fact, there exists\
+    \ _g_ ≠ 0 with ∫0 _[g]_ [(] _[x]_ [)] _[x][n]_ [−][1][d] _[x]_ [ =][ 0] [and]\
+    \ _[g]_ [(] _[x]_ [) =][ 0] [for]\n_x_     - 1. Then _Eg_ ( _X_ ( _n_ )) = 0 for\
+    \ all _θ_ ∈ Θ.\n\n  - Lehmann-Scheff´e Theorem does not apply to _X_ ( _n_ )\n\
+    \n  - (1 + _n_ [−][1] ) _X_ ( _n_ ) does not make use of the knowledge that _θ_\
+    \ ≥ 1\n\nWe now use Theorem D (ii) to find a UMVUE of _θ_ ∈ Θ.\n\n\nLIN Zhenhua\
+    \ (NUS) Lecture 6 30 / 32\n\n\nConsider _T_ = _h_ ( _X_ ( _n_ )) such that E(\
+    \ _TU_ ) = 0 for _U_ ∈U _X_ ( _n_ ).\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\
+    \n\n\n_T_ = _h_ ( _X_ ( _n_ )) is the UMVUE if and only if _T_ is unbiased and\n\
+    \n\n\n1\n\n\n\n0 _[h]_ [(] _[x]_ [)] _[U]_ [(] _[x]_ [)] _[x][n]_ [−][1] _[dx]_\
+    \ [ =][ 0] _[.]_\n\n\n\n∫\n\n\n\nLIN Zhenhua (NUS) Lecture 6 31 / 32\n\n\n- Consider\
+    \ the following function, where _c_ and _b_ are some constants\n\n\n0 ≤ _x_ ≤\
+    \ 1\n_h_ ( _x_ ) = { _[c]_\n_bx_ _x_               - 1 _,_\n\n- Using Equations\
+    \ (1) and (2), the following holds\n\n\nE[ _h_ ( _X_ ( _n_ )) _U_ ( _X_ ( _n_\
+    \ ))] = 0 _,_ _θ_ ≥ 1 _._\n\n- For _h_ ( _X_ ( _n_ )) to be unbiased, we need\n\
+    \n\n_θ_ = E[ _h_ ( _X_ ( _n_ ))]\n\n= _cP_ ( _X_ ( _n_ ) ≤ 1) + _b_ E[ _X_ ( _n_\
+    \ ) _I_ (1 _,_ ∞)( _X_ ( _n_ ))]\n\n= _cθ_ [−] _[n]_ + [ _bn_ /( _n_ + 1)]( _θ_\
+    \        - _θ_ [−] _[n]_ ) _,_ ∀ _θ_ ≥ 1 _._\n\n\n- Thus, we only need to choose\
+    \ _c_ = 1 and _b_ = ( _n_ + 1)/ _n_ .\n\n- The UMVUE of _θ_ is then\n\n_h_ ( _X_\
+    \ ( _n_ )) = { [1] (1 + _n_ [−][1] ) _X_ ( _n_ ) _X_ 0 ≤( _nX_ ) >( _n_ 1) ≤ _._\
+    \ 1\n\n\n- In fact, _h_ ( _X_ ( _n_ )) is complete and sufficient for _θ_ ∈[1\
+    \ _,_ ∞) (exercise).\n\n\nLIN Zhenhua (NUS) Lecture 6 32 / 32"
+  latex_proof_hint: ''
+  lean_name: theorem_016_theorem_16
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''

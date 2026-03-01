@@ -4,7 +4,7 @@
 
 StatLean 是一个用 Lean 4 + Mathlib 形式化数理统计定理的开源项目。
 
-**当前规模**：33 个 Lean 文件，~170 个声明，14 个零 sorry 模块已入库 `Verified.lean`。
+**当前规模**：33 个 Lean 文件，~170 个声明，31 个零 sorry 模块已入库 `Verified.lean`。
 
 **已完成的核心定理**（全部零 sorry）：
 - Rao-Blackwell MSE 定理、ANOVA 方差分解
@@ -128,15 +128,53 @@ npm install -g @anthropic-ai/claude-code
 
 cd statlean4
 claude
+```
 
+**Claude Code 交互命令（在 `claude` 会话内使用）**：
+
+```bash
 # 交互式攻击单个 sorry
 > /prove Statlean/Gaussian/Poincare.lean condExp_eq_fiberAvg_pi
 
-# 自动攻击所有叶节点 sorry
+# 自动攻击所有叶节点 sorry（DAG 调度，3 并发 agent）
 > /prove-deep all-leaves
 
 # 从 PDF 到形式化（一站式）
 > /pipeline theme/input/raw/lecture-5-handout.pdf
+
+# 检查所有 sorry 状态
+> /sorry-status
+
+# 编译修复
+> /build-fix
+
+# 保存进度到 memory + commit
+> /checkpoint
+```
+
+**Claude Code + Make 联合使用（终端直接执行）**：
+
+```bash
+# ── 完整 pipeline（从 PDF 到 gate）──
+make -C theme pdf-formalize PDF=path/to/paper.pdf
+# 流程: PDF → LaTeX → YAML → Lean 骨架 → build → prove → gate（含 auto-shelve）
+
+# ── 从 LaTeX 开始 ──
+make -C theme tex-formalize TEX=path/to/paper.tex
+
+# ── 从已有 YAML 开始（跳过提取）──
+make -C theme formalize
+
+# ── 只跑 prove + gate（代码已有，只想攻 sorry）──
+make -C theme prove-fallback   # prove 循环（调用 claude/codex agent）
+make -C theme gate              # gate 验收（含 auto-shelve 自动入库）
+
+# ── 单独跑 auto-shelve（更新 Verified.lean / Statlean.lean）──
+make -C theme auto-shelve
+
+# ── 常用参数 ──
+make -C theme formalize AGENT_BACKEND=claude          # 指定后端
+make -C theme formalize MAX_PARALLEL=3 PROVE_BUDGET=3600  # 并行度 + 时间预算
 ```
 
 ### 方式 C2：用 Codex CLI 辅助证明
@@ -155,11 +193,18 @@ bash theme/mcp/register_codex.sh
 codex mcp list --json
 python3 theme/mcp/scripts/smoke_test_mcp.py
 
-# 1) 跑主 pipeline（resolve/ingest/plan/generate/build-check/sync-backlog/prove-target-select/gate）
-AGENT_BACKEND=codex make -C theme formalize
+# 最小命令组（给定 PDF -> 定向 prove -> gate）
+AGENT_BACKEND=codex make -C theme pdf-formalize PDF=lecture-6
+MANIFEST=out/manifest.json AGENT_BACKEND=codex AUTO_AGENT=1 MAX_ITERS=10 MAX_PARALLEL=3 PROVE_BUDGET=3600 make -C theme prove-fallback
+make -C theme gate
 
-# 2) 用 Codex 自动攻击 sorry（prove-loop，真正会调 Codex agent 写证明）
-AGENT_BACKEND=codex AUTO_AGENT=1 MAX_ITERS=10 MAX_PARALLEL=3 PROVE_BUDGET=3600 make -C theme prove-fallback
+# 1) 输入给定 PDF，跑主 pipeline（PDF -> tex -> yaml -> lean -> gate）
+#    支持路径或关键词模糊匹配（优先匹配 theme/input/raw/*.pdf）
+AGENT_BACKEND=codex make -C theme pdf-formalize PDF=lecture-6
+
+# 2) 只针对“本次 pipeline 产物”自动证明（避免退回全量 backlog）
+#    关键是传 MANIFEST=out/manifest.json（相对 make -C theme 的工作目录）
+MANIFEST=out/manifest.json AGENT_BACKEND=codex AUTO_AGENT=1 MAX_ITERS=10 MAX_PARALLEL=3 PROVE_BUDGET=3600 make -C theme prove-fallback
 
 # 3) 最终验收
 make -C theme gate
@@ -181,6 +226,16 @@ print("status_count:", dict(c))
 print("theorem_count:", m.get("theorem_count"), "pipeline_id_count:", m.get("pipeline_id_count"))
 PY
 
+# 6)（可选）快速看本次 pipeline 涉及的 Lean 文件
+python3 - <<'PY'
+import json
+m = json.load(open("theme/out/manifest.json"))
+files = sorted({e.get("file","") for e in m.get("entries", {}).values() if e.get("file")})
+print("files_from_manifest:")
+for f in files:
+    print(" -", f)
+PY
+
 # resolve 时用 Codex 生成 sketch
 python3 theme/scripts/resolve_concepts.py \
   --concepts "basu" --force-ai --ai-backend codex
@@ -189,6 +244,8 @@ python3 theme/scripts/resolve_concepts.py \
 > Codex 读取 `AGENTS.md` 获取项目指令（等价于 Claude 的 `CLAUDE.md`）。
 >
 > 关键点：`make -C theme formalize` 里的 `prove` 阶段只做目标选择（生成 `theme/out/prove_targets.json`），真正自动证明是 `make -C theme prove-fallback`。
+>
+> 若你要“只处理这次给定 PDF”，不要直接跑不带 `MANIFEST` 的 `prove-fallback`，否则会按全量 backlog 选目标。当前脚本会按 `manifest` 的 `(file, lean_name)` 精确筛选目标。
 
 ### 方式 D：纯手写 Lean
 
@@ -211,6 +268,11 @@ theorems.yaml
                                       │
                                       ▼
                               sync-backlog ──→ prove ──→ gate
+                                                          │
+                                                     auto-shelve
+                                                   (Verified.lean
+                                                    Statlean.lean
+                                                    sorry_backlog)
 ```
 
 | 阶段 | 做什么 | 消耗 |
@@ -222,7 +284,7 @@ theorems.yaml
 | `build-check` | `lake build` 验证骨架编译 | 零 |
 | `sync-backlog` | 同步 sorry_backlog.yaml | 零 |
 | `prove` | 生成 prove_targets.json（目标选择）；自动证明由 `prove-fallback` 调用 `claude/codex` | Max 额度 |
-| `gate` | 最终 build + sorry 计数 + PIPELINE_ID 检查 | 零 |
+| `gate` | 最终 build + sorry 计数 + PIPELINE_ID 检查 + **auto-shelve**（自动入库零 sorry 模块到 Verified.lean） | 零 |
 
 **API 消耗策略**：Pipeline 默认**零 API credit 消耗**。证明阶段可用 Claude/Codex agent（走对应 CLI 账号额度，不走 API credit）。只有 `--backend claude-api` 的 PDF 图片提取才用 API credit。
 
@@ -268,7 +330,7 @@ lake build Statlean.Verified
 # 应该零 sorry 警告
 ```
 
-当你的文件达到零 sorry，把它加入 `Verified.lean`。
+当你的文件达到零 sorry，把它加入 `Verified.lean`。或者跑 `make -C theme auto-shelve`（gate 中也会自动执行），它会扫描所有零 sorry 模块并自动更新 import。
 
 ### Statlean.lean
 

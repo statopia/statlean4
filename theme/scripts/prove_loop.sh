@@ -110,9 +110,9 @@ run_claude_agent() {
   )
 
   if command -v timeout >/dev/null 2>&1; then
-    timeout --kill-after=30s "${agent_timeout}s" "${run_agent_cmd[@]}" > "$fix_log" 2>&1
+    (cd "$REPO_ROOT" && timeout --kill-after=30s "${agent_timeout}s" "${run_agent_cmd[@]}") > "$fix_log" 2>&1
   else
-    "${run_agent_cmd[@]}" > "$fix_log" 2>&1
+    (cd "$REPO_ROOT" && "${run_agent_cmd[@]}") > "$fix_log" 2>&1
   fi
 }
 
@@ -127,9 +127,9 @@ run_codex_agent() {
   )
 
   if command -v timeout >/dev/null 2>&1; then
-    timeout --kill-after=30s "${agent_timeout}s" "${run_agent_cmd[@]}" > "$fix_log" 2>&1
+    (cd "$REPO_ROOT" && timeout --kill-after=30s "${agent_timeout}s" "${run_agent_cmd[@]}") > "$fix_log" 2>&1
   else
-    "${run_agent_cmd[@]}" > "$fix_log" 2>&1
+    (cd "$REPO_ROOT" && "${run_agent_cmd[@]}") > "$fix_log" 2>&1
   fi
 }
 
@@ -158,23 +158,39 @@ with open('$REPO_ROOT/theme/input/sorry_backlog.yaml') as f:
 
 manifest_path = os.environ.get('MANIFEST', '')
 manifest_files = None
+manifest_targets = None
 if manifest_path and os.path.isfile(manifest_path):
     try:
         with open(manifest_path) as mf:
             manifest = json.load(mf)
-        manifest_files = {e['file'] for e in manifest.get('entries', {}).values() if 'file' in e}
-        print(f'[prove-loop] pipeline mode: targeting {len(manifest_files)} files from manifest', file=sys.stderr)
+        entries = list((manifest.get('entries') or {}).values())
+        manifest_files = {e['file'] for e in entries if 'file' in e}
+        manifest_targets = {
+            (e.get('file', ''), e.get('lean_name', ''))
+            for e in entries
+            if e.get('file') and e.get('lean_name')
+        }
+        if manifest_targets:
+            print(f'[prove-loop] pipeline mode: targeting {len(manifest_targets)} theorem sites from manifest', file=sys.stderr)
+        else:
+            print(f'[prove-loop] pipeline mode: targeting {len(manifest_files)} files from manifest', file=sys.stderr)
         for f_name in sorted(manifest_files):
             print(f'  - {f_name}', file=sys.stderr)
     except (json.JSONDecodeError, KeyError) as exc:
         print(f'[prove-loop] manifest parse error ({exc}), falling back to full backlog', file=sys.stderr)
         manifest_files = None
+        manifest_targets = None
 else:
     print('[prove-loop] standalone mode: targeting full backlog by priority', file=sys.stderr)
 
 items = [it for it in (data.get('sorry_items') or [])
          if it.get('type') not in ('blocked',)]
-if manifest_files is not None:
+if manifest_targets:
+    items = [
+        it for it in items
+        if (it.get('file', ''), it.get('theorem', '')) in manifest_targets
+    ]
+elif manifest_files is not None:
     items = [it for it in items if it.get('file','') in manifest_files]
 items.sort(key=lambda x: x.get('priority', 99))
 targets = items[:$MAX_PARALLEL]
@@ -319,7 +335,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
 
     echo "[prove-loop] attacking $file:$theorem (backend=$AGENT_BACKEND, timeout=${effective_timeout}s, targets=$target_count)"
     if run_agent "$prompt_file" "$fix_log" "$effective_timeout"; then
-      echo "[prove-loop] agent for $theorem completed successfully"
+      echo "[prove-loop] agent for $theorem exited rc=0 (process success; proof elimination not yet validated)"
     else
       rc=$?
       echo "[prove-loop] agent for $theorem exited with rc=$rc"
