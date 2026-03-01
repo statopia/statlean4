@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
+"""Build theme input package from a LaTeX file.
+
+Extracts theorem-like environments, optionally canonicalizes names via AI,
+and writes theorems.yaml + notation.yaml + scope.yaml.
+"""
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -80,7 +89,126 @@ def theorem_number_from_title(title: str) -> Tuple[str | None, str | None]:
     return (m.group(1).lower(), m.group(2))
 
 
-def build_theorems(blocks: List[Dict[str, Any]], namespace: str, layer: str) -> List[Dict[str, Any]]:
+# ═══════════════════════════════════════════════════════════════
+# AI Canonicalize Pass
+# ═══════════════════════════════════════════════════════════════
+
+def _call_ai(prompt: str) -> Optional[str]:
+    """Call Claude haiku for canonicalization. SDK first, then CLI fallback."""
+    # Method 1: Anthropic SDK
+    try:
+        import anthropic
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            client = anthropic.Anthropic(timeout=60.0)
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=2048,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text.strip()
+    except ImportError:
+        print("[from-tex] anthropic SDK not installed, trying CLI", file=sys.stderr)
+    except Exception as e:
+        print(f"[from-tex] SDK error: {e}, trying CLI", file=sys.stderr)
+
+    # Method 2: Claude CLI (skip if inside Claude Code to avoid nesting issues)
+    if os.environ.get("CLAUDECODE"):
+        print("[from-tex] inside Claude Code session, skipping CLI fallback", file=sys.stderr)
+        return None
+    try:
+        result = subprocess.run(
+            ["claude", "-p", "--output-format", "text", "--model", "claude-haiku-4-5-20251001"],
+            input=prompt,
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return None
+
+
+def canonicalize_blocks(blocks: List[Dict[str, Any]], source_tag: str) -> List[Dict[str, Any]]:
+    """Use AI to identify canonical math names for extracted theorem blocks.
+
+    Returns blocks with added 'canonical_name' and 'topic' fields.
+    Falls back to source-prefixed positional names if AI unavailable.
+    """
+    # Build batch prompt — all blocks in one call to minimize latency
+    entries = []
+    for i, b in enumerate(blocks):
+        stmt_preview = b["statement"][:400].replace("\n", " ")
+        entries.append(
+            f"[{i}] kind={b['kind']}, title=\"{b['title']}\"\n"
+            f"    statement: {stmt_preview}"
+        )
+
+    prompt = f"""You are a mathematical theorem naming expert. Given theorem blocks extracted from a statistics/probability lecture, identify the canonical mathematical name for each.
+
+Rules:
+- Use the standard name in the mathematical community (e.g., "Central Limit Theorem", "Slutsky's Theorem", "Delta Method")
+- If the block is a well-known result, use its canonical name
+- If it's a textbook exercise, example, or unnamed remark, use a descriptive name based on content (e.g., "poisson_convergence_example", "t_distribution_clt_example")
+- For definitions, name the concept being defined (e.g., "convergence_in_distribution", "fisher_information")
+- Return lean_name in snake_case (e.g., "central_limit_theorem", "delta_method")
+- Return topic as a Statlean module directory (one of: Gaussian, Variance, Entropy, SubGaussian, CharFun, LimitTheorems, EmpiricalProcess, Regression, Sufficiency, Estimator, ExpFamily, Information, SPD, Statistic, Misc)
+
+Blocks:
+{chr(10).join(entries)}
+
+Return ONLY a JSON array (no markdown fences), one object per block, in order:
+[{{"index": 0, "canonical_name": "...", "lean_name": "...", "topic": "..."}}, ...]"""
+
+    response = _call_ai(prompt)
+    if not response:
+        print(f"[from-tex] AI canonicalize unavailable, using source-prefixed names")
+        for i, b in enumerate(blocks):
+            b["canonical_name"] = None
+            b["topic"] = None
+        return blocks
+
+    # Parse response
+    try:
+        # Strip markdown fences if present
+        text = response.strip()
+        if text.startswith("```"):
+            lines = text.split("\n")
+            lines = [l for l in lines if not l.startswith("```")]
+            text = "\n".join(lines).strip()
+        results = json.loads(text)
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"[from-tex] AI response parse error: {e}, falling back")
+        for b in blocks:
+            b["canonical_name"] = None
+            b["topic"] = None
+        return blocks
+
+    # Merge results back
+    for entry in results:
+        idx = entry.get("index", -1)
+        if 0 <= idx < len(blocks):
+            blocks[idx]["canonical_name"] = entry.get("canonical_name", "")
+            blocks[idx]["lean_name_hint"] = sanitize_name(entry.get("lean_name", ""))
+            blocks[idx]["topic"] = entry.get("topic", "")
+
+    # Fill any missing
+    for b in blocks:
+        if "canonical_name" not in b:
+            b["canonical_name"] = None
+            b["topic"] = None
+
+    named = sum(1 for b in blocks if b.get("canonical_name"))
+    print(f"[from-tex] AI canonicalized {named}/{len(blocks)} blocks")
+    return blocks
+
+
+def build_theorems(
+    blocks: List[Dict[str, Any]],
+    namespace: str,
+    layer: str,
+    source_tag: str = "imported",
+) -> List[Dict[str, Any]]:
     used_ids: set[str] = set()
     used_names: set[str] = set()
 
@@ -91,10 +219,26 @@ def build_theorems(blocks: List[Dict[str, Any]], namespace: str, layer: str) -> 
     for i, b in enumerate(blocks, start=1):
         kind = b["kind"]
         idx = f"{i:03d}"
-        base = sanitize_name(b["title"])
 
-        theorem_id = unique(f"imported.{kind}.{idx}.{base}"[:120], used_ids)
-        lean_name = unique(f"{kind}_{idx}_{base}"[:120], used_names)
+        # Use AI-canonicalized name if available, else fall back to source-prefixed
+        ai_name = b.get("lean_name_hint", "")
+        ai_topic = b.get("topic", "")
+
+        if ai_name:
+            base_id = f"{source_tag}.{kind}.{idx}.{ai_name}"
+            base_name = ai_name
+        else:
+            base = sanitize_name(b["title"])
+            base_id = f"{source_tag}.{kind}.{idx}.{base}"
+            base_name = f"{kind}_{idx}_{base}"
+
+        theorem_id = unique(base_id[:120], used_ids)
+        lean_name = unique(base_name[:120], used_names)
+
+        # Determine namespace from topic if AI provided it
+        item_namespace = namespace
+        if ai_topic and ai_topic != "Misc":
+            item_namespace = f"Statlean.{ai_topic}"
 
         k_num = theorem_number_from_title(b["title"])
         if k_num[0] and k_num[1]:
@@ -107,7 +251,7 @@ def build_theorems(blocks: List[Dict[str, Any]], namespace: str, layer: str) -> 
             "latex_statement": b["statement"],
             "latex_proof_hint": b["proof"],
             "lean_name": lean_name,
-            "lean_namespace": namespace,
+            "lean_namespace": item_namespace,
             "layer": layer,
             "priority": 3,
             "dependencies": [],
@@ -119,10 +263,11 @@ def build_theorems(blocks: List[Dict[str, Any]], namespace: str, layer: str) -> 
             ],
             "notes": "",
         }
+        if b.get("canonical_name"):
+            item["canonical_name"] = b["canonical_name"]
         items.append(item)
 
     # second pass: infer dependencies from theorem references in statement/proof
-    id_by_index = {i: it["id"] for i, it in enumerate(items)}
     for i, it in enumerate(items):
         src = blocks[i]["statement"] + "\n" + blocks[i]["proof"]
         deps: List[str] = []
@@ -135,16 +280,50 @@ def build_theorems(blocks: List[Dict[str, Any]], namespace: str, layer: str) -> 
     return items
 
 
-def write_theorems_yaml(out_path: Path, blocks: List[Dict[str, Any]], namespace: str, layer: str) -> None:
+def derive_source_tag(tex_path: Path) -> str:
+    """Derive a short source tag from the tex file path.
+
+    e.g. 'theme/input/paper.tex' from 'lecture-9-handout.pdf'
+    → look for the raw PDF name in the parent dir.
+    Fallback: use stem of tex file.
+    """
+    # Check if there's a companion extract_summary.json with the PDF name
+    input_dir = tex_path.parent
+    summary_path = input_dir / "extract_summary.json"
+    if summary_path.exists():
+        try:
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            pdf_name = Path(summary.get("pdf", "")).stem
+            if pdf_name:
+                return sanitize_name(pdf_name)[:40]
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # Fallback: tex file stem
+    stem = tex_path.stem
+    if stem == "paper":
+        # Generic name, try parent directory
+        return sanitize_name(input_dir.name)[:40] or "imported"
+    return sanitize_name(stem)[:40] or "imported"
+
+
+def write_theorems_yaml(
+    out_path: Path,
+    blocks: List[Dict[str, Any]],
+    namespace: str,
+    layer: str,
+    source_tag: str = "imported",
+) -> None:
     data = {
         "version": "v1",
-        "theorem_set": "imported-tex-batch",
+        "theorem_set": f"{source_tag}-tex-batch",
+        "source_tag": source_tag,
         "defaults": {
             "lean_namespace": namespace,
             "layer": layer,
             "allow_axiom": False,
         },
-        "theorems": build_theorems(blocks, namespace, layer),
+        "theorems": build_theorems(blocks, namespace, layer, source_tag=source_tag),
     }
     out_path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
@@ -194,6 +373,7 @@ def main() -> None:
     p.add_argument("input_dir", type=Path, help="target input directory (e.g. theme/input)")
     p.add_argument("--namespace", default="Formalization.Imported", help="default lean namespace")
     p.add_argument("--layer", default="formalization", choices=["statlib", "formalization"])
+    p.add_argument("--no-ai", action="store_true", help="skip AI canonicalization")
     args = p.parse_args()
 
     tex_path = args.tex
@@ -203,10 +383,18 @@ def main() -> None:
     tex = tex_path.read_text(encoding="utf-8", errors="ignore")
     blocks = extract_blocks(tex)
 
+    # Derive source tag from PDF name
+    source_tag = derive_source_tag(tex_path)
+    print(f"[from-tex] source_tag={source_tag}")
+
+    # AI canonicalize pass (unless --no-ai)
+    if not args.no_ai:
+        blocks = canonicalize_blocks(blocks, source_tag)
+
     (input_dir / "paper.tex").write_text(tex, encoding="utf-8")
 
     theorems_path = input_dir / "theorems.yaml"
-    write_theorems_yaml(theorems_path, blocks, args.namespace, args.layer)
+    write_theorems_yaml(theorems_path, blocks, args.namespace, args.layer, source_tag=source_tag)
 
     if not (input_dir / "notation.yaml").exists():
         write_notation_yaml(input_dir / "notation.yaml")
@@ -214,8 +402,8 @@ def main() -> None:
     theorem_data = yaml.safe_load(theorems_path.read_text(encoding="utf-8")) or {}
     theorem_ids = [str(it.get("id", "")) for it in (theorem_data.get("theorems", []) or []) if it.get("id")]
 
-    if not (input_dir / "scope.yaml").exists():
-        write_scope_yaml(input_dir / "scope.yaml", theorem_ids)
+    # Always regenerate scope.yaml to match current theorem IDs
+    write_scope_yaml(input_dir / "scope.yaml", theorem_ids)
 
     print(f"[from-tex] source={tex_path}")
     print(f"[from-tex] extracted={len(blocks)} theorem-like blocks")

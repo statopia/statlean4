@@ -53,4 +53,3 @@ import Statlean.Sufficiency.LehmannScheffe
 import Statlean.Information.Basic
 import Statlean.Information.CramerRao
 import Statlean.Sufficiency.MinimalSufficiency
-import Statlean.Misc.Pipeline

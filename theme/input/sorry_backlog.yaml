@@ -1,6 +1,6 @@
-version: v64
+version: v69
 generated: 2026-03-01
-total_sorry: 57
+total_sorry: 41
 
 sorry_items:
 
@@ -275,182 +275,6 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: misc.pipeline.theorem_001_1
-  file: Statlean/Misc/Pipeline.lean
-  line: 44
-  theorem: theorem_001_1
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_002_2
-  file: Statlean/Misc/Pipeline.lean
-  line: 68
-  theorem: theorem_002_2
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_003_theorem_3
-  file: Statlean/Misc/Pipeline.lean
-  line: 121
-  theorem: theorem_003_theorem_3
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_004_theorem_4
-  file: Statlean/Misc/Pipeline.lean
-  line: 147
-  theorem: theorem_004_theorem_4
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_005_theorem_5
-  file: Statlean/Misc/Pipeline.lean
-  line: 212
-  theorem: theorem_005_theorem_5
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_006_theorem_6
-  file: Statlean/Misc/Pipeline.lean
-  line: 231
-  theorem: theorem_006_theorem_6
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_007_theorem_7
-  file: Statlean/Misc/Pipeline.lean
-  line: 300
-  theorem: theorem_007_theorem_7
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_008_theorem_8
-  file: Statlean/Misc/Pipeline.lean
-  line: 320
-  theorem: theorem_008_theorem_8
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_009_theorem_9
-  file: Statlean/Misc/Pipeline.lean
-  line: 375
-  theorem: theorem_009_theorem_9
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_010_theorem_10
-  file: Statlean/Misc/Pipeline.lean
-  line: 445
-  theorem: theorem_010_theorem_10
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_011_theorem_11
-  file: Statlean/Misc/Pipeline.lean
-  line: 509
-  theorem: theorem_011_theorem_11
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_012_theorem_12
-  file: Statlean/Misc/Pipeline.lean
-  line: 574
-  theorem: theorem_012_theorem_12
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_013_theorem_13
-  file: Statlean/Misc/Pipeline.lean
-  line: 599
-  theorem: theorem_013_theorem_13
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_014_theorem_14
-  file: Statlean/Misc/Pipeline.lean
-  line: 645
-  theorem: theorem_014_theorem_14
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_015_cont
-  file: Statlean/Misc/Pipeline.lean
-  line: 734
-  theorem: theorem_015_cont
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_016_theorem_16
-  file: Statlean/Misc/Pipeline.lean
-  line: 814
-  theorem: theorem_016_theorem_16
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
 - id: subgaussian.herbst.anonymous_L11
   file: Statlean/SubGaussian/Herbst.lean
   line: 11
@@ -562,10 +386,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: verified.anonymous_L47
+- id: verified.anonymous_L59
   file: Statlean/Verified.lean
-  line: 47
-  theorem: anonymous_L47
+  line: 59
+  theorem: anonymous_L59
   type: unknown
   depth: 1
   priority: 99
@@ -573,10 +397,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: verified.anonymous_L50
+- id: verified.anonymous_L62
   file: Statlean/Verified.lean
-  line: 50
-  theorem: anonymous_L50
+  line: 62
+  theorem: anonymous_L62
   type: unknown
   depth: 1
   priority: 99
@@ -584,10 +408,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: verified.anonymous_L53
+- id: verified.anonymous_L65
   file: Statlean/Verified.lean
-  line: 53
-  theorem: anonymous_L53
+  line: 65
+  theorem: anonymous_L65
   type: unknown
   depth: 1
   priority: 99
