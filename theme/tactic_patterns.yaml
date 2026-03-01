@@ -1,0 +1,1028 @@
+# Tactic Pattern Index — extracted from zero-sorry proofs
+# Format: goal_pattern → tactic_sequence + example source
+# Files analyzed:
+#   Statlean/Sufficiency/Factorization.lean  (259 lines)
+#   Statlean/Sufficiency/Basu.lean           (235 lines)
+#   Statlean/Sufficiency/LehmannScheffe.lean (311 lines)
+#   Statlean/Gaussian/Hermite.lean           (744 lines)
+#   Statlean/Variance/ANOVA.lean             (214 lines)
+#   Statlean/Variance/RaoBlackwell.lean      (287 lines)
+#   Statlean/LimitTheorems/USLLN.lean        (580 lines)
+#   Statlean/CharFun/Taylor.lean             (645 lines)
+version: v1
+generated: 2026-03-02
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 1 — Integral rewriting and equality patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+patterns:
+
+  - id: integral_congr_ae_of_forall
+    category: integral
+    goal: "∫ x, f x ∂μ = ∫ x, g x ∂μ  (pointwise equality)"
+    tactics:
+      - "congr 1; ext x; <algebra>"
+      - "integral_congr_ae (ae_of_all _ fun x => by <algebra>)"
+    notes: >
+      Use `congr 1; ext x` when the equality is definitional/`ring`.
+      Use `integral_congr_ae (ae_of_all _ fun x => ...)` when the step needs
+      a rewrite (e.g., simp, ring, or Pi.mul_apply) to make the terms match.
+      Both forms appear in nearly every file.
+    frequency: 10
+    sources:
+      - "Factorization.lean:126-128 (setIntegral_congr_ae)"
+      - "Hermite.lean:150-151 (hrearrange: congr 1; ext x; ring)"
+      - "ANOVA.lean:152 (integral_congr_ae (ae_of_all _ fun z => by simp [φ]; ring))"
+      - "Taylor.lean:117 (congr 1; ext ω; push_cast; ring)"
+      - "LehmannScheffe.lean:118 (integral_congr_ae (ae_of_all _ h_expand))"
+
+  - id: setIntegral_congr_ae_mono
+    category: integral
+    goal: "∫ x in s, f x ∂μ = ∫ x in s, g x ∂μ"
+    tactics:
+      - "apply setIntegral_congr_ae hs_mΩ; filter_upwards [h_ae] with x hx _; exact hx"
+      - "setIntegral_congr_ae hs (h_ae.mono fun x hx _ => hx)"
+    notes: >
+      The second argument of the congr lemma is `∀ x ∈ s, ...` (takes an extra `_` for
+      the membership proof). Use `filter_upwards [h_ae] with x hx _` — the trailing `_`
+      discards the set-membership hypothesis.
+    frequency: 4
+    sources:
+      - "Factorization.lean:126-128 (step2)"
+      - "Factorization.lean:129-133 (step3)"
+      - "Basu.lean:218-219 (setIntegral_congr_ae + condExp_const_ae.mono)"
+
+  - id: integral_split_add_sub
+    category: integral
+    goal: "∫ (f + g) = ∫ f + ∫ g  or  ∫ (f - g) = ∫ f - ∫ g"
+    tactics:
+      - "rw [integral_add h_int1 h_int2]"
+      - "rw [integral_sub h_int1 h_int2]"
+      - "exact integral_sub (h1_int θ) (h2_int θ)"
+      - "rw [← integral_add hint_H hint_r]; congr 1; ext x; <algebra>"
+    notes: >
+      Always requires explicit integrability hypotheses for both summands.
+      When goal is `∫ (f - g)` but f and g are expressed as lambdas (not Pi.sub),
+      use `rw [show (fun x => f x - g x) = f - (fun _ => g _) from rfl]` first.
+    frequency: 12
+    sources:
+      - "LehmannScheffe.lean:37-38 (integral_sub)"
+      - "Hermite.lean:121-126 (integral_sub with .congr)"
+      - "ANOVA.lean:154-155 (integral_add)"
+      - "Taylor.lean:157-158 (integral_add + integral_sub)"
+
+  - id: integral_const_mul_pullout
+    category: integral
+    goal: "∫ x, c * f x ∂μ = c * ∫ x, f x ∂μ"
+    tactics:
+      - "rw [integral_const_mul]"
+      - "rw [integral_const_mul, ...]"
+    notes: >
+      Also applies to `integral_mul_const` for the `∫ f x * c` form.
+      Used when pulling constants out of integrals (charFun normalization, Hermite recurrence).
+    frequency: 7
+    sources:
+      - "Hermite.lean:180 (integral_const_mul)"
+      - "Basu.lean:159 (integral_const_mul (g y))"
+      - "ANOVA.lean:163 (integral_const_mul 2)"
+      - "Taylor.lean:143 (integral_const_mul)"
+
+  - id: integral_mono_ae_with_integrability
+    category: integral
+    goal: "∫ f ∂μ ≤ ∫ g ∂μ"
+    tactics:
+      - "apply integral_mono_ae h_f_int h_g_int; exact ae_of_all _ fun x => <bound>"
+      - "apply integral_mono_ae h_f_int h_g_int; filter_upwards [...] with x hx; <bound>"
+      - "exact integral_nonneg (fun ω => sq_nonneg _)"
+      - "apply integral_nonneg_of_ae; exact condExp_nonneg (ae_of_all μ fun ω => sq_nonneg _)"
+    notes: >
+      `integral_mono_ae` requires `Integrable f μ` and `Integrable g μ` (not just MemLp).
+      For nonneg integrals: `integral_nonneg` (pointwise) vs `integral_nonneg_of_ae` (a.e.).
+    frequency: 5
+    sources:
+      - "Taylor.lean:177-178 (integral_mono_ae ... ae_of_all)"
+      - "ANOVA.lean:205-208 (integral_mono_ae h_int_lhs h_int_rhs)"
+      - "RaoBlackwell.lean:54-55 (integral_nonneg_of_ae + condExp_nonneg)"
+      - "LehmannScheffe.lean:182 (integral_nonneg fun ω => sq_nonneg _)"
+
+  - id: lintegral_chain_for_finiteness
+    category: integral
+    goal: "∫⁻ f dμ ≠ ⊤  (used to establish integrability)"
+    tactics: |
+      exact ne_top_of_le_ne_top (measure_ne_top μ _) <|
+        calc ∫⁻ x, rn_T x ∂ν
+            = ∫⁻ x, rn_T x ∂(ν.trim hle) := (lintegral_trim hle hrn_meas).symm
+          _ ≤ (μ.trim hle) Set.univ := Measure.lintegral_rnDeriv_le
+          _ = μ Set.univ := trim_measurableSet_eq hle .univ
+    notes: >
+      Pattern for trimmed-measure RN derivative finiteness.
+      `lintegral_trim` converts between trimmed and full measure.
+      `Measure.lintegral_rnDeriv_le` gives the key bound.
+    frequency: 2
+    sources:
+      - "Factorization.lean:185-189 (hrn_real_int)"
+      - "Factorization.lean:204-211 (h_rhs_ne_top)"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 2 — ae / filter patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: filter_upwards_with_pattern
+    category: ae
+    goal: "∀ᵐ x ∂μ, P x"
+    tactics:
+      - "filter_upwards [h1, h2, ...] with x hx1 hx2 ...; <proof of P x>"
+      - "filter_upwards [h_ae] with x hx; <use hx>"
+      - "filter_upwards with x; <if no hypotheses needed>"
+    notes: >
+      The standard way to close ae goals in Lean 4 Mathlib.
+      `filter_upwards [...]` introduces named hypotheses for each input ae-goal.
+      The number of names after `with x` must match the number of hypotheses in brackets.
+      For `ae_of_all`: use when the property holds pointwise without any ae assumptions.
+    frequency: 20+
+    sources:
+      - "Factorization.lean:91-93 (filter_upwards [h0, hmono] with x h0x h1x)"
+      - "ANOVA.lean:80-81 (filter_upwards [hslice_aesm, hslice_sq] with y ha hq)"
+      - "LehmannScheffe.lean:245 (filter_upwards [h_inv] with ω hω)"
+      - "Hermite.lean:637-638 (filter_upwards with x)"
+
+  - id: ae_of_all_for_pointwise
+    category: ae
+    goal: "∀ᵐ x ∂μ, P x  (when P x holds for ALL x)"
+    tactics:
+      - "ae_of_all _ fun x => <proof>"
+      - "ae_of_all μ fun ω => sq_nonneg _"
+      - "Filter.Eventually.of_forall fun x => <proof>"
+    notes: >
+      `ae_of_all` is the preferred tactic when P holds without any measure-theoretic content.
+      `Filter.Eventually.of_forall` is the explicit term-mode version (same thing).
+      Both appear frequently throughout the codebase.
+    frequency: 15+
+    sources:
+      - "Factorization.lean:85 (ae_of_all ν fun x => Set.indicator_nonneg ...)"
+      - "RaoBlackwell.lean:55 (ae_of_all μ fun ω => sq_nonneg _)"
+      - "Hermite.lean:123 (Filter.Eventually.of_forall fun x => by simp [...])"
+      - "Taylor.lean:107 (ae_of_all _ fun ω => by simp [Real.norm_eq_abs])"
+
+  - id: eventually_mono_for_implication
+    category: ae
+    goal: "h_ae : ∀ᵐ x ∂μ, P x → Q x  from  h : ∀ᵐ x ∂μ, P x"
+    tactics:
+      - "h.mono fun x hx => <apply hx>"
+      - "condExp_const_ae.mono fun x hx _ => hx"
+      - "(condExp_bound_j j).mono fun x ⟨h0, h1⟩ => clip_eq h0 h1"
+    notes: >
+      `.mono` applies a pointwise implication to an ae-statement.
+      Commonly used to derive ae-equalities from ae-inequalities,
+      or to compose ae-conditions with pointwise implications.
+    frequency: 5
+    sources:
+      - "Basu.lean:163 (fun j => (condExp_bound_j j).mono fun x ⟨h0, h1⟩ => ...)"
+      - "Basu.lean:219 (condExp_const_ae.mono fun x hx _ => hx)"
+      - "Factorization.lean:141 (filter_upwards [hfac_real.symm] with x hx _)"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 3 — condExp patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: condExp_pullout_mul
+    category: condExp
+    goal: "E[h * f | m] =ᵃᵉ h * E[f | m]  (when h is m-measurable)"
+    tactics: |
+      have h_pull := condExp_mul_of_aestronglyMeasurable_left (m := m_T) (μ := ν)
+        hrn_real_sm.aestronglyMeasurable hrn_φ_int hφ_ν
+      -- Use in integral:
+      rw [← integral_congr_ae h_pull, integral_condExp hle, ...]
+    notes: >
+      Requires: (1) h is `AEStronglyMeasurable[m]`, (2) `h * f` is integrable,
+      (3) `f` is integrable. Returns `E[h * f | m] =ᵃᵉ h * E[f | m]`.
+      Combined with `integral_condExp` for tower: `∫ h * E[f|m] dμ = ∫ h * f dμ`.
+    frequency: 4
+    sources:
+      - "Factorization.lean:113-116 (h_pull via condExp_mul_of_aestronglyMeasurable_left)"
+      - "Factorization.lean:229-230 (step1 uses this)"
+      - "LehmannScheffe.lean:172 (condExp_mul_of_aestronglyMeasurable_left)"
+
+  - id: integral_condExp_tower
+    category: condExp
+    goal: "∫ E[f | m] dμ = ∫ f dμ"
+    tactics:
+      - "rw [integral_condExp hm_le]"
+      - "integral_condExp hG"
+    notes: >
+      The tower law for the full integral. Requires `hm : m ≤ m₀` and `Integrable f μ`.
+      Used heavily in Basu, LehmannScheffe, Factorization.
+    frequency: 6
+    sources:
+      - "Basu.lean:158 (integral_condExp hmT)"
+      - "LehmannScheffe.lean:240 (rw [integral_condExp hm_le])"
+      - "RaoBlackwell.lean:45 (integral_condExp hG)"
+      - "Factorization.lean:234-235 (integral_condExp hle)"
+
+  - id: setIntegral_condExp_characterization
+    category: condExp
+    goal: "∫ x in s, E[f|m] x ∂μ = ∫ x in s, f x ∂μ  (for m-measurable s)"
+    tactics:
+      - "setIntegral_condExp hm hf_int hs"
+      - "(setIntegral_condExp hmT (hφ_int i) hTA_σ).symm"
+    notes: >
+      Key lemma: `setIntegral_condExp` requires `hm : m ≤ m₀`, `hf_int : Integrable f μ`,
+      `hs : MeasurableSet[m] s`. Used to verify the characterization of condExp.
+    frequency: 3
+    sources:
+      - "Factorization.lean:136 (step4: setIntegral_condExp hm hgTφ_ν hs)"
+      - "Basu.lean:213 ((setIntegral_condExp hmT (hφ_int i) hTA_σ).symm)"
+
+  - id: ae_eq_condExp_of_forall_setIntegral_eq
+    category: condExp
+    goal: "prove h =ᵃᵉ E[f|m] by verifying set integral characterization"
+    tactics: |
+      refine ae_eq_condExp_of_forall_setIntegral_eq hm hf_int ?_ ?_ ?_
+      · intro s _hs _hμs; exact h_int.integrableOn      -- IntegrableOn h s
+      · intro s hs _hμs                                  -- ∫_s h = ∫_s f
+        <chain of step1 ... stepN + linarith>
+      · exact stronglyMeasurable_condExp.aestronglyMeasurable  -- AEStronglyMeasurable[m]
+    notes: >
+      The characterization of condExp via set integrals. The three goals are:
+      (1) IntegrableOn h over m-measurable sets, (2) ∫_s h = ∫_s f for m-measurable s,
+      (3) AEStronglyMeasurable[m] h. Used in factorization_backward.
+    frequency: 2
+    sources:
+      - "Factorization.lean:105-149 (ae_eq_condExp_of_forall_setIntegral_eq)"
+
+  - id: condExp_of_stronglyMeasurable_simplify
+    category: condExp
+    goal: "E[Y|G] = Y  (when Y is G-measurable)"
+    tactics:
+      - "have hce : μ[Y|G] = Y := condExp_of_stronglyMeasurable hG hYm hYint; simp [hce]"
+      - "have hce : μ[Y|G] = Y := condExp_of_stronglyMeasurable hG hYm hYint; rw [hce]"
+    notes: >
+      `condExp_of_stronglyMeasurable` requires `hG : G ≤ m₀`, `hYm : StronglyMeasurable[G] Y`,
+      `hYint : Integrable Y μ`. The `.stronglyMeasurable` coercion converts `Measurable[G] Y`.
+    frequency: 3
+    sources:
+      - "RaoBlackwell.lean:127-128"
+      - "RaoBlackwell.lean:233-234"
+
+  - id: condExp_nonneg_from_ae_nonneg
+    category: condExp
+    goal: "0 ≤ᵃᵉ E[f|m]  (from f ≥ 0 a.e.)"
+    tactics:
+      - "condExp_nonneg (ae_of_all ν fun x => indicator_nonneg ...)"
+      - "condExp_nonneg (ae_of_all μ fun ω => sq_nonneg _)"
+    notes: >
+      Direct: `condExp_nonneg h` where `h : 0 ≤ᵃᵉ[μ] f`.
+    frequency: 3
+    sources:
+      - "Factorization.lean:84-85"
+      - "Basu.lean:128-129"
+      - "RaoBlackwell.lean:54-55"
+
+  - id: condExp_mono_from_ae_le
+    category: condExp
+    goal: "E[f|m] ≤ᵃᵉ E[g|m]  (from f ≤ᵃᵉ g)"
+    tactics:
+      - "condExp_mono hf_int hg_int (ae_of_all _ fun x => ...)"
+      - "condExp_mono (hφ_int j) (integrable_const 1) (ae_of_all _ fun x => indicator_le ...)"
+    notes: >
+      Requires: both `Integrable f μ` and `Integrable g μ`, plus `f ≤ᵃᵉ g`.
+    frequency: 3
+    sources:
+      - "Factorization.lean:88-89"
+      - "Basu.lean:131-134"
+
+  - id: stronglyMeasurable_condExp_pattern
+    category: condExp
+    goal: "need AEStronglyMeasurable[m] E[f|m]"
+    tactics:
+      - "stronglyMeasurable_condExp.aestronglyMeasurable"
+      - "(stronglyMeasurable_condExp (μ := ν) (m := m_T) (f := φ)).mono hm).aestronglyMeasurable"
+    notes: >
+      `stronglyMeasurable_condExp` gives `StronglyMeasurable[m] E[f|m]` directly.
+      `.aestronglyMeasurable` then gives the weaker ae version.
+      Use `.mono hle` to coarsen the sigma-algebra from m to m₀ (direction: finer → coarser).
+    frequency: 5
+    sources:
+      - "Factorization.lean:101 (stronglyMeasurable_condExp.mono hm).aestronglyMeasurable"
+      - "Factorization.lean:149 stronglyMeasurable_condExp.aestronglyMeasurable"
+      - "LehmannScheffe.lean:143-144"
+
+  - id: doob_dynkin_exists_comp
+    category: condExp
+    goal: "E[f|σ(T)] is σ(T)-measurable, so = h ∘ T"
+    tactics: |
+      obtain ⟨h, hh_meas, hψ_eq⟩ := hψ_sm.measurable.exists_eq_measurable_comp (f := T)
+      -- hψ_eq : E[f|σ(T)] = h ∘ T  (pointwise equality of functions)
+      -- Use: congr_fun hψ_eq x  to get pointwise value
+    notes: >
+      `StronglyMeasurable[m_T].measurable.exists_eq_measurable_comp` is the Doob-Dynkin
+      lemma. Returns `∃ h : S → ℝ, Measurable h ∧ E[f|m_T] = h ∘ T`.
+      Requires `StandardBorelSpace S` (or at least `MeasurableSpace S` with the right structure).
+    frequency: 3
+    sources:
+      - "Factorization.lean:191 (factor rn_T as g ∘ T)"
+      - "Basu.lean:108-112"
+      - "LehmannScheffe.lean:228 (hψ_sm.measurable.exists_eq_measurable_comp)"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 4 — Integrability / MemLp patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: memLp_mono_exponent
+    category: integrability
+    goal: "MemLp f p μ  from  MemLp f q μ  where p ≤ q"
+    tactics:
+      - "hLp.mono_exponent (by norm_num : (2 : ENNReal) ≤ 3)"
+      - "hLp2.mono_exponent (by norm_num)"
+    notes: >
+      For Lᵖ → Lᵠ when p ≤ q (for finite measures).
+      Commonly used: L³ → L², L² → L¹.
+    frequency: 4
+    sources:
+      - "Taylor.lean:100 (hLp.mono_exponent (by norm_num : (2 : ENNReal) ≤ 3))"
+      - "Taylor.lean:505 (hLp.mono_exponent (by norm_num))"
+
+  - id: memLp_two_iff_integrable_sq
+    category: integrability
+    goal: "MemLp f 2 μ  ↔  Integrable (f^2) μ"
+    tactics:
+      - "rw [memLp_two_iff_integrable_sq hg_aesm]"
+      - "exact (memLp_two_iff_integrable_sq ha).mpr hq"
+    notes: >
+      Used to enter/exit L² via squared integrability.
+      Requires `AEStronglyMeasurable f μ` (the `hg_aesm` argument).
+    frequency: 5
+    sources:
+      - "ANOVA.lean:69 (rw [memLp_two_iff_integrable_sq hg_aesm])"
+      - "ANOVA.lean:81 (memLp_two_iff_integrable_sq ha).mpr hq)"
+      - "LehmannScheffe.lean:84 (rwa [memLp_two_iff_integrable_sq ...])"
+
+  - id: integrable_of_bound
+    category: integrability
+    goal: "Integrable f μ  from  ‖f x‖ ≤ C  a.e. and f is AEStronglyMeasurable"
+    tactics: |
+      exact Integrable.of_bound
+        ((stronglyMeasurable_condExp ...).mono hm).aestronglyMeasurable
+        1 h_bound_μ
+    notes: >
+      `Integrable.of_bound h_aesm C h_bound` proves integrability from a uniform bound.
+      The bound C must be a real number (not ENNReal).
+      AEStronglyMeasurable with the AMBIENT sigma-algebra (hm : m ≤ mΩ needed).
+    frequency: 2
+    sources:
+      - "Factorization.lean:99-102"
+
+  - id: integrable_sub_add_from_memLp
+    category: integrability
+    goal: "Integrable (f - g) μ  or  Integrable (f + g) μ"
+    tactics:
+      - "hf.sub (integrable_const c)"
+      - "hf.sub hψ_int"
+      - "(hh_lp.integrable (by norm_num))"
+      - "(hf.integrable_sq.sub (hint_fg.const_mul 2)).add (integrable_const _)"
+    notes: >
+      `Integrable.sub`, `.add`, `.const_mul` are all compatible.
+      `hf.integrable (by norm_num)` extracts L¹ from MemLp (needs proof p ≥ 1).
+    frequency: 8
+    sources:
+      - "LehmannScheffe.lean:79-80"
+      - "ANOVA.lean:154-155"
+      - "RaoBlackwell.lean:26-29"
+
+  - id: memLp_condExp_contraction
+    category: integrability
+    goal: "MemLp E[f|m] 2 μ  from  MemLp f 2 μ"
+    tactics:
+      - "have hYG : MemLp (μ[Y|G]) 2 μ := hY.condExp"
+      - "hfc_memLp.condExp.ae_eq h_condExp_fc"
+    notes: >
+      `MemLp.condExp` is the L² contraction: if f ∈ L², then E[f|m] ∈ L².
+      `.ae_eq` lets you transfer MemLp across an ae-equality.
+    frequency: 3
+    sources:
+      - "RaoBlackwell.lean:43"
+      - "LehmannScheffe.lean:97-98"
+
+  - id: integrable_rnDeriv_smul_pattern
+    category: integrability
+    goal: "Integrable (rnDeriv.toReal • f) ν  ↔  Integrable f μ  (when μ ≪ ν)"
+    tactics:
+      - "have h_rn : Integrable (fun x => (μ.rnDeriv ν x).toReal • φ x) ν := (integrable_rnDeriv_smul_iff hμ).mpr hφ_μ"
+      - "rw [← setIntegral_rnDeriv_smul hμ hs_mΩ]"
+    notes: >
+      `integrable_rnDeriv_smul_iff hμ` (μ ≪ ν) gives the equivalence.
+      `setIntegral_rnDeriv_smul hμ hs` converts set-integrals between measures.
+    frequency: 2
+    sources:
+      - "Factorization.lean:77-81"
+      - "Factorization.lean:123 + 142-146"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 5 — Measurability patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: measurability_comp_with_aemeasurable
+    category: measurability
+    goal: "AEMeasurable (f ∘ g) μ"
+    tactics:
+      - "(hU_meas θ).comp (hX_meas 0)).aestronglyMeasurable"
+      - "(hΦ_meas δ).comp (hX_meas 0)).aestronglyMeasurable"
+      - "Finset.measurable_sum Finset.univ (fun i _ => hm i)"
+    notes: >
+      Composition: if `Measurable f` and `Measurable g` then `Measurable (f ∘ g)`.
+      For AEStronglyMeasurable versions: `.aestronglyMeasurable` coercion.
+      Finset sums: `Finset.measurable_sum s (fun i _ => hm i)`.
+    frequency: 8
+    sources:
+      - "USLLN.lean:59"
+      - "USLLN.lean:257"
+      - "Taylor.lean:257"
+
+  - id: comp_measurePreserving_for_memLp
+    category: measurability
+    goal: "MemLp (f ∘ π) p (μ.prod ν)  from  MemLp f p ν  (when π is measure-preserving)"
+    tactics:
+      - "hg_lp.comp_measurePreserving measurePreserving_snd"
+      - "hf.aestronglyMeasurable.comp_measurePreserving (Measure.measurePreserving_swap ...)"
+    notes: >
+      `MemLp.comp_measurePreserving` transfers MemLp along a measure-preserving map.
+      `measurePreserving_snd` and `measurePreserving_fst` for product projections.
+      `Measure.measurePreserving_swap` for swapping product coordinates.
+    frequency: 3
+    sources:
+      - "ANOVA.lean:135 (hg_lp.comp_measurePreserving measurePreserving_snd)"
+      - "ANOVA.lean:73-74 (hfswap_aesm via comp_measurePreserving)"
+
+  - id: comap_measurable_for_sigma_algebra
+    category: measurability
+    goal: "Measurable[MeasurableSpace.comap T m] f  (f factors through T)"
+    tactics:
+      - "have hgT_sm : StronglyMeasurable[m_T] (fun x => (g (T x)).toReal) := (hg.ennreal_toReal.stronglyMeasurable).comp_measurable (comap_measurable T)"
+      - "have hmT : MeasurableSpace.comap T ‹MeasurableSpace S› ≤ mΩ := hT.comap_le"
+    notes: >
+      `comap_measurable T` gives `Measurable[m_T] T` where `m_T = MeasurableSpace.comap T m`.
+      For g ∘ T to be m_T-measurable: compose `.comp_measurable (comap_measurable T)`.
+      `hT.comap_le` gives `m_T ≤ mΩ` from `Measurable T`.
+    frequency: 4
+    sources:
+      - "Factorization.lean:70-71"
+      - "Factorization.lean:62 (hm : m_T ≤ mΩ := hT.comap_le)"
+      - "Basu.lean:99"
+
+  - id: aemeasurable_from_measurable
+    category: measurability
+    goal: "AEMeasurable f μ  from  Measurable f"
+    tactics:
+      - ".aemeasurable"
+      - "(hX_meas 0).aemeasurable"
+      - "(hm i).aemeasurable"
+    notes: >
+      The `.aemeasurable` coercion is the most common pattern.
+      Used extensively in charFun, pushforward integrals, integral_map.
+    frequency: 15+
+    sources:
+      - "Taylor.lean:114 (hm.aemeasurable)"
+      - "USLLN.lean:107 (hX_meas 0).aemeasurable)"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 6 — Algebraic cleanup patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: linarith_for_real_inequality_from_steps
+    category: algebra
+    goal: "a ≤ b  or  a = b  when proved via named step lemmas"
+    tactics:
+      - "linarith [step1, step2, ..., stepN]"
+      - "linarith [h_int_eq, h_cross_zero, h_Δ_sq_nonneg]"
+      - "linarith [h_decomp]"
+    notes: >
+      The dominant pattern for assembling real-valued inequalities/equalities
+      from named have steps. Almost every main theorem closes with linarith.
+      Each step is a named `have` of the form `step1 : ... = ...`.
+    frequency: 20+
+    sources:
+      - "Factorization.lean:147 (linarith [step1, ..., step6])"
+      - "LehmannScheffe.lean:183 (linarith [h_int_eq, h_cross_zero, h_Δ_sq_nonneg])"
+      - "Basu.lean:225 (linarith [step_a, step_b, step_c, step_d])"
+      - "RaoBlackwell.lean:47, 65, 77, 88, 100, ..."
+
+  - id: ring_for_algebraic_identity
+    category: algebra
+    goal: "a = b  (pure ring identity, no measure theory)"
+    tactics:
+      - "ring"
+      - "ext x; ring"
+      - "fun ω => by ring"
+      - "congr 1; ext x; ring"
+    notes: >
+      `ring` closes all `CommRing` identities automatically.
+      Often used in `show (fun x => ...) = (fun x => ...)` with `ext x; ring`.
+    frequency: 20+
+    sources:
+      - "ANOVA.lean:152"
+      - "LehmannScheffe.lean:112"
+      - "Taylor.lean:206"
+
+  - id: push_cast_for_coercions
+    category: algebra
+    goal: "goals involving ℕ → ℝ, ℤ → ℝ, ℝ → ℂ coercions"
+    tactics:
+      - "push_cast"
+      - "push_cast; ring"
+      - "push_cast [Nat.factorial_succ]"
+    notes: >
+      `push_cast` normalizes all coercions by pushing them towards leaves.
+      Follow with `ring` for algebraic identities involving mixed types.
+      For Nat.factorial: `push_cast [Nat.factorial_succ]` handles induction steps.
+    frequency: 10+
+    sources:
+      - "Hermite.lean:38 (push_cast; ring)"
+      - "Hermite.lean:212-213 (push_cast [Nat.factorial_succ]; ring)"
+      - "Taylor.lean:160 (push_cast; ring)"
+
+  - id: norm_num_for_numeric_facts
+    category: algebra
+    goal: "numeric fact: (2 : ENNReal) ≤ 3, 0 < 4 * n, ..."
+    tactics:
+      - "by norm_num"
+      - "(by norm_num : (2 : ENNReal) ≤ 3)"
+      - "(by norm_num : (0 : ℝ) < 4)"
+    notes: >
+      `norm_num` handles all numeric and norm-arithmetic goals automatically.
+      Frequently used inline in `by norm_num` arguments to lemmas.
+    frequency: 15+
+    sources:
+      - "Taylor.lean:100 (by norm_num : (2 : ENNReal) ≤ 3)"
+      - "Hermite.lean:79 (by norm_num)"
+      - "RaoBlackwell.lean:22 (hX.integrable one_le_two)"
+
+  - id: field_simp_for_division
+    category: algebra
+    goal: "algebraic goals involving division / fractions / nonzero denominators"
+    tactics:
+      - "field_simp"
+      - "field_simp; ring"
+      - "field_simp [hsqrt_ne, hsk]"
+    notes: >
+      `field_simp` with nonzero hypotheses simplifies fractions.
+      Follow with `ring` for remaining algebraic manipulations.
+    frequency: 8
+    sources:
+      - "Hermite.lean:237 (field_simp)"
+      - "Hermite.lean:432 (field_simp)"
+      - "Taylor.lean:483 (field_simp; ring)"
+
+  - id: simp_only_pi_apply
+    category: algebra
+    goal: "goals with Pi.pow_apply, Pi.sub_apply, Pi.mul_apply etc."
+    tactics:
+      - "simp only [Pi.pow_apply]"
+      - "simp only [Pi.sub_apply, Pi.zero_apply]"
+      - "simp only [Pi.mul_apply, φ]"
+    notes: >
+      Lean 4 Mathlib represents pointwise operations as Pi.XXX_apply.
+      These do NOT reduce by `ring` alone — need explicit `simp only` first.
+      Pattern: after `simp only [Pi.pow_apply]`, can close with `linarith` or `ring`.
+    frequency: 5
+    sources:
+      - "ANOVA.lean:41 (simp only [Pi.pow_apply] at hEq)"
+      - "RaoBlackwell.lean:25 (simp only [Pi.pow_apply] at h1)"
+      - "LehmannScheffe.lean:43 (simp only [Pi.sub_apply, Function.comp_apply])"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 7 — Inequality chain patterns (calc / gcongr)
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: calc_chain_for_norm_inequality
+    category: inequality
+    goal: "‖a - b‖ ≤ C  (via intermediate steps)"
+    tactics: |
+      calc ‖A - B‖
+          = ‖(A - C) + (C - B)‖ := by ring_nf
+        _ ≤ ‖A - C‖ + ‖C - B‖ := norm_add_le _ _
+        _ ≤ bound1 + bound2 := by <linarith or gcongr>
+        _ = C := by ring
+    notes: >
+      The standard pattern for triangle inequality arguments.
+      `norm_add_le _ _` and `norm_sub_le _ _` are the two key lemmas.
+      Final `ring` closes arithmetic. Used in USLLN triangle inequality and Taylor.
+    frequency: 6
+    sources:
+      - "USLLN.lean:572-579"
+      - "Taylor.lean:68-80 (norm_cexp_sub_quadratic_le case |θ| > 1)"
+      - "Taylor.lean:163-170"
+
+  - id: gcongr_for_monotone_inequalities
+    category: inequality
+    goal: "f a ≤ f b  when f is monotone and a ≤ b"
+    tactics:
+      - "gcongr"
+      - "gcongr <; exact norm_mul_le _ _"
+      - "gcongr with k _"
+    notes: >
+      `gcongr` is the monotonicity tactic — applies to norm, mul, pow, etc.
+      Can be combined with `<;>` to solve all remaining side goals.
+    frequency: 8
+    sources:
+      - "Taylor.lean:71 (gcongr)"
+      - "Taylor.lean:211-212 (gcongr <;> exact norm_mul_le _ _)"
+      - "Hermite.lean:511 (gcongr)"
+      - "USLLN.lean:217 (gcongr)"
+
+  - id: div_le_div_for_sum_bounds
+    category: inequality
+    goal: "(∑ f) / n ≤ (∑ g) / n  when f ≤ g pointwise"
+    tactics: |
+      apply div_le_div_of_nonneg_right _ (by positivity : (0 : ℝ) ≤ ↑n)
+      exact Finset.sum_le_sum fun j _ => hdom j
+    notes: >
+      `div_le_div_of_nonneg_right` handles the division step.
+      `Finset.sum_le_sum` handles the sum step with pointwise bounds.
+    frequency: 2
+    sources:
+      - "USLLN.lean:408-410"
+
+  - id: norm_prod_le_prod_norm
+    category: inequality
+    goal: "‖∏ i, f i‖ ≤ ∏ i, ‖f i‖  or  ≤ 1  (when ‖f i‖ ≤ 1)"
+    tactics:
+      - "Finset.norm_prod_le Finset.univ _"
+      - "Finset.prod_le_one (fun i _ => norm_nonneg _) (fun i _ => hf i)"
+    notes: >
+      Two-step pattern: `norm_prod_le` gives ‖∏‖ ≤ ∏‖·‖, then
+      `prod_le_one` closes when each norm ≤ 1.
+    frequency: 3
+    sources:
+      - "Taylor.lean:215-218"
+      - "Taylor.lean:619-621"
+
+  - id: abs_le_pattern_for_real_norm
+    category: inequality
+    goal: "‖f x‖ ≤ C  or  |f x| ≤ C"
+    tactics:
+      - "rw [Real.norm_eq_abs, abs_of_nonneg h0x]"
+      - "rw [Real.norm_of_nonneg (sq_nonneg _), ...]"
+      - "rw [Real.norm_eq_abs, abs_sub_comm]; exact h_mu"
+    notes: >
+      Lean 4 Mathlib: real norm = abs. `Real.norm_eq_abs` converts between them.
+      `abs_of_nonneg` and `abs_of_nonpos` simplify when sign is known.
+    frequency: 6
+    sources:
+      - "Factorization.lean:93-94"
+      - "ANOVA.lean:84-85"
+      - "USLLN.lean:271"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 8 — Product space / Fubini patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: integral_prod_swap_for_Fubini
+    category: product
+    goal: "∫ (∫ f (x, y) ∂μ₀) ∂ν = ∫ (∫ f (x, y) ∂ν) ∂μ₀"
+    tactics:
+      - "rw [show ∫ y, (∫ x, φ (x, y) ^ 2 ∂μ₀) ∂ν = ∫ x, (∫ y, φ (x, y) ^ 2 ∂ν) ∂μ₀ from (integral_integral_swap (f := ...) hφ2_int).symm]"
+      - "(integral_prod_symm f hfint).symm"
+    notes: >
+      `integral_integral_swap` requires joint integrability.
+      `integral_prod_symm` swaps the order in `∫ f d(μ.prod ν)` vs `∫ f d(ν.prod μ)`.
+    frequency: 3
+    sources:
+      - "ANOVA.lean:194-196"
+      - "ANOVA.lean:165"
+
+  - id: prod_slice_integrability
+    category: product
+    goal: "∀ᵐ x ∂μ₀, Integrable (fun y => f (x, y)) ν  from  Integrable f (μ.prod ν)"
+    tactics:
+      - "have hslice_sq : ∀ᵐ x ∂μ₀, Integrable (fun y => f (x, y) ^ 2) ν := hf.integrable_sq.prod_right_ae"
+      - "have hslice_aesm : ∀ᵐ x ∂μ₀, AEStronglyMeasurable (fun y => f (x, y)) ν := hf.aestronglyMeasurable.prodMk_left"
+    notes: >
+      `.prod_right_ae` gives ae slices in the x-direction.
+      `.prod_left_ae` gives ae slices in the y-direction.
+      `.prodMk_left` gives ae strong measurability of slices.
+    frequency: 4
+    sources:
+      - "ANOVA.lean:75-78"
+      - "ANOVA.lean:99-102"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 9 — ENNReal / measure-theoretic conversion patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: toReal_eq_toReal_for_ennreal
+    category: ennreal
+    goal: "(a : ENNReal).toReal = (b : ENNReal).toReal  ↔  a = b  (when finite)"
+    tactics:
+      - "rw [← ENNReal.toReal_eq_toReal_iff' h_lhs_ne_top h_rhs_ne_top]"
+      - "rw [ENNReal.toReal_eq_toReal_iff' ...]"
+    notes: >
+      Requires both sides to be finite (`≠ ⊤`).
+      Used in `factorization_forward` to convert ENNReal set-measure equality
+      to the Bochner-integral level.
+    frequency: 2
+    sources:
+      - "Factorization.lean:212"
+      - "Basu.lean:227-229"
+
+  - id: measure_ne_top_for_finite
+    category: ennreal
+    goal: "μ s ≠ ⊤  (from IsFiniteMeasure)"
+    tactics:
+      - "measure_ne_top μ s"
+      - "measure_ne_top μ Set.univ"
+      - "ne_top_of_le_ne_top (measure_ne_top μ _) <| ..."
+    notes: >
+      `measure_ne_top` is the standard API for finiteness of measures.
+      `ne_top_of_le_ne_top` extends finiteness through inequalities.
+    frequency: 4
+    sources:
+      - "Factorization.lean:203"
+      - "Factorization.lean:185"
+      - "Basu.lean:228"
+
+  - id: integral_toReal_for_lintegral
+    category: ennreal
+    goal: "convert ∫⁻ f dμ to (∫ f.toReal dμ).toENNReal"
+    tactics:
+      - "rw [← integral_toReal (hrn_meas.mono hle le_rfl).aemeasurable (ae_restrict_of_ae h_rn_T_lt_top)]"
+    notes: >
+      `integral_toReal` requires: AEMeasurable f and `∀ᵐ x, f x < ⊤`.
+      Used when bridging lintegral and Bochner integral sides.
+    frequency: 2
+    sources:
+      - "Factorization.lean:215-216"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 10 — Complex analysis / charFun patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: integral_complex_ofReal_for_moments
+    category: complex
+    goal: "∫ (↑(f x) : ℂ) ∂μ = ↑(∫ f x ∂μ)"
+    tactics:
+      - "rw [integral_complex_ofReal]"
+      - "rw [integral_complex_ofReal, hmean]; simp"
+    notes: >
+      `integral_complex_ofReal` converts a complex integral of a real-valued function
+      to the ofReal-coercion of the real integral.
+    frequency: 3
+    sources:
+      - "Taylor.lean:143"
+      - "Taylor.lean:150"
+
+  - id: charfun_via_integral_map
+    category: complex
+    goal: "charFun (μ.map Y) t = ∫ ω, exp(i·t·Y ω) ∂μ"
+    tactics: |
+      have char_eq : charFun (μ.map Y) t =
+          ∫ ω, Complex.exp (↑(t * Y ω) * Complex.I) ∂μ := by
+        rw [charFun_apply_real]
+        have : ∫ x : ℝ, Complex.exp (↑t * ↑x * Complex.I) ∂(μ.map Y) =
+            ∫ ω, Complex.exp (↑t * ↑(Y ω) * Complex.I) ∂μ :=
+          integral_map_of_stronglyMeasurable hm (by fun_prop)
+        rw [this]; congr 1; ext ω; push_cast; ring
+    notes: >
+      `charFun_apply_real` unfolds charFun to an integral over the pushforward.
+      `integral_map_of_stronglyMeasurable` then pulls back to the base space.
+    frequency: 2
+    sources:
+      - "Taylor.lean:109-117"
+
+  - id: norm_exp_ofReal_mul_I_eq_one
+    category: complex
+    goal: "‖exp(i · t · x)‖ = 1  or  ≤ 1"
+    tactics:
+      - "rw [Complex.norm_exp_ofReal_mul_I]"
+      - "ae_of_all _ fun ω => by rw [Complex.norm_exp_ofReal_mul_I]"
+    notes: >
+      `Complex.norm_exp_ofReal_mul_I` gives ‖exp(i · θ)‖ = 1 for real θ.
+      Used repeatedly to establish integrability of complex exponential integrands.
+    frequency: 3
+    sources:
+      - "Taylor.lean:123"
+      - "Hermite.lean:619-620"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 11 — Structural / termination patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: nat_strong_rec_on
+    category: induction
+    goal: "induction on k with access to ∀ m < k hypothesis"
+    tactics: |
+      induction k using Nat.strongRecOn with
+      | ind k ih =>
+      <proof using ih : ∀ m < k, ...>
+    notes: >
+      Used in Hermite orthogonality (double induction on m + n = k) and
+      Hermite span density (strong induction on monomials).
+      Standard Lean 4 name: `Nat.strongRecOn` (via `induction ... using`).
+    frequency: 2
+    sources:
+      - "Hermite.lean:192-193"
+      - "Hermite.lean:690"
+
+  - id: obtain_exists_for_dchoice
+    category: structural
+    goal: "extract witness from ∃ x, P x"
+    tactics:
+      - "obtain ⟨g, hg, hgT⟩ := hrn_meas.exists_eq_measurable_comp (f := T)"
+      - "obtain ⟨η, hη_pos, hη⟩ := Metric.continuousAt_iff.mp ... ε hε"
+      - "obtain ⟨N, hN⟩ := hDCT (η / 2) (by linarith)"
+    notes: >
+      `obtain ⟨...⟩ := ...` is the standard way to destructure existential witnesses.
+      Used throughout for: Doob-Dynkin factorization, metric continuity, DCT convergence.
+    frequency: 15+
+    sources:
+      - "Factorization.lean:191"
+      - "USLLN.lean:375"
+      - "USLLN.lean:267"
+
+  - id: haveI_for_instances
+    category: structural
+    goal: "establish a typeclass instance needed for subsequent steps"
+    tactics:
+      - "haveI : IsProbabilityMeasure (P.measure θ) := P.isProbability θ"
+      - "haveI : IsFiniteMeasure (P.measure θ) := inferInstance"
+      - "haveI : SigmaFinite ((P.measure θ).trim hm_le) := inferInstance"
+      - "haveI : @SigmaFinite Ω m_T (ν.trim hle) := by ..."
+    notes: >
+      `haveI` (vs `have`) makes the proof available as a typeclass instance.
+      Needed when Lean cannot infer the instance automatically (e.g., trimmed measures,
+      specific probability measures).
+    frequency: 10+
+    sources:
+      - "LehmannScheffe.lean:221-223"
+      - "Factorization.lean:167-173"
+
+  - id: tendsto_integral_dominated_convergence
+    category: limits
+    goal: "∫ F_n → ∫ F  (dominated convergence)"
+    tactics: |
+      apply tendsto_integral_of_dominated_convergence (bound := fun ω => h ω)
+      · exact fun n => <AEStronglyMeasurable F_n>    -- measurability
+      · exact hbound_int                              -- bound integrable
+      · exact fun n => ae_of_all _ fun ω => <‖F_n‖ ≤ h>  -- domination
+      · exact ae_of_all _ fun ω => <F_n → F>         -- pointwise convergence
+    notes: >
+      Argument order for `tendsto_integral_of_dominated_convergence`:
+      bound, F_n-measurability, bound-integrable, norm bound, pointwise limit.
+      All ae-conditions use `ae_of_all _` when they hold pointwise.
+    frequency: 3
+    sources:
+      - "USLLN.lean:366-372 (hDCT)"
+      - "Taylor.lean:541-545 (hlim)"
+
+  - id: continuous_of_dominated_for_param_integrals
+    category: limits
+    goal: "Continuous (θ ↦ ∫ f(x, θ) ∂μ)"
+    tactics: |
+      apply continuous_of_dominated (F := fun θ a => U a θ) (bound := M)
+      · intro θ; exact (hU_meas θ).aestronglyMeasurable
+      · intro θ; exact ae_of_all _ (fun a => hM_bound a θ)
+      · exact (integrable_map_measure ...).mpr hM_int
+      · exact ae_of_all _ (fun a => hU_cont a)
+    notes: >
+      `continuous_of_dominated` is the parameterized DCT for continuity.
+      Arguments: F (the integrand), bound, F measurable, bound ae, bound integrable,
+      F continuous in parameter.
+    frequency: 1
+    sources:
+      - "USLLN.lean:143-150 (popMean_continuous)"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 12 — Variance / condVar patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: variance_eq_sub_integral
+    category: variance
+    goal: "Var[X; μ] = ∫ X² dμ - (∫ X dμ)²"
+    tactics:
+      - "have hEq := variance_eq_sub hXc; simp only [Pi.pow_apply] at hEq"
+      - "rw [variance_eq_sub hg_lp, variance_eq_sub hh_lp, variance_eq_sub hf]"
+    notes: >
+      `variance_eq_sub` requires `MemLp X 2 μ`.
+      The result has `Pi.pow_apply` (since it's a Pi.fun), so `simp only [Pi.pow_apply]`
+      is needed before using the equation with ring/linarith.
+    frequency: 5
+    sources:
+      - "ANOVA.lean:129"
+      - "RaoBlackwell.lean:24-25"
+      - "LehmannScheffe.lean:105"
+
+  - id: setIntegral_condVar_univ
+    category: variance
+    goal: "∫ Var[X|m] dμ = ∫ (X - E[X|m])² dμ"
+    tactics: |
+      calc μ[Var[Y; μ | G]]
+          = ∫ ω in Set.univ, (Var[Y; μ | G]) ω ∂μ := by simp
+        _ = ∫ ω in Set.univ, (Y ω - (μ[Y|G]) ω) ^ 2 ∂μ :=
+            setIntegral_condVar (m := G) (hm := hG) (μ := μ) (X := Y) (s := Set.univ) hYres (by simp)
+        _ = ∫ ω, (Y ω - μ[Y|G] ω) ^ 2 ∂μ := by simp
+    notes: >
+      `setIntegral_condVar` on `Set.univ` with `(by simp)` for the measurability side goal.
+      The `simp` at the end removes `restrict Set.univ`.
+    frequency: 2
+    sources:
+      - "RaoBlackwell.lean:155-160"
+
+  - id: integral_condVar_add_variance_condExp
+    category: variance
+    goal: "∫ Var[Y|G] dμ + Var[E[Y|G]; μ] = Var[Y; μ]  (law of total variance)"
+    tactics:
+      - "have h_total := integral_condVar_add_variance_condExp hG hY"
+      - "simpa [add_comm] using (integral_condVar_add_variance_condExp hG hY).symm"
+    notes: >
+      `integral_condVar_add_variance_condExp` is the single Mathlib API for LOTV.
+      `simpa [add_comm]` handles the commutativity of addition.
+    frequency: 2
+    sources:
+      - "RaoBlackwell.lean:44"
+      - "RaoBlackwell.lean:65"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 13 — Compactness / topology patterns (USLLN-specific)
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: finite_cover_from_compactness
+    category: topology
+    goal: "obtain finite set S covering compact space Θ"
+    tactics: |
+      obtain ⟨S, hS⟩ := isCompact_univ.elim_finite_subcover
+        (fun θ₀ => ball θ₀ (R θ₀)) (fun _ => isOpen_ball)
+        (fun θ _ => mem_iUnion.mpr ⟨θ, mem_ball_self (hR_pos θ)⟩)
+    notes: >
+      `isCompact_univ.elim_finite_subcover` on a `CompactSpace`.
+      The three arguments: open sets, openness proof, covering proof (every point is covered).
+    frequency: 1
+    sources:
+      - "USLLN.lean:473-476"
+
+  - id: ae_ball_for_finite_intersection
+    category: topology
+    goal: "∀ᵐ ω ∂P, ∀ θ ∈ S, P ω θ  (from pointwise ae for each θ in finite S)"
+    tactics:
+      - "exact (ae_ball_iff (Finset.countable_toSet S)).mpr this"
+    notes: >
+      `ae_ball_iff` converts a countable family of ae statements to a single ae ∀.
+      Works for both `Finset` (use `.countable_toSet`) and general countable sets.
+    frequency: 2
+    sources:
+      - "USLLN.lean:129 (slln_finset_ae)"
+      - "USLLN.lean:514"
+
+  - id: ciSup_le_for_oscillation_bounds
+    category: topology
+    goal: "⨆ k, f k ≤ C  (when each f k ≤ C)"
+    tactics:
+      - "exact ciSup_le hterm_le"
+      - "exact ciSup_le fun _ => hv"
+    notes: >
+      `ciSup_le` closes goals of the form `⨆ k, f k ≤ C` when given `∀ k, f k ≤ C`.
+      Requires `BddAbove` (often discharged by providing the same bound C).
+    frequency: 4
+    sources:
+      - "USLLN.lean:257 (oscEnvelope_le_two_mul)"
+      - "USLLN.lean:303-304"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 14 — Anti-patterns and common pitfalls
+# ────────────────────────────────────────────────────────────────────────────
+
+anti_patterns:
+
+  - id: pi_pow_apply_before_ring
+    description: >
+      `(f ^ 2) x ≠ f x ^ 2` for Pi-functions in Lean 4.
+      `ring` cannot close goals with `Pi.pow_apply` expressions.
+    fix: "simp only [Pi.pow_apply] before ring or linarith"
+    frequency: 3
+    sources:
+      - "ANOVA.lean:41"
+      - "RaoBlackwell.lean:25"
+
+  - id: set_m_instance_confusion
+    description: >
+      `set m := MeasurableSpace.comap T ‹_›` makes Lean use `m` as the ambient
+      MeasurableSpace instance. This reverses `.mono hle` direction and breaks
+      `Integrable.of_bound`, `condExp_mono`, `StronglyMeasurable.mono` etc.
+    fix: "Use explicit `condExp m ν f` notation or avoid `set m` entirely. Always pass the sigma-algebra explicitly when there is ambiguity."
+    sources:
+      - "MEMORY.md pattern #50"
+
+  - id: false_lemma_f_poly_in_L2
+    description: >
+      f ∈ L²(γ) does NOT imply f · poly ∈ L²(γ).
+      Counterexample: f(x) = e^{x²/4}/(1+x²)^{1/2} ∈ L²(γ) but x·f ∉ L²(γ).
+    fix: "Use Hölder: L²(γ) · L²(γ) ⊆ L¹(γ). Only claim L¹ integrability for f · poly products."
+    sources:
+      - "MEMORY.md pattern #46"
+      - "Hermite.lean restructuring (v15)"
+
+  - id: stdGaussianPi_is_def_not_abbrev
+    description: >
+      `stdGaussianPi` is a `def`, not `abbrev`. Cannot unfold with `rw` or `convert`.
+    fix: "Use `simp only [stdGaussianPi]` or `unfold stdGaussianPi`."
+    sources:
+      - "MEMORY.md pattern #68"
