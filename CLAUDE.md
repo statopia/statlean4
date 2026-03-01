@@ -162,3 +162,55 @@
   2. 添加结构化 sorry 注释（blocker、proof sketch、estimated effort）
   3. 在 `sorry_backlog.yaml` 中注册，标明依赖关系和优先级
   4. 以后有资源时通过 `/prove-deep` 攻击
+
+---
+
+## 经验反馈闭环（强制）
+
+**每次会话结束前**，输出一份「本轮经验报告」，格式如下：
+
+### 报告格式
+
+```
+## 本轮经验报告
+
+### 新发现的 Lean/Mathlib 模式
+- <编号>. <模式描述> — <发现场景>
+
+### Pipeline / 工具链改进建议
+- <建议描述> — <动机>
+
+### 分类 / 路由规则建议
+- <规则描述> — <触发的误分类案例>
+
+### 证明策略新 pattern
+- <策略描述> — <适用场景>
+
+### 踩坑记录（避免重复）
+- <坑描述> — <解决方案>
+```
+
+### 流程
+
+1. **Claude 输出报告** — 每次会话的实质性工作结束后，主动输出上述报告
+2. **用户审阅** — 用户决定哪些值得固化
+3. **用户指令固化** — 用户说「采纳 X」后，Claude 执行：
+   - Lean/Mathlib 模式 → 写入 `MEMORY.md`（已有机制）
+   - Pipeline 改进 → 更新对应 `theme/scripts/` 代码或 pipeline skill
+   - 分类规则 → 更新 `theme/scripts/classify.py` 的 `_THEOREM_RULES` 或 ontology
+   - 证明策略 → 更新 `theme/prove_playbook.md`
+   - 踩坑记录 → 写入 `MEMORY.md` 或 CLAUDE.md 的「关键模式」小节
+4. **不自动写入** — 报告本身只是建议，**未经用户确认不修改任何文件**
+
+### 什么算「实质性工作」（触发报告）
+
+- 完成 ≥1 个定理的证明或形式化
+- Pipeline 运行一轮完整流程（PDF → Gate）
+- 攻击 sorry 有实质进展（减少 sorry 或发现新 blocker）
+- 修复 ≥2 个编译错误的调试过程
+
+### 什么不需要报告
+
+- 纯问答、文件浏览、简单编辑
+- 只跑了 `lake build` 确认编译通过
+- 纯 git 操作（commit、push）

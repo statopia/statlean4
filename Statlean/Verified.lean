@@ -77,6 +77,7 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Sufficiency/Factorization**: Fisher-Neyman factorization (both directions)
 - **Sufficiency/Basu**: Basu's theorem
 - **Sufficiency/MinimalSufficiency**: Density ratio criterion (Thm C) + Subfamily extension (Thm A)
-- **Estimator/Basic**: MSE = Bias² + Var, unbiased MSE = Var, risk dominance
+- **Estimator/Basic**: MSE = Bias² + Var, unbiased MSE = Var, risk dominance,
+  likelihood, IsMLE, MLE invariance (isMLE_comp)
 - **ExpFamily/Basic**: MLE existence in natural exponential families
 -/
