@@ -147,7 +147,7 @@ targets = items[:$MAX_PARALLEL]
 print(len(targets))
 for it in targets:
     print(json.dumps({'file': it['file'], 'theorem': it['theorem']}))
-" 2>&1
+"
 }
 
 # === Main loop ===

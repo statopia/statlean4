@@ -95,3 +95,14 @@ def IsUnbiased {Ω : Type*} [MeasurableSpace Ω]
   ∀ θ, ∫ ω, δ ω ∂(P.measure θ) = g θ
 
 end ParametricFamily
+
+/-- A sufficient statistic T is **minimal sufficient** if it factors through
+every other sufficient statistic: for any sufficient S, there exists
+measurable ψ such that T = ψ ∘ S  P-a.s. for all θ.
+PIPELINE_ID: lec4.minimal_sufficiency_def -/
+def IsMinimalSufficient' {Ω α β : Type*} [MeasurableSpace Ω]
+    [MeasurableSpace α] [MeasurableSpace β]
+    (P : ParametricFamily Θ Ω) (T : Ω → α) : Prop :=
+  IsSufficient' P T ∧
+  ∀ (S : Ω → β), IsSufficient' P S →
+    ∃ ψ : β → α, Measurable ψ ∧ ∀ θ, T =ᵐ[P.measure θ] ψ ∘ S

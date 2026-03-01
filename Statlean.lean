@@ -52,3 +52,4 @@ import Statlean.Sufficiency.LehmannScheffe
 -- Fisher information and Cramér-Rao
 import Statlean.Information.Basic
 import Statlean.Information.CramerRao
+import Statlean.Sufficiency.MinimalSufficiency

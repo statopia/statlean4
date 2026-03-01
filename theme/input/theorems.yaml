@@ -1,181 +1,61 @@
 version: v1
-theorem_set: concept-resolved
+theorem_set: lec4-theorem-c
 defaults:
   lean_namespace: Statlean
   layer: formalization
   allow_axiom: false
 theorems:
-- id: concept.parametric_family
-  title: Parametric Family
+- id: lec4.minimal_sufficiency_def
+  title: "Minimal Sufficiency (Definition)"
   kind: definition
-  latex_statement: ''
-  latex_proof_hint: ''
-  lean_name: parametric_family
-  lean_statement: "structure ParametricFamily (Θ Ω : Type*) [MeasurableSpace Ω] where\n\
-    \  measure : Θ → Measure Ω\n  isProbability : ∀ θ, IsProbabilityMeasure (measure\
-    \ θ)"
+  latex_statement: |
+    Let T be a sufficient statistic for P ∈ 𝒫. T is called a minimal sufficient
+    statistic if and only if, for any other statistic S sufficient for P ∈ 𝒫, there is
+    a measurable function ψ such that T = ψ(S) P-a.s.
+  latex_proof_hint: ""
+  lean_name: "IsMinimalSufficient"
+  lean_statement: ""
   lean_namespace: Statlean.Statistic.Basic
   layer: formalization
-  priority: 3
+  priority: 1
   dependencies: []
   assumptions: []
   acceptance:
   - lake build passes
-  - theorem contains no sorry
-  - theorem contains no axiom
-  notes: 'From ontology: parametric_family (level 2)'
-- id: concept.statistic
-  title: Statistic
-  kind: definition
-  latex_statement: ''
-  latex_proof_hint: ''
-  lean_name: statistic
-  lean_statement: "def IsStatistic {Ω α : Type*} [MeasurableSpace Ω] [MeasurableSpace\
-    \ α]\n    (T : Ω → α) : Prop :=\n  Measurable T"
-  lean_namespace: Statlean.Statistic.Basic
-  layer: formalization
-  priority: 3
-  dependencies: []
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - theorem contains no sorry
-  - theorem contains no axiom
-  notes: 'From ontology: statistic (level 2)'
-- id: concept.variance
-  title: Variance
-  kind: definition
-  latex_statement: ''
-  latex_proof_hint: ''
-  lean_name: variance
-  lean_statement: ''
-  lean_namespace: Statlean.Variance.Basic
-  layer: formalization
-  priority: 3
-  dependencies: []
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - theorem contains no sorry
-  - theorem contains no axiom
-  notes: 'From ontology: variance (level 1)'
-- id: concept.dominated_model
-  title: Dominated Statistical Model
-  kind: definition
-  latex_statement: ''
-  latex_proof_hint: ''
-  lean_name: dominated_model
-  lean_statement: "structure DominatedModel (Θ Ω : Type*) [MeasurableSpace Ω]\n  \
-    \  extends ParametricFamily Θ Ω where\n  base : Measure Ω\n  isSigmaFinite : SigmaFinite\
-    \ base\n  absolutelyContinuous : ∀ θ, measure θ ≪ base"
-  lean_namespace: Statlean.Statistic.Basic
-  layer: formalization
-  priority: 3
-  dependencies:
-  - concept.parametric_family
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - theorem contains no sorry
-  - theorem contains no axiom
-  notes: 'From ontology: dominated_model (level 2)'
-- id: concept.estimator
-  title: Estimator
-  kind: definition
-  latex_statement: ''
-  latex_proof_hint: ''
-  lean_name: estimator
-  lean_statement: "def IsEstimator {Ω : Type*} [MeasurableSpace Ω]\n    (δ : Ω → ℝ)\
-    \ : Prop :=\n  Measurable δ"
-  lean_namespace: Statlean.Estimator.Basic
-  layer: formalization
-  priority: 3
-  dependencies:
-  - concept.statistic
-  - concept.parametric_family
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - theorem contains no sorry
-  - theorem contains no axiom
-  notes: 'From ontology: estimator (level 5)'
-- id: concept.density_likelihood
-  title: Density / Likelihood
-  kind: definition
-  latex_statement: ''
-  latex_proof_hint: ''
-  lean_name: density_likelihood
-  lean_statement: "noncomputable def density (M : DominatedModel Θ Ω) (θ : Θ) : Ω\
-    \ → ℝ≥0∞ :=\n  (M.measure θ).rnDeriv M.base\nnoncomputable def likelihood (M :\
-    \ DominatedModel Θ Ω) (x : Ω) : Θ → ℝ≥0∞ :=\n  fun θ => density M θ x"
-  lean_namespace: Statlean.Statistic.Basic
-  layer: formalization
-  priority: 3
-  dependencies:
-  - concept.dominated_model
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - theorem contains no sorry
-  - theorem contains no axiom
-  notes: 'From ontology: density_likelihood (level 2)'
-- id: concept.unbiased
-  title: Unbiased Estimator
-  kind: definition
-  latex_statement: ''
-  latex_proof_hint: ''
-  lean_name: unbiased
-  lean_statement: "def IsUnbiased {Ω : Type*} [MeasurableSpace Ω]\n    (P : ParametricFamily\
-    \ Θ Ω) (δ : Ω → ℝ) (g : Θ → ℝ) : Prop :=\n  ∀ θ, ∫ ω, δ ω ∂(P.measure θ) = g θ"
-  lean_namespace: Statlean.Estimator.Basic
-  layer: formalization
-  priority: 3
-  dependencies:
-  - concept.estimator
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - theorem contains no sorry
-  - theorem contains no axiom
-  notes: 'From ontology: unbiased (level 5)'
-- id: concept.fisher_information
-  title: Fisher Information
-  kind: definition
-  latex_statement: ''
-  latex_proof_hint: ''
-  lean_name: fisher_information
-  lean_statement: "noncomputable def fisherInformation {Ω : Type*} [MeasurableSpace\
-    \ Ω]\n    (M : DominatedModel ℝ Ω) (θ : ℝ) : ℝ :=\n  ∫ ω, (scoreFunction M θ ω)\
-    \ ^ 2 ∂(M.measure θ)"
-  lean_namespace: Statlean.Information.Basic
-  layer: formalization
-  priority: 3
-  dependencies:
-  - concept.density_likelihood
-  - concept.variance
-  assumptions: []
-  acceptance:
-  - lake build passes
-  - theorem contains no sorry
-  - theorem contains no axiom
-  notes: 'From ontology: fisher_information (level 7)'
-- id: concept.cramer_rao
-  title: Cramér-Rao Lower Bound
+  - definition contains no sorry
+  notes: "Lecture 4, page 9. Minimal sufficient = factors through every other sufficient."
+
+- id: lec4.theorem_c
+  title: "Theorem (C): Density ratio criterion for minimal sufficiency"
   kind: theorem
-  latex_statement: ''
-  latex_proof_hint: ''
-  lean_name: cramer_rao
-  lean_statement: ''
-  lean_namespace: Statlean.Information.CramerRao
+  latex_statement: |
+    Suppose that 𝒫 contains p.d.f.'s f_P w.r.t. a σ-finite measure ν.
+    Suppose T(X) a sufficient statistic that satisfies the following property:
+    If there is a measurable function φ such that for any possible values x and y of X,
+      f_P(x) = f_P(y) φ(x,y), ∀ P ∈ 𝒫,
+    then T(x) = T(y).
+    Then T(X) is minimal sufficient for P.
+  latex_proof_hint: |
+    Suppose S is sufficient. Need to show T is a function of S.
+    By factorization theorem: f_P(x) = g_P(S(x)) h(x), ν-a.e.
+    Let A = {x : h(x) > 0}. Then P(Aᶜ) = 0 for all P.
+    For any x, y in A with S(x) = S(y):
+      f_P(x) = g_P(S(x)) h(x) = g_P(S(y)) h(y) · h(x)/h(y) = f_P(y) · h(x)/h(y)
+    The density ratio condition (with φ(x,y) = h(x)/h(y)) implies T(x) = T(y).
+    So T = ψ(S) P-a.s.
+  lean_name: "minimalSufficient_of_densityRatio"
+  lean_statement: ""
+  lean_namespace: Statlean.Sufficiency.MinimalSufficiency
   layer: formalization
-  priority: 3
+  priority: 2
   dependencies:
-  - concept.fisher_information
-  - concept.unbiased
-  - concept.variance
+  - lec4.minimal_sufficiency_def
   assumptions: []
   acceptance:
   - lake build passes
   - theorem contains no sorry
-  - theorem contains no axiom
-  notes: 'From ontology: cramer_rao (level 7)'
+  notes: |
+    Lecture 4, page 13-14 (Theorem C).
+    Key idea: factorization gives density ratio = h(x)/h(y) when S(x)=S(y),
+    so the density ratio condition forces T(x)=T(y).
+    Requires: Factorization theorem (already proved, zero sorry).

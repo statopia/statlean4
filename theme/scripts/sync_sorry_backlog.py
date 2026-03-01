@@ -233,6 +233,21 @@ def sync_backlog(
                     f.write(f"  dependencies: [{', '.join(deps)}]\n")
                     unlocks = item.get("unlocks", [])
                     f.write(f"  unlocks: [{', '.join(unlocks)}]\n")
+                    # Preserve custom fields (proof_sketch, notes, etc.)
+                    _known = {"id", "file", "line", "sorry_lines", "theorem",
+                              "type", "depth", "priority", "blocker",
+                              "estimated_lines", "dependencies", "unlocks"}
+                    for k, v in item.items():
+                        if k in _known:
+                            continue
+                        if isinstance(v, str) and "\n" in v:
+                            f.write(f"  {k}: |\n")
+                            for ln in v.splitlines():
+                                f.write(f"    {ln}\n")
+                        elif isinstance(v, str):
+                            f.write(f'  {k}: "{v}"\n')
+                        else:
+                            f.write(f"  {k}: {v}\n")
 
     return stats
 
