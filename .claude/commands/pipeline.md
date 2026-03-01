@@ -35,11 +35,13 @@ Report: number of theorem entries in YAML.
 
 ## Step 3: Lean Skeleton (use /tex2lean skill)
 
-For each theorem in YAML:
-1. Map LaTeX to Mathlib types
-2. Generate Lean 4 declaration with `sorry`
-3. Place in appropriate `Statlean/` module
-4. Build to verify skeleton compiles
+**Follow `theme/formalize_playbook.md` Steps 2-4** for each theorem:
+1. Check existing code (grep + read Verified.lean)
+2. Read `theme/mathlib_api_index.md` for Mathlib type mappings
+3. Design Lean signature (must reflect precise math content)
+4. Place in appropriate `Statlean/` module
+5. Build to verify skeleton compiles
+6. Run honesty check (Step 6 of playbook): no trivial wrappers, no hidden sorry
 
 ## Step 4: Build & Fix (use /build-fix skill)
 

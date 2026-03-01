@@ -53,6 +53,11 @@ Proceed without confirmation.
 
 ---
 
+## Formalization Strategy
+
+**Interactive formalization playbook: `theme/formalize_playbook.md`** (input parsing → content retrieval → signature design → proof → honesty check).
+When the user says "formalize XX from YY", **follow Steps 0-7 of that playbook**.
+
 ## Proof Strategy
 
 **Full playbook: `theme/prove_playbook.md`** (decision tree + error fix table + strategy selection table).

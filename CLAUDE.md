@@ -56,9 +56,14 @@
 
 ---
 
+## 形式化策略
+
+**交互式形式化手册见 `theme/formalize_playbook.md`**（输入解析 → 内容获取 → 签名设计 → 证明 → 诚实性检查）。
+用户在会话中说「形式化 XX 里的 YY」时，**必须遵循该 playbook 的 Step 0-7**。
+
 ## 证明策略
 
-**完整操作手册见 `theme/prove_playbook.md`**（决策树 + 错误修复表 + 策略选择表）。
+**证明操作手册见 `theme/prove_playbook.md`**（决策树 + 错误修复表 + 策略选择表）。
 交互式会话和 pipeline prove agent 都遵循该 playbook。
 
 ### 攻击顺序
