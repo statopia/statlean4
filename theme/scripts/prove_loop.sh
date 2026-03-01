@@ -121,6 +121,13 @@ for i in $(seq 1 "$MAX_ITERS"); do
   echo "[prove-loop] build_ok=$build_ok sorry=$sorry_count pipeline_ids=$pipeline_count"
   echo "{\"phase\":\"prove-loop\",\"iter\":$i,\"build_ok\":$build_ok,\"sorry\":$sorry_count,\"pipeline_ids\":$pipeline_count}" >> "$LOG_DIR/pipeline.jsonl"
 
+  # Guard: do not dispatch agents if build is broken
+  if [[ "$build_ok" -eq 0 ]]; then
+    echo "[prove-loop] ERROR: build failed — cannot dispatch prove agents on broken code"
+    echo "[prove-loop] fix build errors first, then re-run prove"
+    break
+  fi
+
   if [[ "$i" -eq "$MAX_ITERS" ]]; then
     echo "[prove-loop] reached max iterations ($MAX_ITERS)"
     break

@@ -13,14 +13,14 @@ PROVE_BUDGET ?= 3600
 PROVE_MAX_ITERS ?= 10
 PROVE_DEPTH ?= deep
 
-.PHONY: formalize resolve ingest plan generate infra-audit sync-backlog prove gate clean \
+.PHONY: formalize resolve ingest plan generate infra-audit build-check sync-backlog prove gate clean \
         from-tex tex-formalize from-pdf pdf-formalize \
         prove-fallback refresh-index
 
 # ══════════════════════════════════════════════════════════
 # Full pipeline: LaTeX → Lean → sync-backlog → prove → gate
 # ══════════════════════════════════════════════════════════
-formalize: resolve ingest plan generate infra-audit sync-backlog prove gate
+formalize: resolve ingest plan generate infra-audit build-check sync-backlog prove gate
 
 # Concept resolution: CONCEPTS → theorems.yaml (no-op if CONCEPTS is empty)
 resolve:
@@ -44,6 +44,11 @@ generate:
 
 infra-audit:
 	cd "$(ROOT)" && python3 theme/scripts/infra_audit.py .
+
+build-check:
+	@echo "[build-check] verifying generated code compiles..."
+	@cd "$(ROOT)" && lake build 2>&1 | tail -5 || \
+	  { echo "[build-check] FAIL: generated code does not compile — aborting pipeline"; exit 1; }
 
 sync-backlog:
 	cd "$(ROOT)" && python3 theme/scripts/sync_sorry_backlog.py

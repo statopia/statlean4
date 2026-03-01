@@ -34,19 +34,26 @@ def find_sorry_sites(statlean_dir: Path) -> List[Dict[str, Any]]:
         # Track current theorem/def context
         current_decl: Optional[str] = None
         current_decl_line: int = 0
+        current_decl_kind: str = "unknown"  # "theorem", "lemma", "def", etc.
 
         for i, line in enumerate(lines, 1):
             # Track declarations
             decl_match = re.match(
-                r"^\s*(?:theorem|lemma|def|noncomputable\s+def)\s+(\w+)", line
+                r"^\s*(?:noncomputable\s+)?(theorem|lemma|def|abbrev|structure|class)\s+(\w+)", line
             )
             if decl_match:
-                current_decl = decl_match.group(1)
+                current_decl_kind = decl_match.group(1)
+                current_decl = decl_match.group(2)
                 current_decl_line = i
 
             # Detect sorry (not in comments)
             stripped = line.split("--")[0]  # Remove line comments
             if re.search(r"\bsorry\b", stripped):
+                # Skip placeholder definitions (def X := sorry)
+                # These are pipeline-generated stubs, not real proof targets
+                if current_decl_kind in ("def", "abbrev", "structure", "class"):
+                    continue
+
                 # Extract blocker from nearby structured comments
                 blocker = ""
                 for j in range(max(0, i - 5), min(len(lines), i + 3)):
