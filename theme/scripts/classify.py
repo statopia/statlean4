@@ -65,7 +65,12 @@ _THEOREM_RULES: list[Tuple[list[str], str, str]] = [
     # Limit theorems
     (["berry.esseen", "berryesseen", "berry-esseen", "normal approximation"], "LimitTheorems", "BerryEsseen"),
     (["slln", "strong law", "uniform.*law.*large"], "LimitTheorems", "USLLN"),
+    (["lindeberg", "feller"], "LimitTheorems", "CLT"),
     (["clt", "central limit"], "LimitTheorems", "CLT"),
+    (["scheff", "scheffe"], "LimitTheorems", "CLT"),
+    (["slutsky"], "LimitTheorems", "CLT"),
+    (["continuous.*mapping"], "LimitTheorems", "CLT"),
+    ([r"δ.method", "delta.method"], "LimitTheorems", "CLT"),
     # Empirical process
     (["covering number", "bracketing", "metric entropy"], "EmpiricalProcess", "CoveringNumber"),
     (["dudley", "chaining"], "EmpiricalProcess", "Dudley"),
@@ -152,7 +157,9 @@ def classify_from_ontology(
             best_score = score
             best_match = concept
 
-    if best_match and best_score > 0:
+    # Require minimum score to avoid spurious matches on common words
+    # (e.g. "density" appearing in any statistics text)
+    if best_match and best_score >= 10:
         topic = best_match["lean_topic"]
         module = best_match.get("lean_module", "Basic")
         if is_infra:
@@ -185,6 +192,7 @@ def classify_theorem(
     ('Pipeline', 'Lecture9Handout')
     """
     blob = f"{title} {namespace} {statement}".lower()
+    title_blob = f"{title} {namespace}".lower()
     is_infra = kind.lower().strip() in _INFRA_KINDS
 
     # Try namespace-based shortcut: "Statlean.Gaussian.Poincare" → ("Gaussian", "Poincare")
@@ -196,19 +204,34 @@ def classify_theorem(
             return subdir, "Basic"
         return subdir, submodule
 
-    # Stage 0: ontology lookup (highest priority after namespace shortcut)
+    # Stage 0a: keyword rules on title+namespace (precise, high confidence)
+    # Check title_blob first — if the title explicitly names the theorem,
+    # that takes priority over ontology matches on the statement body.
+    if is_infra:
+        for keywords, topic in _INFRA_RULES:
+            for kw in keywords:
+                if re.search(kw, title_blob, re.IGNORECASE):
+                    return topic, "Basic"
+    for keywords, subdir, submodule in _THEOREM_RULES:
+        for kw in keywords:
+            if re.search(kw, title_blob, re.IGNORECASE):
+                if is_infra:
+                    return subdir, "Basic"
+                return subdir, submodule
+
+    # Stage 0b: ontology lookup on full blob
     onto_result = classify_from_ontology(blob, kind)
     if onto_result:
         return onto_result
 
-    # Stage 1: if infra kind, try infra rules first
+    # Stage 1: infra rules on full blob
     if is_infra:
         for keywords, topic in _INFRA_RULES:
             for kw in keywords:
                 if re.search(kw, blob, re.IGNORECASE):
                     return topic, "Basic"
 
-    # Stage 2: theorem rules
+    # Stage 2: theorem rules on full blob
     for keywords, subdir, submodule in _THEOREM_RULES:
         for kw in keywords:
             if re.search(kw, blob, re.IGNORECASE):

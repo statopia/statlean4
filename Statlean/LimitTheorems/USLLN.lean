@@ -626,6 +626,18 @@ available or too comp
 
 LaTeX proof hint:
 (empty)
+
+Lean sketch (reference, not compiled):
+theorem slln
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {X : ℕ → Ω → ℝ}
+    (hind : iIndepFun (fun _ => inferInstance) X μ)
+    (hid : ∀ i j, IdentDistrib (X i) (X j) μ μ)
+    (hint : Integrable (X 0) μ) :
+    ∀ᵐ ω ∂μ, Filter.Tendsto
+      (fun n => (∑ i ∈ Finset.range n, X i ω) / n)
+      Filter.atTop (nhds (∫ ω', X 0 ω' ∂μ)) := by
+  sorry
 -/
 theorem slln : True := by
   sorry

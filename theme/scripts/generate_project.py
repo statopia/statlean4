@@ -146,12 +146,30 @@ def theorem_block(item: Dict[str, Any], used_names: set[str]) -> Tuple[str, str,
     lines.append("")
     lines.append("LaTeX proof hint:")
     lines.append(latex_hint or "(empty)")
+
+    # Include Lean sketch as reference if available
+    lean_sketch = safe_comment(str(item.get("lean_sketch", "")))
+    if lean_sketch:
+        lines.append("")
+        lines.append("Lean sketch (reference, not compiled):")
+        lines.append(lean_sketch)
+
     lines.append("-/")
 
     if stmt and str(stmt).strip() and _stmt_has_decl_keyword(str(stmt).strip()):
         # lean_statement already contains the full declaration (def/theorem/structure)
-        # — emit as-is, don't wrap with another keyword
-        for ln in str(stmt).strip().splitlines():
+        # — emit as-is, but rename the declared identifier to lean_name (for dedup)
+        stmt_text = str(stmt).strip()
+        decl_m = _DECL_KW_RE.match(stmt_text)
+        if decl_m:
+            # Extract the original declared name and replace with lean_name
+            after_kw = stmt_text[decl_m.end():]
+            orig_name_m = re.match(r'(\S+)', after_kw)
+            if orig_name_m:
+                orig_name = orig_name_m.group(1)
+                # Replace first occurrence of original name after keyword
+                stmt_text = stmt_text[:decl_m.end()] + lean_name + after_kw[len(orig_name):]
+        for ln in stmt_text.splitlines():
             lines.append(ln)
     elif is_def:
         if stmt and str(stmt).strip():
@@ -185,9 +203,17 @@ def ensure_target_file(repo_root: Path, subdir: str, submodule: str) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
 
     # Create file with module docstring + imports
+    # Include standard Mathlib imports for probability/measure theory sketches
     module_path = lean_module_path(subdir, submodule)
     header = (
-        f"import Statlean.Basic\n"
+        f"import Mathlib.MeasureTheory.Measure.MeasureSpace\n"
+        f"import Mathlib.MeasureTheory.Integral.Bochner.Basic\n"
+        f"import Mathlib.MeasureTheory.Integral.Lebesgue.Basic\n"
+        f"import Mathlib.MeasureTheory.Function.LpSpace.Basic\n"
+        f"import Mathlib.Probability.IdentDistrib\n"
+        f"import Mathlib.Probability.Independence.Basic\n"
+        f"\n"
+        f"open MeasureTheory ProbabilityTheory Filter\n"
         f"\n"
         f"/-! # {subdir}/{submodule}\n"
         f"\n"
@@ -277,10 +303,11 @@ def build_project(
         canonical = str(item.get("canonical_name", ""))
         classify_title = f"{title} {canonical}".strip() if canonical else title
         namespace = str(item.get("lean_namespace", ""))
-        stmt = str(item.get("lean_statement", ""))
+        # Use latex_statement for classification (not lean_statement which has Lean variable names)
+        latex_stmt = str(item.get("latex_statement", ""))
         kind = str(item.get("kind", "theorem"))
 
-        subdir, submodule = classify_theorem(classify_title, namespace, stmt, kind=kind, source_tag=source_tag)
+        subdir, submodule = classify_theorem(classify_title, namespace, latex_stmt, kind=kind, source_tag=source_tag)
         block, lean_name, has_pipeline_id = theorem_block(item, used_names)
 
         rel_path = classify_file_path(subdir, submodule)

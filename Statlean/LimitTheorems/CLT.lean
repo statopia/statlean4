@@ -1,4 +1,11 @@
-import Statlean.Basic
+import Mathlib.MeasureTheory.Measure.MeasureSpace
+import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.MeasureTheory.Integral.Lebesgue.Basic
+import Mathlib.MeasureTheory.Function.LpSpace.Basic
+import Mathlib.Probability.IdentDistrib
+import Mathlib.Probability.Independence.Basic
+
+open MeasureTheory ProbabilityTheory Filter
 
 /-! # LimitTheorems/CLT
 
@@ -100,6 +107,110 @@ theorem t_distribution_clt_example : True := by
   sorry
 
 /-
+ID: lecture_9_handout.theorem.002.scheffe_theorem
+Title: Theorem 2
+Kind: theorem
+PIPELINE_ID: lecture_9_handout.theorem.002.scheffe_theorem
+
+LaTeX statement:
+s on Scheff´es theorem
+
+
+  - _ν_ is usually the Lebesgue measure or the counting measure
+
+  - e.g. _Xn_ ∼ Binom( _n,pn_ ) and if _npn_ → _λ_, then _Xn_ → _D_ _X_ ∼ Poisson( _λ_ )
+
+    - The pmf of _Xn_ is
+
+
+_fn_ ( _k_ ) = ( _[n]_ _n_ [(][1][ −] _[p][n]_ [)] _[n]_ [−] _[k]_
+_k_ [)] _[p][k]_
+
+
+    - Note that _pn_ → 0, and _fn_ ( _k_ ) converges pointwise (for each
+_k_ = 0 _,_ 1 _,_ 2 _,..._ ) to
+
+_f_ ( _k_ ) = _e_ [−] _[λ][ λ][k]_
+
+_k_ ! _[.]_
+
+
+Hence _Xn_ →D _X_ ∼ Poisson( _λ_ ) under the counting measure.
+
+
+LIN Zhenhua (NUS) Lecture 9 4 / 28
+
+
+- e.g. _Xn_ ∼ _tn_, then _Xn_ →D _X_ ∼ _N_ (0 _,_ 1): The density of _Xn_ is
+
+
+
+Γ ( _[n]_ [+][1]
+_fn_ ( _x_ ) = ~~√~~ 2
+
+
+
+
+_[x]_ [2]
+
+_n_ _n_
+
+2 [) (][1][ +]
+
+
+
+_n_ [)]
+
+
+
+Γ ( _[n]_ [+][1]
+
+2 [)]
+~~√~~ _nπ_ Γ ( _n_
+
+
+
+
+- _[n]_ [+][1]
+
+2
+
+
+
+satisfies _fn_ ( _x_ ) → _ϕ_ ( _x_ ) = (2 _π_ ) [−][1][/][2] _e_ [−] _[x]_ [2][/][2] pointwise.
+
+ - Note that we use the asymptotic property of gamma function:
+Γ( _x_ + _α_ ) ∼ Γ( _x_ ) _x_ _[α]_ as _x_ →+∞, for any fixed _α_
+
+
+LIN Zhenhua (NUS) Lecture 9 5 / 28
+
+
+# δ -Method
+
+If we have an approximate distribution of _θ_ [ˆ] (often by CLT), what is the
+approximate distribution of _g_ ( _θ_ [ˆ] ) for a sm
+...
+
+LaTeX proof hint:
+(empty)
+
+Lean sketch (reference, not compiled):
+theorem scheffe_theorem
+    {α : Type*} [MeasurableSpace α] {ν : Measure α} [SigmaFinite ν]
+    {f : ℕ → α → ℝ≥0∞} {g : α → ℝ≥0∞}
+    (hf : ∀ n, Measurable (f n)) (hg : Measurable g)
+    (hpdf : ∀ n, ∫⁻ x, f n x ∂ν = 1) (hgpdf : ∫⁻ x, g x ∂ν = 1)
+    (hconv : ∀ᵐ x ∂ν, Filter.Tendsto (fun n => f n x) Filter.atTop (nhds (g x))) :
+    Filter.Tendsto
+      (fun n => ∫⁻ x, (f n x - g x) ⊔ 0 ∂ν)
+      Filter.atTop (nhds 0) := by
+  sorry
+-/
+theorem scheffe_theorem : True := by
+  sorry
+
+/-
 ID: lecture_9_handout.theorem.004.central_limit_theorem
 Title: Theorem 4
 Kind: theorem
@@ -133,6 +244,20 @@ LIN Zhenhua (NUS) Lecture 9 8 / 28
 
 LaTeX proof hint:
 (empty)
+
+Lean sketch (reference, not compiled):
+theorem central_limit_theorem
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {X : ℕ → Ω → ℝ}
+    (hind : iIndepFun (fun _ => inferInstance) X μ)
+    (hid : ∀ i j, IdentDistrib (X i) (X j) μ μ)
+    (hm : ∫ ω, X 0 ω ∂μ = 0) (hv : ProbabilityTheory.variance (X 0) μ = 1)
+    (hint : Memℒp (X 0) 2 μ) :
+    Filter.Tendsto
+      (fun n => μ.map (fun ω => (∑ i ∈ Finset.range n, X i ω) / Real.sqrt n))
+      Filter.atTop
+      (nhds (Measure.gaussianReal 0 1)) := by
+  sorry
 -/
 theorem central_limit_theorem : True := by
   sorry
@@ -188,8 +313,85 @@ LIN Zhenhua (NUS) Lecture 9 15 / 28
 
 LaTeX proof hint:
 (empty)
+
+Lean sketch (reference, not compiled):
+theorem lindeberg_feller_clt
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {X : ℕ → ℕ → Ω → ℝ} {σ_sq : ℕ → ℝ}
+    (hind : ∀ n, iIndepFun (fun _ => inferInstance) (X n) μ)
+    (hmean : ∀ n j, ∫ ω, X n j ω ∂μ = 0)
+    (hvar : ∀ n, σ_sq n = ∑ j ∈ Finset.range n, ProbabilityTheory.variance (X n j) μ)
+    (hσ : Filter.Tendsto σ_sq Filter.atTop Filter.atTop)
+    (hlind : ∀ ε > 0, Filter.Tendsto
+      (fun n => (1 / σ_sq n) * ∑ j ∈ Finset.range n,
+        ∫ ω, (X n j ω) ^ 2 * Set.indicator {ω | |X n j ω| > ε * Real.sqrt (σ_sq n)} 1 ω ∂μ)
+      Filter.atTop (nhds 0)) :
+    True := by
+  sorry
 -/
 theorem lindeberg_feller_clt : True := by
+  sorry
+
+/-
+ID: lecture_9_handout.theorem.008.continuous_mapping_theorem
+Title: Theorem 8
+Kind: theorem
+PIPELINE_ID: lecture_9_handout.theorem.008.continuous_mapping_theorem
+
+LaTeX statement:
+s
+
+
+  - Like the consistency, the asymptotic bias is a concept relating to
+sequences { _Tn_ } and { [˜] _bTn_ ( _P_ )}
+
+  - When both the exact bias _bTn_ ( _P_ ) and the asymptotic bias [˜] _bTn_ ( _P_ )
+exist, they are NOT necessarily the same
+
+  - If _Tn_ is a consistent estimator of _θ_, then _Tn_ = _θ_ + _op_ (1), and thus _Tn_
+is asymptotically unbiased
+
+    - _g_ ( _Tn_ ) is asymptotically unbiased for _g_ ( _θ_ ) for any continuous function _g_
+_a.s._
+
+    - In the example of estimating 1/ _µ_ by _Tn_ = 1/ _X_ [¯], _Tn_ → 1/ _µ_ by the
+SLLN and the continuous mapping. Hence _Tn_ is asymptotically
+unbiased, although _ETn_ may not be well-defined.
+
+
+LIN Zhenhua (NUS) Lecture 9 19 / 28
+
+
+# Asymptotic Mean Squared Error (amse)
+
+Like the bias, the variance and MSE of an estimator is not well defined if
+its second moment does not exist
+
+
+
+
+
+
+
+
+
+LIN Zhenhua (NUS) Lecture 9 20 / 28
+
+LaTeX proof hint:
+(empty)
+
+Lean sketch (reference, not compiled):
+theorem continuous_mapping_theorem
+    {α β : Type*} [TopologicalSpace α] [TopologicalSpace β]
+    [MeasurableSpace α] [OpensMeasurableSpace α]
+    [MeasurableSpace β] [OpensMeasurableSpace β]
+    {μ_n : ℕ → Measure α} {μ : Measure α} {g : α → β}
+    (hconv : Filter.Tendsto μ_n Filter.atTop (nhds μ))
+    (hg : Continuous g) :
+    Filter.Tendsto (fun n => (μ_n n).map g) Filter.atTop (nhds (μ.map g)) := by
+  sorry
+-/
+theorem continuous_mapping_theorem : True := by
   sorry
 
 /-
@@ -212,6 +414,20 @@ LIN Zhenhua (NUS) Lecture 9 24 / 28
 
 LaTeX proof hint:
 (empty)
+
+Lean sketch (reference, not compiled):
+theorem central_limit_theorem
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {X : ℕ → Ω → ℝ}
+    (hind : iIndepFun (fun _ => inferInstance) X μ)
+    (hid : ∀ i j, IdentDistrib (X i) (X j) μ μ)
+    (hm : ∫ ω, X 0 ω ∂μ = 0) (hv : ProbabilityTheory.variance (X 0) μ = 1)
+    (hint : Memℒp (X 0) 2 μ) :
+    Filter.Tendsto
+      (fun n => μ.map (fun ω => (∑ i ∈ Finset.range n, X i ω) / Real.sqrt n))
+      Filter.atTop
+      (nhds (Measure.gaussianReal 0 1)) := by
+  sorry
 -/
 theorem central_limit_theorem_v2 : True := by
   sorry
@@ -239,8 +455,102 @@ LIN Zhenhua (NUS) Lecture 9 25 / 28
 
 LaTeX proof hint:
 (empty)
+
+Lean sketch (reference, not compiled):
+theorem central_limit_theorem
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {X : ℕ → Ω → ℝ}
+    (hind : iIndepFun (fun _ => inferInstance) X μ)
+    (hid : ∀ i j, IdentDistrib (X i) (X j) μ μ)
+    (hm : ∫ ω, X 0 ω ∂μ = 0) (hv : ProbabilityTheory.variance (X 0) μ = 1)
+    (hint : Memℒp (X 0) 2 μ) :
+    Filter.Tendsto
+      (fun n => μ.map (fun ω => (∑ i ∈ Finset.range n, X i ω) / Real.sqrt n))
+      Filter.atTop
+      (nhds (Measure.gaussianReal 0 1)) := by
+  sorry
 -/
 theorem central_limit_theorem_v3 : True := by
+  sorry
+
+/-
+ID: lecture_9_handout.theorem.013.slutsky_theorem
+Title: Theorem 13
+Kind: theorem
+PIPELINE_ID: lecture_9_handout.theorem.013.slutsky_theorem
+
+LaTeX statement:
+: MLE for the Exponential Mean
+
+Let _X_ 1 _,...,Xn_ be i.i.d. drawn from the density _f_ ( _x_ ; _λ_ ) = _λ_ [−][1] _e_ [−] _[x]_ [/] _[λ]_ for
+_x_ - 0 and _λ_ - 0
+
+  - Note that _λ_ = E( _X_ 1) is the population mean and Var( _X_ 1) = _λ_ [2]
+
+  - Estimate _λ_ by the sample mean
+
+
+
+_λ_ ˆ = _X_ ¯ = [1]
+
+_n_
+
+
+
+_n_
+∑ _Xi_
+_i_ =1
+
+
+
+
+- By CLT,
+~~√~~
+_n_
+
+
+
+�→D _N_ (0 _,_ 1) _._
+_λ_ [(] _[λ]_ [ˆ][ −] _[λ]_ [)]
+
+
+
+
+- By Slutsky’s theorem,
+~~√~~
+_n_
+
+
+
+( _λ_ [ˆ]  - _λ_ ) �→D _N_ (0 _,_ 1) _._
+_λ_ ˆ
+
+
+
+
+- Asymptotic (1 − _α_ ) confidence interval for _λ_ is
+
+_X_ ¯ ± _z_ 1− _α_ /2 ~~√~~ _X_ ¯ _n_
+_n_
+
+LINhZhenhua _X_ ¯(NUS) l _θ_ b th Lecturel i9 i i l 28 / 28
+
+LaTeX proof hint:
+(empty)
+
+Lean sketch (reference, not compiled):
+theorem slutsky_theorem
+    {Ω : Type*} [MeasurableSpace Ω]
+    {μ : ℕ → Measure Ω} {X Y : ℕ → Ω → ℝ} {L : Measure ℝ} {c : ℝ}
+    (hX : Filter.Tendsto (fun n => (μ n).map (X n)) Filter.atTop (nhds L))
+    (hY : ∀ ε > 0, Filter.Tendsto (fun n => (μ n) {ω | ‖Y n ω - c‖ > ε}) Filter.atTop (nhds 0)) :
+    Filter.Tendsto
+      (fun n => (μ n).map (fun ω => X n ω + Y n ω))
+      Filter.atTop
+      (nhds (L.map (fun x => x + c))) := by
+  sorry
+-/
+theorem slutsky_theorem : True := by
   sorry
 
 end PipelineGenerated

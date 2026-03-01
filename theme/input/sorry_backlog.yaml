@@ -1,6 +1,6 @@
-version: v77
+version: v79
 generated: 2026-03-01
-total_sorry: 54
+total_sorry: 62
 
 sorry_items:
 
@@ -154,17 +154,6 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: estimator.basic.asymptotic_relative_efficiency
-  file: Statlean/Estimator/Basic.lean
-  line: 118
-  theorem: asymptotic_relative_efficiency
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
 - id: gaussian.poincare.anonymous_L15
   file: Statlean/Gaussian/Poincare.lean
   line: 15
@@ -211,7 +200,7 @@ sorry_items:
 
 - id: information.basic.fisher_information
   file: Statlean/Information/Basic.lean
-  line: 90
+  line: 97
   theorem: fisher_information
   type: unknown
   depth: 1
@@ -266,7 +255,8 @@ sorry_items:
 
 - id: limittheorems.clt.central_limit_theorem
   file: Statlean/LimitTheorems/CLT.lean
-  line: 138
+  line: 260
+  sorry_lines: [260, 263, 430, 471]
   theorem: central_limit_theorem
   type: unknown
   depth: 1
@@ -277,7 +267,7 @@ sorry_items:
 
 - id: limittheorems.clt.central_limit_theorem_v2
   file: Statlean/LimitTheorems/CLT.lean
-  line: 217
+  line: 433
   theorem: central_limit_theorem_v2
   type: unknown
   depth: 1
@@ -288,8 +278,20 @@ sorry_items:
 
 - id: limittheorems.clt.central_limit_theorem_v3
   file: Statlean/LimitTheorems/CLT.lean
-  line: 244
+  line: 474
   theorem: central_limit_theorem_v3
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.clt.continuous_mapping_theorem
+  file: Statlean/LimitTheorems/CLT.lean
+  line: 392
+  sorry_lines: [392, 395]
+  theorem: continuous_mapping_theorem
   type: unknown
   depth: 1
   priority: 99
@@ -299,8 +301,33 @@ sorry_items:
 
 - id: limittheorems.clt.lindeberg_feller_clt
   file: Statlean/LimitTheorems/CLT.lean
-  line: 193
+  line: 330
+  sorry_lines: [330, 333]
   theorem: lindeberg_feller_clt
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.clt.scheffe_theorem
+  file: Statlean/LimitTheorems/CLT.lean
+  line: 208
+  sorry_lines: [208, 211]
+  theorem: scheffe_theorem
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.clt.slutsky_theorem
+  file: Statlean/LimitTheorems/CLT.lean
+  line: 551
+  sorry_lines: [551, 554]
+  theorem: slutsky_theorem
   type: unknown
   depth: 1
   priority: 99
@@ -310,7 +337,7 @@ sorry_items:
 
 - id: limittheorems.clt.t_distribution_clt_example
   file: Statlean/LimitTheorems/CLT.lean
-  line: 100
+  line: 107
   theorem: t_distribution_clt_example
   type: unknown
   depth: 1
@@ -354,7 +381,8 @@ sorry_items:
 
 - id: limittheorems.uslln.slln
   file: Statlean/LimitTheorems/USLLN.lean
-  line: 631
+  line: 640
+  sorry_lines: [640, 643]
   theorem: slln
   type: unknown
   depth: 1
@@ -363,32 +391,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: pipeline.lecture9handout.continuous_mapping_theorem
+- id: pipeline.lecture9handout.asymptotic_relative_efficiency
   file: Statlean/Pipeline/Lecture9Handout.lean
-  line: 228
-  theorem: continuous_mapping_theorem
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: pipeline.lecture9handout.scheffe_theorem
-  file: Statlean/Pipeline/Lecture9Handout.lean
-  line: 105
-  theorem: scheffe_theorem
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: pipeline.lecture9handout.slutsky_theorem
-  file: Statlean/Pipeline/Lecture9Handout.lean
-  line: 296
-  theorem: slutsky_theorem
+  line: 150
+  theorem: asymptotic_relative_efficiency
   type: unknown
   depth: 1
   priority: 99
@@ -398,7 +404,7 @@ sorry_items:
 
 - id: pipeline.lecture9handout.theorem_003_theorem_3
   file: Statlean/Pipeline/Lecture9Handout.lean
-  line: 145
+  line: 60
   theorem: theorem_003_theorem_3
   type: unknown
   depth: 1
@@ -409,7 +415,7 @@ sorry_items:
 
 - id: pipeline.lecture9handout.theorem_005_theorem_5
   file: Statlean/Pipeline/Lecture9Handout.lean
-  line: 177
+  line: 92
   theorem: theorem_005_theorem_5
   type: unknown
   depth: 1

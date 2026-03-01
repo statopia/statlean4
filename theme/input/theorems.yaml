@@ -81,6 +81,12 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Scheffé's Theorem
+  lean_sketch: "theorem scheffe_theorem\n    {α : Type*} [MeasurableSpace α] {ν :\
+    \ Measure α} [SigmaFinite ν]\n    {f : ℕ → α → ℝ≥0∞} {g : α → ℝ≥0∞}\n    (hf :\
+    \ ∀ n, Measurable (f n)) (hg : Measurable g)\n    (hpdf : ∀ n, ∫⁻ x, f n x ∂ν\
+    \ = 1) (hgpdf : ∫⁻ x, g x ∂ν = 1)\n    (hconv : ∀ᵐ x ∂ν, Filter.Tendsto (fun n\
+    \ => f n x) Filter.atTop (nhds (g x))) :\n    Filter.Tendsto\n      (fun n =>\
+    \ ∫⁻ x, (f n x - g x) ⊔ 0 ∂ν)\n      Filter.atTop (nhds 0) := by\n  sorry"
 - id: lecture_9_handout.theorem.003.theorem_3
   title: Theorem 3
   kind: theorem
@@ -163,6 +169,13 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Central Limit Theorem
+  lean_sketch: "theorem central_limit_theorem\n    {Ω : Type*} [MeasurableSpace Ω]\
+    \ {μ : Measure Ω} [IsProbabilityMeasure μ]\n    {X : ℕ → Ω → ℝ}\n    (hind : iIndepFun\
+    \ (fun _ => inferInstance) X μ)\n    (hid : ∀ i j, IdentDistrib (X i) (X j) μ\
+    \ μ)\n    (hm : ∫ ω, X 0 ω ∂μ = 0) (hv : ProbabilityTheory.variance (X 0) μ =\
+    \ 1)\n    (hint : Memℒp (X 0) 2 μ) :\n    Filter.Tendsto\n      (fun n => μ.map\
+    \ (fun ω => (∑ i ∈ Finset.range n, X i ω) / Real.sqrt n))\n      Filter.atTop\n\
+    \      (nhds (Measure.gaussianReal 0 1)) := by\n  sorry"
 - id: lecture_9_handout.theorem.005.theorem_5
   title: Theorem 5
   kind: theorem
@@ -214,6 +227,15 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Lindeberg-Feller CLT
+  lean_sketch: "theorem lindeberg_feller_clt\n    {Ω : Type*} [MeasurableSpace Ω]\
+    \ {μ : Measure Ω} [IsProbabilityMeasure μ]\n    {X : ℕ → ℕ → Ω → ℝ} {σ_sq : ℕ\
+    \ → ℝ}\n    (hind : ∀ n, iIndepFun (fun _ => inferInstance) (X n) μ)\n    (hmean\
+    \ : ∀ n j, ∫ ω, X n j ω ∂μ = 0)\n    (hvar : ∀ n, σ_sq n = ∑ j ∈ Finset.range\
+    \ n, ProbabilityTheory.variance (X n j) μ)\n    (hσ : Filter.Tendsto σ_sq Filter.atTop\
+    \ Filter.atTop)\n    (hlind : ∀ ε > 0, Filter.Tendsto\n      (fun n => (1 / σ_sq\
+    \ n) * ∑ j ∈ Finset.range n,\n        ∫ ω, (X n j ω) ^ 2 * Set.indicator {ω |\
+    \ |X n j ω| > ε * Real.sqrt (σ_sq n)} 1 ω ∂μ)\n      Filter.atTop (nhds 0)) :\n\
+    \    True := by\n  sorry"
 - id: lecture_9_handout.theorem.007.slln
   title: Theorem 7
   kind: theorem
@@ -256,6 +278,12 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Strong Law of Large Numbers
+  lean_sketch: "theorem slln\n    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}\
+    \ [IsProbabilityMeasure μ]\n    {X : ℕ → Ω → ℝ}\n    (hind : iIndepFun (fun _\
+    \ => inferInstance) X μ)\n    (hid : ∀ i j, IdentDistrib (X i) (X j) μ μ)\n  \
+    \  (hint : Integrable (X 0) μ) :\n    ∀ᵐ ω ∂μ, Filter.Tendsto\n      (fun n =>\
+    \ (∑ i ∈ Finset.range n, X i ω) / n)\n      Filter.atTop (nhds (∫ ω', X 0 ω' ∂μ))\
+    \ := by\n  sorry"
 - id: lecture_9_handout.theorem.008.continuous_mapping_theorem
   title: Theorem 8
   kind: theorem
@@ -285,6 +313,12 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Continuous Mapping Theorem
+  lean_sketch: "theorem continuous_mapping_theorem\n    {α β : Type*} [TopologicalSpace\
+    \ α] [TopologicalSpace β]\n    [MeasurableSpace α] [OpensMeasurableSpace α]\n\
+    \    [MeasurableSpace β] [OpensMeasurableSpace β]\n    {μ_n : ℕ → Measure α} {μ\
+    \ : Measure α} {g : α → β}\n    (hconv : Filter.Tendsto μ_n Filter.atTop (nhds\
+    \ μ))\n    (hg : Continuous g) :\n    Filter.Tendsto (fun n => (μ_n n).map g)\
+    \ Filter.atTop (nhds (μ.map g)) := by\n  sorry"
 - id: lecture_9_handout.theorem.009.fisher_information
   title: Theorem 9
   kind: theorem
@@ -323,6 +357,10 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Fisher Information
+  lean_sketch: "noncomputable def fisherInformation\n    {Ω : Type*} [MeasurableSpace\
+    \ Ω]\n    (P : ℝ → Measure Ω) (ν : Measure Ω) [∀ θ, (P θ).AbsolutelyContinuous\
+    \ ν]\n    (θ : ℝ) : ℝ :=\n    ∫ ω, (deriv (fun θ' => Real.log ((P θ').rnDeriv\
+    \ ν ω).toReal) θ) ^ 2 ∂(P θ)"
 - id: lecture_9_handout.theorem.010.central_limit_theorem
   title: Theorem 10
   kind: theorem
@@ -344,6 +382,13 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Central Limit Theorem
+  lean_sketch: "theorem central_limit_theorem\n    {Ω : Type*} [MeasurableSpace Ω]\
+    \ {μ : Measure Ω} [IsProbabilityMeasure μ]\n    {X : ℕ → Ω → ℝ}\n    (hind : iIndepFun\
+    \ (fun _ => inferInstance) X μ)\n    (hid : ∀ i j, IdentDistrib (X i) (X j) μ\
+    \ μ)\n    (hm : ∫ ω, X 0 ω ∂μ = 0) (hv : ProbabilityTheory.variance (X 0) μ =\
+    \ 1)\n    (hint : Memℒp (X 0) 2 μ) :\n    Filter.Tendsto\n      (fun n => μ.map\
+    \ (fun ω => (∑ i ∈ Finset.range n, X i ω) / Real.sqrt n))\n      Filter.atTop\n\
+    \      (nhds (Measure.gaussianReal 0 1)) := by\n  sorry"
 - id: lecture_9_handout.theorem.011.central_limit_theorem
   title: Cont.
   kind: theorem
@@ -367,6 +412,13 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Central Limit Theorem
+  lean_sketch: "theorem central_limit_theorem\n    {Ω : Type*} [MeasurableSpace Ω]\
+    \ {μ : Measure Ω} [IsProbabilityMeasure μ]\n    {X : ℕ → Ω → ℝ}\n    (hind : iIndepFun\
+    \ (fun _ => inferInstance) X μ)\n    (hid : ∀ i j, IdentDistrib (X i) (X j) μ\
+    \ μ)\n    (hm : ∫ ω, X 0 ω ∂μ = 0) (hv : ProbabilityTheory.variance (X 0) μ =\
+    \ 1)\n    (hint : Memℒp (X 0) 2 μ) :\n    Filter.Tendsto\n      (fun n => μ.map\
+    \ (fun ω => (∑ i ∈ Finset.range n, X i ω) / Real.sqrt n))\n      Filter.atTop\n\
+    \      (nhds (Measure.gaussianReal 0 1)) := by\n  sorry"
 - id: lecture_9_handout.theorem.012.asymptotic_relative_efficiency
   title: Cont.
   kind: theorem
@@ -434,6 +486,9 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Asymptotic Relative Efficiency
+  lean_sketch: "def asymptotic_relative_efficiency\n    {Ω : Type*} [MeasurableSpace\
+    \ Ω] (P : ℕ → Measure Ω)\n    (T₁ T₂ : ℕ → Ω → ℝ) (ϑ : ℝ) (a : ℕ → ℝ)\n    (V₁\
+    \ V₂ : ℝ) : ℝ :=\n    V₂ / V₁"
 - id: lecture_9_handout.theorem.013.slutsky_theorem
   title: Theorem 13
   kind: theorem
@@ -460,3 +515,9 @@ theorems:
   - theorem contains no axiom
   notes: ''
   canonical_name: Slutsky's Theorem
+  lean_sketch: "theorem slutsky_theorem\n    {Ω : Type*} [MeasurableSpace Ω]\n   \
+    \ {μ : ℕ → Measure Ω} {X Y : ℕ → Ω → ℝ} {L : Measure ℝ} {c : ℝ}\n    (hX : Filter.Tendsto\
+    \ (fun n => (μ n).map (X n)) Filter.atTop (nhds L))\n    (hY : ∀ ε > 0, Filter.Tendsto\
+    \ (fun n => (μ n) {ω | ‖Y n ω - c‖ > ε}) Filter.atTop (nhds 0)) :\n    Filter.Tendsto\n\
+    \      (fun n => (μ n).map (fun ω => X n ω + Y n ω))\n      Filter.atTop\n   \
+    \   (nhds (L.map (fun x => x + c))) := by\n  sorry"

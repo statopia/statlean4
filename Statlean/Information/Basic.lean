@@ -85,6 +85,13 @@ for any _P_ and < 1 for some _P_
 
 LaTeX proof hint:
 (empty)
+
+Lean sketch (reference, not compiled):
+noncomputable def fisherInformation
+    {Ω : Type*} [MeasurableSpace Ω]
+    (P : ℝ → Measure Ω) (ν : Measure Ω) [∀ θ, (P θ).AbsolutelyContinuous ν]
+    (θ : ℝ) : ℝ :=
+    ∫ ω, (deriv (fun θ' => Real.log ((P θ').rnDeriv ν ω).toReal) θ) ^ 2 ∂(P θ)
 -/
 theorem fisher_information : True := by
   sorry

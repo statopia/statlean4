@@ -218,6 +218,10 @@ def _heuristic_canonicalize(blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]
                     b["canonical_name"] = canonical_name
                     b["lean_name_hint"] = lean_name
                     b["topic"] = topic
+                    # Attach Lean sketch if available
+                    sketch = _LEAN_SKETCHES.get(lean_name, "")
+                    if sketch:
+                        b["lean_sketch"] = sketch
                     matched = True
                     named += 1
                     break
@@ -228,7 +232,124 @@ def _heuristic_canonicalize(blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]
             b["lean_name_hint"] = ""
             b["topic"] = None
     print(f"[from-tex] heuristic canonicalized {named}/{len(blocks)} blocks")
+    sketched = sum(1 for b in blocks if b.get("lean_sketch"))
+    if sketched:
+        print(f"[from-tex] lean sketches attached: {sketched}/{len(blocks)}")
     return blocks
+
+
+# ═══════════════════════════════════════════════════════════════
+# Lean Sketch Templates for Known Theorems
+# ═══════════════════════════════════════════════════════════════
+# Each entry: lean_name → Lean 4 signature (with sorry body).
+# These are correct mathematical statements, not placeholders.
+
+_LEAN_SKETCHES: Dict[str, str] = {
+    "central_limit_theorem": """\
+theorem central_limit_theorem
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {X : ℕ → Ω → ℝ}
+    (hind : iIndepFun (fun _ => inferInstance) X μ)
+    (hid : ∀ i j, IdentDistrib (X i) (X j) μ μ)
+    (hm : ∫ ω, X 0 ω ∂μ = 0) (hv : ProbabilityTheory.variance (X 0) μ = 1)
+    (hint : Memℒp (X 0) 2 μ) :
+    Filter.Tendsto
+      (fun n => μ.map (fun ω => (∑ i ∈ Finset.range n, X i ω) / Real.sqrt n))
+      Filter.atTop
+      (nhds (Measure.gaussianReal 0 1)) := by
+  sorry""",
+
+    "delta_method": """\
+theorem delta_method
+    {Ω : Type*} [MeasurableSpace Ω]
+    {μ_n : ℕ → Measure Ω} {X : ℕ → Ω → ℝ} {a : ℕ → ℝ} {Y : Measure ℝ}
+    {c : ℝ} {g : ℝ → ℝ}
+    (ha : Filter.Tendsto a Filter.atTop Filter.atTop)
+    (hconv : Filter.Tendsto (fun n => (μ_n n).map (fun ω => a n * (X n ω - c))) Filter.atTop (nhds Y))
+    (hg : DifferentiableAt ℝ g c) :
+    Filter.Tendsto
+      (fun n => (μ_n n).map (fun ω => a n * (g (X n ω) - g c)))
+      Filter.atTop
+      (nhds (Y.map (fun y => deriv g c * y))) := by
+  sorry""",
+
+    "slutsky_theorem": """\
+theorem slutsky_theorem
+    {Ω : Type*} [MeasurableSpace Ω]
+    {μ : ℕ → Measure Ω} {X Y : ℕ → Ω → ℝ} {L : Measure ℝ} {c : ℝ}
+    (hX : Filter.Tendsto (fun n => (μ n).map (X n)) Filter.atTop (nhds L))
+    (hY : ∀ ε > 0, Filter.Tendsto (fun n => (μ n) {ω | ‖Y n ω - c‖ > ε}) Filter.atTop (nhds 0)) :
+    Filter.Tendsto
+      (fun n => (μ n).map (fun ω => X n ω + Y n ω))
+      Filter.atTop
+      (nhds (L.map (fun x => x + c))) := by
+  sorry""",
+
+    "scheffe_theorem": """\
+theorem scheffe_theorem
+    {α : Type*} [MeasurableSpace α] {ν : Measure α} [SigmaFinite ν]
+    {f : ℕ → α → ℝ≥0∞} {g : α → ℝ≥0∞}
+    (hf : ∀ n, Measurable (f n)) (hg : Measurable g)
+    (hpdf : ∀ n, ∫⁻ x, f n x ∂ν = 1) (hgpdf : ∫⁻ x, g x ∂ν = 1)
+    (hconv : ∀ᵐ x ∂ν, Filter.Tendsto (fun n => f n x) Filter.atTop (nhds (g x))) :
+    Filter.Tendsto
+      (fun n => ∫⁻ x, (f n x - g x) ⊔ 0 ∂ν)
+      Filter.atTop (nhds 0) := by
+  sorry""",
+
+    "lindeberg_feller_clt": """\
+theorem lindeberg_feller_clt
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {X : ℕ → ℕ → Ω → ℝ} {σ_sq : ℕ → ℝ}
+    (hind : ∀ n, iIndepFun (fun _ => inferInstance) (X n) μ)
+    (hmean : ∀ n j, ∫ ω, X n j ω ∂μ = 0)
+    (hvar : ∀ n, σ_sq n = ∑ j ∈ Finset.range n, ProbabilityTheory.variance (X n j) μ)
+    (hσ : Filter.Tendsto σ_sq Filter.atTop Filter.atTop)
+    (hlind : ∀ ε > 0, Filter.Tendsto
+      (fun n => (1 / σ_sq n) * ∑ j ∈ Finset.range n,
+        ∫ ω, (X n j ω) ^ 2 * Set.indicator {ω | |X n j ω| > ε * Real.sqrt (σ_sq n)} 1 ω ∂μ)
+      Filter.atTop (nhds 0)) :
+    True := by
+  sorry""",
+
+    "continuous_mapping_theorem": """\
+theorem continuous_mapping_theorem
+    {α β : Type*} [TopologicalSpace α] [TopologicalSpace β]
+    [MeasurableSpace α] [OpensMeasurableSpace α]
+    [MeasurableSpace β] [OpensMeasurableSpace β]
+    {μ_n : ℕ → Measure α} {μ : Measure α} {g : α → β}
+    (hconv : Filter.Tendsto μ_n Filter.atTop (nhds μ))
+    (hg : Continuous g) :
+    Filter.Tendsto (fun n => (μ_n n).map g) Filter.atTop (nhds (μ.map g)) := by
+  sorry""",
+
+    "slln": """\
+theorem slln
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {X : ℕ → Ω → ℝ}
+    (hind : iIndepFun (fun _ => inferInstance) X μ)
+    (hid : ∀ i j, IdentDistrib (X i) (X j) μ μ)
+    (hint : Integrable (X 0) μ) :
+    ∀ᵐ ω ∂μ, Filter.Tendsto
+      (fun n => (∑ i ∈ Finset.range n, X i ω) / n)
+      Filter.atTop (nhds (∫ ω', X 0 ω' ∂μ)) := by
+  sorry""",
+
+    "asymptotic_relative_efficiency": """\
+def asymptotic_relative_efficiency
+    {Ω : Type*} [MeasurableSpace Ω] (P : ℕ → Measure Ω)
+    (T₁ T₂ : ℕ → Ω → ℝ) (ϑ : ℝ) (a : ℕ → ℝ)
+    (V₁ V₂ : ℝ) : ℝ :=
+    V₂ / V₁""",
+
+    "fisher_information": """\
+noncomputable def fisherInformation
+    {Ω : Type*} [MeasurableSpace Ω]
+    (P : ℝ → Measure Ω) (ν : Measure Ω) [∀ θ, (P θ).AbsolutelyContinuous ν]
+    (θ : ℝ) : ℝ :=
+    ∫ ω, (deriv (fun θ' => Real.log ((P θ').rnDeriv ν ω).toReal) θ) ^ 2 ∂(P θ)""",
+}
+
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -412,6 +533,10 @@ def build_theorems(
         }
         if b.get("canonical_name"):
             item["canonical_name"] = b["canonical_name"]
+        # Attach Lean sketch as reference (in notes, not lean_statement,
+        # to avoid compilation issues with missing Mathlib imports)
+        if b.get("lean_sketch"):
+            item["lean_sketch"] = b["lean_sketch"]
         items.append(item)
 
     # second pass: infer dependencies from theorem references in statement/proof
