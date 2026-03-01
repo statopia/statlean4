@@ -73,15 +73,21 @@ def IsComplete' {Ω α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
     ∀ θ, ∀ᵐ ω ∂(P.measure θ), g (T ω) = 0
 
 /-- Sufficient statistic w.r.t. a parametric family:
-the conditional distribution of the data given T is the same for all θ. -/
+the conditional expectation of any integrable function given T is θ-independent.
+
+This is the L¹-version of sufficiency: for any function f integrable under both
+P_θ₁ and P_θ₂, the conditional expectations `E_θ₁[f|σ(T)]` and `E_θ₂[f|σ(T)]`
+agree P_θ₁-a.e. The indicator-only version (restricting f to `s.indicator 1`)
+is an equivalent characterization in classical measure theory, but the L¹ version
+avoids representative subtleties in the Lean formalization. -/
 def IsSufficient' {Ω α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
     (P : ParametricFamily Θ Ω) (T : Ω → α) : Prop :=
   Measurable T ∧
-  ∀ (s : Set Ω), MeasurableSet s →
-    ∀ θ₁ θ₂ : Θ,
-      condExp (MeasurableSpace.comap T ‹_›) (P.measure θ₁) (s.indicator (1 : Ω → ℝ))
+  ∀ (f : Ω → ℝ) (θ₁ θ₂ : Θ),
+    Integrable f (P.measure θ₁) → Integrable f (P.measure θ₂) →
+      condExp (MeasurableSpace.comap T ‹_›) (P.measure θ₁) f
         =ᵐ[P.measure θ₁]
-      condExp (MeasurableSpace.comap T ‹_›) (P.measure θ₂) (s.indicator (1 : Ω → ℝ))
+      condExp (MeasurableSpace.comap T ‹_›) (P.measure θ₂) f
 
 /-- An estimator δ is unbiased for g(θ) if E_θ[δ] = g(θ) for all θ. -/
 def IsUnbiased {Ω : Type*} [MeasurableSpace Ω]

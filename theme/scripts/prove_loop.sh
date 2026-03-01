@@ -41,26 +41,58 @@ generate_sorry_prompt() {
   local file="$1"
   local theorem="$2"
   local prompt_file="$3"
+
+  # Build module name for incremental compile
+  local module_name
+  module_name=$(echo "$file" | sed 's|Statlean/||;s|/|.|g;s|\.lean||')
+
+  # Extract backlog context for this sorry (proof sketch, blocker, previous attempts)
+  local backlog_context
+  backlog_context=$(python3 -c "
+import yaml, json, sys
+try:
+    data = yaml.safe_load(open('$REPO_ROOT/theme/input/sorry_backlog.yaml'))
+    for it in (data.get('sorry_items') or []):
+        if it.get('theorem') == '$theorem' and it.get('file') == '$file':
+            print(json.dumps(it, indent=2, ensure_ascii=False))
+            break
+    else:
+        print('(no backlog entry found)')
+except Exception as e:
+    print(f'(backlog read error: {e})')
+" 2>&1)
+
+  # Playbook is injected directly into prompt (guaranteed to be seen)
+  local playbook="$REPO_ROOT/theme/prove_playbook.md"
+
   cat > "$prompt_file" <<PROMPT
-You are proving a Lean 4 theorem in a statistics library.
-Workspace root: $REPO_ROOT
+$(if [ -f "$playbook" ]; then cat "$playbook"; else echo "(prove_playbook.md not found — use standard approach)"; fi)
 
-Target: $file — theorem $theorem
+================================================================
+TARGET
+================================================================
 
-Tasks:
-1) Open the file and find the sorry in theorem $theorem
-2) Search for API — three-level strategy:
-   Level 1: Read theme/mathlib_api_index.md (pre-built index of ~650 Mathlib APIs)
-   Level 2: Use #check / exact? for precise lookup
-   Level 3: grep Mathlib source as last resort
-3) Write a proof replacing sorry.
-4) Verify: cd $REPO_ROOT && lake build Statlean.$(echo "$file" | sed 's|Statlean/||;s|/|.|g;s|\.lean||')
+File: $file
+Theorem: $theorem
+Module: Statlean.$module_name
+Workspace: $REPO_ROOT
 
-Focus ONLY on this theorem. Do NOT modify other declarations.
+Backlog context:
+$backlog_context
+
+================================================================
+EXECUTION
+================================================================
+
+1. Read the target file, locate theorem $theorem
+2. Follow the playbook above: strategy selection → API search → write proof → compile → fix
+3. Verify: cd $REPO_ROOT && lake build Statlean.$module_name
+4. Focus ONLY on theorem $theorem — do NOT modify other declarations
+5. Each sub-lemma proved → immediately write to file and lake build verify
 
 Acceptance:
 - sorry is eliminated from theorem $theorem
-- Incremental build passes
+- Incremental build passes (lake build Statlean.$module_name)
 PROMPT
 }
 

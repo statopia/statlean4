@@ -46,15 +46,8 @@ theorem complete_unbiased_ae_unique
 /-! ## Sufficiency → condExp invariance
 
 The key technical lemma: if T is sufficient, then `E_θ[f|σ(T)]` does not
-depend on θ (as an a.e. statement). This extends the indicator-based
-definition of sufficiency to general integrable functions.
-
-Proof sketch: IsSufficient' says `E_θ₁[1_s|σ(T)] =ᵃᵉ E_θ₂[1_s|σ(T)]` for
-all measurable s. By linearity this extends to simple functions, and by
-monotone class / dominated convergence to all integrable f.
-
-This is a standard measure theory result but requires significant
-formalization effort (simple function approximation + DCT in Lean). -/
+depend on θ (as an a.e. statement). With the L¹ definition of `IsSufficient'`,
+this is an immediate consequence of the definition. -/
 theorem condExp_eq_of_sufficient
     (P : ParametricFamily Θ Ω) (T : Ω → α)
     (hT_suff : IsSufficient' P T)
@@ -63,10 +56,8 @@ theorem condExp_eq_of_sufficient
     (hf₂ : Integrable f (P.measure θ₂)) :
     condExp (MeasurableSpace.comap T ‹MeasurableSpace α›) (P.measure θ₁) f
       =ᵐ[P.measure θ₁]
-    condExp (MeasurableSpace.comap T ‹MeasurableSpace α›) (P.measure θ₂) f := by
-  -- blocker: extending from indicators to general functions
-  -- requires simple function approximation + DCT
-  sorry
+    condExp (MeasurableSpace.comap T ‹MeasurableSpace α›) (P.measure θ₂) f :=
+  hT_suff.2 f θ₁ θ₂ hf₁ hf₂
 
 /-! ## Conditional expectation MSE reduction -/
 

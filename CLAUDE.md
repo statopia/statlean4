@@ -58,6 +58,9 @@
 
 ## 证明策略
 
+**完整操作手册见 `theme/prove_playbook.md`**（决策树 + 错误修复表 + 策略选择表）。
+交互式会话和 pipeline prove agent 都遵循该 playbook。
+
 ### 攻击顺序
 - sorry 形成依赖 DAG，从叶节点开始攻击
 - 分类：(A) Mathlib 缺前置 API → 等待或自建基础设施；(B) 路线清晰 → 直接攻击；(C) 依赖未解决的 sorry → 排后

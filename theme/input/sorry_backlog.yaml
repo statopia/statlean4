@@ -1,6 +1,6 @@
-version: v40
+version: v41
 generated: 2026-03-01
-total_sorry: 42
+total_sorry: 41
 
 sorry_items:
 
@@ -315,18 +315,6 @@ sorry_items:
   type: unknown
   depth: 1
   priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: sufficiency.lehmannscheffe.condExp_eq_of_sufficient
-  file: Statlean/Sufficiency/LehmannScheffe.lean
-  line: 69
-  theorem: condExp_eq_of_sufficient
-  type: unknown
-  depth: 1
-  priority: 99
-  blocker: "extending from indicators to general functions"
   estimated_lines: 50
   dependencies: []
   unlocks: []
