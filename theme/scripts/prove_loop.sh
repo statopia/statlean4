@@ -150,6 +150,10 @@ for i in $(seq 1 "$MAX_ITERS"); do
   # Select targets: by priority, skipping theorems that already failed this run
   # If MANIFEST is set and exists, only attack sorry in manifest files (pipeline mode)
   # Otherwise, attack all backlog entries (standalone/fallback mode)
+  #
+  # Python exits 42 if no actionable targets remain; we catch this to break
+  # the outer for-loop (pipefail would otherwise terminate the script).
+  set +e  # temporarily disable errexit for the pipeline
   python3 -c "
 import yaml, json, sys, os
 with open('$REPO_ROOT/theme/input/sorry_backlog.yaml') as f:
@@ -183,6 +187,9 @@ items = [it for it in (data.get('sorry_items') or [])
 if manifest_files is not None:
     items = [it for it in items if it.get('file','') in manifest_files]
 items.sort(key=lambda x: x.get('priority', 99))
+if not items:
+    print('[prove-loop] no actionable targets remain — all failed or filtered', file=sys.stderr)
+    sys.exit(42)  # signal: no targets
 for it in items[:$MAX_PARALLEL]:
     print(json.dumps({'file': it['file'], 'theorem': it['theorem']}))
 " | while IFS= read -r line; do
@@ -207,14 +214,29 @@ for it in items[:$MAX_PARALLEL]:
     fi
 
     echo "[prove-loop] attacking $file:$theorem (timeout=${effective_timeout}s)"
+    agent_start=$(date +%s)
     if run_claude_agent "$prompt_file" "$fix_log" "$effective_timeout"; then
       echo "[prove-loop] agent for $theorem completed successfully"
     else
       rc=$?
-      echo "[prove-loop] agent for $theorem exited with rc=$rc — skipping in future iterations"
-      echo "$theorem" >> "$FAILED_FILE"
+      agent_duration=$(( $(date +%s) - agent_start ))
+      if [[ "$agent_duration" -lt 30 ]]; then
+        # Agent died almost instantly (< 30s) — likely transient error (API, CLI issue)
+        # Do NOT blacklist: retry on next iteration
+        echo "[prove-loop] agent for $theorem crashed in ${agent_duration}s (rc=$rc) — transient failure, will retry"
+      else
+        # Agent ran for a while but failed — genuine failure, skip in future iterations
+        echo "[prove-loop] agent for $theorem failed after ${agent_duration}s (rc=$rc) — skipping in future iterations"
+        echo "$theorem" >> "$FAILED_FILE"
+      fi
     fi
   done
+  pipe_rc=${PIPESTATUS[0]}
+  set -e  # re-enable errexit
+  if [[ "$pipe_rc" -eq 42 ]]; then
+    echo "[prove-loop] no actionable targets remain — stopping early"
+    break
+  fi
 done
 
 echo "[prove-loop] done. Final sorry count: $(count_sorry)"
