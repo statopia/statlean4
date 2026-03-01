@@ -123,8 +123,15 @@ def _call_ai(prompt: str) -> Optional[str]:
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
+        else:
+            stderr_preview = (result.stderr or "")[:200]
+            print(f"[from-tex] CLI returned rc={result.returncode}, stderr={stderr_preview}", file=sys.stderr)
+    except FileNotFoundError:
+        print("[from-tex] claude CLI not found in PATH", file=sys.stderr)
+    except subprocess.TimeoutExpired:
+        print("[from-tex] claude CLI timed out (60s)", file=sys.stderr)
+    except Exception as e:
+        print(f"[from-tex] CLI error: {e}", file=sys.stderr)
 
     return None
 
