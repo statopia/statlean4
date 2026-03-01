@@ -113,18 +113,29 @@ For each sorry, launch a background Agent with `subagent_type: "general-purpose"
 ```
 目标: 证明 {sorry.theorem} (文件 {sorry.file}:{sorry.line})
 Goal type: [read from file]
-搜索策略 (强制):
-  1. 先读 theme/mathlib_api_index.md 查找相关 API
-  2. 只有索引不够时才用 #check / exact?
-  3. 最后手段: grep Mathlib 源码 (必须注明升级理由)
+
+Phase 0 工具链 (强制):
+  0. 用 python3 scripts/extract_signatures.py {sorry.file} 读声明索引，定位目标行号后再 Read 指定范围（不盲读全文件）
+  1. 先读 theme/tactic_patterns.yaml 查找与当前 goal 匹配的 pattern — 有匹配则优先使用
+  2. 先读 theme/mathlib_api_index.md 查找相关 API
+     补充: grep -i '<关键词>' theme/mathlib_full_type_index.tsv 查全量 51K 条 Mathlib 声明
+  3. 只有索引不够时才用 #check / exact?
+  4. 最后手段: grep Mathlib 源码 (必须注明升级理由)
+
+增量编译:
+  - tactic 试错阶段: bash scripts/check_snippet.sh {sorry.file} <start> <end>
+  - 全模块验证: lake build Statlean.{Module}
+
 约束:
   - 只修改 {sorry.file}
-  - 最多 5 轮 build 循环 (lake build Statlean.{Module})
+  - 最多 5 轮 build 循环
   - 每轮: 尝试证明 → build → 分析错误 → 修复
+  - 每证完一个子引理立即写入 .lean 文件并 lake build 验证，不要攒到最后一起写
 完成后报告:
   - status: proved | stuck | need_sub_lemma
   - 如果 stuck: 说明卡在哪里 (缺 API / 类型不匹配 / 策略不对)
   - 如果 need_sub_lemma: 列出需要的 sub-lemma 签名
+  - 如果有新 tactic pattern: 列出 (goal_shape → tactic_sequence) 供主会话更新 tactic_patterns.yaml
 ```
 
 ### `process_result(sorry_id, result)` — Result Handler
@@ -197,16 +208,22 @@ This follows the original `/prove-deep` flow but with:
 
 ## Acceleration Rules
 
-1. **三级搜索强制执行**:
+1. **Phase 0 工具链强制执行**:
+   - 大文件先用 `python3 scripts/extract_signatures.py <file>` 读声明索引
+   - 攻击 sorry 前先查 `theme/tactic_patterns.yaml` 匹配 goal pattern
+   - tactic 试错阶段用 `bash scripts/check_snippet.sh` 增量编译
+2. **三级搜索强制执行**:
    - 第一级：`theme/mathlib_api_index.md`（必须首先查）
+   - 补充：`grep -i '<keyword>' theme/mathlib_full_type_index.tsv`（51K 条全量索引）
    - 第二级：`#check` / `exact?`
    - 第三级：grep Mathlib 源码（必须注明升级理由）
-   - **给 subagent 的 prompt 必须包含**："先读 `theme/mathlib_api_index.md` 查找相关 API"
-2. **Incremental build**: `lake build Statlean.<Module>` not `lake build`.
-3. **No redundant search**: Trust subagent results.
-4. **Parallel research**: Use haiku agents for API search.
-5. **入库不等待**: 证完子引理立即 commit，不等主定理。
-6. **上下文满处理**:
+   - **给 subagent 的 prompt 必须包含**："先读 `theme/tactic_patterns.yaml` 和 `theme/mathlib_api_index.md`"
+3. **Incremental build**: `lake build Statlean.<Module>` not `lake build`.
+4. **No redundant search**: Trust subagent results.
+5. **Parallel research**: Use haiku agents for API search.
+6. **入库不等待**: 证完子引理立即 commit，不等主定理。
+7. **Pattern 更新**: 成功证明后，在报告环节记录新 tactic pattern → tactic_patterns.yaml
+8. **上下文满处理**:
    - 等待 active agents 返回
    - sync backlog + commit
    - 更新 MEMORY.md
@@ -220,4 +237,8 @@ This follows the original `/prove-deep` flow but with:
 - Sync tool: `python3 theme/scripts/sync_sorry_backlog.py`
 - Memory: `.claude/projects/-home-gavin-statlean/memory/MEMORY.md`
 - Mathlib index: `theme/mathlib_api_index.md`
+- Mathlib full index: `theme/mathlib_full_type_index.tsv` (51K entries, grep)
+- Tactic patterns: `theme/tactic_patterns.yaml` (58 patterns, match before search)
+- Signature extractor: `python3 scripts/extract_signatures.py` (replaces blind file reads)
+- Snippet checker: `bash scripts/check_snippet.sh` (incremental single-decl compile)
 - Classifier: `theme/scripts/classify.py`

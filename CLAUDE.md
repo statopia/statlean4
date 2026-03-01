@@ -118,6 +118,40 @@
 
 ---
 
+## Phase 0 工具链（强制）
+
+### 攻击 sorry 前必查 tactic pattern 库
+- **每次**攻击 sorry 前，先读 `theme/tactic_patterns.yaml` 匹配 goal 形态
+- 匹配到 → 优先使用已记录的 tactic 序列（一轮验证即可）
+- 没匹配到 → 正常进入探索式搜索
+- **给 subagent 的 prompt 必须包含**："先读 `theme/tactic_patterns.yaml` 查找与当前 goal 匹配的 pattern"
+
+### tactic_patterns.yaml 维护规则
+- **只记录验证过的 pattern** — 必须来自 `lake build` 通过的证明
+- **频率 ≥2 才入库** — 只出现一次的可能是特例
+- **标注来源和版本** — 每条 pattern 必须标注 source 文件和 Mathlib 版本
+- **会话末尾手动更新** — 每次 sorry 被成功证明后，在经验报告环节追加新 pattern
+- **Mathlib 升级后验证** — 版本升级后抽查 pattern 是否仍有效，删除失效条目
+- **不自动提取**（当前阶段）— 项目 <500 个零 sorry 证明前，手动维护优于自动化
+
+### 签名提取代替全文件读取
+- 读大文件（>200 行）前，**优先**用 `python3 scripts/extract_signatures.py <file>` 获取声明索引
+- 只有需要修改具体证明体时才 Read 完整文件
+- **给 subagent 的 prompt 必须包含**：用 `extract_signatures.py` 先读声明索引，定位目标行号后再 Read 指定范围
+
+### Mathlib 离线索引查询
+- `theme/mathlib_full_type_index.tsv`：51K 条声明名+类型，grep 毫秒级
+- 与 `theme/mathlib_api_index.md` 配合使用：先查 api_index（有注释），再查 full_type_index（全量）
+- 用法：`grep -i 'condexp' theme/mathlib_full_type_index.tsv`
+- Mathlib 升级后重新生成：`lake env lean scripts/gen_full_type_index.lean > theme/mathlib_full_type_index.tsv`
+
+### 增量编译
+- 验证单个 declaration 时用 `bash scripts/check_snippet.sh <file> <start_line> <end_line>`
+- 比 `lake build Statlean.Foo` 快 3-5x，适合 tactic 试错循环
+- 全模块验证仍用 `lake build Statlean.<Module>`
+
+---
+
 ## 效率规则
 
 - **并行 subagent（强制，上限 3 个）**：`/prove-deep` 和多 sorry 攻击时，启动独立 agent 并行，**同时运行的 agent 不超过 3 个**

@@ -13,14 +13,20 @@ Target: $ARGUMENTS
 
 You are attacking a specific `sorry` in the StatLean project. Follow this exact workflow:
 
+### Phase 0: Phase 0 工具链（强制，在任何编辑之前）
+0. **签名索引**：`python3 scripts/extract_signatures.py <file>` 读声明索引，定位 sorry 行号后再 Read 指定范围（不盲读全文件 >200 行的）
+1. **Tactic pattern 匹配**：读 `theme/tactic_patterns.yaml`，匹配当前 goal 形态。匹配到 → 优先使用已记录的 tactic 序列
+2. **增量编译**：tactic 试错阶段用 `bash scripts/check_snippet.sh <file> <start> <end>`
+
 ### Phase 1: Understand (do NOT edit yet)
-1. Read the file containing the sorry. Identify the exact theorem statement, hypotheses, and goal.
+1. Read the file containing the sorry (use extract_signatures first, then Read specific line range).
 2. Read surrounding context (imports, helper lemmas, upstream definitions).
 3. **三级搜索（强制）**：
    - **第一级**：先读 `theme/mathlib_api_index.md` 查找相关 API（80% 在这步解决）
+   - **补充**：`grep -i '<keyword>' theme/mathlib_full_type_index.tsv`（51K 条全量 Mathlib 索引）
    - **第二级**：索引没有 → `#check` / `exact?`
    - **第三级**：前两级都失败 → grep Mathlib 源码（必须注明升级理由）
-   - 给 subagent 的 prompt 必须包含："先读 `theme/mathlib_api_index.md`"
+   - 给 subagent 的 prompt 必须包含："先读 `theme/tactic_patterns.yaml` 和 `theme/mathlib_api_index.md`"
 
 ### Phase 2: Strategy
 4. List 2-3 possible proof strategies with tradeoffs.

@@ -38,6 +38,7 @@ Report: number of theorem entries in YAML.
 **Follow `theme/formalize_playbook.md` Steps 2-4** for each theorem:
 1. Check existing code (grep + read Verified.lean)
 2. Read `theme/mathlib_api_index.md` for Mathlib type mappings
+   - 补充：`grep -i '<keyword>' theme/mathlib_full_type_index.tsv`（51K 条全量 Mathlib 索引）
 3. Design Lean signature (must reflect precise math content)
 4. Place in appropriate `Statlean/` module
 5. Build to verify skeleton compiles
@@ -62,6 +63,13 @@ If `--prove-depth deep`:
      - `subagent_type: "general-purpose"`
      - The `prompt` field from prove_targets.json
      - `model: "sonnet"` (good balance of speed and capability)
+     - **prompt 必须包含 Phase 0 工具链指令**：
+       "先用 python3 scripts/extract_signatures.py 读声明索引，
+        先读 theme/tactic_patterns.yaml 查找匹配 goal 的 pattern，
+        先读 theme/mathlib_api_index.md 查找相关 API，
+        补充用 grep theme/mathlib_full_type_index.tsv 查全量索引，
+        tactic 试错阶段用 bash scripts/check_snippet.sh 增量编译，
+        每证完一个子引理立即写入 .lean 文件并 lake build 验证"
   3. Wait for all agents to complete
   4. For each target, verify sorry eliminated: `grep -c '\bsorry\b' <file>`
   5. If any target made progress but still has sorry, optionally re-dispatch

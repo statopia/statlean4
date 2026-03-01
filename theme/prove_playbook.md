@@ -8,13 +8,31 @@
 ## 1. 启动流程（每个 sorry 必须执行）
 
 ```
-1. 读目标文件，定位 sorry 所在定理的完整签名和上下文
+0. 用 python3 scripts/extract_signatures.py <file> 读声明索引（不读全文件）
+   → 定位 sorry 所在定理的签名和行号，再 Read 指定行范围
+1. 读 theme/tactic_patterns.yaml — 匹配 goal 形态，有匹配则优先使用
 2. 读 theme/mathlib_api_index.md — 搜索相关 API（80% 命中率）
+   补充：grep theme/mathlib_full_type_index.tsv 查全量 Mathlib 声明
 3. 读 .claude/projects/*/memory/MEMORY.md — 查已知 pattern
 4. 如果 backlog 有 proof_sketch / blocker — 按其指引走
 5. 选择证明策略（见策略选择表）
 6. 如果证明需要 >3 步 — 先分拆子引理
 ```
+
+### Phase 0 工具链（强制使用）
+
+| 工具 | 用途 | 用法 |
+|------|------|------|
+| `scripts/extract_signatures.py` | 读声明索引代替全文件 | `python3 scripts/extract_signatures.py <file>` |
+| `theme/tactic_patterns.yaml` | 已验证的 tactic 模式库 | 攻击 sorry 前先查匹配 goal 的 pattern |
+| `theme/mathlib_full_type_index.tsv` | 51K 条 Mathlib 声明索引 | `grep -i '<keyword>' theme/mathlib_full_type_index.tsv` |
+| `scripts/check_snippet.sh` | 单 declaration 增量编译 | `bash scripts/check_snippet.sh <file> <start> <end>` |
+
+**规则**：
+- 大文件（>200 行）必须先用 extract_signatures，不盲读
+- tactic_patterns.yaml 有匹配 → 直接用，省去探索循环
+- 增量编译用 check_snippet.sh，全模块验证用 `lake build Statlean.<Module>`
+- 证明成功后，新 pattern 在经验报告环节追加到 tactic_patterns.yaml
 
 ---
 
