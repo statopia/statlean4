@@ -1,3 +1,20 @@
 /.lake
+
 # Secrets
 .env
+
+# Python
+.venv/
+__pycache__/
+
+# Claude Code worktrees
+.claude/worktrees/
+
+# Pipeline outputs (regenerable)
+theme/out/
+
+# Windows zone identifiers
+*:Zone.Identifier
+
+# Raw PDFs (large, copyright)
+theme/input/raw/*.pdf
