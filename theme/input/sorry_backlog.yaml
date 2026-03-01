@@ -1,37 +1,28 @@
-version: v82
+version: v84
 generated: 2026-03-02
-total_sorry: 8
+total_sorry: 7
 
-# CHANGELOG v82:
-# - charfun_diff_exp_bound PROVED (BerryEsseen.lean, telescope+exp decay, ~170 lines)
-# - charfun_integral_bound UNBLOCKED (was blocked by charfun_diff_exp_bound)
-# - Berry-Esseen sorry: 3 → 2
+# CHANGELOG v84:
+# - charfun_integral_bound FULLY PROVED (BerryEsseen.lean, ~110 lines)
+#   Key: integral_mono_of_nonneg + setIntegral_le_integral + norm_cast for rpow→pow
+#   Young's inequality |t|³ ≤ 1+t⁴ to get integrable majorant
+# - Berry-Esseen sorry: 2 → 1 (only esseen_concentration_universal remains)
+# - All downstream lemmas (esseen_charfun_integral_bound, berry_esseen_theorem)
+#   hypothesis changed from hn : 0 < n to hn : 2 ≤ n
 
 sorry_items:
 
-# === Berry-Esseen (2 sorry) ===
+# === Berry-Esseen (1 sorry) ===
 
 - id: berry_esseen.esseen_concentration
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 522
+  line: 524
   theorem: esseen_concentration_universal
   type: honest
   depth: 1
   priority: 8
-  blocker: "Stieltjes inversion formula for CDF differences — not in Mathlib. Needs: (1) Fourier inversion for distributions, (2) truncation error bounded by C₂/T using bounded density of Gaussian. Classical result (Esseen 1945) but substantial formalization effort."
+  blocker: "Stieltjes inversion formula for CDF differences — not in Mathlib. Needs: (1) Fourier inversion for distributions, (2) truncation error bounded by C₂/T using bounded density of Gaussian. Classical result (Esseen 1945) but substantial formalization effort (~250 lines)."
   estimated_lines: 250
-  dependencies: []
-  unlocks: []
-
-- id: berry_esseen.charfun_integral
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 832
-  theorem: charfun_integral_bound
-  type: honest
-  depth: 1
-  priority: 6
-  blocker: "Integrate 5δ(|t|³+t⁴)e^{-t²/8}/|t| over [-T/16,T/16] using Gaussian moment bounds. charfun_diff_exp_bound now proved. Need: (1) restrict integration range to where 16ρ|t|≤σ³√n holds, (2) bound ∫(t²+|t|³)e^{-t²/8}dt by universal constant."
-  estimated_lines: 80
   dependencies: []
   unlocks: []
 

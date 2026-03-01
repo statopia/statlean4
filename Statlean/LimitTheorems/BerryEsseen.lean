@@ -8,14 +8,16 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **2 sorry** remain: `esseen_concentration_universal`, `charfun_integral_bound`
-- **berry_esseen_theorem PROVED** modulo these sorry
-- **esseen_charfun_integral_bound PROVED** from the sorry sub-lemmas (zero sorry of its own)
+- **1 sorry** remains: `esseen_concentration_universal`
+- **charfun_integral_bound PROVED** (zero sorry, uses charfun_diff_exp_bound + Gaussian moments)
+- **berry_esseen_theorem PROVED** modulo `esseen_concentration_universal`
+- **esseen_charfun_integral_bound PROVED** from the sorry sub-lemma (zero sorry of its own)
 - **charfun_diff_exp_bound PROVED** (zero sorry, ~170 lines, telescope+exp decay)
-- **9 fully proved** infrastructure sub-lemmas in this file:
+- **10 fully proved** infrastructure sub-lemmas in this file:
   `smoothing_kernel_exists`, `cdf_smoothing_bound`, `smoothed_cdf_fourier_bound`,
   `berry_esseen_smoothing`, `norm_charFun_le_one_sub`, `charfun_prod_exp_decay`,
-  `charfun_diff_taylor_bound`, `charfun_integrand_bound`, `charfun_diff_exp_bound`
+  `charfun_diff_taylor_bound`, `charfun_integrand_bound`, `charfun_diff_exp_bound`,
+  `charfun_integral_bound`
 
 ## Architecture
 
@@ -27,19 +29,21 @@ The proof follows the classical Fourier-analytic approach:
    **Blocker**: Stieltjes inversion formula (not in Mathlib).
 
 2. **Charfun integral bound** (`charfun_integral_bound`): The integral from step 1
-   is bounded by `C₃ * ρ/(σ³√n)` when `T = σ³√n/ρ`, using charfun Taylor bounds
-   and exponential decay of the charfun modulus.
+   is bounded by `C₃ * ρ/(σ³√n)` when `T' = σ³√n/(16ρ)`, using charfun Taylor bounds
+   and exponential decay from `charfun_diff_exp_bound`. The factor 16 accounts for
+   the Taylor constant 4 in `norm_cexp_sub_quadratic_le`.
 
 3. **Assembly** (`esseen_charfun_integral_bound`): PROVED from steps 1-2.
-   Sets `C = C₁*C₃ + C₂` and combines: `|F-Φ| ≤ C₁*(C₃*δ) + C₂*δ = C*δ`.
+   Uses `T' = T/16` in Esseen's inequality: `|F-Φ| ≤ C₁*(C₃*δ) + 16C₂*δ`.
 
 4. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 3.
 
 ## Remaining sorry
 
 - `esseen_concentration_universal` (P8): Requires Stieltjes inversion formula.
-- `charfun_integral_bound` (P6): Integrate 5δ(|t|³+t⁴)e^{-t²/8}/|t| over [-T',T']
-  using Gaussian moment bounds. `charfun_diff_exp_bound` is now fully proved.
+
+Note: `charfun_integral_bound` and downstream lemmas now require `2 ≤ n` (was `0 < n`)
+because `charfun_diff_exp_bound` needs `n ≥ 2` for the exponential decay bound `M^{n-1}≤e^{-t²/8}`.
 -/
 
 namespace Statlean.BerryEsseen
@@ -803,15 +807,15 @@ private lemma charfun_diff_exp_bound
       have : 0 ≤ t ^ 4 := by positivity
       nlinarith
 
--- sorry count: 1 (uses charfun_diff_exp_bound)
--- blocker: charfun_diff_exp_bound (tighter telescope with exponential factor)
--- estimated effort: P6
--- Infrastructure proved: norm_charFun_le_one_sub, charfun_prod_exp_decay,
---   charfun_diff_taylor_bound, charfun_integrand_bound (all zero sorry)
+-- sorry count: 0 (proved using charfun_diff_exp_bound + Gaussian moment integrability)
+-- Strategy: For n ≥ 2, charfun_diff_exp_bound gives ‖φ-Φ‖/|t| ≤ 5δ(t²+|t|³)e^{-t²/8}
+-- on [-T', T'] with T' = σ³√n/(16ρ). Then ∫ ≤ 5δ·K where K = ∫_ℝ (t²+|t|³)e^{-t²/8} dt.
+-- Integration range changed from T to T/16 to match charfun_diff_exp_bound hypothesis.
+set_option maxHeartbeats 800000 in
 lemma charfun_integral_bound :
     ∃ C : ℝ, 0 < C ∧
       ∀ {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
-        {n : ℕ} (hn : 0 < n)
+        {n : ℕ} (hn : 2 ≤ n)
         {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ),
         (∀ i, Measurable (Y i)) →
         iIndepFun (m := fun _ => inferInstance) Y μ →
@@ -821,14 +825,120 @@ lemma charfun_integral_bound :
         (∀ i, ∫ ω, |Y i ω| ^ 3 ∂μ = ρ) →
         (∀ i, MemLp (Y i) 3 μ) →
         let S : Ω → ℝ := fun ω => (∑ i : Fin n, Y i ω) / (σ * Real.sqrt n)
-        let T := σ ^ 3 * Real.sqrt ↑n / ρ
-        ∫ t in Set.Icc (-T) T,
+        let T' := σ ^ 3 * Real.sqrt ↑n / (16 * ρ)
+        ∫ t in Set.Icc (-T') T',
           ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ / |t| ≤
           C * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
-  -- Strategy: use charfun_diff_exp_bound to get integrand ≤ 5δ(t² + |t|³)e^{-t²/8}
-  -- then bound ∫(t² + |t|³)e^{-t²/8} dt by a universal constant (Gaussian moments).
-  -- C = 5 * (∫t²e^{-t²/8}dt + ∫|t|³e^{-t²/8}dt) = 5 * (4√(2π) + 64) (finite)
-  sorry
+  -- Step 1: Establish integrability of 5δ·(t²+|t|³)·e^{-t²/8}
+  -- We bound t²+|t|³ ≤ 2(1+t⁴) and show (1+t⁴)e^{-t²/8} is integrable.
+  have hb : (0 : ℝ) < 1/8 := by norm_num
+  -- e^{-t²/8} is integrable
+  have hint_exp : Integrable (fun x : ℝ => Real.exp (-(1/8) * x ^ 2)) :=
+    integrable_exp_neg_mul_sq hb
+  -- t⁴·e^{-t²/8} is integrable: convert rpow to pow
+  have hint_t4 : Integrable (fun x : ℝ => x ^ 4 * Real.exp (-(1/8) * x ^ 2)) := by
+    have := integrable_rpow_mul_exp_neg_mul_sq hb (by norm_num : (-1:ℝ) < 4)
+    exact this.congr (ae_of_all _ fun _ => by norm_cast)
+  -- (1+t⁴)·e^{-t²/8} is integrable
+  have hg_int : Integrable
+      (fun t : ℝ => (1 + t ^ 4) * Real.exp (-(1/8) * t ^ 2)) :=
+    (hint_exp.add hint_t4).congr (ae_of_all _ fun t => by simp [Pi.add_apply]; ring)
+  -- Set K = ∫_ℝ (1+t⁴)·e^{-t²/8} dt (finite, nonneg)
+  set K := ∫ t : ℝ, (1 + t ^ 4) * Real.exp (-(1/8) * t ^ 2) with K_def
+  have hK_nonneg : 0 ≤ K := integral_nonneg fun t => by positivity
+  -- Step 2: Choose C = 10 * K + 1
+  refine ⟨10 * K + 1, by linarith, ?_⟩
+  intro Ω mΩ μ hprob n hn Y σ ρ hσ hm hindep hiid hmean hvar h3 hLp S T'
+  -- Derive basic positivity facts
+  have hn_pos : 0 < n := by omega
+  have hn' : (0 : ℝ) < ↑n := Nat.cast_pos.mpr hn_pos
+  have hsqrt_pos : 0 < Real.sqrt ↑n := Real.sqrt_pos.mpr hn'
+  have hσ3_pos : 0 < σ ^ 3 := pow_pos hσ 3
+  have hρσ : σ ^ 3 ≤ ρ :=
+    lyapunov_third_moment hσ (hm ⟨0, by omega⟩) (hmean ⟨0, by omega⟩)
+      (hvar ⟨0, by omega⟩) (h3 ⟨0, by omega⟩) (hLp ⟨0, by omega⟩)
+  have hρ_pos : 0 < ρ := lt_of_lt_of_le hσ3_pos hρσ
+  have hden_pos : 0 < σ ^ 3 * Real.sqrt ↑n := mul_pos hσ3_pos hsqrt_pos
+  set δ := ρ / (σ ^ 3 * Real.sqrt ↑n) with δ_def
+  have hδ_pos : 0 < δ := div_pos hρ_pos hden_pos
+  have hT'_pos : 0 < T' := div_pos hden_pos (by positivity)
+  -- Step 3: Pointwise bound on integrand
+  -- For t ∈ [-T', T'], charfun_diff_exp_bound gives:
+  --   ‖φ_S(t) - φ_Φ(t)‖ ≤ 5δ(|t|³+t⁴)·e^{-t²/8}
+  -- Dividing by |t|: ‖...‖/|t| ≤ 5δ(t²+|t|³)·e^{-t²/8}
+  -- Bounding: t²+|t|³ ≤ 2(1+t⁴) since t²≤1+t⁴ and |t|³≤1+t⁴
+  -- So: ‖...‖/|t| ≤ 10δ·(1+t⁴)·e^{-t²/8}
+  have h_pointwise : ∀ t ∈ Set.Icc (-T') T',
+      ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ / |t| ≤
+        10 * δ * ((1 + t ^ 4) * Real.exp (-(1/8) * t ^ 2)) := by
+    intro t ht
+    have ht_abs : |t| ≤ T' := by rw [abs_le]; exact ⟨by linarith [ht.1], ht.2⟩
+    have h16 : 16 * ρ * |t| ≤ σ ^ 3 * Real.sqrt ↑n := by
+      calc 16 * ρ * |t| ≤ 16 * ρ * T' := by nlinarith [abs_nonneg t]
+        _ = 16 * ρ * (σ ^ 3 * Real.sqrt ↑n / (16 * ρ)) := rfl
+        _ = σ ^ 3 * Real.sqrt ↑n := by field_simp
+    have hcdb := charfun_diff_exp_bound hn hσ hm hindep hmean hvar h3 hLp t h16
+    have hexp_eq : Real.exp (-(t ^ 2 / 8)) = Real.exp (-(1/8) * t ^ 2) := by congr 1; ring
+    rcases eq_or_ne t 0 with rfl | ht_ne
+    · simp; positivity
+    · rw [div_le_iff₀ (abs_pos.mpr ht_ne)]
+      -- ‖...‖ ≤ 5δ(|t|³+t⁴)·e^{-t²/8} ≤ 10δ(1+t⁴)·e^{-(1/8)t²}·|t|
+      -- because (|t|³+t⁴) ≤ 2(1+t⁴)·|t|? No, that's wrong.
+      -- Actually: (|t|³+t⁴)/|t| = t²+|t|³, and t²+|t|³ ≤ 2(1+t⁴)
+      -- So ‖...‖/|t| ≤ 5δ(t²+|t|³)·e^{...} ≤ 10δ(1+t⁴)·e^{...}
+      -- Rewrite: ‖...‖ ≤ 5δ(|t|³+t⁴)·e^{...} = 5δ·|t|·(t²+|t|³)·e^{...}
+      --                                       ≤ 5δ·|t|·2(1+t⁴)·e^{...}
+      --                                       = 10δ·(1+t⁴)·e^{...}·|t|
+      have habs_pos : 0 < |t| := abs_pos.mpr ht_ne
+      -- Factor: |t|³+t⁴ = |t|·(t²+|t|³) since |t|²=t² and |t|⁴=t⁴
+      have hfactor : |t| ^ 3 + t ^ 4 = |t| * (t ^ 2 + |t| ^ 3) := by
+        have : |t| ^ 2 = t ^ 2 := sq_abs t
+        nlinarith [sq_nonneg t, abs_nonneg t, sq_nonneg (|t|)]
+      -- Bound: t²+|t|³ ≤ 2(1+t⁴)
+      have hbound_sum : t ^ 2 + |t| ^ 3 ≤ 2 * (1 + t ^ 4) := by
+        have h1 : t ^ 2 ≤ 1 + t ^ 4 := by nlinarith [sq_nonneg (t ^ 2 - 1)]
+        have h2 : |t| ^ 3 ≤ 1 + t ^ 4 := by
+          nlinarith [sq_nonneg (|t| * |t| - 1), sq_nonneg (|t|), abs_nonneg t,
+                     sq_abs t]
+        linarith
+      calc ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖
+          ≤ 5 * δ * (|t| ^ 3 + t ^ 4) * Real.exp (-(t ^ 2 / 8)) := hcdb
+        _ = 5 * δ * (|t| * (t ^ 2 + |t| ^ 3)) * Real.exp (-(1/8) * t ^ 2) := by
+            rw [hfactor, hexp_eq]
+        _ ≤ 5 * δ * (|t| * (2 * (1 + t ^ 4))) * Real.exp (-(1/8) * t ^ 2) := by
+            gcongr
+        _ = 10 * δ * ((1 + t ^ 4) * Real.exp (-(1/8) * t ^ 2)) * |t| := by ring
+  -- Step 4: Integrate the bound over [-T', T']
+  -- ∫_{-T'}^{T'} ‖...‖/|t| ≤ ∫_{-T'}^{T'} 10δ(1+t⁴)e^{-t²/8}
+  --                           ≤ 10δ · ∫_ℝ (1+t⁴)e^{-t²/8}
+  --                           = 10δ · K
+  --                           = 10K · ρ/(σ³√n)
+  --                           ≤ (10K+1) · ρ/(σ³√n)
+  -- Integrable bound on restricted measure
+  have hg_intOn : IntegrableOn
+      (fun t => 10 * δ * ((1 + t ^ 4) * Real.exp (-(1/8) * t ^ 2)))
+      (Set.Icc (-T') T') :=
+    ((hg_int.const_mul (10 * δ)).congr (ae_of_all _ fun t => by ring)).integrableOn
+  calc ∫ t in Set.Icc (-T') T',
+        ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ / |t|
+      ≤ ∫ t in Set.Icc (-T') T',
+          10 * δ * ((1 + t ^ 4) * Real.exp (-(1/8) * t ^ 2)) := by
+        -- Use integral_mono_of_nonneg on the restricted measure
+        apply integral_mono_of_nonneg
+        · exact ae_of_all _ fun t => div_nonneg (norm_nonneg _) (abs_nonneg _)
+        · exact hg_intOn
+        · exact ae_restrict_mem measurableSet_Icc |>.mono fun t ht => h_pointwise t ht
+    _ ≤ ∫ t, 10 * δ * ((1 + t ^ 4) * Real.exp (-(1/8) * t ^ 2)) := by
+        apply setIntegral_le_integral
+        · exact (hg_int.const_mul (10 * δ)).congr (ae_of_all _ fun t => by ring)
+        · exact ae_of_all _ fun t => by positivity
+    _ = 10 * δ * K := by
+        rw [integral_const_mul]
+    _ = 10 * K * (ρ / (σ ^ 3 * Real.sqrt ↑n)) := by ring
+    _ ≤ (10 * K + 1) * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
+        rw [mul_div_assoc]
+        gcongr
+        linarith [div_pos hρ_pos hden_pos]
 
 /-- **Berry-Esseen core bound (assembly).**
 
@@ -839,16 +949,17 @@ For the standardized sum `S`, the CDF difference is bounded by `O(ρ/(σ³√n))
 Combines `esseen_concentration_universal` (Esseen's inequality with universal `C₁, C₂`)
 and `charfun_integral_bound` (integral bound `I ≤ C₃ * δ`).
 
-With `T = σ³√n/ρ` and `δ = ρ/(σ³√n) = 1/T`:
-- From `esseen_concentration_universal`: `|F-Φ| ≤ C₁ * I + C₂/T`
-- From `charfun_integral_bound`: `I ≤ C₃ * δ`
-- So `|F-Φ| ≤ C₁ * C₃ * δ + C₂ * δ = (C₁*C₃ + C₂) * δ`
+With `T' = σ³√n/(16ρ)` and `δ = ρ/(σ³√n)`:
+- From `esseen_concentration_universal` with T': `|F-Φ| ≤ C₁ * I(T') + C₂/T'`
+- From `charfun_integral_bound`: `I(T') ≤ C₃ * δ`
+- `C₂/T' = 16C₂δ`
+- So `|F-Φ| ≤ C₁C₃δ + 16C₂δ = (C₁C₃ + 16C₂) * δ`
 -/
 -- sorry count: 0 (proved from esseen_concentration_universal + charfun_integral_bound)
 lemma esseen_charfun_integral_bound :
     ∃ C : ℝ, 0 < C ∧
       ∀ {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
-        {n : ℕ} (hn : 0 < n)
+        {n : ℕ} (hn : 2 ≤ n)
         {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ),
         (∀ i, Measurable (Y i)) →
         iIndepFun (m := fun _ => inferInstance) Y μ →
@@ -858,18 +969,18 @@ lemma esseen_charfun_integral_bound :
         (∀ i, ∫ ω, |Y i ω| ^ 3 ∂μ = ρ) →
         (∀ i, MemLp (Y i) 3 μ) →
         let S : Ω → ℝ := fun ω => (∑ i : Fin n, Y i ω) / (σ * Real.sqrt n)
-        let T := σ ^ 3 * Real.sqrt ↑n / ρ
         ∀ y : ℝ,
           |cdf (μ.map S) y - cdf (gaussianReal 0 1) y| ≤
             C * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
   -- Extract universal constants from both sub-lemmas FIRST
   obtain ⟨C₁, C₂, hC₁_pos, hC₂_pos, hesseen⟩ := esseen_concentration_universal
   obtain ⟨C₃, hC₃_pos, hintegral⟩ := charfun_integral_bound
-  -- Set C = C₁ * C₃ + C₂ (the combined constant)
-  refine ⟨C₁ * C₃ + C₂, by positivity, ?_⟩
-  intro Ω mΩ μ hprob n hn Y σ ρ hσ hm hindep hiid hmean hvar h3 hLp S T y
+  -- Set C = C₁ * C₃ + 16 * C₂ (the combined constant)
+  refine ⟨C₁ * C₃ + 16 * C₂, by positivity, ?_⟩
+  intro Ω mΩ μ hprob n hn Y σ ρ hσ hm hindep hiid hmean hvar h3 hLp S y
   -- Derive basic positivity facts
-  have hn' : (0 : ℝ) < ↑n := Nat.cast_pos.mpr hn
+  have hn_pos : 0 < n := by omega
+  have hn' : (0 : ℝ) < ↑n := Nat.cast_pos.mpr hn_pos
   have hsqrt_pos : 0 < Real.sqrt ↑n := Real.sqrt_pos.mpr hn'
   have hσ3_pos : 0 < σ ^ 3 := pow_pos hσ 3
   have hρσ : σ ^ 3 ≤ ρ :=
@@ -877,29 +988,30 @@ lemma esseen_charfun_integral_bound :
       (hvar ⟨0, by omega⟩) (h3 ⟨0, by omega⟩) (hLp ⟨0, by omega⟩)
   have hρ_pos : 0 < ρ := lt_of_lt_of_le hσ3_pos hρσ
   have hden_pos : 0 < σ ^ 3 * Real.sqrt ↑n := mul_pos hσ3_pos hsqrt_pos
-  have hT_pos : 0 < T := div_pos hden_pos hρ_pos
+  -- Use T' = σ³√n/(16ρ) for both Esseen and the integral bound
+  set T' := σ ^ 3 * Real.sqrt ↑n / (16 * ρ) with T'_def
+  have hT'_pos : 0 < T' := div_pos hden_pos (by positivity)
   -- S is measurable, so μ.map S is a probability measure
-  have hsn_ne : σ * Real.sqrt ↑n ≠ 0 := ne_of_gt (mul_pos hσ hsqrt_pos)
   have hS_meas : Measurable S :=
     (Finset.measurable_sum Finset.univ (fun i _ => hm i)).div_const _
   have : IsProbabilityMeasure (μ.map S) := isProbabilityMeasure_map hS_meas.aemeasurable
-  -- Apply Esseen's inequality: |F-Φ| ≤ C₁ * I + C₂/T
-  have hess := hesseen T hT_pos (μ.map S) y
-  -- Apply the integral bound: I ≤ C₃ * δ where δ = ρ/(σ³√n)
+  -- Apply Esseen's inequality with T': |F-Φ| ≤ C₁ * I(T') + C₂/T'
+  have hess := hesseen T' hT'_pos (μ.map S) y
+  -- Apply the integral bound: I(T') ≤ C₃ * δ
   have hint := hintegral hn hσ hm hindep hiid hmean hvar h3 hLp
-  -- Key: C₂/T = C₂ * ρ/(σ³√n) since T = σ³√n/ρ
-  have hC2T : C₂ / T = C₂ * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
-    simp only [T]; field_simp
-  -- Combine: |F-Φ| ≤ C₁ * (C₃ * δ) + C₂ * δ = (C₁*C₃ + C₂) * δ
+  -- Key: C₂/T' = 16C₂ * ρ/(σ³√n)
+  have hC2T' : C₂ / T' = 16 * C₂ * ρ / (σ ^ 3 * Real.sqrt ↑n) := by
+    simp only [T'_def]; field_simp
+  -- Combine: |F-Φ| ≤ C₁*(C₃δ) + 16C₂δ = (C₁C₃ + 16C₂)δ
   calc |cdf (μ.map S) y - cdf (gaussianReal 0 1) y|
-      ≤ C₁ * (∫ t in Set.Icc (-T) T,
+      ≤ C₁ * (∫ t in Set.Icc (-T') T',
           ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ / |t|) +
-        C₂ / T := hess
-    _ ≤ C₁ * (C₃ * ρ / (σ ^ 3 * Real.sqrt ↑n)) + C₂ / T := by
+        C₂ / T' := hess
+    _ ≤ C₁ * (C₃ * ρ / (σ ^ 3 * Real.sqrt ↑n)) + C₂ / T' := by
         gcongr
     _ = C₁ * (C₃ * ρ / (σ ^ 3 * Real.sqrt ↑n)) +
-        C₂ * ρ / (σ ^ 3 * Real.sqrt ↑n) := by rw [hC2T]
-    _ = (C₁ * C₃ + C₂) * ρ / (σ ^ 3 * Real.sqrt ↑n) := by ring
+        16 * C₂ * ρ / (σ ^ 3 * Real.sqrt ↑n) := by rw [hC2T']
+    _ = (C₁ * C₃ + 16 * C₂) * ρ / (σ ^ 3 * Real.sqrt ↑n) := by ring
 
 /-! ## Main theorem -/
 
@@ -915,7 +1027,7 @@ for all `y ∈ ℝ`, where `C` is a universal constant and `Φ` is the standard 
 theorem berry_esseen_theorem :
     ∃ C : ℝ, 0 < C ∧
       ∀ {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
-        {n : ℕ} (hn : 0 < n)
+        {n : ℕ} (hn : 2 ≤ n)
         {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ),
         (∀ i, Measurable (Y i)) →
         iIndepFun (m := fun _ => inferInstance) Y μ →
