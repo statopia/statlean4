@@ -1,6 +1,6 @@
-# StatLean — 数理统计定理的 Lean 4 形式化
+# StatLean — 统计定理的 Lean 4 形式化的自动化工具
 
-用 Lean 4 + Mathlib 形式化数理统计的核心定理。
+用 Lean 4 + Mathlib 形式化统计的核心定理和概念。
 
 **当前规模**：33 个 Lean 文件，~170 个声明，14 个零 sorry 模块。
 
