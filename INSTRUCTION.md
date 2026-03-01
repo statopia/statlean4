@@ -1,203 +1,293 @@
 # StatLean Contributor Guide
 
-## Overview
+## 项目简介
 
-StatLean uses a **concept-driven pipeline**: you pick the theorems you want to formalize, the system generates Lean skeletons with `sorry`, and you (or Claude Code) fill in the proofs.
+StatLean 是一个用 Lean 4 + Mathlib 形式化数理统计定理的开源项目。
 
-You contribute with **your own Claude token budget** — Claude API key or Claude Pro/Max subscription.
+**当前规模**：33 个 Lean 文件，~170 个声明，14 个零 sorry 模块已入库 `Verified.lean`。
 
-## Quick Start
+**已完成的核心定理**（全部零 sorry）：
+- Rao-Blackwell MSE 定理、ANOVA 方差分解
+- Fisher-Neyman 因子分解定理（双向）、Basu 定理
+- 最小充分统计量判据（密度比 + 子族扩展 + 密度比统计量 DRC）
+- Lehmann-Scheffé UMVUE 定理、Cramér-Rao 下界
+- Berry-Esseen 定理（模 2 个分析 sorry）、均匀强大数律
+- Hermite 正交性 + Parseval + IBP、MSE = Bias² + Var
+- 指数族 MLE 存在唯一性
+
+**10 个 sorry 缺口**正等待攻击（详见 `theme/input/sorry_backlog.yaml`）。
+
+---
+
+## 环境准备
 
 ```bash
 # 1. Fork & clone
 git clone https://github.com/<your-username>/statlean4.git
 cd statlean4
 
-# 2. Install elan + Lean (skip if already installed)
+# 2. 安装 elan + Lean（已有则跳过）
 curl https://elan-init.tracing.rs/elan-init.sh -sSf | sh
 
-# 3. Download Mathlib cache (~5 min, avoids 2h compile)
+# 3. 下载 Mathlib 编译缓存（~5 分钟，避免 2 小时全量编译）
 lake exe cache get
 
-# 4. Verify build
+# 4. 验证编译
 lake build Statlean
 ```
 
-## Step 1: Choose What to Formalize
+**Lean 版本**：4.28.0-rc1（elan 会自动管理）。
 
-### Option A: Pick by ontology ID
+---
+
+## 贡献方式
+
+### 方式 A：从 PDF 到形式化（完整 pipeline）
+
+适合有课程讲义 / 论文的场景。Pipeline 自动完成：PDF 提取 → YAML → Lean 骨架 → 证明 → 验收。
 
 ```bash
-# See all available concepts
-grep "^  - id:" theme/input/stat_ontology.yaml
+# 1. 把 PDF 放入 theme/input/raw/
+cp lecture-5-handout.pdf theme/input/raw/
 
-# Formalize one theorem (auto-expands dependency chain)
-make -C theme formalize CONCEPTS="cramer_rao"
-# → Generates: parametric_family → fisher_information → ... → cramer_rao
-# → Creates Lean skeletons in Statlean/Information/CramerRao.lean etc.
+# 2. 提取 PDF 内容（本地 pymupdf，零 API 消耗）
+python3 theme/scripts/pdf_extract.py \
+  --pdf theme/input/raw/lecture-5-handout.pdf \
+  --output-dir theme/out/lec5_extract
+
+# 3. 阅读提取内容，手写 theorems.yaml
+#    （或用 Claude Code 辅助 — 见下文）
+vim theme/input/theorems.yaml
+
+# 4. 跑 pipeline
+make -C theme formalize
+
+# 5. Pipeline 产物：
+#    - Lean 骨架（带 sorry）已写入 Statlean/ 对应文件
+#    - theme/out/prove_targets.json 列出待证目标
+#    - gate 报告 sorry 计数
 ```
 
-### Option B: Pick by natural language
+**`theorems.yaml` 格式**：
 
-```bash
-make -C theme formalize CONCEPTS="Cramér-Rao, Basu"
-# Fuzzy matching: "Cramér-Rao" → cramer_rao, "Basu" → basu_theorem
+```yaml
+version: v1
+theorem_set: my-theorems
+defaults:
+  lean_namespace: Statlean
+  layer: formalization
+  allow_axiom: false
+theorems:
+- id: lec5.mse_bias_variance        # 唯一 ID
+  title: "MSE = Bias² + Variance"   # 人类可读标题
+  kind: theorem                      # theorem / definition / lemma
+  latex_statement: |                 # LaTeX 数学表述
+    For estimator $T$, $\mathrm{MSE} = \mathrm{Bias}^2 + \mathrm{Var}$.
+  lean_name: "mse_eq_bias_sq_add_variance"
+  lean_namespace: Statlean.Estimator
+  lean_statement: |                  # 可选：直接写 Lean 签名
+    theorem mse_eq_bias_sq_add_variance
+        {Ω : Type*} [MeasurableSpace Ω]
+        (μ : Measure Ω) [IsProbabilityMeasure μ]
+        (T : Ω → ℝ) (θ : ℝ)
+        (hT : Memℒp T 2 μ) :
+        ∫ ω, (T ω - θ) ^ 2 ∂μ =
+          (∫ ω, T ω ∂μ - θ) ^ 2 + ∫ ω, (T ω - ∫ ω', T ω' ∂μ) ^ 2 ∂μ
+  priority: 1
+  dependencies: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
 ```
 
-### Option C: No dependency expansion
+> **提示**：如果提供了 `lean_statement`，pipeline 会直接使用它生成骨架；否则生成 `True := by sorry` 占位符，需要手动替换。
+
+### 方式 B：直接攻击已有 sorry
+
+不走 pipeline，直接找一个 sorry 来证。
 
 ```bash
-make -C theme formalize CONCEPTS="cramer_rao" NO_DEPS=1
-# Only generates cramer_rao itself, no prerequisite concepts
-```
-
-### Option D: With a PDF (extract LaTeX into skeletons)
-
-```bash
-make -C theme formalize CONCEPTS="cramer_rao" PDF=lecture.pdf
-# Extracts theorem statements from PDF, matches to concepts, fills LaTeX fields
-```
-
-### Option E: Skip the pipeline, directly edit existing sorry
-
-```bash
-# Check what sorry gaps exist
+# 查看 sorry 缺口清单
 cat theme/input/sorry_backlog.yaml
-# Or grep directly
-grep -rn "sorry" Statlean/ --include="*.lean" | grep -v "\-\-.*sorry"
+
+# 或直接 grep
+grep -rn 'sorry' Statlean/ --include="*.lean" | grep -v '\-\-'
+
+# 编辑文件、写证明
+vim Statlean/Gaussian/Poincare.lean
+
+# 增量编译验证
+lake build Statlean.Gaussian.Poincare
 ```
 
-## Step 2: Prove
-
-### Automatic (built into pipeline)
-
-`make formalize` now includes a **prove stage** that automatically attacks all newly generated sorry gaps:
+### 方式 C：用 Claude Code 辅助证明
 
 ```bash
-# Default: 1h budget, deep prove
-make -C theme formalize CONCEPTS="lehmann_scheffe"
-# → generate skeletons → sync backlog → prove (up to 1h) → gate
-
-# Custom budget: 2h
-make -C theme formalize CONCEPTS="cramer_rao" PROVE_BUDGET=7200
-
-# Short budget for quick iteration
-make -C theme formalize CONCEPTS="lehmann_scheffe" PROVE_BUDGET=300
-
-# Skip prove (only generate skeletons)
-make -C theme formalize CONCEPTS="james_stein" PROVE_DEPTH=shallow
-
-# Offline mode + skip prove
-make -C theme formalize CONCEPTS="cramer_rao" NO_CLAUDE=1 PROVE_DEPTH=shallow
-```
-
-**Prove stage parameters:**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PROVE_BUDGET` | `3600` | Global time budget in seconds (1h) |
-| `PROVE_MAX_ITERS` | `10` | Maximum iteration rounds (each attacks up to 3 sorry) |
-| `PROVE_DEPTH` | `deep` | `deep` = run prove loop; `shallow` = skip |
-
-The prove stage is **non-blocking** — if time runs out or sorry remain, the pipeline continues to `gate` which reports the final sorry count.
-
-You can also run the prove loop standalone:
-
-```bash
-# Run prove loop on existing sorry gaps
-make -C theme prove PROVE_BUDGET=1800
-
-# Or directly
-PROVE_BUDGET=600 MAX_ITERS=5 theme/scripts/prove_loop.sh .
-```
-
-### With Claude Code (interactive)
-
-```bash
-# Install Claude Code CLI
+# 安装 Claude Code（需要 Claude Pro/Max 订阅）
 npm install -g @anthropic-ai/claude-code
 
 cd statlean4
-
-# Interactive: pick one sorry to attack
 claude
-# Then type:  /prove Statlean/Information/CramerRao.lean cramer_rao
 
-# Automatic: attack all leaf-node sorry gaps
-claude
-# Then type:  /prove-deep all-leaves
+# 交互式攻击单个 sorry
+> /prove Statlean/Gaussian/Poincare.lean condExp_eq_fiberAvg_pi
 
-# Non-interactive (CI-friendly)
-claude --print "Read theme/input/sorry_backlog.yaml, attack the highest priority sorry"
+# 自动攻击所有叶节点 sorry
+> /prove-deep all-leaves
+
+# 从 PDF 到形式化（一站式）
+> /pipeline theme/input/raw/lecture-5-handout.pdf
 ```
 
-### Without Claude Code
+### 方式 D：纯手写 Lean
 
-Write Lean proofs directly — no tooling required. The pipeline is optional infrastructure.
+不需要任何工具链，直接写 Lean 证明。
 
 ```bash
-# Edit the file
 vim Statlean/Information/CramerRao.lean
-
-# Build to check
 lake build Statlean.Information.CramerRao
 ```
 
-## Step 3: Validate & Submit
+---
+
+## Pipeline 各阶段说明
+
+```
+theorems.yaml
+     │
+     ▼
+  resolve ──→ ingest ──→ plan ──→ generate ──→ build-check
+                                      │
+                                      ▼
+                              sync-backlog ──→ prove ──→ gate
+```
+
+| 阶段 | 做什么 | 消耗 |
+|------|--------|------|
+| `resolve` | 概念名 → YAML（可选，`CONCEPTS=` 时触发） | 零 API |
+| `ingest` | 解析 YAML | 零 |
+| `plan` | 生成 plan.md | 零 |
+| `generate` | YAML → Lean 骨架（带 sorry） | 零 |
+| `build-check` | `lake build` 验证骨架编译 | 零 |
+| `sync-backlog` | 同步 sorry_backlog.yaml | 零 |
+| `prove` | 生成 prove_targets.json（Claude Code 调度证明） | Max 额度 |
+| `gate` | 最终 build + sorry 计数 + PIPELINE_ID 检查 | 零 |
+
+**API 消耗策略**：Pipeline 默认**零 API credit 消耗**。证明阶段使用 Claude Code subagent（走 Max/Pro 订阅额度，不走 API credit）。只有 `--backend claude-api` 的 PDF 图片提取才用 API credit。
+
+**参数**：
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `CONCEPTS` | 空 | 概念名列表，逗号分隔 |
+| `PDF` | 空 | PDF 文件路径（用于 resolve 提取上下文） |
+| `PROVE_DEPTH` | `deep` | `deep` = 生成 prove 目标；`shallow` = 跳过 |
+| `PROVE_BUDGET` | `3600` | prove 时间预算（秒） |
+| `MAX_PARALLEL` | `3` | 最大并行 prove agent 数 |
+| `NO_DEPS` | 空 | 设置后不展开概念依赖链 |
+
+---
+
+## 文件组织规则
+
+### 按数学对象组织
+
+```
+Statlean/
+  Gaussian/Basic.lean         # 标准高斯分布基础设施
+  Gaussian/Poincare.lean      # Poincaré 不等式（已证 + sorry 共存）
+  Variance/RaoBlackwell.lean  # Rao-Blackwell MSE 定理
+  Sufficiency/Factorization.lean  # Fisher-Neyman 因子分解
+  Estimator/Basic.lean        # 估计量基础（MSE 分解、风险支配）
+  ...
+```
+
+- 文件路径反映数学对象：`Gaussian/Poincare.lean`，不是 `Concentration/GaussianPoincare.lean`
+- 已证引理和 sorry gap **放同一文件**，用 `section` 隔离
+- 定理名语义化：`cramer_rao`，不是 `theorem_007`
+
+### Verified.lean
+
+`Statlean/Verified.lean` 是零 sorry 模块的**索引文件**。它只包含 import 语句，不含任何定义。
 
 ```bash
-# Create a branch
-git checkout -b feat/cramer-rao
+# 验证所有 import 的模块无 sorry
+lake build Statlean.Verified
+# 应该零 sorry 警告
+```
 
-# Verify
-lake build Statlean.Information.CramerRao   # zero errors
-grep -c "sorry" Statlean/Information/CramerRao.lean   # should be 0
+当你的文件达到零 sorry，把它加入 `Verified.lean`。
 
-# Commit & push
+### Statlean.lean
+
+`Statlean.lean` 是全量 import（包含有 sorry 的模块）。新增 `.lean` 文件后在此添加 import。
+
+---
+
+## 验收标准
+
+提交 PR 前确保：
+
+1. **`lake build` 零错误**
+2. **sorry 数不增加**（可以不减，但不能增加）
+3. **`Verified.lean` 一致**：如果你的文件零 sorry，加入 Verified.lean
+4. **PIPELINE_ID 保留**：生成的骨架中有 `PIPELINE_ID:` 注释，不要删除
+
+```bash
+# 验证清单
+lake build                              # 零错误
+lake build Statlean.Verified            # 零 sorry 警告
+bash theme/scripts/gate.sh .            # 完整检查
+```
+
+---
+
+## 提交流程
+
+```bash
+# 创建分支
+git checkout -b feat/my-theorem
+
+# 编辑、编译验证
+lake build Statlean.MyModule
+
+# 提交
 git add Statlean/
-git commit -m "feat: prove cramer_rao (zero sorry)"
-git push origin feat/cramer-rao
+git commit -m "feat: prove my_theorem (zero sorry)"
+git push origin feat/my-theorem
 
-# Open PR
-gh pr create --title "Prove Cramér-Rao lower bound"
+# 开 PR
+gh pr create --title "Prove my_theorem"
 ```
 
-## One-liner Example
+---
 
-```bash
-git clone https://github.com/me/statlean4.git && cd statlean4
-lake exe cache get
-make -C theme formalize CONCEPTS="lehmann_scheffe"
-claude --print "/prove-deep Statlean/Sufficiency/LehmannScheffe.lean"
-git checkout -b feat/lehmann-scheffe
-git add Statlean/ && git commit -m "feat: prove lehmann_scheffe"
-git push origin feat/lehmann-scheffe && gh pr create
-```
+## Sorry 缺口清单
+
+`theme/input/sorry_backlog.yaml` 记录了所有待攻击的 sorry，包含：
+- **priority**：优先级（数字越小越重要）
+- **blocker**：卡住的原因（缺什么 Mathlib API / 前置引理）
+- **dependencies**：依赖其他哪些 sorry
+- **unlocks**：证完后解锁哪些下游 sorry
+
+**选择目标**：优先选 `type: honest`（路线清晰）且 `dependencies: []`（无前置依赖）的叶节点。
+
+当前主要 blocker：
+- **Measure.pi Fubini**：阻塞 EfronStein (2) + Poincaré 纤维化 (2)
+- **Gaussian hypercontractivity**：阻塞 LogSobolev (2) + Herbst (1)
+- **Stieltjes inversion**：阻塞 Berry-Esseen 通用常数 (1)
+
+---
 
 ## FAQ
 
-| Question | Answer |
-|----------|--------|
-| Who pays for tokens? | You — your own Claude API key or Claude Max subscription |
-| Minimum contribution? | One sorry gap (even a single sub-lemma counts) |
-| How to avoid conflicts? | Check `sorry_backlog.yaml` for unclaimed gaps before starting |
-| Partial progress OK? | Yes — as long as sorry count doesn't increase, partial PRs welcome |
-| Must I use Claude? | No — hand-written Lean proofs are equally welcome |
-| What Lean version? | 4.28.0-rc1 via [elan](https://github.com/leanprover/elan) |
-
-## Project Conventions
-
-- **File organization**: by mathematical object, not by proof status. See `CLAUDE.md` for details.
-- **Theorem names**: semantic (`cramer_rao`), not positional (`theorem_007`).
-- **sorry comments**: include `-- blocker:` annotation explaining what's needed.
-- **Acceptance**: `lake build` zero errors, sorry count non-increasing.
-- **Verified.lean**: imports only zero-sorry modules. If your file reaches zero sorry, add it there.
-
-## Sorry Backlog
-
-The file `theme/input/sorry_backlog.yaml` tracks all open sorry gaps with:
-- Priority (lower = more impactful)
-- Blockers (what Mathlib API or prerequisite is missing)
-- Dependencies (which sorry blocks which)
-
-Check it before starting to pick the most impactful target.
+| 问题 | 回答 |
+|------|------|
+| 谁承担 token 费用？ | 你自己 — Claude Pro/Max 订阅或 API key |
+| 最小贡献单位？ | 一个 sorry gap（一个子引理也算） |
+| 如何避免冲突？ | 开始前检查 `sorry_backlog.yaml` 是否有人在做 |
+| 部分进展可以 PR 吗？ | 可以 — 只要 sorry 数不增加 |
+| 必须用 Claude 吗？ | 不必 — 手写 Lean 证明同样欢迎 |
+| Lean 版本？ | 4.28.0-rc1（elan 自动管理） |
+| Pipeline 是必须的吗？ | 不是 — 直接编辑 `.lean` 文件完全可以 |
+| `theorems.yaml` 需要写 Lean 签名吗？ | 建议写 `lean_statement`，否则生成占位符需手动替换 |
