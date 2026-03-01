@@ -7,7 +7,6 @@ REPO_ROOT=${1:?usage: prove_loop.sh <repo_root>}
 REPO_ROOT=$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$REPO_ROOT")
 MAX_ITERS=${MAX_ITERS:-10}
 AUTO_AGENT=${AUTO_AGENT:-1}
-AGENT_TIMEOUT_SECONDS=${AGENT_TIMEOUT_SECONDS:-600}
 MAX_PARALLEL=${MAX_PARALLEL:-3}
 PROVE_BUDGET=${PROVE_BUDGET:-3600}   # global time budget in seconds, 0 = unlimited
 START_TIME=$(date +%s)
@@ -84,6 +83,41 @@ run_claude_agent() {
   fi
 }
 
+# --- Select targets from backlog ---
+select_targets() {
+  python3 -c "
+import yaml, json, sys, os
+with open('$REPO_ROOT/theme/input/sorry_backlog.yaml') as f:
+    data = yaml.safe_load(f) or {}
+
+manifest_path = os.environ.get('MANIFEST', '')
+manifest_files = None
+if manifest_path and os.path.isfile(manifest_path):
+    try:
+        with open(manifest_path) as mf:
+            manifest = json.load(mf)
+        manifest_files = {e['file'] for e in manifest.get('entries', {}).values() if 'file' in e}
+        print(f'[prove-loop] pipeline mode: targeting {len(manifest_files)} files from manifest', file=sys.stderr)
+        for f_name in sorted(manifest_files):
+            print(f'  - {f_name}', file=sys.stderr)
+    except (json.JSONDecodeError, KeyError) as exc:
+        print(f'[prove-loop] manifest parse error ({exc}), falling back to full backlog', file=sys.stderr)
+        manifest_files = None
+else:
+    print('[prove-loop] standalone mode: targeting full backlog by priority', file=sys.stderr)
+
+items = [it for it in (data.get('sorry_items') or [])
+         if it.get('type') not in ('blocked',)]
+if manifest_files is not None:
+    items = [it for it in items if it.get('file','') in manifest_files]
+items.sort(key=lambda x: x.get('priority', 99))
+targets = items[:$MAX_PARALLEL]
+print(len(targets))
+for it in targets:
+    print(json.dumps({'file': it['file'], 'theorem': it['theorem']}))
+" 2>&1
+}
+
 # === Main loop ===
 echo "[prove-loop] fallback mode — working on Statlean/ files directly"
 prev_sorry_count=$(count_sorry)
@@ -150,44 +184,34 @@ for i in $(seq 1 "$MAX_ITERS"); do
     exit 1
   fi
 
-  # Use sync_sorry_backlog.py to get targets, then attack via claude agents
+  # Sync backlog and select targets
   echo "[prove-loop] syncing backlog and dispatching agents..."
   (cd "$REPO_ROOT" && python3 theme/scripts/sync_sorry_backlog.py) || true
 
-  # Select targets from backlog by priority.
-  # No blacklist — every iteration retries all eligible targets.
-  # The only stop conditions are PROVE_BUDGET and MAX_ITERS.
-  # If MANIFEST is set and exists, only attack sorry in manifest files (pipeline mode).
-  # Otherwise, attack all backlog entries (standalone/fallback mode).
-  python3 -c "
-import yaml, json, sys, os
-with open('$REPO_ROOT/theme/input/sorry_backlog.yaml') as f:
-    data = yaml.safe_load(f) or {}
+  # Read targets into array
+  target_count=0
+  targets=()
+  while IFS= read -r line; do
+    # Pass through stderr log lines (start with [)
+    if [[ "$line" == "["* ]]; then
+      echo "$line"
+      continue
+    fi
+    # First numeric line is target count
+    if [[ "$target_count" -eq 0 && "$line" =~ ^[0-9]+$ ]]; then
+      target_count=$line
+      continue
+    fi
+    targets+=("$line")
+  done < <(select_targets)
 
-manifest_path = os.environ.get('MANIFEST', '')
-manifest_files = None
-if manifest_path and os.path.isfile(manifest_path):
-    try:
-        with open(manifest_path) as mf:
-            manifest = json.load(mf)
-        manifest_files = {e['file'] for e in manifest.get('entries', {}).values() if 'file' in e}
-        print(f'[prove-loop] pipeline mode: targeting {len(manifest_files)} files from manifest', file=sys.stderr)
-        for f_name in sorted(manifest_files):
-            print(f'  - {f_name}', file=sys.stderr)
-    except (json.JSONDecodeError, KeyError) as exc:
-        print(f'[prove-loop] manifest parse error ({exc}), falling back to full backlog', file=sys.stderr)
-        manifest_files = None
-else:
-    print('[prove-loop] standalone mode: targeting full backlog by priority', file=sys.stderr)
+  if [[ "$target_count" -eq 0 || "${#targets[@]}" -eq 0 ]]; then
+    echo "[prove-loop] no actionable targets — stopping"
+    break
+  fi
 
-items = [it for it in (data.get('sorry_items') or [])
-         if it.get('type') not in ('blocked',)]
-if manifest_files is not None:
-    items = [it for it in items if it.get('file','') in manifest_files]
-items.sort(key=lambda x: x.get('priority', 99))
-for it in items[:$MAX_PARALLEL]:
-    print(json.dumps({'file': it['file'], 'theorem': it['theorem']}))
-" | while IFS= read -r line; do
+  # Dispatch agents: each gets remaining_budget / target_count (min 120s)
+  for line in "${targets[@]}"; do
     file=$(echo "$line" | python3 -c "import json,sys; print(json.load(sys.stdin)['file'])")
     theorem=$(echo "$line" | python3 -c "import json,sys; print(json.load(sys.stdin)['theorem'])")
     prompt_file="$LOG_DIR/fix_prompt_${i}_${theorem}.txt"
@@ -195,25 +219,29 @@ for it in items[:$MAX_PARALLEL]:
 
     generate_sorry_prompt "$file" "$theorem" "$prompt_file"
 
-    # Dynamic per-agent timeout: min(AGENT_TIMEOUT_SECONDS, remaining budget)
+    # Dynamic per-agent timeout: remaining_budget / target_count
     agent_elapsed=$(( $(date +%s) - START_TIME ))
     agent_remaining=$(( PROVE_BUDGET - agent_elapsed ))
     if [[ "$PROVE_BUDGET" -gt 0 && "$agent_remaining" -le 0 ]]; then
       echo "[prove-loop] time budget exhausted before agent dispatch"
-      break 2  # break out of both the while-read and for loops
+      break 2
     fi
-    if [[ "$PROVE_BUDGET" -gt 0 && "$agent_remaining" -lt "$AGENT_TIMEOUT_SECONDS" ]]; then
+    effective_timeout=$(( agent_remaining / target_count ))
+    # Floor: at least 120s per agent
+    if [[ "$effective_timeout" -lt 120 ]]; then
+      effective_timeout=120
+    fi
+    # Cap: no more than remaining budget
+    if [[ "$PROVE_BUDGET" -gt 0 && "$effective_timeout" -gt "$agent_remaining" ]]; then
       effective_timeout="$agent_remaining"
-    else
-      effective_timeout="$AGENT_TIMEOUT_SECONDS"
     fi
 
-    echo "[prove-loop] attacking $file:$theorem (timeout=${effective_timeout}s)"
+    echo "[prove-loop] attacking $file:$theorem (timeout=${effective_timeout}s, targets=$target_count)"
     if run_claude_agent "$prompt_file" "$fix_log" "$effective_timeout"; then
       echo "[prove-loop] agent for $theorem completed successfully"
     else
       rc=$?
-      echo "[prove-loop] agent for $theorem exited with rc=$rc — will retry next iteration"
+      echo "[prove-loop] agent for $theorem exited with rc=$rc"
     fi
   done
 done
