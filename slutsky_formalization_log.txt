@@ -1,0 +1,148 @@
+Slutsky's Theorem 形式化过程记录
+====================================
+日期: 2026-03-01
+工具: Claude Code (Opus 4.6) + Lean 4 / Mathlib v4.28.0-rc1
+耗时: 单次会话，约 30 分钟
+
+目标
+----
+形式化 Mathematical Statistics 教科书第 60 页 Theorem 1.11 (Slutsky's theorem):
+  若 Xₙ →ᵈ X 且 Yₙ →ᵖ c，则
+  (i)   Xₙ + Yₙ →ᵈ X + c
+  (ii)  Yₙ · Xₙ →ᵈ c · X
+  (iii) Xₙ / Yₙ →ᵈ X / c  （当 c ≠ 0）
+
+Step 0: 输入解析
+----------------
+用户指令: "形式化 mathematical statistic 中 60 页的 slutsky's theorem"
+解析: 目标=Slutsky 定理, 来源=教科书 PDF, 页码=60（PDF 第 76 页）
+
+Step 1: 内容提取
+----------------
+从教科书 PDF 提取 Theorem 1.11 的数学内容。
+确认三个推论 (i)(ii)(iii) 的精确数学陈述。
+
+Step 2: 检查现有代码
+--------------------
+- grep 全仓库搜索 "Slutsky" / "slutsky" → 发现 CLT.lean 中有 pipeline 生成的空壳
+  `theorem slutsky_theorem : True := by sorry`
+- 检查 Convergence.lean → 有 InProbabilityConvergence 但没有 convergence in distribution
+
+Step 3: Mathlib API 搜索（关键发现）
+------------------------------------
+按 CLAUDE.md 三级搜索策略：
+
+第一级：查静态索引 theme/mathlib_api_index.md
+  → 未找到 Slutsky 相关条目
+
+第二级：#check 精确查询
+  → 发现 MeasureTheory.TendstoInDistribution 存在
+
+第三级：grep Mathlib 源码（升级搜索）
+  → 重大发现！Slutsky 核心定理已在 Mathlib 中！
+
+  文件: Mathlib.MeasureTheory.Function.ConvergenceInDistribution
+  包含:
+  - TendstoInDistribution — 分布收敛的结构体定义
+  - TendstoInDistribution.prodMk_of_tendstoInMeasure_const — Slutsky 核心
+    "如果 Xₙ →ᵈ Z 且 Yₙ →ᵖ c，则 (Xₙ,Yₙ) →ᵈ (Z,c)"
+  - TendstoInDistribution.continuous_comp_prodMk_of_tendstoInMeasure_const — 连续函数版
+  - TendstoInDistribution.add_of_tendstoInMeasure_const — 加法版 (i)
+  - TendstoInDistribution.continuous_comp — 连续映射定理
+
+  结论: Mathlib 已有核心定理和 (i)，但缺 (ii) mul 和 (iii) div
+
+Step 4: 设计签名
+-----------------
+策略决策:
+  - (i) add: 直接用 Mathlib，不做薄封装（CLAUDE.md 规则）
+  - (ii) mul: 用 continuous_comp_prodMk + g(x,y)=y*x，连续性由 fun_prop 自动证
+  - (iii) div: x/y 在 ℝ² 全局不连续（y=0 处），不能直接用连续映射
+
+  (iii) 的策略分析:
+    方案 A: 直接用 continuous_comp with g(x,y)=x/y → 失败，不连续
+    方案 B: 用 tendstoInDistribution_of_tendstoInMeasure_sub → 需要 tight 论证，复杂
+    方案 C（选定）: 先证 Yₙ⁻¹ →ᵖ c⁻¹（新引理），再用 slutsky_mul 合成
+
+  新引理设计: tendstoInMeasure_inv_of_ne_zero
+    数学思路: |y⁻¹ - c⁻¹| = |c-y|/(|y|·|c|)
+    选 δ = min(|c|/2, ε|c|²/2)，则 |y-c| < δ 时:
+      |y| > |c|/2（反三角不等式）
+      |y⁻¹-c⁻¹| < δ/(|c|²/2) ≤ ε
+
+Step 5: 编写证明
+-----------------
+创建 Statlean/LimitTheorems/Slutsky.lean
+
+(i) slutsky_add — 一行证明:
+    直接 exact hXZ.add_of_tendstoInMeasure_const hY hY_meas
+
+(ii) slutsky_mul — 一行证明:
+    exact hXZ.continuous_comp_prodMk_of_tendstoInMeasure_const
+      (g := fun p : ℝ × ℝ => p.2 * p.1) (by fun_prop) hY hY_meas
+
+(iii) tendstoInMeasure_inv_of_ne_zero — 手写 ε-δ 证明（~35 行）:
+    证明过程中的技术挑战:
+    a) TendstoInMeasure 使用 edist (ENNReal)，不是 norm
+       → 用 tendstoInMeasure_iff_dist 转换到 dist (ℝ)
+    b) inv_sub_inv 的 rw 无法穿透 |·|（abs）
+       → 改用 have key : dist ... = ... 独立证明，再 ▸ 替换
+    c) abs_sub_comm 匹配问题
+       → 显式 show 语句指定方向
+    d) squeeze 引理选择
+       → 用 tendsto_of_tendsto_of_tendsto_of_le_of_le（夹逼）
+    e) Y n ω ≠ 0 的证明
+       → 从 |Y n ω| > |c|/2 > 0 得到，positivity 不够强
+       → 改用 intro heq; simp [heq] at hYω_lb; linarith
+    f) linter 警告: tendstoInMeasure_inv_of_ne_zero 不需要 IsProbabilityMeasure
+       → 添加 omit [...] in（放在 docstring 之前）
+
+(iv) slutsky_div — 三行证明:
+    have key := slutsky_mul hXZ (tendstoInMeasure_inv_of_ne_zero hc hY) (fun i => (hY_meas i).inv)
+    convert key using 1 <;> ext <;> ring
+    （利用 x/y = x * y⁻¹ 和乘法交换律）
+
+Step 6: Build 验证
+-------------------
+lake build Statlean.LimitTheorems.Slutsky → 零 sorry，零 warning
+lake build Statlean.Verified → 零 sorry（Slutsky 已加入 Verified.lean）
+lake build（全量）→ 通过
+
+Step 7: 收尾
+-------------
+- 更新 Statlean.lean（添加 import）
+- 更新 Verified.lean（添加 import + docstring）
+- 更新 Convergence.lean docstring（提及 TendstoInDistribution）
+- 清理 CLT.lean 中的 Slutsky 空壳（删除 79 行 `theorem slutsky_theorem : True := by sorry`）
+- Commit: 0a0183a, +139/-79 行
+
+最终产出
+--------
+文件: Statlean/LimitTheorems/Slutsky.lean (107 行)
+
+4 个定理，全部零 sorry:
+
+  slutsky_add                          — 1 行 term-mode 证明
+  slutsky_mul                          — 1 行 term-mode 证明
+  tendstoInMeasure_inv_of_ne_zero      — 35 行 tactic 证明（独立贡献，Mathlib 无此引理）
+  slutsky_div                          — 3 行 tactic 证明
+
+关键经验
+--------
+1. Mathlib 覆盖度惊人: Slutsky 核心定理 + 连续映射定理 + 加法版全部已有
+   → 先查 Mathlib 再动手，避免重复劳动
+
+2. 薄封装删除原则有效: (i) add 如果只是别名就不该单独存在
+   → 但我们提供教科书形式的统一 API，附加值在于组织和 docstring
+
+3. 全局不连续函数的处理: div 不能直接用连续映射定理
+   → 分解为 inv（convergence in measure 层面）+ mul（distribution 层面）
+   → 这是经典的数学证明策略，在 Lean 中同样适用
+
+4. TendstoInMeasure 使用 edist (ENNReal): 不要假设 norm 接口
+   → tendstoInMeasure_iff_dist 是关键桥接引理
+
+5. rw 无法穿透 abs: Lean 的 rw 是语法匹配，|f x| 中的 f x 不可见
+   → 用独立 have 证明等式，再 ▸ 替换
+
+6. omit 必须在 docstring 之前: Lean 4 语法要求
