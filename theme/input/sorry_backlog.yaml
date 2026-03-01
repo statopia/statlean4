@@ -1,6 +1,6 @@
-version: v39
+version: v40
 generated: 2026-03-01
-total_sorry: 45
+total_sorry: 42
 
 sorry_items:
 
@@ -154,17 +154,6 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: expfamily.basic.exponential_family
-  file: Statlean/ExpFamily/Basic.lean
-  line: 27
-  theorem: exponential_family
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
 - id: gaussian.poincare.anonymous_L15
   file: Statlean/Gaussian/Poincare.lean
   line: 15
@@ -202,17 +191,6 @@ sorry_items:
   file: Statlean/Gaussian/Poincare.lean
   line: 507
   theorem: gaussian_poincare_1d
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: information.cramerrao.cramer_rao
-  file: Statlean/Information/CramerRao.lean
-  line: 28
-  theorem: cramer_rao
   type: unknown
   depth: 1
   priority: 99
@@ -341,13 +319,14 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: sufficiency.lehmannscheffe.lehmann_scheffe
+- id: sufficiency.lehmannscheffe.condExp_eq_of_sufficient
   file: Statlean/Sufficiency/LehmannScheffe.lean
-  line: 29
-  theorem: lehmann_scheffe
+  line: 69
+  theorem: condExp_eq_of_sufficient
   type: unknown
   depth: 1
   priority: 99
+  blocker: "extending from indicators to general functions"
   estimated_lines: 50
   dependencies: []
   unlocks: []
@@ -356,17 +335,6 @@ sorry_items:
   file: Statlean/Variance/ANOVA.lean
   line: 21
   theorem: anonymous_L21
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: variance.basic.variance
-  file: Statlean/Variance/Basic.lean
-  line: 27
-  theorem: variance
   type: unknown
   depth: 1
   priority: 99
