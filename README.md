@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化统计的核心定理和概念。
 
-**当前规模**：33 个 Lean 文件，~170 个声明，14 个零 sorry 模块。
+**当前规模**：36 个 Lean 文件，~180 个声明，28 个零 sorry 模块。
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)** — 包含环境搭建、贡献方式、Pipeline 用法、验收标准等完整指南。
 
@@ -17,6 +17,7 @@
 | 估计 | Lehmann-Scheffé UMVUE | `Sufficiency/LehmannScheffe.lean` |
 | 估计 | Cramér-Rao 下界 | `Information/CramerRao.lean` |
 | 估计 | 指数族 MLE 存在唯一性 | `ExpFamily/Basic.lean` |
+| 估计 | MLE 定义 + 不变性定理 | `Estimator/Basic.lean` |
 | 充分性 | Fisher-Neyman 因子分解（双向） | `Sufficiency/Factorization.lean` |
 | 充分性 | Basu 定理 | `Sufficiency/Basu.lean` |
 | 充分性 | 最小充分统计量密度比判据 | `Sufficiency/MinimalSufficiency.lean` |
@@ -27,7 +28,7 @@
 | 极限定理 | Berry-Esseen 定理（模 2 个分析引理） | `LimitTheorems/BerryEsseen.lean` |
 | 极限定理 | 特征函数 Taylor 链 | `CharFun/Taylor.lean` |
 
-**10 个 sorry 缺口**等待攻击 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
+**9 个真实数学 sorry** 等待攻击（另有 18 个 Pipeline 生成的占位符 sorry）→ [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
 
 ---
 
@@ -58,11 +59,16 @@ Statlean/
   Entropy/           # 熵、Log-Sobolev
   SubGaussian/       # Herbst、Lipschitz 集中
   CharFun/           # 特征函数 Taylor
-  LimitTheorems/     # USLLN、Berry-Esseen
+  LimitTheorems/     # USLLN、Berry-Esseen、CLT、收敛模式
   Sufficiency/       # 因子分解、Basu、最小充分、Lehmann-Scheffé
   Information/       # Fisher 信息、Cramér-Rao
-  Estimator/         # MSE 分解、风险支配
+  Estimator/         # MSE 分解、MLE 不变性、风险支配
   ExpFamily/         # 指数族 MLE
+  Statistic/         # ParametricFamily、IsUnbiased
+  EmpiricalProcess/  # 覆盖数、Dudley 积分
+  Regression/        # 最小二乘、主误差界
+  SPD/               # Log-Cholesky Fréchet 均值
+  Pipeline/          # Pipeline 生成的存根（待整理）
   Verified.lean      # 零 sorry 模块索引
 ```
 
@@ -83,9 +89,9 @@ sorry 数只减不增，详见 [INSTRUCTION.md](INSTRUCTION.md)。
 
 | Blocker | 阻塞 | sorry 数 |
 |---------|------|---------|
-| Measure.pi Fubini | EfronStein + Poincaré 纤维化 | 4 |
-| Gaussian hypercontractivity | LogSobolev + Herbst | 3 |
-| Stieltjes inversion | Berry-Esseen 通用常数 | 1 |
+| Measure.pi Fubini | EfronStein (2) + Poincaré 纤维化 (1) | 3 |
+| Gaussian hypercontractivity | LogSobolev (2) + Herbst (1) | 3 |
+| Fourier analysis | Berry-Esseen 通用常数 (3) | 3 |
 
 完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
 
@@ -97,6 +103,7 @@ sorry 数只减不增，详见 [INSTRUCTION.md](INSTRUCTION.md)。
 |------|------|
 | **[INSTRUCTION.md](INSTRUCTION.md)** | **贡献指南** — 环境搭建、4 种贡献方式、`theorems.yaml` 格式、验收标准、FAQ |
 | [theme/PIPELINE.md](theme/PIPELINE.md) | Pipeline 详解 — 各阶段（extract → ingest → generate → prove → gate）的输入输出和用法 |
+| [theme/formalize_playbook.md](theme/formalize_playbook.md) | 形式化操作手册 — 「形式化 XX 里的 YY」的 7 步 SOP（Claude Code / Codex 共用） |
 | [theme/prove_playbook.md](theme/prove_playbook.md) | 证明操作手册 — 策略选择表、Mathlib API 三级搜索法、condExp 专项模式、编译错误修复表 |
 | [theme/input/sorry_backlog.yaml](theme/input/sorry_backlog.yaml) | Sorry 缺口清单 — 所有待证目标的优先级、blocker、依赖关系 |
 | [CLAUDE.md](CLAUDE.md) | Claude Code 项目配置 — 文件组织原则、证明策略、Mathlib 搜索规则、效率规则 |

@@ -18,3 +18,10 @@ theme/out/
 
 # Raw PDFs (large, copyright)
 theme/input/raw/*.pdf
+
+# Pipeline extraction outputs (regenerable from PDFs)
+theme/input/raw/*.md
+theme/input/raw/*.json
+theme/input/raw/*.tex
+theme/input/raw/*.yaml
+theme/input/raw/raw/

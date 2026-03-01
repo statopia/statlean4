@@ -1,259 +1,122 @@
-# Theme: LaTeX to Lean (Statlib-first) Template
+# Theme: LaTeX → Lean Formalization Pipeline
 
-This directory is a template for a low-touch pipeline:
+本目录包含 StatLean 的自动化 pipeline：从 PDF/LaTeX 到 Lean 4 形式化。
 
-1. Ingest theorem-level LaTeX inputs.
-2. Generate Lean formalization tasks.
-3. Close proofs until the generated Lean file type-checks with no `sorry`.
-4. Promote reusable parts into `Statlib`.
-5. Stabilize matured declarations into curated stat-oriented modules.
-6. Keep project-layer files thin and statlib-first.
+## 目录结构
 
-## Directory Layout
-
-- `input/`: input contract and examples.
-- `mcp/`: required MCP servers and tool contracts.
-- `skills/`: 5 skill templates (one folder per skill).
-- `scripts/`: pipeline scripts.
-- `Makefile`: one-command pipeline entry.
-
-## Input Contract
-
-Required files per run (default location: `theme/input/`):
-
-- `paper.tex` (or segmented `.tex` files)
-- `theorems.yaml`
-- `notation.yaml`
-- `scope.yaml`
-
-See examples and schema in `theme/input/`.
-
-## One-Command Pipeline
-
-```bash
-make -C theme formalize
+```
+theme/
+  input/                     # 输入文件
+    raw/                     # 原始 PDF + 提取的 markdown（gitignored）
+    paper.tex                # from-pdf 提取的 LaTeX
+    theorems.yaml            # from-tex 提取的定理列表
+    notation.yaml            # 符号映射
+    sorry_backlog.yaml       # sorry 缺口清单
+  scripts/                   # Pipeline 脚本
+    pdf_extract.py           # PDF → markdown (pymupdf)
+    from_tex.py              # LaTeX → theorems.yaml（含定理名 heuristic 识别）
+    generate_project.py      # YAML → Lean 骨架
+    classify.py              # 定理分类路由（ontology + 关键词规则）
+    gate.sh                  # 验收门（build + sorry count + PIPELINE_ID）
+    auto_shelve.py           # 自动入库零 sorry 模块到 Verified.lean
+    sync_sorry_backlog.py    # 同步 sorry_backlog.yaml
+    prove_loop.sh            # prove 循环（调用 claude/codex agent）
+    prove_select_targets.py  # 选择 prove 目标
+    check_formalize_log.py   # 验证 formalize playbook checkpoint
+  out/                       # Pipeline 输出（gitignored）
+    manifest.json            # 生成清单
+    prove_targets.json       # prove 目标列表
+    logs/                    # 日志
+  tests/                     # 测试脚本
+  mcp/                       # Codex MCP 配置
+  Makefile                   # 一键 pipeline 入口
+  formalize_playbook.md      # 交互式形式化 SOP（7 步）
+  prove_playbook.md          # 证明操作手册
+  mathlib_api_index.md       # Mathlib API 索引（650+ 条）
+  PIPELINE.md                # Pipeline 详细设计文档
 ```
 
-Phases:
-
-- `ingest`: validate input package.
-- `plan`: produce theorem dependency plan.
-- `generate`: produce Lean skeletons.
-- `prove-loop`: compile-fix loop until closure.
-- `promote`: move reusable lemmas into `Statlib`.
-- `stabilize`: migrate stable declarations from `AutoPromoted` into curated `Statlean/*` modules.
-- `gate`: enforce zero-sorry and build gates.
-
-Default behavior:
-
-- `AUTO_AGENT=1`: `prove-loop` will call the agent automatically when fixes are needed.
-- `AGENT_BACKEND=claude`: use Claude Code as the agent (default). Set `AGENT_BACKEND=codex` for Codex.
-- `STRICT_TRANSLATION=1`: unresolved translation markers (`TODO_TRANSLATE_ID`) are treated as failure.
-
-## Start From `./output.tex`
-
-If your raw input is a tex file like `./output.tex`, use:
+## 一键 Pipeline
 
 ```bash
-cd /home/gavin/statlean
-make -C theme from-tex TEX=./output.tex
-make -C theme formalize
-```
+# 从 PDF 到 gate（最常用）
+make -C theme pdf-formalize PDF=lecture-9-handout.pdf
 
-Or one command:
-
-```bash
+# 从 LaTeX 开始
 make -C theme tex-formalize TEX=./output.tex
+
+# 从已有 YAML 开始
+make -C theme formalize
 ```
 
-Strict auto-closure mode (recommended):
+## Pipeline 阶段
+
+```
+PDF → (from-pdf) → LaTeX → (from-tex) → theorems.yaml
+  → generate → build-check → sync-backlog → prove → gate → auto-shelve
+```
+
+| 阶段 | 做什么 | 消耗 |
+|------|--------|------|
+| `from-pdf` | PDF → LaTeX（pymupdf 本地提取） | 零 |
+| `from-tex` | LaTeX → theorems.yaml（heuristic 定理名识别，零 API） | 零 |
+| `generate` | YAML → Lean 骨架，按 topic 路由到 `Statlean/<Topic>/` | 零 |
+| `prove` | 生成 prove_targets.json；`prove-fallback` 调用 agent | Max 额度 |
+| `gate` | build + sorry count + PIPELINE_ID + auto-shelve | 零 |
+
+## Make Targets
+
+| Target | 说明 |
+|--------|------|
+| `pdf-formalize` | PDF → gate 全流程 |
+| `tex-formalize` | LaTeX → gate |
+| `formalize` | YAML → gate |
+| `from-pdf` | PDF → LaTeX |
+| `from-tex` | LaTeX → YAML |
+| `prove-fallback` | prove 循环 |
+| `gate` | 验收门 |
+| `auto-shelve` | 自动入库零 sorry 模块 |
+
+## 参数
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `AGENT_BACKEND` | `claude` | `claude` 或 `codex` |
+| `PDF` | 空 | PDF 路径或关键词 |
+| `TEX` | `../output.tex` | LaTeX 路径 |
+| `MANIFEST` | 空 | 限定 prove 攻击范围 |
+| `PROVE_BUDGET` | `3600` | prove 时间预算（秒） |
+| `MAX_PARALLEL` | `3` | 最大并行 agent 数 |
+| `AUTO_AGENT` | `1` | 是否自动调用 agent |
+
+## 双后端对比
+
+| 特性 | Claude Code | Codex CLI |
+|------|------------|-----------|
+| CLI | `claude -p "..."` | `codex exec --full-auto "..."` |
+| 项目指令 | `CLAUDE.md` | `AGENTS.md` |
+| 认证 | Max 订阅 | ChatGPT Plus/Pro 或 `OPENAI_API_KEY` |
+| Playbook 遵循 | 隐式（CLAUDE.md 引用） | 显式（prompt 中要求读 playbook） |
+
+## 验收门 (gate.sh)
 
 ```bash
-AUTO_AGENT=1 STRICT_TRANSLATION=1 make -C theme tex-formalize TEX=./output.tex
+make -C theme gate
 ```
 
-Strict mode with batched auto-fix (recommended for larger papers):
-
-```bash
-AUTO_AGENT=1 STRICT_TRANSLATION=1 BATCH_SIZE=3 MAX_ITERS=8 AGENT_TIMEOUT_SECONDS=180 make -C theme tex-formalize TEX=./output.tex
-```
-
-Batch behavior:
-
-- each prove-loop iteration prioritizes a subset of unresolved theorem IDs
-- batch IDs are logged in `theme/out/logs/fix_batch_ids_<iter>.txt`
-- pipeline log includes `agent-batch` and `unresolved_after` fields
-
-Scaffold-only mode (no agent fixing):
-
-```bash
-AUTO_AGENT=0 STRICT_TRANSLATION=0 make -C theme tex-formalize TEX=./output.tex
-```
-
-`from-tex` will:
-
-- copy tex to `theme/input/paper.tex`
-- extract theorem-like blocks into `theme/input/theorems.yaml`
-- keep/create `notation.yaml` and `scope.yaml`
-
-## Quality Gates
-
-`theme/scripts/gate.sh` enforces:
-
-- generated file type-checks: `lake env lean theme/out/generated/Generated.lean`.
-- no `sorry` in target Lean output.
-- no `axiom` in target Lean output (except explicit allowlist).
-- no unresolved `TODO_TRANSLATE_ID` markers (unless `ALLOW_TODO_TRANSLATE=1`).
-- generated file imports `Statlean`.
-
-## Output Inspection
-
-After `formalize`, inspect:
-
-- `theme/out/plan.md`: theorem plan summary
-- `theme/out/generated/Generated.lean`: generated Lean target file
-- `theme/out/generated/manifest.json`: counts + unresolved IDs
-- `theme/out/logs/pipeline.jsonl`: phase-by-phase status
-- `theme/out/logs/gate_build.log`: final build log
-- `theme/out/reuse_report.txt`: statlib promotion candidates
-
-Quick checks:
-
-```bash
-test -f theme/out/logs/pipeline.jsonl && tail -n 20 theme/out/logs/pipeline.jsonl
-grep -n 'TODO_TRANSLATE_ID:' theme/out/generated/Generated.lean || true
-grep -nE '\\bsorry\\b|^\\s*axiom\\b' theme/out/generated/Generated.lean || true
-```
-
-Apply auto-promotion with regression build:
-
-```bash
-AUTO_AGENT=0 STRICT_TRANSLATION=0 APPLY_PROMOTION=1 PROMOTE_MIN_FANIN=2 make -C theme formalize
-```
-
-When `APPLY_PROMOTION=1` and promoted items exist, the pipeline now:
-
-- generates a candidate module and pre-checks it compiles before writing to `Statlean/`
-- only writes declarations that are not already present in existing `Statlean/**/*.lean`
-- writes promoted declarations to `Statlean/AutoPromoted.lean` only after pre-check passes
-- keeps `AutoPromoted` as a staging file by default (set `IMPORT_AUTOPROMOTED=1` if you want it imported by `Statlean.lean`)
-- runs regression checks on `theme/out/promoted/generated/Generated.lean`, `Statlean.AutoPromoted`, and `Statlean`
-- groups promoted declarations into thematic sections inside `Statlean.AutoPromoted` (currently heuristic groups such as `SPDGeometry` and `SPDMeans`)
-
-Stabilization behavior (default `APPLY_STABILIZE=1`):
-
-- keeps `AutoPromoted` as a staging layer
-- only migrates declarations after they are stable for `STABILIZE_MIN_STABLE_RUNS` runs (default `2`)
-- enforces statistical focus by default (`STABILIZE_STATS_ONLY=1`)
-- checks name collisions against existing `Statlean/**/*.lean` and local mathlib source (if available)
-- writes stable declarations into curated targets such as:
-  - `Statlean/Statistics/SPD/FrechetMean.lean`
-  - `Statlean/Statistics/SPD/Determinant.lean`
-
-Recommended full run (strict + promotion + stabilization):
-
-```bash
-AUTO_AGENT=1 STRICT_TRANSLATION=1 APPLY_PROMOTION=1 APPLY_STABILIZE=1 BATCH_SIZE=2 AGENT_TIMEOUT_SECONDS=180 MAX_ITERS=8 make -C theme tex-formalize TEX=./output.tex
-```
-
-## Dual Backend Reference
-
-| Feature | Claude Code (`AGENT_BACKEND=claude`) | Codex CLI (`AGENT_BACKEND=codex`) |
-|---------|--------------------------------------|-----------------------------------|
-| CLI command | `claude --dangerously-skip-permissions -p "prompt"` | `codex exec --full-auto "prompt"` |
-| Project instructions | `CLAUDE.md` | `AGENTS.md` |
-| API key | `ANTHROPIC_API_KEY` / Max subscription | `OPENAI_API_KEY` / ChatGPT login |
-| Slash commands | `.claude/commands/*.md` | N/A (use `prove_loop.sh`) |
-| PDF extraction | `--backend claude-api` | `--backend openai-api` |
-| Sketch generation | `--force-ai --ai-backend claude` | `--force-ai --ai-backend codex` |
-
-## Using Claude as Agent Backend
-
-Instead of Codex, you can use Claude Code as the prove-loop agent:
-
-```bash
-# One-command: full pipeline with Claude
-make -C theme formalize-claude
-
-# Or set the environment variable explicitly
-AGENT_BACKEND=claude make -C theme formalize
-
-# Full recommended run with Claude
-AGENT_BACKEND=claude AUTO_AGENT=1 STRICT_TRANSLATION=1 BATCH_SIZE=5 MAX_ITERS=5 AGENT_TIMEOUT_SECONDS=300 make -C theme tex-formalize TEX=./output.tex
-```
-
-Claude advantages over Codex for this pipeline:
-- Better Lean 4 / Mathlib knowledge (specialized training)
-- Larger batch sizes feasible (5-10 IDs per iteration vs 3)
-- No separate CLI login required (uses `claude` CLI directly)
-- Better mathematical reasoning for statistical theorems
-- **Parallel mode**: one agent per theorem ID for maximum throughput
-
-Requirements:
-- `claude` CLI installed and authenticated
-- Recommended: set `BATCH_SIZE=5` (Claude handles larger batches well)
-
-### Parallel Claude Mode
-
-Launch one independent Claude agent per unresolved theorem ID:
-
-```bash
-# Parallel mode (all IDs at once, max 4 concurrent agents)
-PARALLEL=1 MAX_PARALLEL=4 AGENT_BACKEND=claude make -C theme formalize
-
-# Or use the shortcut
-make -C theme formalize-parallel
-
-# Full recommended parallel run
-PARALLEL=1 MAX_PARALLEL=4 AUTO_AGENT=1 STRICT_TRANSLATION=1 AGENT_TIMEOUT_SECONDS=300 MAX_ITERS=3 make -C theme tex-formalize TEX=./berry_esseen.tex
-```
-
-Each agent receives a focused prompt for its assigned theorem and works independently.
-Agents share the target file, so for best results use `MAX_PARALLEL=1` if theorems have inter-dependencies, or split into independent files.
+检查项：
+1. `lake build` 零错误
+2. sorry 计数
+3. PIPELINE_ID 覆盖率
+4. auto-shelve（零 sorry 模块自动入库 Verified.lean）
 
 ## Troubleshooting
 
-**Codex backend** (`AGENT_BACKEND=codex`):
-- If `prove-loop` reports `codex backend/network failure detected`:
-  - verify Codex CLI can reach backend (`codex exec "ping"`),
-  - verify login state (`codex login`),
-  - retry with stable network.
-- If it reports `codex MCP startup failure detected`:
-  - run `codex mcp list --json`,
-  - rerun `bash theme/mcp/register_codex.sh`,
-  - run `python3 theme/mcp/scripts/smoke_test_mcp.py`.
+**Claude backend**:
+- `claude --version` 确认安装
+- 检查 Max 订阅状态
 
-**Claude backend** (`AGENT_BACKEND=claude`):
-- If `prove-loop` reports `claude backend/network failure detected`:
-  - verify `claude --version` works,
-  - check API rate limits / account status,
-  - retry with `AGENT_TIMEOUT_SECONDS=600`.
-
-## MCP Setup (Codex)
-
-```bash
-bash theme/mcp/register_codex.sh
-codex mcp list --json
-```
-
-If needed, remove all four servers:
-
-```bash
-bash theme/mcp/unregister_codex.sh
-```
-
-## Low-Touch Operation Guidelines
-
-To minimize manual confirmation and permissions:
-
-- Pre-install toolchain (`elan`, `lake`, mathlib cache).
-- Pre-configure MCP endpoints and tokens.
-- Use non-interactive scripts only.
-- Keep all writes inside repo workspace.
-- Fail fast with machine-readable logs in `theme/out/logs/`.
-
-## Integration Pattern
-
-- Keep reusable theorems in `Statlib/*`.
-- Keep theorem-instance/project glue in `Formalization/*`.
-- Prefer `Formalization` importing `Statlib` over direct `Mathlib` imports where possible.
+**Codex backend**:
+- `codex exec "ping"` 确认连接
+- `bash theme/mcp/register_codex.sh` 注册 MCP
+- `codex mcp list --json` 验证

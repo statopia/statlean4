@@ -22,6 +22,7 @@ import Statlean.SubGaussian.Lipschitz
 import Statlean.CharFun.Taylor
 
 -- Limit theorems
+import Statlean.LimitTheorems.Convergence
 import Statlean.LimitTheorems.BerryEsseen
 import Statlean.LimitTheorems.USLLN
 
