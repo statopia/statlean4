@@ -16,8 +16,12 @@ Run the complete pipeline: PDF → LaTeX → YAML → Lean 4 → Prove → Gate
 ## Step 1: PDF Extract
 
 ```bash
-python3 theme/scripts/pdf_extract.py <pdf> --backend claude [--theorem <name>] [--pages <range>]
+# Default: pymupdf (local, zero API cost)
+python3 theme/scripts/pdf_extract.py <pdf> [--theorem <name>] [--pages <range>]
 ```
+
+pymupdf extracts raw text locally. If math formulas need LaTeX restoration,
+do it in-session (read the .md file and fix LaTeX inline) — no API cost.
 
 Report: number of blocks extracted, key theorems found.
 

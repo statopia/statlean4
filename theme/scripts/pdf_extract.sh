@@ -3,7 +3,7 @@ set -euo pipefail
 
 PDF=${1:?usage: pdf_extract.sh <pdf_file> <output_dir> [backend] [extra_args...]}
 OUTPUT_DIR=${2:?usage: pdf_extract.sh <pdf_file> <output_dir> [backend] [extra_args...]}
-BACKEND=${3:-claude}
+BACKEND=${3:-pymupdf}
 shift 3 2>/dev/null || shift $# 2>/dev/null
 EXTRA_ARGS=("$@")
 

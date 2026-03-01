@@ -2,21 +2,20 @@
 """Extract theorems from PDF → structured LaTeX.
 
 Backends:
-    pymupdf  — fast, local, no model (default for full PDF)
-    claude   — most accurate, uses Claude API (default for targeted extraction)
-    mineru   — MinerU OCR + VLM (requires local GPU or heavy CPU)
+    pymupdf    — fast, local, no API cost (default for all modes)
+    claude-api — most accurate, uses Claude API (requires ANTHROPIC_API_KEY, costs credits)
+    mineru     — MinerU OCR + VLM (requires local GPU or heavy CPU)
+
+pymupdf extracts raw text; Claude Code can post-process in-session to restore LaTeX.
 
 Usage:
-    # Full PDF extraction (pymupdf, fast)
+    # Full PDF extraction (pymupdf, fast, zero cost)
     python3 pdf_extract.py --pdf <file.pdf> --output-dir <dir>
 
-    # Full PDF extraction (claude, most accurate)
-    python3 pdf_extract.py --pdf <file.pdf> --output-dir <dir> --backend claude
-
     # Extract only specific pages
-    python3 pdf_extract.py --pdf <file.pdf> --output-dir <dir> --backend claude --pages 5-8
+    python3 pdf_extract.py --pdf <file.pdf> --output-dir <dir> --pages 5-8
 
-    # Extract a specific theorem (auto-finds the page, sends only that page to Claude)
+    # Extract a specific theorem (auto-finds the page)
     python3 pdf_extract.py --pdf <file.pdf> --output-dir <dir> --theorem "4.1"
 
     # Search by keyword (finds pages containing the keyword, sends only those)
@@ -532,25 +531,25 @@ def main() -> None:
         description="Extract theorems from PDF → structured LaTeX",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  # Full PDF (fast local extraction)
+  # Full PDF (fast local, zero API cost)
   python3 pdf_extract.py --pdf paper.pdf --output-dir out/
 
-  # Full PDF (Claude, most accurate)
-  python3 pdf_extract.py --pdf paper.pdf --output-dir out/ --backend claude
-
-  # Only Theorem 4.1 (auto-finds page, minimal token usage)
+  # Only Theorem 4.1 (auto-finds page)
   python3 pdf_extract.py --pdf paper.pdf --output-dir out/ --theorem 4.1
 
   # Pages 5-8 only
-  python3 pdf_extract.py --pdf paper.pdf --output-dir out/ --backend claude --pages 5-8
+  python3 pdf_extract.py --pdf paper.pdf --output-dir out/ --pages 5-8
 
   # Search by keyword
   python3 pdf_extract.py --pdf paper.pdf --output-dir out/ --query "Poincaré inequality"
+
+  # Use Claude API for highest accuracy (costs API credits)
+  python3 pdf_extract.py --pdf paper.pdf --output-dir out/ --backend claude-api
 """)
     ap.add_argument("--pdf", required=True, help="Path to input PDF")
     ap.add_argument("--output-dir", required=True, help="Output directory")
-    ap.add_argument("--backend", choices=["pymupdf", "claude", "mineru"], default=None,
-                    help="Extraction backend (default: pymupdf for full, claude for targeted)")
+    ap.add_argument("--backend", choices=["pymupdf", "claude-api", "mineru"], default=None,
+                    help="Extraction backend (default: pymupdf, zero API cost). claude-api requires ANTHROPIC_API_KEY.")
     ap.add_argument("--pages", type=str, default=None,
                     help="Page range to extract, e.g. '1-5,8,10-12' (1-indexed)")
     ap.add_argument("--theorem", type=str, default=None,
@@ -599,9 +598,10 @@ def main() -> None:
         print("[pdf-extract] No matching pages found, falling back to all pages")
         target_pages = None
 
-    # Determine backend
+    # Determine backend — default to pymupdf (zero API cost).
+    # Use --backend claude-api only when explicit API usage is intended.
     is_targeted = target_pages is not None and len(target_pages) < total_pages
-    backend = args.backend or ("claude" if is_targeted else "pymupdf")
+    backend = args.backend or "pymupdf"
 
     if is_targeted:
         est_tokens = len(target_pages or []) * 1500  # ~1.5K tokens per page image
@@ -618,7 +618,7 @@ def main() -> None:
         print(f"[pdf-extract] Using existing output: {md_file}")
     elif backend == "pymupdf":
         md_file = run_pymupdf(pdf_path, raw_dir, pages=target_pages)
-    elif backend == "claude":
+    elif backend == "claude-api":
         md_file = run_claude_extract(
             pdf_path, raw_dir,
             pages=target_pages,
