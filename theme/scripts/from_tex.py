@@ -115,23 +115,26 @@ def _call_ai(prompt: str) -> Optional[str]:
     if os.environ.get("CLAUDECODE"):
         print("[from-tex] inside Claude Code session, skipping CLI fallback", file=sys.stderr)
         return None
-    try:
-        result = subprocess.run(
-            ["claude", "-p", "--output-format", "text", "--model", "claude-haiku-4-5-20251001"],
-            input=prompt,
-            capture_output=True, text=True, timeout=60,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-        else:
-            stderr_preview = (result.stderr or "")[:200]
-            print(f"[from-tex] CLI returned rc={result.returncode}, stderr={stderr_preview}", file=sys.stderr)
-    except FileNotFoundError:
-        print("[from-tex] claude CLI not found in PATH", file=sys.stderr)
-    except subprocess.TimeoutExpired:
-        print("[from-tex] claude CLI timed out (60s)", file=sys.stderr)
-    except Exception as e:
-        print(f"[from-tex] CLI error: {e}", file=sys.stderr)
+    # Try multiple model name formats (short name first, then full ID)
+    for model_name in ["haiku", "claude-haiku-4-5-20251001"]:
+        try:
+            result = subprocess.run(
+                ["claude", "-p", "--output-format", "text", "--model", model_name],
+                input=prompt,
+                capture_output=True, text=True, timeout=60,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+            else:
+                stderr_preview = (result.stderr or "")[:200]
+                print(f"[from-tex] CLI (model={model_name}) rc={result.returncode}, stderr={stderr_preview}", file=sys.stderr)
+        except FileNotFoundError:
+            print("[from-tex] claude CLI not found in PATH", file=sys.stderr)
+            break  # no point trying other model names
+        except subprocess.TimeoutExpired:
+            print(f"[from-tex] CLI (model={model_name}) timed out (60s)", file=sys.stderr)
+        except Exception as e:
+            print(f"[from-tex] CLI error: {e}", file=sys.stderr)
 
     return None
 
