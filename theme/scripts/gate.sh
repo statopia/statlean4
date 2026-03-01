@@ -17,6 +17,10 @@ if ! (cd "$REPO_ROOT" && lake build) > "$LOG_DIR/gate_build.log" 2>&1; then
 fi
 echo "[gate] build: PASS"
 
+# Gate 1.5: auto-shelve (update Verified.lean / Statlean.lean imports)
+echo "[gate] running auto-shelve..."
+(cd "$REPO_ROOT" && python3 theme/scripts/auto_shelve.py --repo-root . --fix) || true
+
 # Gate 2: sorry count (informational, not blocking)
 sorry_count=$(grep -roE '\bsorry\b' "$REPO_ROOT/Statlean/" --include='*.lean' 2>/dev/null | wc -l | tr -d ' ' || true)
 sorry_count=${sorry_count:-0}

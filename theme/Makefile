@@ -21,7 +21,7 @@ MAX_PARALLEL ?= 3
 
 .PHONY: formalize resolve ingest plan generate infra-audit build-check sync-backlog prove gate clean \
         from-tex tex-formalize from-pdf pdf-formalize \
-        prove-fallback refresh-index \
+        prove-fallback refresh-index auto-shelve \
         formalize-codex formalize-claude
 
 # ══════════════════════════════════════════════════════════
@@ -78,7 +78,7 @@ gate:
 
 # PDF → LaTeX extraction (MinerU)
 from-pdf:
-	@if [ -z "$(PDF)" ]; then echo "Usage: make from-pdf PDF=<file.pdf>"; exit 1; fi
+	@if [ -z "$(PDF)" ]; then echo "Usage: make from-pdf PDF=<file.pdf|keyword>"; exit 1; fi
 	$(THEME_DIR)/scripts/pdf_extract.sh "$(PDF)" "$(INPUT_DIR)"
 
 # PDF → full formalization (one command does everything)
@@ -110,6 +110,9 @@ formalize-claude:
 # Refresh Mathlib API index (run after Mathlib upgrade)
 refresh-index:
 	cd "$(ROOT)" && lake env lean scripts/gen_mathlib_index.lean > theme/mathlib_api_index.md
+
+auto-shelve:
+	python3 $(THEME_DIR)/scripts/auto_shelve.py --repo-root "$(ROOT)" --fix
 
 clean:
 	rm -rf "$(OUT_DIR)"

@@ -26,9 +26,33 @@ import Statlean.Sufficiency.Factorization
 import Statlean.Sufficiency.Basu
 import Statlean.Sufficiency.MinimalSufficiency
 
--- Estimation (fully verified — MSE decomposition, risk dominance, MLE)
+-- Estimation (verified — MSE decomposition, risk dominance, MLE)
 import Statlean.Estimator.Basic
 import Statlean.ExpFamily.Basic
+
+-- Empirical process theory (verified)
+import Statlean.EmpiricalProcess.CoveringNumber
+import Statlean.EmpiricalProcess.Dudley
+
+-- Fisher information and Cramér-Rao (verified)
+import Statlean.Information.Basic
+import Statlean.Information.CramerRao
+
+-- Regression (verified)
+import Statlean.Regression.Basic
+import Statlean.Regression.Linear
+import Statlean.Regression.MasterBound
+
+-- SPD matrices (verified)
+import Statlean.SPD.Determinant
+import Statlean.SPD.FrechetMean
+import Statlean.SPD.Geodesic
+
+-- Statistics foundations (verified)
+import Statlean.Statistic.Basic
+
+-- Lehmann-Scheffé (verified)
+import Statlean.Sufficiency.LehmannScheffe
 
 /-! # Statlean Verified Library
 
