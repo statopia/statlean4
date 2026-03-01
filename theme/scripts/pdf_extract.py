@@ -4,6 +4,7 @@
 Backends:
     pymupdf    — fast, local, no API cost (default for all modes)
     claude-api — most accurate, uses Claude API (requires ANTHROPIC_API_KEY, costs credits)
+    openai-api — uses OpenAI API (requires OPENAI_API_KEY, costs credits)
     mineru     — MinerU OCR + VLM (requires local GPU or heavy CPU)
 
 pymupdf extracts raw text; Claude Code can post-process in-session to restore LaTeX.
@@ -358,6 +359,125 @@ def _call_claude_api(content_parts: list) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
+# Backend: openai-api (uses OpenAI API for extraction)
+# ═══════════════════════════════════════════════════════════
+
+def _call_openai_api(content_parts: list) -> str:
+    """Call OpenAI API with text content. Tries SDK first, then Codex CLI."""
+    # Extract text prompt from content_parts
+    text_prompt = ""
+    for part in content_parts:
+        if isinstance(part, dict) and part.get("type") == "text":
+            text_prompt = part["text"]
+            break
+
+    # Method 1: OpenAI Python SDK (needs OPENAI_API_KEY)
+    try:
+        import openai
+        if os.environ.get("OPENAI_API_KEY"):
+            client = openai.OpenAI()
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                max_tokens=8192,
+                messages=[{"role": "user", "content": text_prompt}],
+            )
+            return response.choices[0].message.content
+    except ImportError:
+        pass
+    except Exception as e:
+        print(f"[pdf-extract] OpenAI SDK error: {e}", file=sys.stderr)
+
+    # Method 2: Codex CLI
+    try:
+        result = subprocess.run(
+            ["codex", "exec", "--full-auto", text_prompt],
+            capture_output=True, text=True, timeout=300,
+        )
+        if result.returncode != 0:
+            print(f"[pdf-extract] Codex CLI error: {result.stderr[:500]}", file=sys.stderr)
+            return f"% OpenAI extraction failed\n% Error: {result.stderr[:200]}"
+        return result.stdout
+    except FileNotFoundError:
+        print("[pdf-extract] ERROR: neither openai SDK nor codex CLI available", file=sys.stderr)
+        return "% OpenAI extraction failed — no SDK or CLI available"
+    except Exception as e:
+        print(f"[pdf-extract] Codex CLI error: {e}", file=sys.stderr)
+        return f"% OpenAI extraction failed\n% Error: {e}"
+
+
+def run_openai_extract(pdf_path: Path, raw_output_dir: Path,
+                       pages: Optional[List[int]] = None,
+                       theorem_id: Optional[str] = None,
+                       query: Optional[str] = None) -> Path:
+    """Use OpenAI to extract theorems from PDF (text-based only)."""
+    raw_output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[pdf-extract] Using OpenAI backend for extraction")
+
+    # Build focus instruction
+    if theorem_id:
+        focus = f"Focus on Theorem/Lemma/Definition {theorem_id}. Extract its FULL statement and proof."
+    elif query:
+        focus = f"Focus on content related to: {query}. Extract all relevant theorems, definitions, and proofs."
+    else:
+        focus = "Extract ALL theorems, lemmas, definitions, propositions, corollaries, and their proofs."
+
+    instructions = f"""{focus}
+
+For each theorem-like block found, output in this EXACT format:
+
+## [Type] [Number] [Optional Name]
+[Full statement with LaTeX: $...$ for inline, $$...$$ for display math]
+
+### Proof
+[Proof content if present]
+
+Rules:
+- Use standard LaTeX: \\mathbb{{E}}, \\operatorname{{Var}}, \\mathcal{{N}}, etc.
+- Preserve ALL mathematical details — every subscript, superscript, condition
+- Skip headers/footers, page numbers, author info
+- If a formula is unclear, add: %% OCR_UNCERTAIN: [what's unclear]"""
+
+    # Text-based extraction via pymupdf + OpenAI
+    page_texts = _extract_page_text(pdf_path, pages)
+    print(f"[pdf-extract] {len(page_texts)} pages extracted as text")
+
+    all_md_parts: List[str] = []
+    page_items = sorted(page_texts.items())
+    batch_size = 10
+    for batch_start in range(0, len(page_items), batch_size):
+        batch = page_items[batch_start:batch_start + batch_size]
+        page_nums = [p + 1 for p, _ in batch]
+        page_range_str = f"{page_nums[0]}-{page_nums[-1]}" if len(page_nums) > 1 else str(page_nums[0])
+        print(f"[pdf-extract] Sending pages {page_range_str} to OpenAI...")
+
+        text_content = ""
+        for page_num, text in batch:
+            text_content += f"\n===== PAGE {page_num + 1} =====\n{text}\n"
+
+        prompt = f"""Below is text extracted from a mathematics/statistics PDF (pages {page_range_str}).
+The math formulas have been converted to Unicode and lost their LaTeX formatting.
+
+YOUR TASK: Restore the mathematical content to proper LaTeX and identify theorem-like blocks.
+
+{instructions}
+
+--- PDF TEXT (pages {page_range_str}) ---
+{text_content}
+--- END PDF TEXT ---"""
+
+        content_parts = [{"type": "text", "text": prompt}]
+        md_part = _call_openai_api(content_parts)
+        all_md_parts.append(md_part)
+
+    full_md = "\n\n".join(all_md_parts)
+    suffix = f"_thm{theorem_id}" if theorem_id else ("_query" if query else "")
+    md_file = raw_output_dir / f"{pdf_path.stem}{suffix}_openai.md"
+    md_file.write_text(full_md, encoding="utf-8")
+    print(f"[pdf-extract] OpenAI extraction: {md_file} ({len(full_md)} chars)")
+    return md_file
+
+
+# ═══════════════════════════════════════════════════════════
 # Backend: mineru (heavy, needs GPU or lots of CPU/RAM)
 # ═══════════════════════════════════════════════════════════
 
@@ -548,8 +668,8 @@ def main() -> None:
 """)
     ap.add_argument("--pdf", required=True, help="Path to input PDF")
     ap.add_argument("--output-dir", required=True, help="Output directory")
-    ap.add_argument("--backend", choices=["pymupdf", "claude-api", "mineru"], default=None,
-                    help="Extraction backend (default: pymupdf, zero API cost). claude-api requires ANTHROPIC_API_KEY.")
+    ap.add_argument("--backend", choices=["pymupdf", "claude-api", "openai-api", "mineru"], default=None,
+                    help="Extraction backend (default: pymupdf, zero API cost). claude-api requires ANTHROPIC_API_KEY. openai-api requires OPENAI_API_KEY.")
     ap.add_argument("--pages", type=str, default=None,
                     help="Page range to extract, e.g. '1-5,8,10-12' (1-indexed)")
     ap.add_argument("--theorem", type=str, default=None,
@@ -620,6 +740,13 @@ def main() -> None:
         md_file = run_pymupdf(pdf_path, raw_dir, pages=target_pages)
     elif backend == "claude-api":
         md_file = run_claude_extract(
+            pdf_path, raw_dir,
+            pages=target_pages,
+            theorem_id=args.theorem,
+            query=args.query,
+        )
+    elif backend == "openai-api":
+        md_file = run_openai_extract(
             pdf_path, raw_dir,
             pages=target_pages,
             theorem_id=args.theorem,

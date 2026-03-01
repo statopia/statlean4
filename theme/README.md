@@ -47,7 +47,7 @@ Phases:
 Default behavior:
 
 - `AUTO_AGENT=1`: `prove-loop` will call the agent automatically when fixes are needed.
-- `AGENT_BACKEND=codex`: use Codex (GPT-4) as the agent. Set `AGENT_BACKEND=claude` for Claude.
+- `AGENT_BACKEND=claude`: use Claude Code as the agent (default). Set `AGENT_BACKEND=codex` for Codex.
 - `STRICT_TRANSLATION=1`: unresolved translation markers (`TODO_TRANSLATE_ID`) are treated as failure.
 
 ## Start From `./output.tex`
@@ -155,6 +155,17 @@ Recommended full run (strict + promotion + stabilization):
 ```bash
 AUTO_AGENT=1 STRICT_TRANSLATION=1 APPLY_PROMOTION=1 APPLY_STABILIZE=1 BATCH_SIZE=2 AGENT_TIMEOUT_SECONDS=180 MAX_ITERS=8 make -C theme tex-formalize TEX=./output.tex
 ```
+
+## Dual Backend Reference
+
+| Feature | Claude Code (`AGENT_BACKEND=claude`) | Codex CLI (`AGENT_BACKEND=codex`) |
+|---------|--------------------------------------|-----------------------------------|
+| CLI command | `claude --dangerously-skip-permissions -p "prompt"` | `codex exec --full-auto "prompt"` |
+| Project instructions | `CLAUDE.md` | `AGENTS.md` |
+| API key | `ANTHROPIC_API_KEY` / Max subscription | `OPENAI_API_KEY` / ChatGPT login |
+| Slash commands | `.claude/commands/*.md` | N/A (use `prove_loop.sh`) |
+| PDF extraction | `--backend claude-api` | `--backend openai-api` |
+| Sketch generation | `--force-ai --ai-backend claude` | `--force-ai --ai-backend codex` |
 
 ## Using Claude as Agent Backend
 

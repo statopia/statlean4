@@ -8,6 +8,7 @@ REPO_ROOT=$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$RE
 MAX_ITERS=${MAX_ITERS:-10}
 AUTO_AGENT=${AUTO_AGENT:-1}
 MAX_PARALLEL=${MAX_PARALLEL:-3}
+AGENT_BACKEND=${AGENT_BACKEND:-claude}
 PROVE_BUDGET=${PROVE_BUDGET:-3600}   # global time budget in seconds, 0 = unlimited
 START_TIME=$(date +%s)
 LOG_DIR="$REPO_ROOT/theme/out/logs"
@@ -115,6 +116,39 @@ run_claude_agent() {
   fi
 }
 
+# --- Run a single Codex agent ---
+run_codex_agent() {
+  local prompt_file="$1"
+  local fix_log="$2"
+  local agent_timeout="$3"
+
+  local run_agent_cmd=(
+    codex exec --full-auto "$(cat "$prompt_file")"
+  )
+
+  if command -v timeout >/dev/null 2>&1; then
+    timeout --kill-after=30s "${agent_timeout}s" "${run_agent_cmd[@]}" > "$fix_log" 2>&1
+  else
+    "${run_agent_cmd[@]}" > "$fix_log" 2>&1
+  fi
+}
+
+# --- Dispatch to the configured backend ---
+run_agent() {
+  case "$AGENT_BACKEND" in
+    claude)
+      run_claude_agent "$@"
+      ;;
+    codex)
+      run_codex_agent "$@"
+      ;;
+    *)
+      echo "[prove-loop] ERROR: unknown AGENT_BACKEND='$AGENT_BACKEND' (valid: claude, codex)" >&2
+      exit 1
+      ;;
+  esac
+}
+
 # --- Select targets from backlog ---
 select_targets() {
   python3 -c "
@@ -151,7 +185,7 @@ for it in targets:
 }
 
 # === Main loop ===
-echo "[prove-loop] fallback mode — working on Statlean/ files directly"
+echo "[prove-loop] fallback mode — backend=$AGENT_BACKEND, working on Statlean/ files directly"
 prev_sorry_count=$(count_sorry)
 echo "[prove-loop] sorry count: $prev_sorry_count, pipeline IDs: $(count_pipeline_ids)"
 
@@ -211,10 +245,25 @@ for i in $(seq 1 "$MAX_ITERS"); do
     break
   fi
 
-  if ! command -v claude >/dev/null 2>&1; then
-    echo "[prove-loop] claude CLI not found; cannot auto-fix" >&2
-    exit 1
-  fi
+  # Check that the configured backend CLI is available
+  case "$AGENT_BACKEND" in
+    claude)
+      if ! command -v claude >/dev/null 2>&1; then
+        echo "[prove-loop] claude CLI not found; cannot auto-fix (AGENT_BACKEND=claude)" >&2
+        exit 1
+      fi
+      ;;
+    codex)
+      if ! command -v codex >/dev/null 2>&1; then
+        echo "[prove-loop] codex CLI not found; cannot auto-fix (AGENT_BACKEND=codex)" >&2
+        exit 1
+      fi
+      ;;
+    *)
+      echo "[prove-loop] ERROR: unknown AGENT_BACKEND='$AGENT_BACKEND' (valid: claude, codex)" >&2
+      exit 1
+      ;;
+  esac
 
   # Sync backlog and select targets
   echo "[prove-loop] syncing backlog and dispatching agents..."
@@ -268,8 +317,8 @@ for i in $(seq 1 "$MAX_ITERS"); do
       effective_timeout="$agent_remaining"
     fi
 
-    echo "[prove-loop] attacking $file:$theorem (timeout=${effective_timeout}s, targets=$target_count)"
-    if run_claude_agent "$prompt_file" "$fix_log" "$effective_timeout"; then
+    echo "[prove-loop] attacking $file:$theorem (backend=$AGENT_BACKEND, timeout=${effective_timeout}s, targets=$target_count)"
+    if run_agent "$prompt_file" "$fix_log" "$effective_timeout"; then
       echo "[prove-loop] agent for $theorem completed successfully"
     else
       rc=$?

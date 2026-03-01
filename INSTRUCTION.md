@@ -139,6 +139,57 @@ claude
 > /pipeline theme/input/raw/lecture-5-handout.pdf
 ```
 
+### 方式 C2：用 Codex CLI 辅助证明
+
+```bash
+# 安装 Codex CLI（需要 ChatGPT Plus/Pro 或 OPENAI_API_KEY）
+npm install -g @openai/codex
+
+cd statlean4
+
+# 0) 初始化（首次或环境变更后建议执行）
+codex --version
+codex login
+codex exec --full-auto "ping"
+bash theme/mcp/register_codex.sh
+codex mcp list --json
+python3 theme/mcp/scripts/smoke_test_mcp.py
+
+# 1) 跑主 pipeline（resolve/ingest/plan/generate/build-check/sync-backlog/prove-target-select/gate）
+AGENT_BACKEND=codex make -C theme formalize
+
+# 2) 用 Codex 自动攻击 sorry（prove-loop，真正会调 Codex agent 写证明）
+AGENT_BACKEND=codex AUTO_AGENT=1 MAX_ITERS=10 MAX_PARALLEL=3 PROVE_BUDGET=3600 make -C theme prove-fallback
+
+# 3) 最终验收
+make -C theme gate
+
+# 4) 按目录检查产物（参考 theme/out/）
+test -f theme/out/manifest.json && echo "ok: manifest.json"
+test -f theme/out/prove_targets.json && echo "ok: prove_targets.json"
+test -f theme/out/logs/pipeline.jsonl && tail -n 20 theme/out/logs/pipeline.jsonl
+test -f theme/out/logs/gate_build.log && tail -n 20 theme/out/logs/gate_build.log
+
+# 5) 查看本次是否真的新增写入 Lean 文件
+# 说明：如果 manifest entries 全是 status=existing，表示条目已存在，pipeline 会去重，不会重复写入。
+python3 - <<'PY'
+import json
+from collections import Counter
+m = json.load(open("theme/out/manifest.json"))
+c = Counter(e.get("status","unknown") for e in m.get("entries", {}).values())
+print("status_count:", dict(c))
+print("theorem_count:", m.get("theorem_count"), "pipeline_id_count:", m.get("pipeline_id_count"))
+PY
+
+# resolve 时用 Codex 生成 sketch
+python3 theme/scripts/resolve_concepts.py \
+  --concepts "basu" --force-ai --ai-backend codex
+```
+
+> Codex 读取 `AGENTS.md` 获取项目指令（等价于 Claude 的 `CLAUDE.md`）。
+>
+> 关键点：`make -C theme formalize` 里的 `prove` 阶段只做目标选择（生成 `theme/out/prove_targets.json`），真正自动证明是 `make -C theme prove-fallback`。
+
 ### 方式 D：纯手写 Lean
 
 不需要任何工具链，直接写 Lean 证明。
@@ -170,15 +221,16 @@ theorems.yaml
 | `generate` | YAML → Lean 骨架（带 sorry） | 零 |
 | `build-check` | `lake build` 验证骨架编译 | 零 |
 | `sync-backlog` | 同步 sorry_backlog.yaml | 零 |
-| `prove` | 生成 prove_targets.json（Claude Code 调度证明） | Max 额度 |
+| `prove` | 生成 prove_targets.json（目标选择）；自动证明由 `prove-fallback` 调用 `claude/codex` | Max 额度 |
 | `gate` | 最终 build + sorry 计数 + PIPELINE_ID 检查 | 零 |
 
-**API 消耗策略**：Pipeline 默认**零 API credit 消耗**。证明阶段使用 Claude Code subagent（走 Max/Pro 订阅额度，不走 API credit）。只有 `--backend claude-api` 的 PDF 图片提取才用 API credit。
+**API 消耗策略**：Pipeline 默认**零 API credit 消耗**。证明阶段可用 Claude/Codex agent（走对应 CLI 账号额度，不走 API credit）。只有 `--backend claude-api` 的 PDF 图片提取才用 API credit。
 
 **参数**：
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
+| `AGENT_BACKEND` | `claude` | AI 后端：`claude` 或 `codex` |
 | `CONCEPTS` | 空 | 概念名列表，逗号分隔 |
 | `PDF` | 空 | PDF 文件路径（用于 resolve 提取上下文） |
 | `PROVE_DEPTH` | `deep` | `deep` = 生成 prove 目标；`shallow` = 跳过 |
@@ -287,7 +339,7 @@ gh pr create --title "Prove my_theorem"
 | 最小贡献单位？ | 一个 sorry gap（一个子引理也算） |
 | 如何避免冲突？ | 开始前检查 `sorry_backlog.yaml` 是否有人在做 |
 | 部分进展可以 PR 吗？ | 可以 — 只要 sorry 数不增加 |
-| 必须用 Claude 吗？ | 不必 — 手写 Lean 证明同样欢迎 |
+| 必须用 Claude 吗？ | 不必 — 可以用 Codex CLI（`AGENT_BACKEND=codex`）或手写 Lean 证明 |
 | Lean 版本？ | 4.28.0-rc1（elan 自动管理） |
 | Pipeline 是必须的吗？ | 不是 — 直接编辑 `.lean` 文件完全可以 |
 | `theorems.yaml` 需要写 Lean 签名吗？ | 建议写 `lean_statement`，否则生成占位符需手动替换 |

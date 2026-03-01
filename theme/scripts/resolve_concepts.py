@@ -427,6 +427,75 @@ def call_claude_sketch(concept: dict) -> str:
     return ""
 
 
+def call_codex_sketch(concept: dict) -> str:
+    """Generate a Lean 4 skeleton for a concept using Codex / OpenAI.
+
+    Tries OpenAI SDK first, falls back to Codex CLI.
+    Returns Lean 4 code string, or "" on failure.
+    """
+    cid = concept.get("id", "unknown")
+    name = concept.get("name", cid)
+    kind = concept.get("kind", "definition")
+    keywords = concept.get("keywords", [])
+    mathlib = concept.get("mathlib", "")
+    requires = concept.get("requires", [])
+
+    prompt = (
+        f"Generate a Lean 4 {kind} skeleton for \"{name}\".\n"
+        f"Context: {', '.join(keywords)}. "
+        f"Mathlib: {mathlib or 'not in Mathlib'}.\n"
+        f"Dependencies: {', '.join(requires) if requires else 'none'}.\n"
+        f"Output ONLY the Lean 4 code (def/structure/theorem + sorry), no explanation.\n"
+        f"Use Mathlib conventions (MeasureTheory, ProbabilityTheory namespaces). Keep it minimal.\n"
+        f"For theorems, use `theorem name : <type> := sorry`.\n"
+        f"For definitions, use `def name ... := ...` or `structure name ... where`."
+    )
+
+    # Method 1: OpenAI Python SDK
+    try:
+        import openai
+        if os.environ.get("OPENAI_API_KEY"):
+            client = openai.OpenAI()
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.choices[0].message.content.strip()
+            if text.startswith("```"):
+                lines = text.split("\n")
+                lines = [l for l in lines if not l.startswith("```")]
+                text = "\n".join(lines).strip()
+            print(f"[resolve]   OpenAI SDK generated sketch for {cid}")
+            return text
+    except ImportError:
+        pass
+    except Exception as e:
+        print(f"[resolve]   OpenAI SDK error for {cid}: {e}", file=sys.stderr)
+
+    # Method 2: Codex CLI
+    try:
+        result = subprocess.run(
+            ["codex", "exec", "--full-auto", prompt],
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            text = result.stdout.strip()
+            if text.startswith("```"):
+                lines = text.split("\n")
+                lines = [l for l in lines if not l.startswith("```")]
+                text = "\n".join(lines).strip()
+            print(f"[resolve]   Codex CLI generated sketch for {cid}")
+            return text
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[resolve]   Codex CLI error for {cid}: {e}", file=sys.stderr)
+
+    print(f"[resolve]   no Codex available for {cid}, using placeholder")
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # YAML generation
 # ---------------------------------------------------------------------------
@@ -457,6 +526,8 @@ def generate_theorems_yaml(
     output: Path,
     *,
     no_claude: bool = False,
+    force_ai: bool = False,
+    ai_backend: str = "claude",
 ) -> None:
     """Generate theorems.yaml from resolved ontology concepts + optional PDF LaTeX.
 
@@ -486,11 +557,13 @@ def generate_theorems_yaml(
         else:
             lean_stmt = ""
 
-        if not lean_stmt and not no_claude:
-            # NOTE: Claude API is reserved for PDF extraction only.
-            # Skeleton generation is done by Claude Code in the generate step.
-            # call_claude_sketch() is disabled by default; use --force-claude to enable.
-            print(f"[resolve]   no lean_sketch for {cid}, leaving empty (use --force-claude to generate)")
+        if not lean_stmt and force_ai:
+            if ai_backend == "codex":
+                lean_stmt = call_codex_sketch(concept)
+            else:
+                lean_stmt = call_claude_sketch(concept)
+        elif not lean_stmt:
+            print(f"[resolve]   no lean_sketch for {cid}, leaving empty (use --force-ai to generate)")
             lean_stmt = ""
 
         # Compute dependencies (only those in the resolved set)
@@ -599,9 +672,25 @@ def main() -> None:
     parser.add_argument(
         "--force-claude",
         action="store_true",
-        help="Force Claude API for missing lean_sketch (API credits required)",
+        help="Force Claude API for missing lean_sketch (alias for --force-ai --ai-backend claude)",
+    )
+    parser.add_argument(
+        "--force-ai",
+        action="store_true",
+        help="Force AI sketch generation for missing lean_sketch",
+    )
+    parser.add_argument(
+        "--ai-backend",
+        choices=["claude", "codex"],
+        default="claude",
+        help="AI backend for sketch generation (default: claude)",
     )
     args = parser.parse_args()
+
+    # --force-claude is an alias for --force-ai --ai-backend claude
+    if args.force_claude:
+        args.force_ai = True
+        args.ai_backend = "claude"
 
     concepts = load_ontology()
     if not concepts:
@@ -655,10 +744,10 @@ def main() -> None:
         print(f"[resolve] matched {len(pdf_matches)} concepts to PDF blocks")
 
     # Generate output
-    # API is reserved for PDF extraction only; sketch generation is off by default
-    no_claude = not args.force_claude
     generate_theorems_yaml(resolved_concepts, pdf_matches, args.output,
-                           no_claude=no_claude)
+                           no_claude=not args.force_ai,
+                           force_ai=args.force_ai,
+                           ai_backend=args.ai_backend)
     print(f"[resolve] wrote {args.output} ({len(resolved_concepts)} entries)")
 
 
