@@ -118,4 +118,63 @@ theorem minimalSufficient_of_densityRatio
   refine ⟨1, fun θ => ?_⟩
   rw [mul_one, hx θ, hy_mem θ, hy_U]
 
+section TheoremA
+/-! ## Theorem (A): Subfamily extension criterion for minimal sufficiency
+
+Lecture 4, page 11.
+If T is minimal sufficient for a subfamily P₀ and sufficient for the full
+family P, and P₀-a.s. implies P-a.s., then T is minimal sufficient for P.
+
+PIPELINE_ID: lec4.theorem_a
+-/
+
+open MeasureTheory
+
+universe u
+variable {Θ₀ : Type u} {Θ : Type u}
+
+/-- **Theorem (A)** (Lecture 4): Subfamily extension criterion.
+
+If T is minimal sufficient for P₀ and sufficient for P, and every
+P₀-a.s. equality lifts to a P-a.s. equality, then T is minimal sufficient for P.
+
+Proof: Let S be sufficient for P. Since P₀ ⊂ P (via embed), S is also
+sufficient for P₀. By minimal sufficiency of T for P₀, T = ψ(S) P₀-a.s.
+By the lifting hypothesis, T = ψ(S) P-a.s. -/
+theorem minimalSufficient_of_subfamily
+    {Ω α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
+    (P₀ : ParametricFamily Θ₀ Ω) (P : ParametricFamily Θ Ω)
+    (embed : Θ₀ → Θ) (h_embed : ∀ θ₀, P₀.measure θ₀ = P.measure (embed θ₀))
+    (h_lift : ∀ (s : Set Ω), (∀ θ₀, P₀.measure θ₀ s = 0) →
+      (∀ θ, P.measure θ s = 0))
+    (T : Ω → α)
+    (hT_suff : IsSufficient' P T)
+    (hT_min₀ : IsMinimalSufficient' P₀ T) :
+    IsMinimalSufficient' P T := by
+  obtain ⟨hT₀_suff, hT₀_min⟩ := hT_min₀
+  refine ⟨hT_suff, fun β _inst S hS_suff => ?_⟩
+  -- S is sufficient for P. Need to show S is sufficient for P₀.
+  have hS_suff₀ : IsSufficient' P₀ S := by
+    obtain ⟨hS_meas, hS_cond⟩ := hS_suff
+    refine ⟨hS_meas, fun f θ₁ θ₂ hf₁ hf₂ => ?_⟩
+    -- P₀.measure θᵢ = P.measure (embed θᵢ) by h_embed.
+    rw [h_embed θ₁] at hf₁ ⊢
+    rw [h_embed θ₂] at hf₂ ⊢
+    exact hS_cond f (embed θ₁) (embed θ₂) hf₁ hf₂
+  -- By minimal sufficiency of T for P₀: ∃ ψ, T =ᵐ[P₀.measure θ₀] ψ ∘ S.
+  obtain ⟨ψ, hψ_meas, hψ_ae⟩ := hT₀_min _ S hS_suff₀
+  -- Lift: T =ᵐ[P₀.measure θ₀] ψ ∘ S for all θ₀
+  --     ⟹ T =ᵐ[P.measure θ] ψ ∘ S for all θ.
+  -- Need to convert ae equality of α-valued functions to null set statement.
+  -- ae equality: μ {x | f x ≠ g x} = 0.
+  refine ⟨ψ, hψ_meas, fun θ => ?_⟩
+  -- {x | T x ≠ (ψ ∘ S) x} has P₀.measure θ₀ = 0 for all θ₀.
+  -- By h_lift, it has P.measure θ = 0 for all θ.
+  rw [Filter.EventuallyEq, ae_iff]
+  apply h_lift _ (fun θ₀ => ?_) θ
+  have := hψ_ae θ₀
+  rwa [Filter.EventuallyEq, ae_iff] at this
+
+end TheoremA
+
 end Statlean.Sufficiency.MinimalSufficiency

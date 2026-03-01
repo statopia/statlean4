@@ -21,9 +21,10 @@ import Statlean.CharFun.Taylor
 -- USLLN (fully verified — uniform SLLN + all infrastructure)
 import Statlean.LimitTheorems.USLLN
 
--- Sufficiency (fully verified — Fisher-Neyman factorization + Basu's theorem)
+-- Sufficiency (fully verified — Factorization + Basu + MinimalSufficiency)
 import Statlean.Sufficiency.Factorization
 import Statlean.Sufficiency.Basu
+import Statlean.Sufficiency.MinimalSufficiency
 
 /-! # Statlean Verified Library
 
@@ -47,4 +48,5 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **LimitTheorems/USLLN**: Uniform Strong Law of Large Numbers (full theorem + infrastructure)
 - **Sufficiency/Factorization**: Fisher-Neyman factorization (both directions)
 - **Sufficiency/Basu**: Basu's theorem
+- **Sufficiency/MinimalSufficiency**: Density ratio criterion (Thm C) + Subfamily extension (Thm A)
 -/

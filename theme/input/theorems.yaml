@@ -1,61 +1,45 @@
 version: v1
-theorem_set: lec4-theorem-c
+theorem_set: lec4-theorem-a
 defaults:
   lean_namespace: Statlean
   layer: formalization
   allow_axiom: false
 theorems:
-- id: lec4.minimal_sufficiency_def
-  title: "Minimal Sufficiency (Definition)"
-  kind: definition
+- id: lec4.theorem_a
+  title: "Theorem (A): Subfamily extension criterion for minimal sufficiency"
+  kind: theorem
   latex_statement: |
-    Let T be a sufficient statistic for P ∈ 𝒫. T is called a minimal sufficient
-    statistic if and only if, for any other statistic S sufficient for P ∈ 𝒫, there is
-    a measurable function ψ such that T = ψ(S) P-a.s.
-  latex_proof_hint: ""
-  lean_name: "IsMinimalSufficient"
-  lean_statement: ""
-  lean_namespace: Statlean.Statistic.Basic
+    Suppose P₀ ⊂ P and P₀-a.s. implies P-a.s.
+    If T is sufficient for P ∈ P and minimal sufficient for P ∈ P₀,
+    then T is minimal sufficient for P ∈ P.
+  latex_proof_hint: |
+    Suppose S is sufficient for P.
+    Since P₀ ⊂ P, S is also sufficient for P₀.
+    Since T is minimal sufficient for P₀, T = ψ(S) P₀-a.s.
+    Since P₀-a.s. implies P-a.s., T = ψ(S) P-a.s.
+    So T is minimal sufficient for P.
+  lean_name: "minimalSufficient_of_subfamily"
+  lean_statement: |
+    theorem minimalSufficient_of_subfamily
+        {Θ₀ : Type*} {Θ : Type*} {Ω α β : Type*}
+        [MeasurableSpace Ω] [MeasurableSpace α] [MeasurableSpace β]
+        (P₀ : ParametricFamily Θ₀ Ω) (P : ParametricFamily Θ Ω)
+        (embed : Θ₀ → Θ) (h_embed : ∀ θ₀, P₀.measure θ₀ = P.measure (embed θ₀))
+        (h_lift : ∀ {f g : Ω → ℝ}, (∀ θ₀, f =ᵐ[P₀.measure θ₀] g) → (∀ θ, f =ᵐ[P.measure θ] g))
+        (T : Ω → α)
+        (hT_suff : IsSufficient' P T)
+        (hT_min₀ : IsMinimalSufficient' P₀ T) :
+        IsMinimalSufficient' P T := by
+      sorry
+  lean_namespace: Statlean.Sufficiency.MinimalSufficiency
   layer: formalization
   priority: 1
   dependencies: []
   assumptions: []
   acceptance:
   - lake build passes
-  - definition contains no sorry
-  notes: "Lecture 4, page 9. Minimal sufficient = factors through every other sufficient."
-
-- id: lec4.theorem_c
-  title: "Theorem (C): Density ratio criterion for minimal sufficiency"
-  kind: theorem
-  latex_statement: |
-    Suppose that 𝒫 contains p.d.f.'s f_P w.r.t. a σ-finite measure ν.
-    Suppose T(X) a sufficient statistic that satisfies the following property:
-    If there is a measurable function φ such that for any possible values x and y of X,
-      f_P(x) = f_P(y) φ(x,y), ∀ P ∈ 𝒫,
-    then T(x) = T(y).
-    Then T(X) is minimal sufficient for P.
-  latex_proof_hint: |
-    Suppose S is sufficient. Need to show T is a function of S.
-    By factorization theorem: f_P(x) = g_P(S(x)) h(x), ν-a.e.
-    Let A = {x : h(x) > 0}. Then P(Aᶜ) = 0 for all P.
-    For any x, y in A with S(x) = S(y):
-      f_P(x) = g_P(S(x)) h(x) = g_P(S(y)) h(y) · h(x)/h(y) = f_P(y) · h(x)/h(y)
-    The density ratio condition (with φ(x,y) = h(x)/h(y)) implies T(x) = T(y).
-    So T = ψ(S) P-a.s.
-  lean_name: "minimalSufficient_of_densityRatio"
-  lean_statement: ""
-  lean_namespace: Statlean.Sufficiency.MinimalSufficiency
-  layer: formalization
-  priority: 2
-  dependencies:
-  - lec4.minimal_sufficiency_def
-  assumptions: []
-  acceptance:
-  - lake build passes
   - theorem contains no sorry
   notes: |
-    Lecture 4, page 13-14 (Theorem C).
-    Key idea: factorization gives density ratio = h(x)/h(y) when S(x)=S(y),
-    so the density ratio condition forces T(x)=T(y).
-    Requires: Factorization theorem (already proved, zero sorry).
+    Lecture 4, page 11 (Theorem A).
+    Uses IsSufficient' and IsMinimalSufficient' from Statistic/Basic.lean.
+    Short proof: transitivity of sufficiency + hypothesis lifting.

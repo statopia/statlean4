@@ -1,19 +1,8 @@
-version: v44
+version: v48
 generated: 2026-03-01
-total_sorry: 42
+total_sorry: 41
 
 sorry_items:
-
-- id: sufficiency.minimalsufficiency.minimalSufficient_of_densityRatio
-  file: Statlean/Sufficiency/MinimalSufficiency.lean
-  line: 78
-  theorem: minimalSufficient_of_densityRatio
-  type: honest
-  depth: 1
-  priority: 1
-  estimated_lines: 80
-  dependencies: []
-  unlocks: []
 
 - id: lsi.normalized
   file: Statlean/Entropy/LogSobolev.lean
