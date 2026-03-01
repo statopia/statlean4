@@ -41,31 +41,34 @@ For each theorem in YAML:
 
 Iterate until clean compilation (max 5 cycles).
 
-## Step 5: Prove (DAG-driven)
+## Step 5: Prove (subagent dispatch — uses Max plan quota, zero API credit)
 
-Parse `--time-budget` from arguments (default: 1h).
 Parse `--prove-depth` from arguments (default: deep).
+
+`make formalize` already ran `prove` target which wrote `theme/out/prove_targets.json`.
 
 If `--prove-depth shallow`:
   - Skip prove, proceed to Step 6 (sorry 留在 backlog 等后续攻击)
 
 If `--prove-depth deep`:
-  - **Execute**: Use the Skill tool to invoke `/prove-deep all-leaves --time-budget <budget>`
-  - prove-deep 内部执行 DAG 调度（3 agents 饱和、work-stealing、增量 commit）
-  - prove-deep 完成后自动返回本 pipeline，继续 Step 6
-  - 如果 prove-deep 报告有 stuck sorry → 不阻塞 pipeline，记入 backlog
+  1. Read `theme/out/prove_targets.json`
+  2. For each target (up to 3), launch a parallel Agent subagent with:
+     - `subagent_type: "general-purpose"`
+     - The `prompt` field from prove_targets.json
+     - `model: "sonnet"` (good balance of speed and capability)
+  3. Wait for all agents to complete
+  4. For each target, verify sorry eliminated: `grep -c '\bsorry\b' <file>`
+  5. If any target made progress but still has sorry, optionally re-dispatch
+  6. Run `lake build` to verify everything compiles
+
+**Important**: This uses Claude Code subagents (Max plan quota), NOT the `claude` CLI
+(which would consume API credits). The prove_loop.sh fallback is only for CI environments.
 
 ## Step 5.5: Infrastructure Extraction (inline, per CLAUDE.md rules)
 
-Infrastructure extraction happens **during** Step 5, not as a separate pass:
-
-1. **Zero-sorry infrastructure** (self + deps have no sorry) → placed in same file,
-   isolated by `section`. Only extracted to a separate file if independently reusable
-   across multiple modules (e.g., ANOVA variance decomposition).
-2. **No `*Proved.lean` splitting** — CLAUDE.md forbids splitting by proof status.
-3. **Whole-file zero sorry** → update `Verified.lean`.
-4. **Remaining sorry** → structured comment + `sorry_backlog.yaml` registration.
-5. **Sync**: Run `sync_sorry_backlog.py` to reconcile code ↔ backlog.
+1. **Zero-sorry infrastructure** → placed in same file, isolated by `section`.
+2. **Whole-file zero sorry** → update `Verified.lean`.
+3. **Remaining sorry** → structured comment + `sorry_backlog.yaml` registration.
 
 ## Step 6: Sync Backlog & Gate
 

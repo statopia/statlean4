@@ -12,6 +12,7 @@ FORCE_CLAUDE ?=
 PROVE_BUDGET ?= 3600
 PROVE_MAX_ITERS ?= 10
 PROVE_DEPTH ?= deep
+MAX_PARALLEL ?= 3
 
 .PHONY: formalize resolve ingest plan generate infra-audit build-check sync-backlog prove gate clean \
         from-tex tex-formalize from-pdf pdf-formalize \
@@ -54,9 +55,12 @@ sync-backlog:
 	cd "$(ROOT)" && python3 theme/scripts/sync_sorry_backlog.py
 
 prove:
-	@echo "[prove] prove stage is handled by /prove-deep in Claude Code session"
-	@echo "[prove] pipeline skips auto-prove to avoid API credit consumption"
-	@echo "[prove] use 'make prove-fallback' to manually invoke prove_loop.sh"
+	@python3 $(THEME_DIR)/scripts/prove_select_targets.py \
+	    --repo-root "$(ROOT)" \
+	    --manifest "$(OUT_DIR)/manifest.json" \
+	    --max-targets $(MAX_PARALLEL) \
+	    --output "$(OUT_DIR)/prove_targets.json"
+	@echo "[prove] targets ready — Claude Code will dispatch subagents (Max plan quota)"
 
 gate:
 	$(THEME_DIR)/scripts/gate.sh "$(ROOT)"
