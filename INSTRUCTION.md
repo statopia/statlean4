@@ -82,6 +82,19 @@ Pipeline 自动将 "Theorem 1" → "central_limit_theorem" 等 canonical name。
 python3 theme/scripts/from_tex.py paper.tex theme/input --no-ai
 ```
 
+**精确指定某个定理**（终端命令）：
+
+```bash
+# 只提取 PDF 中的特定定理（按名称 / 页码范围）
+python3 theme/scripts/pdf_extract.py theme/input/raw/lecture-9-handout.pdf \
+  --theorem "Scheffé" --pages 3-5
+
+# 提取后手动编辑 theorems.yaml，只保留目标定理，再跑 pipeline
+make -C theme formalize
+
+# 或一步到位：在 Claude Code 会话中用 /pipeline + 定理名（见方式 C）
+```
+
 **每份 PDF 独立隔离**：
 
 不同 PDF 的定理不会互相干扰。每份 PDF 的源标签（如 `lecture_9_handout`）会：
@@ -153,14 +166,30 @@ claude
 **Claude Code 交互命令（在 `claude` 会话内使用）**：
 
 ```bash
+# ── 从 PDF 到形式化 ──
+
+# 整份 PDF 一站式
+> /pipeline theme/input/raw/lecture-9-handout.pdf
+
+# 只要 PDF 中的某个定理（自然语言描述即可）
+> 帮我形式化 lecture-9-handout.pdf 里的 Scheffé 定理
+> 把 lecture-9-handout.pdf 第 3 页的 Theorem 2 形式化到 Lean
+
+# 只要某个定义
+> 形式化 lecture-9-handout.pdf 里 Fisher Information 的定义
+
+# 多个目标
+> 把 lecture-9-handout.pdf 里的 CLT 和 Slutsky 定理形式化
+
+# ── 攻击已有 sorry ──
+
 # 交互式攻击单个 sorry
 > /prove Statlean/Gaussian/Poincare.lean condExp_eq_fiberAvg_pi
 
 # 自动攻击所有叶节点 sorry（DAG 调度，3 并发 agent）
 > /prove-deep all-leaves
 
-# 从 PDF 到形式化（一站式）
-> /pipeline theme/input/raw/lecture-5-handout.pdf
+# ── 工具命令 ──
 
 # 检查所有 sorry 状态
 > /sorry-status
@@ -170,6 +199,29 @@ claude
 
 # 保存进度到 memory + commit
 > /checkpoint
+```
+
+**终端精确形式化命令**（不进入 claude 会话）：
+
+```bash
+# 用 claude -p 一句话指定（走 Max 额度，非 API credit）
+claude -p "形式化 theme/input/raw/lecture-9-handout.pdf 里的 Scheffé 定理"
+claude -p "把 lecture-9-handout.pdf 第 8 页的 Continuous Mapping Theorem 形式化到 Lean"
+
+# 或分步操作（更可控）：
+# 1. 提取指定页 / 定理
+python3 theme/scripts/pdf_extract.py theme/input/raw/lecture-9-handout.pdf \
+  --theorem "Scheffé" --pages 3-5
+
+# 2. 手动编辑 theme/input/theorems.yaml，只保留目标定理条目
+
+# 3. 生成骨架 + 编译
+python3 theme/scripts/generate_project.py \
+  --input-dir theme/input --out-dir theme/out --repo-root .
+lake build
+
+# 4.（可选）用 Claude Code 攻击 sorry
+claude -p "/prove Statlean/LimitTheorems/CLT.lean scheffe_theorem"
 ```
 
 **Claude Code + Make 联合使用（终端直接执行）**：
@@ -442,3 +494,4 @@ gh pr create --title "Prove my_theorem"
 | `Pipeline/Lecture9Handout.lean` 是什么？ | 未能按主题分类的定理会放在 `Pipeline/<PDF名>.lean`。每份 PDF 独立一个文件，不会互相冲突。可以后续手动搬到正确目录 |
 | auto-shelve 什么时候触发？ | `gate` 阶段自动触发。也可以手动跑 `make -C theme auto-shelve`。它会扫描零 sorry 模块并更新 Verified.lean / Statlean.lean |
 | 多份 PDF 的 "Theorem 1" 会冲突吗？ | 不会。每份 PDF 有 source_tag 前缀（如 `lecture_9_handout.theorem.001.delta_method`），ID 唯一 |
+| 怎么只形式化 PDF 里的某个定理？ | **会话内**：直接说"形式化 XX.pdf 里的 YY 定理"；**终端**：`claude -p "形式化 XX.pdf 里的 YY 定理"` 或 `pdf_extract.py --theorem "YY"` 后手动编辑 YAML |
