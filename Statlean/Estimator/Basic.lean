@@ -14,6 +14,7 @@ Core types (`ParametricFamily`, `IsUnbiased`) live in
 PIPELINE_ID: lec5.mse_bias_variance
 PIPELINE_ID: lec5.risk_dominance
 PIPELINE_ID: lec5.unbiased_mse_eq_variance
+PIPELINE_ID: lec5.loss_function_definition
 -/
 
 open MeasureTheory ProbabilityTheory
@@ -32,6 +33,24 @@ R(T₁, θ) ≤ R(T₂, θ) for all θ, with strict inequality for some θ. -/
 def Dominates {Θ : Type*}
     (R₁ R₂ : Θ → ℝ) : Prop :=
   (∀ θ, R₁ θ ≤ R₂ θ) ∧ (∃ θ, R₁ θ < R₂ θ)
+
+section DecisionTheory
+
+variable {Ω : Type*} [MeasurableSpace Ω]
+variable {Pop A : Type*} [MeasurableSpace A]
+
+/-- A loss function maps `(population, action)` to a nonnegative real loss
+and is Borel-measurable in the action for each fixed population. -/
+def IsLossFunction (L : Pop → A → ℝ) : Prop :=
+  (∀ P a, 0 ≤ L P a) ∧ (∀ P, Measurable (L P))
+
+/-- The risk of a decision rule `T` under population `P` and loss `L`
+is the average loss under the observation measure `μ`. -/
+noncomputable def Risk (μ : Measure Ω) (L : Pop → A → ℝ)
+    (P : Pop) (T : Ω → A) : ℝ :=
+  ∫ ω, L P (T ω) ∂μ
+
+end DecisionTheory
 
 section MSE
 

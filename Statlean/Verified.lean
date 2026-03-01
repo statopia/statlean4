@@ -54,6 +54,10 @@ import Statlean.Statistic.Basic
 -- Lehmann-Scheffé (verified)
 import Statlean.Sufficiency.LehmannScheffe
 
+-- Convergence modes and Slutsky's theorem (verified)
+import Statlean.LimitTheorems.Convergence
+import Statlean.LimitTheorems.Slutsky
+
 /-! # Statlean Verified Library
 
 **Every declaration reachable from this import is fully proved (zero sorry).**
@@ -80,4 +84,6 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Estimator/Basic**: MSE = Bias² + Var, unbiased MSE = Var, risk dominance,
   likelihood, IsMLE, MLE invariance (isMLE_comp)
 - **ExpFamily/Basic**: MLE existence in natural exponential families
+- **LimitTheorems/Convergence**: AlmostSure, InProbability, InLp convergence modes
+- **LimitTheorems/Slutsky**: Slutsky's theorem (add, mul, div) + inv convergence in measure
 -/

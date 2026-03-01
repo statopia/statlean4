@@ -54,5 +54,6 @@ import Statlean.Sufficiency.LehmannScheffe
 import Statlean.Information.Basic
 import Statlean.Information.CramerRao
 import Statlean.Sufficiency.MinimalSufficiency
+import Statlean.LimitTheorems.Slutsky
 import Statlean.LimitTheorems.CLT
 import Statlean.Pipeline.Lecture9Handout

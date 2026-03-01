@@ -6,6 +6,11 @@ import Mathlib.Topology.Basic
 /-! # LimitTheorems/Convergence
 
 Basic convergence-mode definitions used in limit theorem statements.
+
+Note: **Convergence in distribution** is provided by Mathlib as
+`MeasureTheory.TendstoInDistribution` in
+`Mathlib.MeasureTheory.Function.ConvergenceInDistribution`.
+See `Statlean.LimitTheorems.Slutsky` for Slutsky's theorem corollaries.
 -/
 
 open MeasureTheory Filter
