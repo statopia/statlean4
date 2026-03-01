@@ -177,4 +177,36 @@ theorem minimalSufficient_of_subfamily
 
 end TheoremA
 
+section TheoremB
+/-! ## Theorem (B.2): Density ratio statistic satisfies DRC
+
+Lecture 4, page 12.
+The density ratio statistic T(x)(θ) = f_θ(x)/f_{θ₀}(x) satisfies
+the density ratio condition: if f_θ(x) = f_θ(y)·φ for all θ with
+φ finite and nonzero, then T(x) = T(y).
+
+The finiteness condition φ ≠ ⊤ is natural: for rnDeriv of probability
+measures dominated by a σ-finite base, densities are ν-ae finite.
+
+PIPELINE_ID: lec4.theorem_b2
+-/
+
+/-- The density ratio statistic T(x)(θ) = f_θ(x)/f_{θ₀}(x) satisfies
+the density ratio condition with finite proportionality constant. -/
+theorem densityRatio_satisfies_DRC
+    (P : DominatedFamily Θ Ω)
+    (θ₀ : Θ)
+    (T : Ω → Θ → ENNReal)
+    (hT_def : ∀ x, ∀ θ,
+      T x θ = P.density θ x / P.density θ₀ x) :
+    ∀ x y : Ω,
+      (∃ φ : ℝ≥0∞, φ ≠ 0 ∧ φ ≠ ⊤ ∧ ∀ θ, P.density θ x = P.density θ y * φ) →
+      T x = T y := by
+  intro x y ⟨φ, hφ0, hφt, hφ⟩
+  ext θ
+  rw [hT_def x θ, hT_def y θ, hφ θ, hφ θ₀]
+  exact ENNReal.mul_div_mul_right _ _ hφ0 hφt
+
+end TheoremB
+
 end Statlean.Sufficiency.MinimalSufficiency

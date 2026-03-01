@@ -1,4 +1,4 @@
-version: v48
+version: v52
 generated: 2026-03-01
 total_sorry: 41
 
@@ -386,10 +386,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: verified.anonymous_L30
+- id: verified.anonymous_L31
   file: Statlean/Verified.lean
-  line: 30
-  theorem: anonymous_L30
+  line: 31
+  theorem: anonymous_L31
   type: unknown
   depth: 1
   priority: 99
@@ -397,10 +397,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: verified.anonymous_L33
+- id: verified.anonymous_L34
   file: Statlean/Verified.lean
-  line: 33
-  theorem: anonymous_L33
+  line: 34
+  theorem: anonymous_L34
   type: unknown
   depth: 1
   priority: 99
@@ -408,10 +408,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: verified.anonymous_L36
+- id: verified.anonymous_L37
   file: Statlean/Verified.lean
-  line: 36
-  theorem: anonymous_L36
+  line: 37
+  theorem: anonymous_L37
   type: unknown
   depth: 1
   priority: 99

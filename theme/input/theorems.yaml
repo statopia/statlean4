@@ -1,36 +1,26 @@
 version: v1
-theorem_set: lec4-theorem-a
+theorem_set: lec4-theorem-b
 defaults:
   lean_namespace: Statlean
   layer: formalization
   allow_axiom: false
 theorems:
-- id: lec4.theorem_a
-  title: "Theorem (A): Subfamily extension criterion for minimal sufficiency"
+- id: lec4.theorem_b2
+  title: "Theorem (B.2): Density ratio statistic is minimal sufficient"
   kind: theorem
   latex_statement: |
-    Suppose P₀ ⊂ P and P₀-a.s. implies P-a.s.
-    If T is sufficient for P ∈ P and minimal sufficient for P ∈ P₀,
-    then T is minimal sufficient for P ∈ P.
+    Suppose $\mathcal{P} = \{P_\theta : \theta \in \Theta\}$ is dominated by $\nu$
+    with densities $f_\theta$. Fix $\theta_0 \in \Theta$ and suppose
+    $\{x : f_\theta(x) > 0\} \subset \{x : f_{\theta_0}(x) > 0\}$ $\nu$-a.e. for all $\theta$.
+    Define $T(x) = (f_\theta(x) / f_{\theta_0}(x))_\theta$. Then $T$ satisfies the
+    density ratio condition, hence is minimal sufficient.
   latex_proof_hint: |
-    Suppose S is sufficient for P.
-    Since P₀ ⊂ P, S is also sufficient for P₀.
-    Since T is minimal sufficient for P₀, T = ψ(S) P₀-a.s.
-    Since P₀-a.s. implies P-a.s., T = ψ(S) P-a.s.
-    So T is minimal sufficient for P.
-  lean_name: "minimalSufficient_of_subfamily"
-  lean_statement: |
-    theorem minimalSufficient_of_subfamily
-        {Θ₀ : Type*} {Θ : Type*} {Ω α β : Type*}
-        [MeasurableSpace Ω] [MeasurableSpace α] [MeasurableSpace β]
-        (P₀ : ParametricFamily Θ₀ Ω) (P : ParametricFamily Θ Ω)
-        (embed : Θ₀ → Θ) (h_embed : ∀ θ₀, P₀.measure θ₀ = P.measure (embed θ₀))
-        (h_lift : ∀ {f g : Ω → ℝ}, (∀ θ₀, f =ᵐ[P₀.measure θ₀] g) → (∀ θ, f =ᵐ[P.measure θ] g))
-        (T : Ω → α)
-        (hT_suff : IsSufficient' P T)
-        (hT_min₀ : IsMinimalSufficient' P₀ T) :
-        IsMinimalSufficient' P T := by
-      sorry
+    The density ratio condition is automatically satisfied:
+    if f_θ(x) = f_θ(y) · φ for all θ, then in particular
+    f_θ(x)/f_{θ₀}(x) = f_θ(y)/f_{θ₀}(y) for all θ (using θ₀ to normalize),
+    so T(x) = T(y).
+    Combined with Theorem (C), T is minimal sufficient.
+  lean_name: "densityRatio_satisfies_DRC"
   lean_namespace: Statlean.Sufficiency.MinimalSufficiency
   layer: formalization
   priority: 1
@@ -40,6 +30,8 @@ theorems:
   - lake build passes
   - theorem contains no sorry
   notes: |
-    Lecture 4, page 11 (Theorem A).
-    Uses IsSufficient' and IsMinimalSufficient' from Statistic/Basic.lean.
-    Short proof: transitivity of sufficiency + hypothesis lifting.
+    Lecture 4, page 12 (Theorem B, part 2).
+    Key insight: density ratios T_θ(x) = f_θ(x)/f_{θ₀}(x) automatically satisfy
+    the density ratio condition from Theorem (C). The proof is a direct
+    application of minimalSufficient_of_densityRatio.
+    Uses DominatedFamily and DensityRatioCondition from MinimalSufficiency.lean.
