@@ -90,6 +90,147 @@ def theorem_number_from_title(title: str) -> Tuple[str | None, str | None]:
 
 
 # ═══════════════════════════════════════════════════════════════
+# Heuristic Canonicalize (no API needed)
+# ═══════════════════════════════════════════════════════════════
+
+# (keywords, canonical_name, lean_name, topic)
+# Order matters: more specific patterns first
+_HEURISTIC_RULES: List[Tuple[List[str], str, str, str]] = [
+    # Limit theorems — specific first, then general
+    (["lindeberg", "feller"], "Lindeberg-Feller CLT", "lindeberg_feller_clt", "LimitTheorems"),
+    (["lindeberg"], "Lindeberg CLT", "lindeberg_clt", "LimitTheorems"),
+    (["lyapunov"], "Lyapunov CLT", "lyapunov_clt", "LimitTheorems"),
+    (["berry.esseen", "berry-esseen", "berryesseen"], "Berry-Esseen Theorem", "berry_esseen", "LimitTheorems"),
+    # Scheffe — before CLT (both may appear, Scheffe is more specific)
+    (["scheff", "scheffe"], "Scheffé's Theorem", "scheffe_theorem", "LimitTheorems"),
+    (["slutsky"], "Slutsky's Theorem", "slutsky_theorem", "LimitTheorems"),
+    (["continuous mapping"], "Continuous Mapping Theorem", "continuous_mapping_theorem", "LimitTheorems"),
+    (["portmanteau"], "Portmanteau Theorem", "portmanteau_theorem", "LimitTheorems"),
+    (["convergence in distribution", "weak convergence"], "Convergence in Distribution", "convergence_in_distribution", "LimitTheorems"),
+    (["convergence in probability"], "Convergence in Probability", "convergence_in_probability", "LimitTheorems"),
+    (["strong law", "slln"], "Strong Law of Large Numbers", "slln", "LimitTheorems"),
+    (["weak law", "wlln"], "Weak Law of Large Numbers", "wlln", "LimitTheorems"),
+    # Delta method — before CLT (delta method blocks often mention CLT too)
+    ([r"δ.method", "delta.method", r"δ-method", "delta-method"], "Delta Method", "delta_method", "LimitTheorems"),
+    ([r"multivariate.*δ", r"multivariate.*delta"], "Multivariate Delta Method", "multivariate_delta_method", "LimitTheorems"),
+    # CLT — general (after more specific patterns that also mention CLT)
+    (["central limit", "clt"], "Central Limit Theorem", "central_limit_theorem", "LimitTheorems"),
+    # Sufficiency & estimation
+    (["fisher.neyman", "factorization"], "Fisher-Neyman Factorization", "factorization_theorem", "Sufficiency"),
+    (["basu"], "Basu's Theorem", "basu_theorem", "Sufficiency"),
+    (["lehmann.scheff", "umvue"], "Lehmann-Scheffé Theorem", "lehmann_scheffe", "Sufficiency"),
+    (["rao.blackwell", "rao-blackwell"], "Rao-Blackwell Theorem", "rao_blackwell", "Variance"),
+    (["cramer.rao", "cramér.rao", "information bound"], "Cramér-Rao Lower Bound", "cramer_rao", "Information"),
+    (["fisher information"], "Fisher Information", "fisher_information", "Information"),
+    (["maximum likelihood", "mle"], "Maximum Likelihood Estimator", "mle", "Estimator"),
+    (["asymptotic.*relative.*efficiency", "are"], "Asymptotic Relative Efficiency", "asymptotic_relative_efficiency", "Estimator"),
+    (["asymptotic.*variance", "amse"], "Asymptotic MSE", "asymptotic_mse", "Estimator"),
+    (["asymptotic.*unbiased"], "Asymptotic Unbiasedness", "asymptotic_unbiasedness", "Estimator"),
+    (["asymptotic.*confidence"], "Asymptotic Confidence Interval", "asymptotic_confidence_interval", "Estimator"),
+    (["consistency", "consistent estimator"], "Consistency", "consistency", "Estimator"),
+    (["unbiased"], "Unbiasedness", "unbiasedness", "Estimator"),
+    # Exponential family
+    (["exponential family"], "Exponential Family", "exponential_family", "ExpFamily"),
+    (["completeness.*exponential", "complete.*sufficient"], "Completeness of Exp Family", "completeness_exp_family", "Sufficiency"),
+    # Concentration
+    (["efron.stein", "efronstein"], "Efron-Stein Inequality", "efron_stein", "Variance"),
+    (["poincar"], "Poincaré Inequality", "poincare_inequality", "Gaussian"),
+    (["log.sobolev", "logsobolev"], "Log-Sobolev Inequality", "log_sobolev", "Entropy"),
+    (["herbst"], "Herbst Argument", "herbst_argument", "SubGaussian"),
+    (["subgaussian", "sub.gaussian"], "Sub-Gaussian", "subgaussian", "SubGaussian"),
+    # Distribution-specific examples
+    (["poisson.*convergence", r"binom.*→.*poisson", "binom.*poisson"], "Poisson Convergence", "poisson_convergence_example", "LimitTheorems"),
+    (["t.distribution", r"t_n.*→.*normal", r"tn.*→.*N", r"t_n.*density"], "t-distribution CLT", "t_distribution_clt_example", "LimitTheorems"),
+    ([r"exponential.*mean", r"exponential.*rate", r"λe.*−λx", r"λ.*exp.*-λ"], "Exponential MLE", "exponential_mle_example", "Estimator"),
+    (["empirical variance", "sample variance", "asymptotic.*distribution.*variance"], "Asymptotic Distribution of Sample Variance", "asymptotic_sample_variance", "LimitTheorems"),
+    # Characteristic function
+    (["characteristic function", "charfun", "ch.f."], "Characteristic Function", "charfun", "CharFun"),
+    # ─── Common statistical concepts (definitions, structures) ───
+    # Convergence modes
+    (["convergence.*almost surely", "a\\.s\\. convergence"], "Almost Sure Convergence", "convergence_as", "LimitTheorems"),
+    (["convergence.*l.*p", r"l\^p.*convergence"], "Lp Convergence", "convergence_lp", "LimitTheorems"),
+    # Distributions
+    (["chi.squared", "χ.*squared", r"χ2", r"chi2"], "Chi-Squared Distribution", "chi_squared", "Gaussian"),
+    (["multivariate.*normal", "multivariate.*gaussian"], "Multivariate Normal", "multivariate_normal", "Gaussian"),
+    (["student.*t", "t.*distribution"], "Student's t-Distribution", "student_t", "Gaussian"),
+    (["f.distribution", "fisher.*distribution"], "F-Distribution", "f_distribution", "Gaussian"),
+    (["binomial"], "Binomial Distribution", "binomial", "Misc"),
+    (["poisson"], "Poisson Distribution", "poisson", "Misc"),
+    (["exponential.*distribution"], "Exponential Distribution", "exponential_distribution", "Misc"),
+    # Estimation theory
+    (["method of moments", "moment.*estimator"], "Method of Moments", "method_of_moments", "Estimator"),
+    (["sufficient.*statistic"], "Sufficient Statistic", "sufficient_statistic", "Statistic"),
+    (["complete.*statistic"], "Complete Statistic", "complete_statistic", "Statistic"),
+    (["ancillary.*statistic"], "Ancillary Statistic", "ancillary_statistic", "Statistic"),
+    (["minimal.*sufficient"], "Minimal Sufficient Statistic", "minimal_sufficient", "Statistic"),
+    (["order.*statistic"], "Order Statistic", "order_statistic", "Statistic"),
+    (["sample.*mean"], "Sample Mean", "sample_mean", "Statistic"),
+    # Hypothesis testing
+    (["neyman.pearson", "likelihood.*ratio.*test"], "Neyman-Pearson Lemma", "neyman_pearson", "Estimator"),
+    (["uniformly.*most.*powerful", "ump"], "UMP Test", "ump_test", "Estimator"),
+    (["wald.*test"], "Wald Test", "wald_test", "Estimator"),
+    (["score.*test", "lagrange.*multiplier"], "Score Test", "score_test", "Estimator"),
+    # Inequalities
+    (["chebyshev", "chebychev"], "Chebyshev's Inequality", "chebyshev_inequality", "LimitTheorems"),
+    (["markov.*inequality"], "Markov's Inequality", "markov_inequality", "LimitTheorems"),
+    (["jensen", "convexity"], "Jensen's Inequality", "jensen_inequality", "Variance"),
+    (["cauchy.schwarz", "cauchy-schwarz"], "Cauchy-Schwarz Inequality", "cauchy_schwarz", "Variance"),
+    (["hoeffding"], "Hoeffding's Inequality", "hoeffding_inequality", "SubGaussian"),
+    (["mcdiarmid", "bounded.*differences"], "McDiarmid's Inequality", "mcdiarmid_inequality", "SubGaussian"),
+    # Information theory
+    (["kullback.leibler", "kl.*divergence"], "KL Divergence", "kl_divergence", "Entropy"),
+    (["entropy"], "Entropy", "entropy", "Entropy"),
+    (["mutual.*information"], "Mutual Information", "mutual_information", "Entropy"),
+    # Large deviations
+    (["large.*deviation", "rate.*function"], "Large Deviation Principle", "large_deviation", "LimitTheorems"),
+    (["cramér.*theorem", "cramer.*theorem"], "Cramér's Theorem", "cramer_theorem", "LimitTheorems"),
+    (["sanov"], "Sanov's Theorem", "sanov_theorem", "LimitTheorems"),
+    # Misc theorems
+    (["skorohod"], "Skorohod's Theorem", "skorohod_theorem", "LimitTheorems"),
+    (["dominated.*convergence", "dct"], "Dominated Convergence Theorem", "dct", "Misc"),
+    (["monotone.*convergence", "mct"], "Monotone Convergence Theorem", "mct", "Misc"),
+    (["fatou"], "Fatou's Lemma", "fatou_lemma", "Misc"),
+    (["borel.cantelli"], "Borel-Cantelli Lemma", "borel_cantelli", "LimitTheorems"),
+    (["glivenko.cantelli"], "Glivenko-Cantelli Theorem", "glivenko_cantelli", "EmpiricalProcess"),
+    (["donsker"], "Donsker's Theorem", "donsker_theorem", "EmpiricalProcess"),
+    (["kolmogorov.smirnov", "ks.*test"], "Kolmogorov-Smirnov Test", "kolmogorov_smirnov", "EmpiricalProcess"),
+    (["uniform.*integrability", "uniformly.*integrable"], "Uniform Integrability", "uniform_integrability", "LimitTheorems"),
+    # Regression
+    (["gauss.markov", "blue"], "Gauss-Markov Theorem", "gauss_markov", "Regression"),
+    (["linear.*regression", "linear.*model"], "Linear Regression", "linear_regression", "Regression"),
+    (["least.*squares"], "Least Squares", "least_squares", "Regression"),
+]
+
+
+def _heuristic_canonicalize(blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Match theorem blocks against known statistical theorem patterns.
+
+    No API calls needed — pure regex/keyword matching.
+    """
+    named = 0
+    for b in blocks:
+        blob = f"{b['title']} {b['statement']}".lower()
+        matched = False
+        for keywords, canonical_name, lean_name, topic in _HEURISTIC_RULES:
+            for kw in keywords:
+                if re.search(kw, blob, re.IGNORECASE):
+                    b["canonical_name"] = canonical_name
+                    b["lean_name_hint"] = lean_name
+                    b["topic"] = topic
+                    matched = True
+                    named += 1
+                    break
+            if matched:
+                break
+        if not matched:
+            b["canonical_name"] = None
+            b["lean_name_hint"] = ""
+            b["topic"] = None
+    print(f"[from-tex] heuristic canonicalized {named}/{len(blocks)} blocks")
+    return blocks
+
+
+# ═══════════════════════════════════════════════════════════════
 # AI Canonicalize Pass
 # ═══════════════════════════════════════════════════════════════
 
@@ -170,11 +311,8 @@ Return ONLY a JSON array (no markdown fences), one object per block, in order:
 
     response = _call_ai(prompt)
     if not response:
-        print(f"[from-tex] AI canonicalize unavailable, using source-prefixed names")
-        for i, b in enumerate(blocks):
-            b["canonical_name"] = None
-            b["topic"] = None
-        return blocks
+        print(f"[from-tex] AI canonicalize unavailable, falling back to heuristic")
+        return _heuristic_canonicalize(blocks)
 
     # Parse response
     try:
