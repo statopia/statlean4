@@ -111,7 +111,8 @@ _HEURISTIC_RULES: List[Tuple[List[str], str, str, str]] = [
     (["strong law", "slln"], "Strong Law of Large Numbers", "slln", "LimitTheorems"),
     (["weak law", "wlln"], "Weak Law of Large Numbers", "wlln", "LimitTheorems"),
     # Delta method — before CLT (delta method blocks often mention CLT too)
-    ([r"δ.method", "delta.method", r"δ-method", "delta-method"], "Delta Method", "delta_method", "LimitTheorems"),
+    ([r"δ.method", "delta.method", r"δ-method", "delta-method",
+      r"differentiable.*g\s*\(.*x.*\)", r"g.*differentiable.*g.*\("], "Delta Method", "delta_method", "LimitTheorems"),
     ([r"multivariate.*δ", r"multivariate.*delta"], "Multivariate Delta Method", "multivariate_delta_method", "LimitTheorems"),
     # CLT — general (after more specific patterns that also mention CLT)
     (["central limit", "clt"], "Central Limit Theorem", "central_limit_theorem", "LimitTheorems"),

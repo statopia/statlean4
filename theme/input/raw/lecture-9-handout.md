@@ -1,18 +1,47 @@
-% Auto-extracted from: lecture-9-handout.pdf
-% Backend: pymupdf
-% Review formulas marked with % OCR_UNCERTAIN before proceeding.
+ST6101: Advanced Statistical Theory (I)
 
-\documentclass{article}
-\usepackage{amsmath,amssymb,amsthm}
-\newtheorem{theorem}{Theorem}
-\newtheorem{lemma}[theorem]{Lemma}
-\newtheorem{corollary}[theorem]{Corollary}
-\newtheorem{proposition}[theorem]{Proposition}
-\newtheorem{definition}[theorem]{Definition}
-\begin{document}
+# Lecture 9: Weak Convergence and Asymptotic Normality
 
-\begin{theorem}
-- Let _X_ 1 _,...,Xn_ be independently and identically distributed random
+
+LIN Zhenhua
+
+
+National University of Singapore
+
+
+*Adapted from Dr. Dongming Huang’s slides.
+
+
+# Weak Convergence
+
+
+  - Convergence in distribution is about the convergence of CDFs, not
+really about random variables
+
+
+
+
+
+
+
+
+
+
+
+LIN Zhenhua (NUS) Lecture 9 1 / 28
+
+
+Convergence in distribution can be characterized by characteristic functions
+
+
+
+
+
+
+
+**Example**
+
+ - Let _X_ 1 _,...,Xn_ be independently and identically distributed random
 variables with mean 0 and variance 1.
 
  - The ch.f. of _X_ 1 satisfies
@@ -93,10 +122,9 @@ which implies _Fn_ ( _x_ ) → _F_ ( _x_ )
 
 
 LIN Zhenhua (NUS) Lecture 9 3 / 28
-\end{theorem}
 
-\begin{theorem}
-s on Scheff´es theorem
+
+# Remarks on Scheff´es theorem
 
 
   - _ν_ is usually the Lebesgue measure or the counting measure
@@ -208,10 +236,8 @@ LIN Zhenhua (NUS) Lecture 9 6 / 28
 
 
 # δ -method, Univariate
-\end{theorem}
 
-\begin{theorem}
-Let _X_ 1 _,X_ 2 _,..._, _Y_ be random variables, and { _an_ } is a sequence
+**Theorem.** Let _X_ 1 _,X_ 2 _,..._, _Y_ be random variables, and { _an_ } is a sequence
 of positive numbers with lim _n_ →∞ _an_ = ∞ satisfying
 
 
@@ -237,9 +263,10 @@ _m_ ! _[g]_ [(] _[m]_ [)][(] _[c]_ [)] _[Y]_
 
 
 LIN Zhenhua (NUS) Lecture 9 7 / 28
-\end{theorem}
 
-\begin{theorem}
+
+# Example
+
 Suppose _X_ 1 _,...,Xn_ are i.i.d. sample from _Pλ_ with p.d.f.
 
 
@@ -264,10 +291,9 @@ where the parameter _λ_ - 0 is called the rate
 
 
 LIN Zhenhua (NUS) Lecture 9 8 / 28
-\end{theorem}
 
-\begin{theorem}
-s
+
+# Examples
 
 Suppose _X_ 1 _,...,Xn_ IID with Var( _X_ 1) = 1, _X_ _n_ = _n_ [−][1] ∑ _[n]_ _i_ =1 _[X][i]_ [,] _[c]_ [ =][ E] _[X]_ [1][,]
 _an_ = ~~[√]~~ _n_, and _Z_ ∼ _N_ (0 _,_ 1)
@@ -285,10 +311,157 @@ _g_ [′] ( _c_ ) = − _c_ [−][2] .
 
 
 LIN Zhenhua (NUS) Lecture 9 9 / 28
-\end{theorem}
 
-\begin{theorem}
-s
+
+# Proof of (i)
+
+Let
+_Zn_ = _an_ [ _g_ ( _Xn_ ) − _g_ ( _c_ )] − _ang_ [′] ( _c_ )( _Xn_       - _c_ )
+
+
+If we can show that _Zn_ = _op_ (1), then by the convergency of _an_ ( _Xn_ - _c_ )
+and Slutsky’s theorem, we conclude the proof.
+
+  - The differentiability of _g_ at _c_ implies that for any _ϵ_  - 0 _,_ there is a
+_δϵ_    - 0 such that
+
+
+∣ _g_ ( _x_ ) − _g_ ( _c_ ) − _g_ [′] ( _c_ )( _x_                    - _c_ )∣≤ _ϵ_ ∣ _x_                    - _c_ ∣
+
+
+whenever ∣ _x_   - _c_ ∣< _δϵ_
+
+  - On the event {∣ _Xn_  - _c_ ∣< _δϵ_ }, we have ∣ _Zn_ ∣< _ϵan_ ∣ _Xn_  - _c_ ∣
+
+  - Consider any _η_  - 0.
+If _η_ < ∣ _Zn_ ∣, then either ∣ _Xn_     - _c_ ∣≥ _δϵ_, or _η_ < _ϵan_ ∣ _Xn_     - _c_ ∣
+
+
+LIN Zhenhua (NUS) Lecture 9 10 / 28
+
+
+- For any _η_ - 0, _ϵ_ - 0, we have
+
+
+_P_ (∣ _Zn_ ∣≥ _η_ ) ≤ _P_ (∣ _Xn_    - _c_ ∣≥ _δϵ_ ) + _P_ ( _an_ ∣ _Xn_    - _c_ ∣≥ _η_ / _ϵ_ )
+
+
+- Since _an_ →∞, by Slutsky’s theorem, _Xn_ = _a_ 1 _n_ _[a][n]_ [(] _[X]_ [ −] _[c]_ [) +] _[ c]_ → _P_ _c_
+
+- By continuous mapping, _an_ ∣ _Xn_ - _c_ ∣ →∣ _D_ _Y_ ∣
+
+- Fixed _η_ . Choose _ϵ_ sufficiently small such that _η_ / _ϵ_ is a continuity point
+of _F_ ∣ _Y_ ∣ and _P_ (∣ _Y_ ∣≥ _η_ / _ϵ_ ) is smaller than _η_
+
+  - For a monotone function, its discontinuity points are at most countably
+many
+
+- From Eq (11), we have
+
+
+limsup _P_ (∣ _Zn_ ∣≥ _η_ ) ≤ 0 + _P_ (∣ _Y_ ∣≥ _η_ / _ϵ_ ) < _η_
+_n_
+
+
+- Since _η_ is arbitrary, we conclude that _Zn_ = _op_ (1)
+
+
+LIN Zhenhua (NUS) Lecture 9 11 / 28
+
+
+# δ -method, multivariate, Theorem 1.12
+
+Let _X_ 1 _,X_ 2 _,..._, _Y_ be random _k_ -vectors, and { _an_ } is a sequence of
+positive numbers with lim _n_ →∞ _an_ = ∞ satisfying
+
+
+_D_
+_an_ ( _Xn_             - _c_ ) → _Y,_
+where _c_ ∈R _[k]_ . Let _g_ be a function from R _[k]_ to R.
+
+
+(i) If _g_ is differentiable at _c_, then
+
+
+_an_ [ _g_ ( _Xn_ ) − _g_ ( _c_ )] →[∇ _D_ _g_ ( _c_ )]⊺ _Y_
+where ∇ _g_ ( _x_ ) is the partial derivatives of _g_ at _x_
+(ii) Suppose that _g_ has continuous partial derivatives of order _m_ - 1 in a
+neighborhood of _c,_ with all the partial derivatives of order
+_j,_ 1 ≤ _j_ ≤ _m_    - 1 _,_ vanishing at _c,_ but with the _m_ th-order partial
+derivatives not all vanishing at _c_ . Then
+
+
+
+_Yi_ 1⋯ _Yim._
+����������� _x_ = _c_
+
+
+
+_∂_ _[m]_ _g_
+_∂xi_ 1⋯ _∂xim_
+
+
+
+_D_ 1
+_a_ _[m]_ _n_ [[] _[g]_ [ (] _[X][n]_ [) −] _[g]_ [(] _[c]_ [)]] →
+
+_m_ !
+
+
+
+_k_ _k_
+∑ ⋯ ∑
+_i_ 1=1 _im_ =1
+
+
+
+LIN Zhenhua (NUS) Lecture 9 12 / 28
+
+
+# Central Limit Theorem
+
+Sometimes, we need to find the asymptotic distributions of a statistic to
+make inference
+
+  - e.g. asymptotic hypothesis test, confidence intervals
+
+
+
+
+
+
+
+
+
+
+
+LIN Zhenhua (NUS) Lecture 9 13 / 28
+
+
+# CLT for Triangular Arrays
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LIN Zhenhua (NUS) Lecture 9 14 / 28
+
+
+# Remarks
 
 
   - Condition (1) controls the tails of _Xnj_, and is called _Lindeberg’s_
@@ -329,10 +502,9 @@ then Condition (1) is not only sufficient but also necessary
 
 
 LIN Zhenhua (NUS) Lecture 9 15 / 28
-\end{theorem}
 
-\begin{theorem}
-: Asymptotic Distribution of Empirical Variance
+
+# Example: Asymptotic Distribution of Empirical Variance
 
 
   - Let _X_ 1 _,...,Xn_ be i.i.d. such that E _X_ 1 [4] [< ∞][.]
@@ -403,10 +575,9 @@ LIN Zhenhua (NUS) Lecture 9 17 / 28
 
 
 LIN Zhenhua (NUS) Lecture 9 18 / 28
-\end{theorem}
 
-\begin{theorem}
-s
+
+# Remarks
 
 
   - Like the consistency, the asymptotic bias is a concept relating to
@@ -443,10 +614,9 @@ its second moment does not exist
 
 
 LIN Zhenhua (NUS) Lecture 9 20 / 28
-\end{theorem}
 
-\begin{theorem}
-s
+
+# Remarks
 
 
   - It holds that “amse= asym. bias [2] + asym. variance” if they are all
@@ -515,9 +685,14 @@ See Theorem 2.6 in the textbook for the multivariate version.
 
 
 LIN Zhenhua (NUS) Lecture 9 23 / 28
-\end{theorem}
 
-\begin{theorem}
+
+# Example
+
+
+
+
+
 Let _T_ 1 _n_ = _n_ [1] [∑] _j_ _[n]_ =1 _[I]_ { _Xj_ =0}
 
   - _T_ 1 _n_ is unbiased and has mse _T_ 1 _n_ ( _θ_ ) = _e_ [−] _[θ]_ (1 − _e_ [−] _[θ]_ )/ _n_
@@ -528,9 +703,14 @@ Let _T_ 1 _n_ = _n_ [1] [∑] _j_ _[n]_ =1 _[I]_ { _Xj_ =0}
 
 
 LIN Zhenhua (NUS) Lecture 9 24 / 28
-\end{theorem}
 
-\begin{theorem}[Cont.]
+
+# Example (Cont.)
+
+
+
+
+
 Next, consider _T_ 2 _n_ = _e_ [−] _X_ [¯]
 
   - By CLT, ~~[√]~~ _n_ ( _X_ [¯]  - _θ_ ) →D _N_ (0 _,θ_ )
@@ -544,9 +724,10 @@ of _T_ 2 _n_ is not _o_ (1/ _n_ )
 
 
 LIN Zhenhua (NUS) Lecture 9 25 / 28
-\end{theorem}
 
-\begin{theorem}[Cont.]
+
+# Example (Cont.)
+
 The asymptotic relative efficiency of _T_ 1 _n_ w.r.t. _T_ 2 _n_ is
 
 
@@ -584,10 +765,9 @@ _n_ [)] _[.]_
 
 
 LIN Zhenhua (NUS) Lecture 9 27 / 28
-\end{theorem}
 
-\begin{theorem}
-: MLE for the Exponential Mean
+
+# Example: MLE for the Exponential Mean
 
 Let _X_ 1 _,...,Xn_ be i.i.d. drawn from the density _f_ ( _x_ ; _λ_ ) = _λ_ [−][1] _e_ [−] _[x]_ [/] _[λ]_ for
 _x_ - 0 and _λ_ - 0
@@ -641,6 +821,5 @@ _X_ ¯ ± _z_ 1− _α_ /2 ~~√~~ _X_ ¯ _n_
 _n_
 
 LINhZhenhua _X_ ¯(NUS) l _θ_ b th Lecturel i9 i i l 28 / 28
-\end{theorem}
 
-\end{document}
+

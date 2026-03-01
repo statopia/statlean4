@@ -273,11 +273,14 @@ def build_project(
 
     for item in items:
         title = str(item.get("title", ""))
+        # Include canonical_name in classification blob for better routing
+        canonical = str(item.get("canonical_name", ""))
+        classify_title = f"{title} {canonical}".strip() if canonical else title
         namespace = str(item.get("lean_namespace", ""))
         stmt = str(item.get("lean_statement", ""))
         kind = str(item.get("kind", "theorem"))
 
-        subdir, submodule = classify_theorem(title, namespace, stmt, kind=kind, source_tag=source_tag)
+        subdir, submodule = classify_theorem(classify_title, namespace, stmt, kind=kind, source_tag=source_tag)
         block, lean_name, has_pipeline_id = theorem_block(item, used_names)
 
         rel_path = classify_file_path(subdir, submodule)

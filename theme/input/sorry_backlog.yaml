@@ -1,4 +1,4 @@
-version: v72
+version: v77
 generated: 2026-03-01
 total_sorry: 54
 
@@ -154,6 +154,17 @@ sorry_items:
   dependencies: []
   unlocks: []
 
+- id: estimator.basic.asymptotic_relative_efficiency
+  file: Statlean/Estimator/Basic.lean
+  line: 118
+  theorem: asymptotic_relative_efficiency
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
 - id: gaussian.poincare.anonymous_L15
   file: Statlean/Gaussian/Poincare.lean
   line: 15
@@ -191,6 +202,17 @@ sorry_items:
   file: Statlean/Gaussian/Poincare.lean
   line: 507
   theorem: gaussian_poincare_1d
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: information.basic.fisher_information
+  file: Statlean/Information/Basic.lean
+  line: 90
+  theorem: fisher_information
   type: unknown
   depth: 1
   priority: 99
@@ -242,6 +264,61 @@ sorry_items:
   dependencies: []
   unlocks: []
 
+- id: limittheorems.clt.central_limit_theorem
+  file: Statlean/LimitTheorems/CLT.lean
+  line: 138
+  theorem: central_limit_theorem
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.clt.central_limit_theorem_v2
+  file: Statlean/LimitTheorems/CLT.lean
+  line: 217
+  theorem: central_limit_theorem_v2
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.clt.central_limit_theorem_v3
+  file: Statlean/LimitTheorems/CLT.lean
+  line: 244
+  theorem: central_limit_theorem_v3
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.clt.lindeberg_feller_clt
+  file: Statlean/LimitTheorems/CLT.lean
+  line: 193
+  theorem: lindeberg_feller_clt
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.clt.t_distribution_clt_example
+  file: Statlean/LimitTheorems/CLT.lean
+  line: 100
+  theorem: t_distribution_clt_example
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
 - id: limittheorems.uslln.anonymous_L13
   file: Statlean/LimitTheorems/USLLN.lean
   line: 13
@@ -275,10 +352,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: misc.pipeline.theorem_001_theorem_1
-  file: Statlean/Misc/Pipeline.lean
-  line: 100
-  theorem: theorem_001_theorem_1
+- id: limittheorems.uslln.slln
+  file: Statlean/LimitTheorems/USLLN.lean
+  line: 631
+  theorem: slln
   type: unknown
   depth: 1
   priority: 99
@@ -286,10 +363,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: misc.pipeline.theorem_002_theorem_2
-  file: Statlean/Misc/Pipeline.lean
-  line: 192
-  theorem: theorem_002_theorem_2
+- id: pipeline.lecture9handout.continuous_mapping_theorem
+  file: Statlean/Pipeline/Lecture9Handout.lean
+  line: 228
+  theorem: continuous_mapping_theorem
   type: unknown
   depth: 1
   priority: 99
@@ -297,9 +374,31 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: misc.pipeline.theorem_003_theorem_3
-  file: Statlean/Misc/Pipeline.lean
-  line: 232
+- id: pipeline.lecture9handout.scheffe_theorem
+  file: Statlean/Pipeline/Lecture9Handout.lean
+  line: 105
+  theorem: scheffe_theorem
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: pipeline.lecture9handout.slutsky_theorem
+  file: Statlean/Pipeline/Lecture9Handout.lean
+  line: 296
+  theorem: slutsky_theorem
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: pipeline.lecture9handout.theorem_003_theorem_3
+  file: Statlean/Pipeline/Lecture9Handout.lean
+  line: 145
   theorem: theorem_003_theorem_3
   type: unknown
   depth: 1
@@ -308,109 +407,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: misc.pipeline.theorem_004_theorem_4
-  file: Statlean/Misc/Pipeline.lean
-  line: 270
-  theorem: theorem_004_theorem_4
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_005_theorem_5
-  file: Statlean/Misc/Pipeline.lean
-  line: 302
+- id: pipeline.lecture9handout.theorem_005_theorem_5
+  file: Statlean/Pipeline/Lecture9Handout.lean
+  line: 177
   theorem: theorem_005_theorem_5
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_006_theorem_6
-  file: Statlean/Misc/Pipeline.lean
-  line: 357
-  theorem: theorem_006_theorem_6
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_007_theorem_7
-  file: Statlean/Misc/Pipeline.lean
-  line: 406
-  theorem: theorem_007_theorem_7
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_008_theorem_8
-  file: Statlean/Misc/Pipeline.lean
-  line: 457
-  theorem: theorem_008_theorem_8
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_009_theorem_9
-  file: Statlean/Misc/Pipeline.lean
-  line: 519
-  theorem: theorem_009_theorem_9
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_010_theorem_10
-  file: Statlean/Misc/Pipeline.lean
-  line: 543
-  theorem: theorem_010_theorem_10
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_011_cont
-  file: Statlean/Misc/Pipeline.lean
-  line: 570
-  theorem: theorem_011_cont
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_012_cont
-  file: Statlean/Misc/Pipeline.lean
-  line: 621
-  theorem: theorem_012_cont
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: misc.pipeline.theorem_013_theorem_13
-  file: Statlean/Misc/Pipeline.lean
-  line: 689
-  theorem: theorem_013_theorem_13
   type: unknown
   depth: 1
   priority: 99

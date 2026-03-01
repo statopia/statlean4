@@ -3,10 +3,10 @@
   "backend": "pymupdf",
   "blocks_extracted": 14,
   "block_kinds": {
-    "remark": 4,
+    "proof": 1,
     "example": 8,
-    "theorem": 1,
-    "proof": 1
+    "remark": 4,
+    "theorem": 1
   },
   "latex_warnings": 0,
   "output_tex": "/home/gavin/statlean/theme/input/paper.tex",

@@ -6,19 +6,19 @@ output_policy:
   statlib_first: true
 include:
   theorem_ids:
-  - lecture_9_handout.theorem.001.theorem_1
-  - lecture_9_handout.theorem.002.theorem_2
+  - lecture_9_handout.theorem.001.t_distribution_clt_example
+  - lecture_9_handout.theorem.002.scheffe_theorem
   - lecture_9_handout.theorem.003.theorem_3
-  - lecture_9_handout.theorem.004.theorem_4
+  - lecture_9_handout.theorem.004.central_limit_theorem
   - lecture_9_handout.theorem.005.theorem_5
-  - lecture_9_handout.theorem.006.theorem_6
-  - lecture_9_handout.theorem.007.theorem_7
-  - lecture_9_handout.theorem.008.theorem_8
-  - lecture_9_handout.theorem.009.theorem_9
-  - lecture_9_handout.theorem.010.theorem_10
-  - lecture_9_handout.theorem.011.cont
-  - lecture_9_handout.theorem.012.cont
-  - lecture_9_handout.theorem.013.theorem_13
+  - lecture_9_handout.theorem.006.lindeberg_feller_clt
+  - lecture_9_handout.theorem.007.slln
+  - lecture_9_handout.theorem.008.continuous_mapping_theorem
+  - lecture_9_handout.theorem.009.fisher_information
+  - lecture_9_handout.theorem.010.central_limit_theorem
+  - lecture_9_handout.theorem.011.central_limit_theorem
+  - lecture_9_handout.theorem.012.asymptotic_relative_efficiency
+  - lecture_9_handout.theorem.013.slutsky_theorem
 exclude:
   theorem_ids: []
 constraints:

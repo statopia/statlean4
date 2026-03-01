@@ -6,7 +6,7 @@ defaults:
   layer: formalization
   allow_axiom: false
 theorems:
-- id: lecture_9_handout.theorem.001.theorem_1
+- id: lecture_9_handout.theorem.001.t_distribution_clt_example
   title: Theorem 1
   kind: theorem
   latex_statement: "- Let _X_ 1 _,...,Xn_ be independently and identically distributed\
@@ -29,8 +29,8 @@ theorems:
     \         - _f_ ∣d _ν_ → 0 _,_\n_A f_ _A f_\n\nwhich implies _Fn_ ( _x_ ) → _F_\
     \ ( _x_ )\n\n\nLIN Zhenhua (NUS) Lecture 9 3 / 28"
   latex_proof_hint: ''
-  lean_name: theorem_001_theorem_1
-  lean_namespace: Formalization.Imported
+  lean_name: t_distribution_clt_example
+  lean_namespace: Statlean.LimitTheorems
   layer: formalization
   priority: 3
   dependencies: []
@@ -40,7 +40,8 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.002.theorem_2
+  canonical_name: t-distribution CLT
+- id: lecture_9_handout.theorem.002.scheffe_theorem
   title: Theorem 2
   kind: theorem
   latex_statement: "s on Scheff´es theorem\n\n\n  - _ν_ is usually the Lebesgue measure\
@@ -68,8 +69,8 @@ theorems:
     _an_ ≈ _an_ ( _θ_ [ˆ] _n_ - _θ_ ) → _Z_\n\n_g_ [′] ( _θ_ )\n\n\n\nLIN Zhenhua\
     \ (NUS) Lecture 9 6 / 28\n\n\n# δ -method, Univariate"
   latex_proof_hint: ''
-  lean_name: theorem_002_theorem_2
-  lean_namespace: Formalization.Imported
+  lean_name: scheffe_theorem
+  lean_namespace: Statlean.LimitTheorems
   layer: formalization
   priority: 3
   dependencies: []
@@ -79,6 +80,7 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
+  canonical_name: Scheffé's Theorem
 - id: lecture_9_handout.theorem.003.theorem_3
   title: Theorem 3
   kind: theorem
@@ -136,7 +138,7 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.004.theorem_4
+- id: lecture_9_handout.theorem.004.central_limit_theorem
   title: Theorem 4
   kind: theorem
   latex_statement: "Suppose _X_ 1 _,...,Xn_ are i.i.d. sample from _Pλ_ with p.d.f.\n\
@@ -149,8 +151,8 @@ theorems:
     \ = − _µ_ [−][2] = − _λ_ [2], we have\n\n~~√~~ _n_ ( _λ_ ˆ _n_       - _λ_ ) →−\
     \ _D_ _λ_ 2 _Z_ ∼ _N_ (0 _,λ_ 2)\n\n\nLIN Zhenhua (NUS) Lecture 9 8 / 28"
   latex_proof_hint: ''
-  lean_name: theorem_004_theorem_4
-  lean_namespace: Formalization.Imported
+  lean_name: central_limit_theorem
+  lean_namespace: Statlean.LimitTheorems
   layer: formalization
   priority: 3
   dependencies: []
@@ -160,6 +162,7 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
+  canonical_name: Central Limit Theorem
 - id: lecture_9_handout.theorem.005.theorem_5
   title: Theorem 5
   kind: theorem
@@ -185,7 +188,7 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.006.theorem_6
+- id: lecture_9_handout.theorem.006.lindeberg_feller_clt
   title: Theorem 6
   kind: theorem
   latex_statement: "s\n\n\n  - Condition (1) controls the tails of _Xnj_, and is called\
@@ -199,8 +202,8 @@ theorems:
     \n\nthen Condition (1) is not only sufficient but also necessary\n\n\nLIN Zhenhua\
     \ (NUS) Lecture 9 15 / 28"
   latex_proof_hint: ''
-  lean_name: theorem_006_theorem_6
-  lean_namespace: Formalization.Imported
+  lean_name: lindeberg_feller_clt
+  lean_namespace: Statlean.LimitTheorems
   layer: formalization
   priority: 3
   dependencies: []
@@ -210,7 +213,8 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.007.theorem_7
+  canonical_name: Lindeberg-Feller CLT
+- id: lecture_9_handout.theorem.007.slln
   title: Theorem 7
   kind: theorem
   latex_statement: ": Asymptotic Distribution of Empirical Variance\n\n\n  - Let _X_\
@@ -240,8 +244,8 @@ theorems:
     \ does the exact approach\n\n\nLIN Zhenhua (NUS) Lecture 9 17 / 28\n\n\n# Asymptotic\
     \ Unbiasedness\n\n\n\n\n\n\n\n\n\n\n\n\n\nLIN Zhenhua (NUS) Lecture 9 18 / 28"
   latex_proof_hint: ''
-  lean_name: theorem_007_theorem_7
-  lean_namespace: Formalization.Imported
+  lean_name: slln
+  lean_namespace: Statlean.LimitTheorems
   layer: formalization
   priority: 3
   dependencies: []
@@ -251,7 +255,8 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.008.theorem_8
+  canonical_name: Strong Law of Large Numbers
+- id: lecture_9_handout.theorem.008.continuous_mapping_theorem
   title: Theorem 8
   kind: theorem
   latex_statement: "s\n\n\n  - Like the consistency, the asymptotic bias is a concept\
@@ -268,8 +273,8 @@ theorems:
     its second moment does not exist\n\n\n\n\n\n\n\n\n\nLIN Zhenhua (NUS) Lecture\
     \ 9 20 / 28"
   latex_proof_hint: ''
-  lean_name: theorem_008_theorem_8
-  lean_namespace: Formalization.Imported
+  lean_name: continuous_mapping_theorem
+  lean_namespace: Statlean.LimitTheorems
   layer: formalization
   priority: 3
   dependencies: []
@@ -279,7 +284,8 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.009.theorem_9
+  canonical_name: Continuous Mapping Theorem
+- id: lecture_9_handout.theorem.009.fisher_information
   title: Theorem 9
   kind: theorem
   latex_statement: "s\n\n\n  - It holds that “amse= asym. bias [2] + asym. variance”\
@@ -304,19 +310,20 @@ theorems:
     \n# A corollary of δ -method\n\n\n\n\n\n\n\n\n\nSee Theorem 2.6 in the textbook\
     \ for the multivariate version.\n\n\nLIN Zhenhua (NUS) Lecture 9 23 / 28"
   latex_proof_hint: ''
-  lean_name: theorem_009_theorem_9
-  lean_namespace: Formalization.Imported
+  lean_name: fisher_information
+  lean_namespace: Statlean.Information
   layer: formalization
   priority: 3
   dependencies:
-  - lecture_9_handout.theorem.002.theorem_2
+  - lecture_9_handout.theorem.002.scheffe_theorem
   assumptions: []
   acceptance:
   - lake build passes
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.010.theorem_10
+  canonical_name: Fisher Information
+- id: lecture_9_handout.theorem.010.central_limit_theorem
   title: Theorem 10
   kind: theorem
   latex_statement: "Let _T_ 1 _n_ = _n_ [1] [∑] _j_ _[n]_ =1 _[I]_ { _Xj_ =0}\n\n\
@@ -325,8 +332,8 @@ theorems:
     \ _,e_  - _θ_ (1 − _e_  - _θ_ ))\n\n  - So amse _T_ 1 _n_ ( _θ_ ) = mse _T_ 1\
     \ _n_ ( _θ_ )\n\n\nLIN Zhenhua (NUS) Lecture 9 24 / 28"
   latex_proof_hint: ''
-  lean_name: theorem_010_theorem_10
-  lean_namespace: Formalization.Imported
+  lean_name: central_limit_theorem_v2
+  lean_namespace: Statlean.LimitTheorems
   layer: formalization
   priority: 3
   dependencies: []
@@ -336,7 +343,8 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.011.cont
+  canonical_name: Central Limit Theorem
+- id: lecture_9_handout.theorem.011.central_limit_theorem
   title: Cont.
   kind: theorem
   latex_statement: "Next, consider _T_ 2 _n_ = _e_ [−] _X_ [¯]\n\n  - By CLT, ~~[√]~~\
@@ -347,8 +355,8 @@ theorems:
     \ _n_ ( _θ_ ) → _θe_ [−] _[θ]_ /2. The exact bias\nof _T_ 2 _n_ is not _o_ (1/\
     \ _n_ )\n\n\nLIN Zhenhua (NUS) Lecture 9 25 / 28"
   latex_proof_hint: ''
-  lean_name: theorem_011_cont
-  lean_namespace: Formalization.Imported
+  lean_name: central_limit_theorem_v3
+  lean_namespace: Statlean.LimitTheorems
   layer: formalization
   priority: 3
   dependencies: []
@@ -358,7 +366,8 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.012.cont
+  canonical_name: Central Limit Theorem
+- id: lecture_9_handout.theorem.012.asymptotic_relative_efficiency
   title: Cont.
   kind: theorem
   latex_statement: 'The asymptotic relative efficiency of _T_ 1 _n_ w.r.t. _T_ 2 _n_
@@ -413,8 +422,8 @@ theorems:
 
     LIN Zhenhua (NUS) Lecture 9 27 / 28'
   latex_proof_hint: ''
-  lean_name: theorem_012_cont
-  lean_namespace: Formalization.Imported
+  lean_name: asymptotic_relative_efficiency
+  lean_namespace: Statlean.Estimator
   layer: formalization
   priority: 3
   dependencies: []
@@ -424,7 +433,8 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
-- id: lecture_9_handout.theorem.013.theorem_13
+  canonical_name: Asymptotic Relative Efficiency
+- id: lecture_9_handout.theorem.013.slutsky_theorem
   title: Theorem 13
   kind: theorem
   latex_statement: ": MLE for the Exponential Mean\n\nLet _X_ 1 _,...,Xn_ be i.i.d.\
@@ -438,8 +448,8 @@ theorems:
     \ ± _z_ 1− _α_ /2 ~~√~~ _X_ ¯ _n_\n_n_\n\nLINhZhenhua _X_ ¯(NUS) l _θ_ b th Lecturel\
     \ i9 i i l 28 / 28"
   latex_proof_hint: ''
-  lean_name: theorem_013_theorem_13
-  lean_namespace: Formalization.Imported
+  lean_name: slutsky_theorem
+  lean_namespace: Statlean.LimitTheorems
   layer: formalization
   priority: 3
   dependencies: []
@@ -449,3 +459,4 @@ theorems:
   - theorem contains no sorry
   - theorem contains no axiom
   notes: ''
+  canonical_name: Slutsky's Theorem
