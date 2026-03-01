@@ -83,14 +83,14 @@ from-pdf:
 
 # PDF → full formalization (one command does everything)
 pdf-formalize: TEX := $(INPUT_DIR)/paper.tex
-pdf-formalize: from-pdf from-tex formalize
+pdf-formalize: from-pdf from-tex formalize prove-fallback
 
 # LaTeX → structured YAML
 from-tex:
 	$(THEME_DIR)/scripts/from_tex.sh "$(TEX)" "$(INPUT_DIR)"
 
 # LaTeX → full formalization
-tex-formalize: from-tex formalize
+tex-formalize: from-tex formalize prove-fallback
 
 # ══════════════════════════════════════════════════════════
 # Utilities
