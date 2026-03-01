@@ -8,14 +8,14 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **3 sorry** remain: `esseen_concentration_universal`, `charfun_diff_exp_bound`, `charfun_integral_bound`
-- `charfun_integral_bound` depends only on `charfun_diff_exp_bound` (exponential telescope)
+- **2 sorry** remain: `esseen_concentration_universal`, `charfun_integral_bound`
 - **berry_esseen_theorem PROVED** modulo these sorry
 - **esseen_charfun_integral_bound PROVED** from the sorry sub-lemmas (zero sorry of its own)
-- **8 fully proved** infrastructure sub-lemmas in this file:
+- **charfun_diff_exp_bound PROVED** (zero sorry, ~170 lines, telescope+exp decay)
+- **9 fully proved** infrastructure sub-lemmas in this file:
   `smoothing_kernel_exists`, `cdf_smoothing_bound`, `smoothed_cdf_fourier_bound`,
   `berry_esseen_smoothing`, `norm_charFun_le_one_sub`, `charfun_prod_exp_decay`,
-  `charfun_diff_taylor_bound`, `charfun_integrand_bound`
+  `charfun_diff_taylor_bound`, `charfun_integrand_bound`, `charfun_diff_exp_bound`
 
 ## Architecture
 
@@ -29,7 +29,6 @@ The proof follows the classical Fourier-analytic approach:
 2. **Charfun integral bound** (`charfun_integral_bound`): The integral from step 1
    is bounded by `C₃ * ρ/(σ³√n)` when `T = σ³√n/ρ`, using charfun Taylor bounds
    and exponential decay of the charfun modulus.
-   **Blocker**: Charfun modulus decay `|φ_Y(s)| ≤ 1 - σ²s²/4` for small s.
 
 3. **Assembly** (`esseen_charfun_integral_bound`): PROVED from steps 1-2.
    Sets `C = C₁*C₃ + C₂` and combines: `|F-Φ| ≤ C₁*(C₃*δ) + C₂*δ = C*δ`.
@@ -39,9 +38,8 @@ The proof follows the classical Fourier-analytic approach:
 ## Remaining sorry
 
 - `esseen_concentration_universal` (P8): Requires Stieltjes inversion formula.
-- `charfun_diff_exp_bound` (P4): Tighter telescope bound with exponential decay factor.
-  Needs `‖∏φ_i - w^n‖ ≤ n·‖φ_i-w‖·max(‖φ_i‖,‖w‖)^{n-1}` with modulus decay.
-- `charfun_integral_bound` (P6): Blocked by `charfun_diff_exp_bound`.
+- `charfun_integral_bound` (P6): Integrate 5δ(|t|³+t⁴)e^{-t²/8}/|t| over [-T',T']
+  using Gaussian moment bounds. `charfun_diff_exp_bound` is now fully proved.
 -/
 
 namespace Statlean.BerryEsseen
@@ -607,30 +605,20 @@ private lemma charfun_integrand_bound
           have : |t| ^ 3 = |t| ^ 2 * |t| := by ring
           rw [this, sq_abs]; ring
 
+-- 7-step proof with many calc chains and field_simp needs extra heartbeats
+set_option maxHeartbeats 400000 in
 /-- **Charfun difference bound with exponential decay.**
 The charfun difference `‖φ_S(t) - φ_Φ(t)‖` is bounded by `Cδ(|t|³ + t⁴)e^{-t²/8}`
-for all `t ∈ [-T, T]`. This combines:
-- Product vs power telescope with exponential factor `(1-t²/(4n))^{n-1}`
-- Power vs exp bound with exponential factor
-- The key is that the telescope bound carries through the modulus decay.
-
-## Proof sketch
-From the telescope: `‖∏φ_i - w^n‖ ≤ n·‖φ_i - w‖·max(‖φ_i‖, ‖w‖)^{n-1}`
-where `‖φ_i‖ ≤ 1 - t²/(4n)`, giving exponential factor `e^{-t²/8}` for n ≥ 2.
-From the power-vs-exp: `|(1-t²/(2n))^n - e^{-t²/2}| ≤ t⁴/(4n)·e^{-t²/4}` (tighter).
-Combining: `‖φ_S - φ_Φ‖ ≤ (4δ|t|³ + t⁴/(4n))·e^{-t²/8}`.
-Since `1/n ≤ δ` (from σ³ ≤ ρ): `≤ Cδ(|t|³ + t⁴)·e^{-t²/8}`.
-
-## Blocker
-Tighter telescope bound with exponential factor. Requires modifying
-`norm_prod_sub_prod_le_sum` to carry through individual norm bounds.
+for `16ρ|t| ≤ σ³√n`. This combines:
+- Product vs power telescope with M^{n-1} factor (`norm_prod_sub_prod_le_sum_mul_pow`)
+- Per-factor charfun bound `‖φᵢ(t')‖ ≤ 1-t²/(4n) =: M` (`norm_charFun_le_one_sub`)
+- Power vs exp bound with exponential factor (`complex_pow_approx_exp_decay`)
+- `M^{n-1} ≤ e^{-t²(n-1)/(4n)} ≤ e^{-t²/8}` for n ≥ 2
 -/
--- sorry count: 1
--- blocker: tighter telescope with exponential factor
--- estimated effort: P4
+-- sorry count: 0
 private lemma charfun_diff_exp_bound
     {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
-    {n : ℕ} (hn : 0 < n)
+    {n : ℕ} (hn : 2 ≤ n)
     {Y : Fin n → Ω → ℝ} {σ ρ : ℝ} (hσ : 0 < σ)
     (hm : ∀ i, Measurable (Y i))
     (hindep : iIndepFun (m := fun _ => inferInstance) Y μ)
@@ -638,12 +626,182 @@ private lemma charfun_diff_exp_bound
     (hvar : ∀ i, ∫ ω, (Y i ω) ^ 2 ∂μ = σ ^ 2)
     (h3 : ∀ i, ∫ ω, |Y i ω| ^ 3 ∂μ = ρ)
     (hLp : ∀ i, MemLp (Y i) 3 μ)
-    (t : ℝ) (ht : t ^ 2 ≤ 2 * ↑n) :
+    (t : ℝ) (ht : 16 * ρ * |t| ≤ σ ^ 3 * Real.sqrt ↑n) :
     let S : Ω → ℝ := fun ω => (∑ i : Fin n, Y i ω) / (σ * Real.sqrt n)
     let δ := ρ / (σ ^ 3 * Real.sqrt ↑n)
     ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ ≤
       5 * δ * (|t| ^ 3 + t ^ 4) * Real.exp (-(t ^ 2 / 8)) := by
-  sorry
+  intro S δ
+  have hn_pos : 0 < n := by omega
+  have hn' : (0 : ℝ) < ↑n := Nat.cast_pos.mpr hn_pos
+  have hn_ne : (n : ℝ) ≠ 0 := ne_of_gt hn'
+  have hn2 : (2 : ℝ) ≤ ↑n := by exact_mod_cast hn
+  have hsqrt_pos : 0 < Real.sqrt ↑n := Real.sqrt_pos.mpr hn'
+  have hsn_pos : 0 < σ * Real.sqrt ↑n := mul_pos hσ hsqrt_pos
+  have hσ3_pos : 0 < σ ^ 3 := pow_pos hσ 3
+  have hρσ : σ ^ 3 ≤ ρ :=
+    lyapunov_third_moment hσ (hm ⟨0, by omega⟩) (hmean ⟨0, by omega⟩)
+      (hvar ⟨0, by omega⟩) (h3 ⟨0, by omega⟩) (hLp ⟨0, by omega⟩)
+  have hρ_pos : 0 < ρ := lt_of_lt_of_le hσ3_pos hρσ
+  have hden_pos : 0 < σ ^ 3 * Real.sqrt ↑n := mul_pos hσ3_pos hsqrt_pos
+  have hδ_pos : 0 < δ := div_pos hρ_pos hden_pos
+  set sn := σ * Real.sqrt ↑n with sn_def
+  set t' := t / sn with t'_def
+  -- Derive: 16ρ|t'| ≤ σ² (needed for norm_charFun_le_one_sub)
+  have ht'_range : 16 * ρ * |t'| ≤ σ ^ 2 := by
+    rw [t'_def, abs_div, abs_of_pos hsn_pos]
+    rw [show 16 * ρ * (|t| / sn) = 16 * ρ * |t| / sn from by ring]
+    rw [div_le_iff₀ hsn_pos, sn_def]
+    calc 16 * ρ * |t| ≤ σ ^ 3 * Real.sqrt ↑n := ht
+      _ = σ ^ 2 * (σ * Real.sqrt ↑n) := by ring
+  -- Derive: t² ≤ 2n
+  have ht2n : t ^ 2 ≤ 2 * ↑n := by
+    have h_abs : |t| ≤ σ ^ 3 * Real.sqrt ↑n / (16 * ρ) := by
+      rw [le_div_iff₀ (by positivity : 0 < 16 * ρ)]; linarith
+    have h_abs2 : |t| ≤ Real.sqrt ↑n / 16 := by
+      calc |t| ≤ σ ^ 3 * Real.sqrt ↑n / (16 * ρ) := h_abs
+        _ ≤ ρ * Real.sqrt ↑n / (16 * ρ) := by gcongr
+        _ = Real.sqrt ↑n / 16 := by field_simp
+    have : t ^ 2 ≤ (Real.sqrt ↑n / 16) ^ 2 := by
+      rw [← sq_abs]; exact (sq_le_sq₀ (abs_nonneg t) (by positivity)).mpr h_abs2
+    rw [div_pow, Real.sq_sqrt (le_of_lt hn')] at this; linarith
+  -- Set M := 1 - t²/(4n), the modulus bound
+  set M := 1 - t ^ 2 / (4 * ↑n) with M_def
+  have ht4n_le1 : t ^ 2 / (4 * ↑n) ≤ 1 := by
+    rw [div_le_one (by positivity : (0 : ℝ) < 4 * ↑n)]; linarith
+  have hM_nonneg : 0 ≤ M := by simp only [M_def]; linarith
+  -- Per-factor: ‖φᵢ(t')‖ ≤ M
+  have h_factor : ∀ i, ‖charFun (μ.map (Y i)) t'‖ ≤ M := by
+    intro i
+    have hσ2s2 : σ ^ 2 * t' ^ 2 / 4 = t ^ 2 / (4 * ↑n) := by
+      rw [t'_def, div_pow, sn_def, mul_pow, Real.sq_sqrt (le_of_lt hn')]; field_simp
+    rw [M_def, ← hσ2s2]
+    exact norm_charFun_le_one_sub hσ (hm i) (hmean i) (hvar i) (h3 i) (hLp i) ht'_range
+  -- w = 1 - t²/(2n) and ‖w‖ ≤ M
+  set w : ℂ := (1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ)) with w_def
+  have hw_real : w = ((1 - t ^ 2 / (2 * ↑n) : ℝ) : ℂ) := by
+    simp only [w_def]; push_cast; ring
+  have ht2n_le1 : t ^ 2 / (2 * ↑n) ≤ 1 := by
+    rw [div_le_one (by positivity : (0 : ℝ) < 2 * ↑n)]; linarith
+  have hw_norm_le_M : ‖w‖ ≤ M := by
+    rw [hw_real, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg (by linarith)]
+    simp only [M_def]
+    -- Need: 1 - t²/(2n) ≤ 1 - t²/(4n), i.e., t²/(4n) ≤ t²/(2n)
+    have h4 : (0 : ℝ) < 4 * ↑n := by positivity
+    have h2 : (0 : ℝ) < 2 * ↑n := by positivity
+    have : t ^ 2 / (4 * ↑n) ≤ t ^ 2 / (2 * ↑n) := by
+      rw [div_le_div_iff₀ h4 h2]; nlinarith [sq_nonneg t]
+    linarith
+  -- Per-factor Taylor: ‖φᵢ(t') - w‖ ≤ 4ρ|t'|³
+  have h_taylor_per : ∀ i,
+      ‖charFun (μ.map (Y i)) t' - w‖ ≤ 4 * ρ * |t'| ^ 3 := by
+    intro i
+    have htaylor := charfun_taylor_third_moment (hm i) (hmean i) (hvar i) (h3 i) (hLp i) t'
+    suffices heq : w = (1 : ℂ) - ((σ ^ 2 * t' ^ 2 / 2 : ℝ) : ℂ) by rwa [heq]
+    have hreal : (1 : ℝ) - t ^ 2 / (2 * ↑n) = 1 - σ ^ 2 * t' ^ 2 / 2 := by
+      congr 1; simp only [t', sn]
+      rw [div_pow, mul_pow, Real.sq_sqrt (le_of_lt hn')]; field_simp
+    rw [hw_real, hreal]; push_cast; ring
+  -- Step 1: Rewrite charfun using product factorization
+  have step1 := charfun_iid_sum_eq_prod hn_pos hσ hm hindep t
+  rw [charFun_gaussianReal_standard t, step1]
+  set prod_val := ∏ i : Fin n, charFun (μ.map (Y i)) t'
+  set gauss_val := Complex.exp (-((↑(t ^ 2) : ℂ) / 2))
+  -- Step 2: Part A — telescope bound on ‖∏φᵢ - w^n‖
+  have part_a : ‖prod_val - w ^ n‖ ≤ M ^ (n - 1) * (4 * δ * |t| ^ 3) := by
+    have h_telescope := norm_prod_sub_prod_le_sum_mul_pow
+        (fun i => charFun (μ.map (Y i)) t') (fun _ => w) M hM_nonneg
+        h_factor (fun _ => hw_norm_le_M)
+    have h_sum_le : ∑ i : Fin n, ‖charFun (μ.map (Y i)) t' - w‖ ≤
+        ↑n * (4 * ρ * |t'| ^ 3) := by
+      calc ∑ i : Fin n, ‖charFun (μ.map (Y i)) t' - w‖
+          ≤ ∑ _i : Fin n, (4 * ρ * |t'| ^ 3) :=
+            Finset.sum_le_sum (fun i _ => h_taylor_per i)
+        _ = ↑n * (4 * ρ * |t'| ^ 3) := by rw [Finset.sum_const, Finset.card_fin, nsmul_eq_mul]
+    calc ‖prod_val - w ^ n‖
+        = ‖∏ i, charFun (μ.map (Y i)) t' - ∏ _i : Fin n, w‖ := by
+          congr 1; rw [Finset.prod_const, Finset.card_fin]
+      _ ≤ M ^ (n - 1) * ∑ i : Fin n, ‖charFun (μ.map (Y i)) t' - w‖ := by
+          exact h_telescope
+      _ ≤ M ^ (n - 1) * (↑n * (4 * ρ * |t'| ^ 3)) :=
+          mul_le_mul_of_nonneg_left h_sum_le (pow_nonneg hM_nonneg _)
+      _ = M ^ (n - 1) * (4 * δ * |t| ^ 3) := by
+          congr 1; simp only [t'_def, δ, sn_def]
+          rw [abs_div, abs_of_pos hsn_pos, div_pow, mul_pow]
+          rw [show Real.sqrt ↑n ^ 3 = Real.sqrt ↑n * ↑n from by
+            rw [show (3 : ℕ) = 2 + 1 from rfl, pow_succ, pow_two,
+                Real.mul_self_sqrt (le_of_lt hn'), mul_comm]]
+          field_simp
+  -- Step 3: Part B — power-vs-exp
+  have part_b : ‖w ^ n - gauss_val‖ ≤
+      t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n))) :=
+    complex_pow_approx_exp_decay n hn_pos t ht2n
+  -- Step 4: M^{n-1} ≤ e^{-t²/8}
+  have h1n : (1 : ℕ) ≤ n := by omega
+  have hn_sub : (↑(n - 1) : ℝ) = ↑n - 1 := by simp [Nat.cast_sub h1n]
+  have hM_exp : M ^ (n - 1) ≤ Real.exp (-(t ^ 2 / 8)) := by
+    have h_base : M ≤ Real.exp (-(t ^ 2 / (4 * ↑n))) := by
+      have h_exp := Real.add_one_le_exp (-(t ^ 2 / (4 * ↑n)))
+      simp only [M_def]; linarith
+    calc M ^ (n - 1)
+        ≤ (Real.exp (-(t ^ 2 / (4 * ↑n)))) ^ (n - 1) :=
+          pow_le_pow_left₀ hM_nonneg h_base _
+      _ = Real.exp (↑(n - 1) * -(t ^ 2 / (4 * ↑n))) := by
+          rw [← Real.exp_nat_mul]
+      _ ≤ Real.exp (-(t ^ 2 / 8)) := by
+          apply Real.exp_le_exp_of_le; rw [hn_sub]
+          rw [show (↑n - 1) * -(t ^ 2 / (4 * ↑n)) = -((↑n - 1) * t ^ 2 / (4 * ↑n)) from by ring]
+          rw [neg_le_neg_iff]
+          rw [div_le_div_iff₀ (by norm_num : (0:ℝ) < 8) (by positivity : (0:ℝ) < 4 * ↑n)]
+          nlinarith [sq_nonneg t, mul_self_nonneg (t ^ 2)]
+  -- Step 5: exp factor in Part B ≤ e^{-t²/8}
+  have hexp_B_le : Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n))) ≤
+      Real.exp (-(t ^ 2 / 8)) := by
+    apply Real.exp_le_exp_of_le
+    rw [neg_le_neg_iff]
+    rw [div_le_div_iff₀ (by norm_num : (0:ℝ) < 8) (by positivity : (0:ℝ) < 2 * ↑n)]
+    rw [hn_sub]
+    nlinarith [sq_nonneg t, mul_self_nonneg (t ^ 2)]
+  -- Step 6: t⁴/(4n) ≤ δ·t⁴  (from σ³ ≤ ρ, √n ≤ n)
+  have h_inv_n_le_δ : t ^ 4 / (4 * ↑n) ≤ δ * t ^ 4 := by
+    suffices h : 1 / (4 * ↑n) ≤ δ by
+      have ht4 : 0 ≤ t ^ 4 := by positivity
+      calc t ^ 4 / (4 * ↑n) = 1 / (4 * ↑n) * t ^ 4 := by ring
+        _ ≤ δ * t ^ 4 := by gcongr
+    show 1 / (4 * ↑n) ≤ ρ / (σ ^ 3 * Real.sqrt ↑n)
+    rw [div_le_div_iff₀ (by positivity : (0 : ℝ) < 4 * ↑n) hden_pos]
+    have h_sqrt_le : Real.sqrt ↑n ≤ ↑n := by
+      calc Real.sqrt ↑n ≤ Real.sqrt (↑n ^ 2) :=
+            Real.sqrt_le_sqrt (by nlinarith [hn2])
+        _ = ↑n := Real.sqrt_sq (by linarith)
+    calc 1 * (σ ^ 3 * Real.sqrt ↑n) = σ ^ 3 * Real.sqrt ↑n := one_mul _
+      _ ≤ ρ * Real.sqrt ↑n := by gcongr
+      _ ≤ ρ * ↑n := by gcongr
+      _ ≤ ρ * (4 * ↑n) := by nlinarith
+  -- Step 7: Assembly
+  have hexp_pos : 0 < Real.exp (-(t ^ 2 / 8)) := Real.exp_pos _
+  calc ‖prod_val - gauss_val‖
+      ≤ ‖prod_val - w ^ n‖ + ‖w ^ n - gauss_val‖ := by
+        calc _ = ‖(prod_val - w ^ n) + (w ^ n - gauss_val)‖ := by ring_nf
+          _ ≤ _ := norm_add_le _ _
+    _ ≤ M ^ (n - 1) * (4 * δ * |t| ^ 3) +
+        t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n))) :=
+      add_le_add part_a part_b
+    _ ≤ Real.exp (-(t ^ 2 / 8)) * (4 * δ * |t| ^ 3) +
+        δ * t ^ 4 * Real.exp (-(t ^ 2 / 8)) := by
+      apply add_le_add
+      · exact mul_le_mul_of_nonneg_right hM_exp (by positivity)
+      · calc t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n)))
+            ≤ t ^ 4 / (4 * ↑n) * Real.exp (-(t ^ 2 / 8)) :=
+              mul_le_mul_of_nonneg_left hexp_B_le (by positivity)
+          _ ≤ δ * t ^ 4 * Real.exp (-(t ^ 2 / 8)) := by
+              nlinarith [h_inv_n_le_δ, hexp_pos.le]
+    _ = (4 * δ * |t| ^ 3 + δ * t ^ 4) * Real.exp (-(t ^ 2 / 8)) := by ring
+    _ ≤ 5 * δ * (|t| ^ 3 + t ^ 4) * Real.exp (-(t ^ 2 / 8)) := by
+      apply mul_le_mul_of_nonneg_right _ hexp_pos.le
+      have : 0 ≤ |t| ^ 3 := by positivity
+      have : 0 ≤ t ^ 4 := by positivity
+      nlinarith
 
 -- sorry count: 1 (uses charfun_diff_exp_bound)
 -- blocker: charfun_diff_exp_bound (tighter telescope with exponential factor)

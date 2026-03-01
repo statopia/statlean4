@@ -79,6 +79,25 @@ lemma norm_cexp_sub_quadratic_le (θ : ℝ) :
                   simp
       _ ≤ 4 * |θ| ^ 3 := by nlinarith [sq_abs θ, sq_nonneg θ, abs_nonneg θ]
 
+/-- **Tighter Taylor bound** for `|θ| ≤ 2`: `‖exp(iθ) - (1 + iθ - θ²/2)‖ ≤ |θ|³/3`.
+Uses `Complex.exp_bound'` with n=3. -/
+lemma norm_cexp_sub_quadratic_le_third {θ : ℝ} (hθ : |θ| ≤ 2) :
+    ‖Complex.exp (↑θ * Complex.I) -
+      ((1 : ℂ) + ↑θ * Complex.I - (↑θ : ℂ) ^ 2 / 2)‖ ≤ |θ| ^ 3 / 3 := by
+  have hx : ‖(↑θ * Complex.I : ℂ)‖ / Nat.succ 3 ≤ 1 / 2 := by
+    rw [norm_ofReal_mul_I]; linarith
+  have key := Complex.exp_bound' (x := ↑θ * Complex.I) (n := 3) hx
+  have sum_eq : ∑ m ∈ Finset.range 3, (↑θ * Complex.I) ^ m / ↑(Nat.factorial m) =
+      (1 : ℂ) + ↑θ * Complex.I - (↑θ : ℂ) ^ 2 / 2 := by
+    simp [Finset.sum_range_succ, Nat.factorial]
+    have : Complex.I ^ 2 = -1 := Complex.I_sq
+    linear_combination (θ : ℂ) ^ 2 * (1 / 2) * this
+  rw [sum_eq] at key
+  calc ‖Complex.exp (↑θ * Complex.I) -
+      ((1 : ℂ) + ↑θ * Complex.I - (↑θ : ℂ) ^ 2 / 2)‖
+      ≤ ‖(↑θ * Complex.I : ℂ)‖ ^ 3 / ↑(Nat.factorial 3) * 2 := key
+    _ = |θ| ^ 3 / 3 := by rw [norm_ofReal_mul_I]; simp [Nat.factorial]; ring
+
 /-! ## Charfun Taylor remainder with third-moment bound -/
 
 /-- **Characteristic function Taylor remainder with third-moment bound.**
@@ -223,6 +242,51 @@ private lemma norm_prod_sub_prod_le_sum :
           gcongr
           exact ih _ _ (fun i => hz (Fin.castSucc i)) (fun i => hw (Fin.castSucc i))
 
+/-- **Telescoping bound with modulus factor**: `‖∏ z_i - ∏ w_i‖ ≤ M^{n-1} · ∑ ‖z_i - w_i‖`
+when all `‖z_i‖ ≤ M` and `‖w_i‖ ≤ M` with `0 ≤ M`. -/
+lemma norm_prod_sub_prod_le_sum_mul_pow :
+    ∀ {n : ℕ} (z w : Fin n → ℂ) (M : ℝ),
+      0 ≤ M →
+      (∀ i, ‖z i‖ ≤ M) → (∀ i, ‖w i‖ ≤ M) →
+      ‖∏ i, z i - ∏ i, w i‖ ≤ M ^ (n - 1) * ∑ i, ‖z i - w i‖ := by
+  intro n
+  induction n with
+  | zero => intro z w M _ _ _; simp
+  | succ n ih =>
+    intro z w M hM hz hw
+    rw [Fin.prod_univ_castSucc, Fin.prod_univ_castSucc, Fin.sum_univ_castSucc]
+    set a := ∏ i : Fin n, z (Fin.castSucc i)
+    set b := z (Fin.last n)
+    set c := ∏ i : Fin n, w (Fin.castSucc i)
+    set d := w (Fin.last n)
+    have key : a * b - c * d = (a - c) * b + c * (b - d) := by ring
+    rw [key]
+    -- Bound ‖c‖ ≤ M^n
+    have hc_le : ‖c‖ ≤ M ^ n := by
+      calc ‖c‖ = ‖∏ i : Fin n, w (Fin.castSucc i)‖ := rfl
+        _ ≤ ∏ i : Fin n, ‖w (Fin.castSucc i)‖ := Finset.norm_prod_le Finset.univ _
+        _ ≤ ∏ _i : Fin n, M :=
+            Finset.prod_le_prod (fun i _ => norm_nonneg _) (fun i _ => hw (Fin.castSucc i))
+        _ = M ^ n := by rw [Finset.prod_const, Finset.card_fin]
+    have hih := ih (fun i => z (Fin.castSucc i)) (fun i => w (Fin.castSucc i)) M hM
+      (fun i => hz (Fin.castSucc i)) (fun i => hw (Fin.castSucc i))
+    simp only [Nat.succ_sub_one]
+    calc ‖(a - c) * b + c * (b - d)‖
+        ≤ ‖a - c‖ * ‖b‖ + ‖c‖ * ‖b - d‖ := by
+          calc _ ≤ ‖(a - c) * b‖ + ‖c * (b - d)‖ := norm_add_le _ _
+            _ ≤ _ := by gcongr <;> exact norm_mul_le _ _
+      _ ≤ (M ^ (n - 1) * ∑ i : Fin n, ‖z (Fin.castSucc i) - w (Fin.castSucc i)‖) * M +
+          M ^ n * ‖b - d‖ := by
+          apply add_le_add
+          · apply mul_le_mul hih (hz (Fin.last n)) (norm_nonneg _)
+            exact mul_nonneg (pow_nonneg hM _) (Finset.sum_nonneg (fun i _ => norm_nonneg _))
+          · exact mul_le_mul_of_nonneg_right hc_le (norm_nonneg _)
+      _ = M ^ n * ((∑ i : Fin n, ‖z (Fin.castSucc i) - w (Fin.castSucc i)‖) +
+          ‖z (Fin.last n) - w (Fin.last n)‖) := by
+          cases n with
+          | zero => simp [Fin.last, b, d]
+          | succ m => simp only [Nat.succ_sub_one]; ring
+
 /-- The standard Gaussian characteristic function:
 `charFun (gaussianReal 0 1) t = exp(-t²/2)`. -/
 lemma charFun_gaussianReal_standard (t : ℝ) :
@@ -346,6 +410,60 @@ lemma complex_pow_approx_exp (n : ℕ) (hn : 0 < n) (t : ℝ)
         exact max_le exp_bound sub_bound
     _ = u ^ 2 * ↑n := by ring
     _ = t ^ 4 / (4 * ↑n) := nu2_eq
+
+/-- **Bound on `‖(1 - t²/(2n))^n - exp(-t²/2)‖` with exponential factor.**
+Stronger version: includes `exp(-(n-1)t²/(2n))` factor from `abs_pow_sub_pow_le`
+with `max(e^{-u}, 1-u) = e^{-u}` (since `e^{-x} ≥ 1-x`). -/
+lemma complex_pow_approx_exp_decay (n : ℕ) (hn : 0 < n) (t : ℝ)
+    (ht : t ^ 2 ≤ 2 * ↑n) :
+    ‖((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) ^ n -
+      Complex.exp (-((↑(t ^ 2) : ℂ) / 2))‖ ≤
+      t ^ 4 / (4 * (n : ℝ)) * Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n))) := by
+  have hn_pos : (0 : ℝ) < n := Nat.cast_pos.mpr hn
+  set u := t ^ 2 / (2 * (n : ℝ)) with hu_def
+  have hu_nn : 0 ≤ u := by positivity
+  have hu_le : u ≤ 1 := div_le_one_of_le₀ ht (by positivity)
+  have h1mu_nn : 0 ≤ 1 - u := by linarith
+  have base_eq : ((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) = (↑(1 - u) : ℂ) := by
+    simp only [hu_def, Complex.ofReal_sub, Complex.ofReal_one, Complex.ofReal_div,
+      Complex.ofReal_pow, Complex.ofReal_mul, Complex.ofReal_ofNat, Complex.ofReal_natCast]
+  rw [base_eq, ← Complex.ofReal_pow, show Complex.exp (-((↑(t ^ 2) : ℂ) / 2)) =
+      (↑(Real.exp (-(t ^ 2 / 2))) : ℂ) from by
+    rw [Complex.ofReal_exp]; congr 1; push_cast; ring,
+    ← Complex.ofReal_sub, Complex.norm_real, Real.norm_eq_abs]
+  have key_le : (1 - u) ^ n ≤ Real.exp (-(t ^ 2 / 2)) := by
+    have h := Real.one_sub_div_pow_le_exp_neg (n := n) (t := t ^ 2 / 2)
+      (by linarith : t ^ 2 / 2 ≤ ↑n)
+    convert h using 2; simp [hu_def]; field_simp
+  rw [abs_of_nonpos (by linarith : (1 - u) ^ n - Real.exp (-(t ^ 2 / 2)) ≤ 0)]
+  have exp_approx : |Real.exp (-u) - (1 - u)| ≤ u ^ 2 := by
+    have h1 := Real.abs_exp_sub_one_sub_id_le (x := -u)
+      (by rw [abs_neg, abs_of_nonneg hu_nn]; exact hu_le)
+    rw [show Real.exp (-u) - 1 - -u = Real.exp (-u) - (1 - u) by ring,
+        show (-u) ^ 2 = u ^ 2 by ring] at h1
+    exact h1
+  have exp_pow : Real.exp (-u) ^ n = Real.exp (-(t ^ 2 / 2)) := by
+    rw [← Real.exp_nat_mul]; congr 1; simp [hu_def]; field_simp
+  have nu2_eq : u ^ 2 * ↑n = t ^ 4 / (4 * ↑n) := by
+    simp [hu_def]; field_simp; ring
+  -- Key: max(|e^{-u}|, |1-u|) = e^{-u} since e^{-x} ≥ 1-x
+  have hmax_eq : max |Real.exp (-u)| |1 - u| = Real.exp (-u) := by
+    rw [abs_of_pos (Real.exp_pos _), abs_of_nonneg h1mu_nn]
+    exact max_eq_left (by linarith [Real.add_one_le_exp (-u)])
+  have max_pow_eq : max |Real.exp (-u)| |1 - u| ^ (n - 1) =
+      Real.exp (-(↑(n - 1) * u)) := by
+    rw [hmax_eq, ← Real.exp_nat_mul]; congr 1; ring
+  calc -(((1 - u) ^ n) - Real.exp (-(t ^ 2 / 2)))
+      = Real.exp (-(t ^ 2 / 2)) - (1 - u) ^ n := by ring
+    _ ≤ |Real.exp (-(t ^ 2 / 2)) - (1 - u) ^ n| := le_abs_self _
+    _ = |Real.exp (-u) ^ n - (1 - u) ^ n| := by rw [exp_pow]
+    _ ≤ |Real.exp (-u) - (1 - u)| * ↑n *
+          max |Real.exp (-u)| |1 - u| ^ (n - 1) := abs_pow_sub_pow_le ..
+    _ ≤ u ^ 2 * ↑n * Real.exp (-(↑(n - 1) * u)) := by
+        rw [max_pow_eq]; gcongr
+    _ = t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * u)) := by rw [nu2_eq]
+    _ = t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n))) := by
+        congr 1; congr 1; rw [hu_def]; ring
 
 /-! ## Product vs power bound -/
 

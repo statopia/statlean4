@@ -1,17 +1,15 @@
-version: v81
+version: v82
 generated: 2026-03-02
-total_sorry: 9
+total_sorry: 8
 
-# CHANGELOG v81:
-# - Scheffé's theorem PROVED (new file Scheffe.lean, zero sorry)
-# - CLT.lean cleaned: removed all pipeline stubs (True := by sorry)
-# - Lecture9Handout.lean cleaned: removed all pipeline stubs
-# - Purged false-positive "anonymous" entries (were comments, not sorry)
-# - deltamethod.tightness + deltamethod.main — PROVED 2026-03-02
+# CHANGELOG v82:
+# - charfun_diff_exp_bound PROVED (BerryEsseen.lean, telescope+exp decay, ~170 lines)
+# - charfun_integral_bound UNBLOCKED (was blocked by charfun_diff_exp_bound)
+# - Berry-Esseen sorry: 3 → 2
 
 sorry_items:
 
-# === Berry-Esseen (3 sorry) ===
+# === Berry-Esseen (2 sorry) ===
 
 - id: berry_esseen.esseen_concentration
   file: Statlean/LimitTheorems/BerryEsseen.lean
@@ -25,28 +23,16 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: berry_esseen.charfun_diff_exp
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 646
-  theorem: charfun_diff_exp_bound
-  type: honest
-  depth: 1
-  priority: 4
-  blocker: "Tighter telescope bound with exponential factor. Need refined product-vs-sum lemma carrying max(|zᵢ|,|w|)^{n-1} factor, plus tighter power-vs-exp with e^{-t²/2} factor."
-  estimated_lines: 150
-  dependencies: []
-  unlocks: [berry_esseen.charfun_integral]
-
 - id: berry_esseen.charfun_integral
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 673
+  line: 832
   theorem: charfun_integral_bound
-  type: blocked
+  type: honest
   depth: 1
   priority: 6
-  blocker: "Blocked by charfun_diff_exp_bound. Once that is proved, follows by integrating 5δ(t²+|t|³)e^{-t²/8} over [-T,T] and using Gaussian moment bounds."
-  estimated_lines: 60
-  dependencies: [berry_esseen.charfun_diff_exp]
+  blocker: "Integrate 5δ(|t|³+t⁴)e^{-t²/8}/|t| over [-T/16,T/16] using Gaussian moment bounds. charfun_diff_exp_bound now proved. Need: (1) restrict integration range to where 16ρ|t|≤σ³√n holds, (2) bound ∫(t²+|t|³)e^{-t²/8}dt by universal constant."
+  estimated_lines: 80
+  dependencies: []
   unlocks: []
 
 # === Log-Sobolev / Hypercontractivity (3 sorry) ===
