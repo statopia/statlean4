@@ -261,6 +261,7 @@ def build_project(
     """Main entry: read theorems.yaml, classify, write to Statlean/, produce manifest."""
     data = yaml.safe_load(theorems_file.read_text(encoding="utf-8")) or {}
     items: List[Dict[str, Any]] = list(data.get("theorems", []) or [])
+    source_tag = str(data.get("source_tag", ""))
 
     used_names: set[str] = set()
     # Per-theorem manifest
@@ -276,7 +277,7 @@ def build_project(
         stmt = str(item.get("lean_statement", ""))
         kind = str(item.get("kind", "theorem"))
 
-        subdir, submodule = classify_theorem(title, namespace, stmt, kind=kind)
+        subdir, submodule = classify_theorem(title, namespace, stmt, kind=kind, source_tag=source_tag)
         block, lean_name, has_pipeline_id = theorem_block(item, used_names)
 
         rel_path = classify_file_path(subdir, submodule)

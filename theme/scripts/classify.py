@@ -167,6 +167,7 @@ def classify_theorem(
     namespace: str = "",
     statement: str = "",
     kind: str = "theorem",
+    source_tag: str = "",
 ) -> Tuple[str, str]:
     """Return (subdir, submodule) for a theorem or definition.
 
@@ -179,7 +180,9 @@ def classify_theorem(
     >>> classify_theorem(title="Basu's Theorem", kind="theorem")
     ('Sufficiency', 'Basu')
     >>> classify_theorem(title="Some unknown thing")
-    ('Misc', 'Pipeline')
+    ('Pipeline', 'Uncategorized')
+    >>> classify_theorem(title="Some unknown thing", source_tag="lecture_9_handout")
+    ('Pipeline', 'Lecture9Handout')
     """
     blob = f"{title} {namespace} {statement}".lower()
     is_infra = kind.lower().strip() in _INFRA_KINDS
@@ -214,10 +217,15 @@ def classify_theorem(
                     return subdir, "Basic"
                 return subdir, submodule
 
-    # Fallback: infra → Misc/Basic, theorem → Misc/Pipeline
+    # Fallback: route to Pipeline/<SourceTag> (each PDF gets its own file)
+    if source_tag:
+        # Convert source_tag to PascalCase module name
+        # e.g. "lecture_9_handout" → "Lecture9Handout"
+        module = "".join(w.capitalize() for w in source_tag.split("_"))
+        return "Pipeline", module
     if is_infra:
-        return "Misc", "Basic"
-    return "Misc", "Pipeline"
+        return "Pipeline", "Basic"
+    return "Pipeline", "Uncategorized"
 
 
 def lean_module_path(subdir: str, submodule: str) -> str:

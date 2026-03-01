@@ -98,7 +98,7 @@ tex-formalize: from-tex formalize prove-fallback
 
 # Fallback prove loop (CI / non-Claude-Code environments)
 prove-fallback:
-	AGENT_BACKEND=$(AGENT_BACKEND) $(THEME_DIR)/scripts/prove_loop.sh "$(ROOT)"
+	MANIFEST=$(OUT_DIR)/manifest.json AGENT_BACKEND=$(AGENT_BACKEND) $(THEME_DIR)/scripts/prove_loop.sh "$(ROOT)"
 
 # Convenience targets for specific backends
 formalize-codex:

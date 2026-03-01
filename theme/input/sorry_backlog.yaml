@@ -1,6 +1,6 @@
-version: v69
+version: v72
 generated: 2026-03-01
-total_sorry: 41
+total_sorry: 54
 
 sorry_items:
 
@@ -268,6 +268,149 @@ sorry_items:
   file: Statlean/LimitTheorems/USLLN.lean
   line: 5
   theorem: anonymous_L5
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_001_theorem_1
+  file: Statlean/Misc/Pipeline.lean
+  line: 100
+  theorem: theorem_001_theorem_1
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_002_theorem_2
+  file: Statlean/Misc/Pipeline.lean
+  line: 192
+  theorem: theorem_002_theorem_2
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_003_theorem_3
+  file: Statlean/Misc/Pipeline.lean
+  line: 232
+  theorem: theorem_003_theorem_3
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_004_theorem_4
+  file: Statlean/Misc/Pipeline.lean
+  line: 270
+  theorem: theorem_004_theorem_4
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_005_theorem_5
+  file: Statlean/Misc/Pipeline.lean
+  line: 302
+  theorem: theorem_005_theorem_5
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_006_theorem_6
+  file: Statlean/Misc/Pipeline.lean
+  line: 357
+  theorem: theorem_006_theorem_6
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_007_theorem_7
+  file: Statlean/Misc/Pipeline.lean
+  line: 406
+  theorem: theorem_007_theorem_7
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_008_theorem_8
+  file: Statlean/Misc/Pipeline.lean
+  line: 457
+  theorem: theorem_008_theorem_8
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_009_theorem_9
+  file: Statlean/Misc/Pipeline.lean
+  line: 519
+  theorem: theorem_009_theorem_9
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_010_theorem_10
+  file: Statlean/Misc/Pipeline.lean
+  line: 543
+  theorem: theorem_010_theorem_10
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_011_cont
+  file: Statlean/Misc/Pipeline.lean
+  line: 570
+  theorem: theorem_011_cont
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_012_cont
+  file: Statlean/Misc/Pipeline.lean
+  line: 621
+  theorem: theorem_012_cont
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: misc.pipeline.theorem_013_theorem_13
+  file: Statlean/Misc/Pipeline.lean
+  line: 689
+  theorem: theorem_013_theorem_13
   type: unknown
   depth: 1
   priority: 99
