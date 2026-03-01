@@ -7,6 +7,31 @@ Claude Code 和 Codex CLI 均遵循此协议。
 
 ---
 
+## Checkpoint Log（强制）
+
+**每完成一个 Step，必须追加一行到 `theme/out/formalize_checkpoint.jsonl`**。
+这是验证 agent 是否遵循 playbook 的唯一机制。
+
+```bash
+# 格式（每行一个 JSON）：
+echo '{"step":0,"status":"done","target":"MLE","pdf":"lecture-5-handout.pdf","ts":"'$(date -Iseconds)'"}' >> theme/out/formalize_checkpoint.jsonl
+echo '{"step":1,"status":"done","math_content":"ℓ(θ)=f_θ(X), θ̂=argmax ℓ, invariance g(θ̂)","ts":"'$(date -Iseconds)'"}' >> theme/out/formalize_checkpoint.jsonl
+echo '{"step":2,"status":"done","existing":"none","ts":"'$(date -Iseconds)'"}' >> theme/out/formalize_checkpoint.jsonl
+echo '{"step":3,"status":"done","declarations":["likelihood","IsMLE","isMLE_comp"],"file":"Statlean/Estimator/Basic.lean","ts":"'$(date -Iseconds)'"}' >> theme/out/formalize_checkpoint.jsonl
+echo '{"step":4,"status":"done","sorry_count":0,"ts":"'$(date -Iseconds)'"}' >> theme/out/formalize_checkpoint.jsonl
+echo '{"step":5,"status":"done","build":"pass","errors":0,"warnings":0,"ts":"'$(date -Iseconds)'"}' >> theme/out/formalize_checkpoint.jsonl
+echo '{"step":6,"status":"done","honesty_check":"pass","trivial_wrappers":0,"hidden_sorry":0,"ts":"'$(date -Iseconds)'"}' >> theme/out/formalize_checkpoint.jsonl
+echo '{"step":7,"status":"done","imports_updated":true,"verified_updated":true,"ts":"'$(date -Iseconds)'"}' >> theme/out/formalize_checkpoint.jsonl
+```
+
+**验证脚本**（用户跑完后检查）：
+
+```bash
+python3 theme/scripts/check_formalize_log.py theme/out/formalize_checkpoint.jsonl
+```
+
+---
+
 ## 0. 输入解析
 
 用户请求可能是：

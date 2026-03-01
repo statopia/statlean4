@@ -58,6 +58,11 @@ Proceed without confirmation.
 **Interactive formalization playbook: `theme/formalize_playbook.md`** (input parsing → content retrieval → signature design → proof → honesty check).
 When the user says "formalize XX from YY", **follow Steps 0-7 of that playbook**.
 
+**Mandatory**: After completing each step, append a checkpoint line to `theme/out/formalize_checkpoint.jsonl`.
+Format: `{"step": N, "status": "done", ...fields specific to that step..., "ts": "ISO-8601"}`.
+See the "Checkpoint Log" section at the top of `theme/formalize_playbook.md` for exact field requirements.
+This log is verified by `python3 theme/scripts/check_formalize_log.py` after the session.
+
 ## Proof Strategy
 
 **Full playbook: `theme/prove_playbook.md`** (decision tree + error fix table + strategy selection table).
