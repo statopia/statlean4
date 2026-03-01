@@ -4,7 +4,7 @@
 
 StatLean 是一个用 Lean 4 + Mathlib 形式化数理统计定理的开源项目。
 
-**当前规模**：33 个 Lean 文件，~170 个声明，31 个零 sorry 模块已入库 `Verified.lean`。
+**当前规模**：34 个 Lean 文件，~180 个声明，22 个零 sorry 模块已入库 `Verified.lean`。
 
 **已完成的核心定理**（全部零 sorry）：
 - Rao-Blackwell MSE 定理、ANOVA 方差分解
@@ -44,29 +44,49 @@ lake build Statlean
 
 ### 方式 A：从 PDF 到形式化（完整 pipeline）
 
-适合有课程讲义 / 论文的场景。Pipeline 自动完成：PDF 提取 → YAML → Lean 骨架 → 证明 → 验收。
+适合有课程讲义 / 论文的场景。Pipeline 自动完成：PDF 提取 → LaTeX → YAML（含定理名识别）→ Lean 骨架 → 证明 → 验收。
 
 ```bash
+# 一键完成（推荐）
+make -C theme pdf-formalize PDF=lecture-9-handout.pdf
+# 流程: PDF → LaTeX → YAML → 定理名识别 → Lean 骨架 → build → prove → gate（含 auto-shelve）
+
+# 或分步操作：
 # 1. 把 PDF 放入 theme/input/raw/
 cp lecture-5-handout.pdf theme/input/raw/
 
-# 2. 提取 PDF 内容（本地 pymupdf，零 API 消耗）
-python3 theme/scripts/pdf_extract.py \
-  --pdf theme/input/raw/lecture-5-handout.pdf \
-  --output-dir theme/out/lec5_extract
+# 2. 提取 + 识别
+make -C theme from-pdf PDF=lecture-5-handout.pdf   # PDF → LaTeX
+make -C theme from-tex                             # LaTeX → YAML（自动识别定理名）
 
-# 3. 阅读提取内容，手写 theorems.yaml
-#    （或用 Claude Code 辅助 — 见下文）
-vim theme/input/theorems.yaml
-
-# 4. 跑 pipeline
+# 3. 跑 pipeline（生成骨架 + 证明 + 验收）
 make -C theme formalize
 
-# 5. Pipeline 产物：
-#    - Lean 骨架（带 sorry）已写入 Statlean/ 对应文件
+# 4. Pipeline 产物：
+#    - Lean 骨架已写入 Statlean/ 对应文件（按数学主题分类）
+#    - theme/out/manifest.json 记录每个定理的位置
 #    - theme/out/prove_targets.json 列出待证目标
 #    - gate 报告 sorry 计数
 ```
+
+**定理名自动识别**（`from-tex` 阶段）：
+
+Pipeline 自动将 "Theorem 1" → "central_limit_theorem" 等 canonical name。三级 fallback：
+
+1. **Anthropic SDK**（需要 `ANTHROPIC_API_KEY`）→ Claude Haiku 批量识别
+2. **Claude CLI**（需要 Max 订阅，非 Claude Code 内部）→ `claude -p`
+3. **Heuristic 匹配**（零 API，始终可用）→ ~70 条关键词规则，覆盖 CLT、δ-method、Lindeberg、Slutsky、Scheffé、Berry-Esseen、Rao-Blackwell、Cramér-Rao、Fisher 信息、Hoeffding、Jensen 等常见定理
+
+```bash
+# 如果不想用 AI，可以强制只用 heuristic
+python3 theme/scripts/from_tex.py paper.tex theme/input --no-ai
+```
+
+**每份 PDF 独立隔离**：
+
+不同 PDF 的定理不会互相干扰。每份 PDF 的源标签（如 `lecture_9_handout`）会：
+- 前缀到 theorem ID（避免 "Theorem 1" 冲突）：`lecture_9_handout.theorem.001.delta_method`
+- 未分类定理路由到独立文件：`Pipeline/Lecture9Handout.lean`
 
 **`theorems.yaml` 格式**：
 
@@ -261,7 +281,13 @@ lake build Statlean.Information.CramerRao
 ## Pipeline 各阶段说明
 
 ```
-theorems.yaml
+PDF
+ │
+ ▼ (from-pdf)
+LaTeX
+ │
+ ▼ (from-tex: 提取 + heuristic/AI 定理名识别)
+theorems.yaml (含 canonical name + topic)
      │
      ▼
   resolve ──→ ingest ──→ plan ──→ generate ──→ build-check
@@ -277,10 +303,12 @@ theorems.yaml
 
 | 阶段 | 做什么 | 消耗 |
 |------|--------|------|
+| `from-pdf` | PDF → LaTeX（pymupdf 本地提取） | 零 |
+| `from-tex` | LaTeX → theorems.yaml + notation.yaml + scope.yaml。**自动识别定理名**（heuristic 零 API，或 AI fallback） | 零~少量 |
 | `resolve` | 概念名 → YAML（可选，`CONCEPTS=` 时触发） | 零 API |
 | `ingest` | 解析 YAML | 零 |
 | `plan` | 生成 plan.md | 零 |
-| `generate` | YAML → Lean 骨架（带 sorry） | 零 |
+| `generate` | YAML → Lean 骨架。按 `topic` 字段路由到 `Statlean/<Topic>/` 对应文件。未分类 → `Pipeline/<SourceTag>.lean` | 零 |
 | `build-check` | `lake build` 验证骨架编译 | 零 |
 | `sync-backlog` | 同步 sorry_backlog.yaml | 零 |
 | `prove` | 生成 prove_targets.json（目标选择）；自动证明由 `prove-fallback` 调用 `claude/codex` | Max 额度 |
@@ -294,7 +322,9 @@ theorems.yaml
 |------|------|------|
 | `AGENT_BACKEND` | `claude` | AI 后端：`claude` 或 `codex` |
 | `CONCEPTS` | 空 | 概念名列表，逗号分隔 |
-| `PDF` | 空 | PDF 文件路径（用于 resolve 提取上下文） |
+| `PDF` | 空 | PDF 文件路径或关键词（用于 `from-pdf` 提取） |
+| `TEX` | `../output.tex` | LaTeX 文件路径（用于 `from-tex` 提取） |
+| `MANIFEST` | 空 | manifest.json 路径。设置后 `prove-fallback` 只攻击该批次定理，不走全量 backlog |
 | `PROVE_DEPTH` | `deep` | `deep` = 生成 prove 目标；`shallow` = 跳过 |
 | `PROVE_BUDGET` | `3600` | prove 时间预算（秒） |
 | `MAX_PARALLEL` | `3` | 最大并行 prove agent 数 |
@@ -308,17 +338,20 @@ theorems.yaml
 
 ```
 Statlean/
-  Gaussian/Basic.lean         # 标准高斯分布基础设施
-  Gaussian/Poincare.lean      # Poincaré 不等式（已证 + sorry 共存）
-  Variance/RaoBlackwell.lean  # Rao-Blackwell MSE 定理
+  Gaussian/Basic.lean             # 标准高斯分布基础设施
+  Gaussian/Poincare.lean          # Poincaré 不等式（已证 + sorry 共存）
+  Variance/RaoBlackwell.lean      # Rao-Blackwell MSE 定理
   Sufficiency/Factorization.lean  # Fisher-Neyman 因子分解
-  Estimator/Basic.lean        # 估计量基础（MSE 分解、风险支配）
+  Estimator/Basic.lean            # 估计量基础（MSE 分解、风险支配）
+  LimitTheorems/CLT.lean          # CLT 相关（pipeline 按 topic 自动路由）
+  Pipeline/Lecture9Handout.lean   # 未分类定理（每 PDF 一个文件，待人工整理）
   ...
 ```
 
 - 文件路径反映数学对象：`Gaussian/Poincare.lean`，不是 `Concentration/GaussianPoincare.lean`
 - 已证引理和 sorry gap **放同一文件**，用 `section` 隔离
 - 定理名语义化：`cramer_rao`，不是 `theorem_007`
+- **Pipeline 路由**：`generate` 阶段按 ontology + 关键词把定理路由到对应子目录。无法分类的 → `Pipeline/<SourceTag>.lean`（每份 PDF 独立文件），后续可手动搬迁到正确位置
 
 ### Verified.lean
 
@@ -405,3 +438,7 @@ gh pr create --title "Prove my_theorem"
 | Lean 版本？ | 4.28.0-rc1（elan 自动管理） |
 | Pipeline 是必须的吗？ | 不是 — 直接编辑 `.lean` 文件完全可以 |
 | `theorems.yaml` 需要写 Lean 签名吗？ | 建议写 `lean_statement`，否则生成占位符需手动替换 |
+| 定理名识别需要 API 吗？ | 不需要。Heuristic 匹配覆盖 ~70 个常见统计定理（CLT、δ-method 等），零 API 消耗。AI 只是可选增强 |
+| `Pipeline/Lecture9Handout.lean` 是什么？ | 未能按主题分类的定理会放在 `Pipeline/<PDF名>.lean`。每份 PDF 独立一个文件，不会互相冲突。可以后续手动搬到正确目录 |
+| auto-shelve 什么时候触发？ | `gate` 阶段自动触发。也可以手动跑 `make -C theme auto-shelve`。它会扫描零 sorry 模块并更新 Verified.lean / Statlean.lean |
+| 多份 PDF 的 "Theorem 1" 会冲突吗？ | 不会。每份 PDF 有 source_tag 前缀（如 `lecture_9_handout.theorem.001.delta_method`），ID 唯一 |
