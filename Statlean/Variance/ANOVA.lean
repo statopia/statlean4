@@ -210,3 +210,4 @@ theorem variance_marginals_le_variance_prod
 end ANOVA
 
 end
+

@@ -1,27 +1,31 @@
 version: v1
-theorem_set: lec4-theorem-b
+theorem_set: lec5-estimation
 defaults:
   lean_namespace: Statlean
   layer: formalization
   allow_axiom: false
 theorems:
-- id: lec4.theorem_b2
-  title: "Theorem (B.2): Density ratio statistic is minimal sufficient"
+- id: lec5.mse_bias_variance
+  title: "MSE = Bias² + Variance decomposition"
   kind: theorem
   latex_statement: |
-    Suppose $\mathcal{P} = \{P_\theta : \theta \in \Theta\}$ is dominated by $\nu$
-    with densities $f_\theta$. Fix $\theta_0 \in \Theta$ and suppose
-    $\{x : f_\theta(x) > 0\} \subset \{x : f_{\theta_0}(x) > 0\}$ $\nu$-a.e. for all $\theta$.
-    Define $T(x) = (f_\theta(x) / f_{\theta_0}(x))_\theta$. Then $T$ satisfies the
-    density ratio condition, hence is minimal sufficient.
+    For an estimator $T(X)$ estimating parameter $\theta$ under $P_\theta$,
+    $$\mathrm{MSE}_\theta(T) = E_\theta[(T(X) - \theta)^2]
+      = \mathrm{Bias}_\theta(T)^2 + \mathrm{Var}_\theta(T)$$
+    where $\mathrm{Bias}_\theta(T) = E_\theta[T(X)] - \theta$.
   latex_proof_hint: |
-    The density ratio condition is automatically satisfied:
-    if f_θ(x) = f_θ(y) · φ for all θ, then in particular
-    f_θ(x)/f_{θ₀}(x) = f_θ(y)/f_{θ₀}(y) for all θ (using θ₀ to normalize),
-    so T(x) = T(y).
-    Combined with Theorem (C), T is minimal sufficient.
-  lean_name: "densityRatio_satisfies_DRC"
-  lean_namespace: Statlean.Sufficiency.MinimalSufficiency
+    Expand $(T - \theta)^2 = (T - E[T] + E[T] - \theta)^2$
+    and use orthogonality of centered and constant terms.
+  lean_name: "mse_eq_bias_sq_add_variance"
+  lean_namespace: Statlean.Estimator
+  lean_statement: |
+    theorem mse_eq_bias_sq_add_variance
+        {Ω : Type*} [MeasurableSpace Ω]
+        (μ : Measure Ω) [IsProbabilityMeasure μ]
+        (T : Ω → ℝ) (θ : ℝ)
+        (hT : Memℒp T 2 μ) :
+        ∫ ω, (T ω - θ) ^ 2 ∂μ =
+          (∫ ω, T ω ∂μ - θ) ^ 2 + ∫ ω, (T ω - ∫ ω', T ω' ∂μ) ^ 2 ∂μ
   layer: formalization
   priority: 1
   dependencies: []
@@ -30,8 +34,108 @@ theorems:
   - lake build passes
   - theorem contains no sorry
   notes: |
-    Lecture 4, page 12 (Theorem B, part 2).
-    Key insight: density ratios T_θ(x) = f_θ(x)/f_{θ₀}(x) automatically satisfy
-    the density ratio condition from Theorem (C). The proof is a direct
-    application of minimalSufficient_of_densityRatio.
-    Uses DominatedFamily and DensityRatioCondition from MinimalSufficiency.lean.
+    Lecture 5, page 24: MSE = Bias² + Variance.
+    This is `integral_sub_const_sq_eq` from RaoBlackwell.lean restated
+    in estimation language. May be a direct consequence or slight variant.
+
+- id: lec5.risk_dominance
+  title: "Risk dominance ordering for decision rules"
+  kind: definition
+  latex_statement: |
+    Decision rule $T_1$ dominates $T_2$ under loss $L$ if
+    $R_{T_1}(P) \leq R_{T_2}(P)$ for all $P \in \mathcal{P}$
+    and strict inequality holds for some $P$.
+  latex_proof_hint: ""
+  lean_name: "Dominates"
+  lean_namespace: Statlean.Estimator
+  lean_statement: |
+    /-- Decision rule T₁ **dominates** T₂ under risk function R:
+    R(T₁, θ) ≤ R(T₂, θ) for all θ, with strict inequality for some θ. -/
+    def Dominates {Θ : Type*}
+        (R₁ R₂ : Θ → ℝ) : Prop :=
+      (∀ θ, R₁ θ ≤ R₂ θ) ∧ (∃ θ, R₁ θ < R₂ θ)
+  layer: formalization
+  priority: 2
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - definition contains no sorry
+  notes: |
+    Lecture 5, page 22: T₁ is better than T₂ if R_{T₁}(P) ≤ R_{T₂}(P)
+    for all P and strict for some P. Pure definition, no proof needed.
+
+- id: lec5.unbiased_mse_eq_variance
+  title: "Unbiased estimator MSE equals variance"
+  kind: theorem
+  latex_statement: |
+    If $T$ is unbiased for $\theta$ under $P_\theta$, i.e., $E_\theta[T] = \theta$,
+    then $\mathrm{MSE}_\theta(T) = \mathrm{Var}_\theta(T)$.
+  latex_proof_hint: |
+    When bias = 0, MSE = 0² + Var = Var. Direct from the bias-variance decomposition.
+  lean_name: "mse_eq_variance_of_unbiased"
+  lean_namespace: Statlean.Estimator
+  lean_statement: |
+    theorem mse_eq_variance_of_unbiased
+        {Ω : Type*} [MeasurableSpace Ω]
+        (μ : Measure Ω) [IsProbabilityMeasure μ]
+        (T : Ω → ℝ) (θ : ℝ)
+        (hT : Memℒp T 2 μ)
+        (h_unbiased : ∫ ω, T ω ∂μ = θ) :
+        ∫ ω, (T ω - θ) ^ 2 ∂μ =
+          ∫ ω, (T ω - ∫ ω', T ω' ∂μ) ^ 2 ∂μ
+  layer: formalization
+  priority: 1
+  dependencies: [lec5.mse_bias_variance]
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  notes: |
+    Lecture 5, page 24: when T is unbiased, MSE = Variance.
+    Corollary of the bias-variance decomposition with bias = 0.
+
+- id: lec5.mle_expfamily_sufficient_stat
+  title: "MLE in natural exponential family equals sufficient statistic"
+  kind: theorem
+  latex_statement: |
+    In a natural exponential family with likelihood
+    $\ell(\eta) = \exp\{\eta^\top T(x) - \zeta(\eta)\} h(x)$,
+    if $\operatorname{Var}(T)$ is positive definite, then $T(X)$
+    is the unique MLE of $\mu(\eta) = \partial\zeta/\partial\eta$.
+    Equivalently, the likelihood equation $T(x) = \partial\zeta(\eta)/\partial\eta$
+    has a unique solution.
+  latex_proof_hint: |
+    The log-likelihood is $\eta^\top T(x) - \zeta(\eta) + \log h(x)$.
+    Its Hessian is $-\partial^2\zeta/\partial\eta^2 = -\operatorname{Var}(T)$,
+    which is negative definite. So log ℓ is strictly concave,
+    and the unique critical point T(x) = ∂ζ/∂η is the global maximum.
+  lean_name: "expFamily_mle_eq_sufficient_stat"
+  lean_namespace: Statlean.ExpFamily
+  lean_statement: |
+    /-- In a natural exponential family with strictly concave log-likelihood,
+    the sufficient statistic T(x) is the unique MLE of the mean parameter μ(η).
+
+    We state this abstractly: if log_ℓ is strictly concave on Ξ with a unique
+    critical point at η₀ where the gradient equals T(x), then η₀ is the
+    unique maximizer and T(x) = μ(η₀). -/
+    theorem expFamily_mle_eq_sufficient_stat
+        {d : ℕ}
+        (log_ℓ : Fin d → ℝ → ℝ)
+        (T_obs : Fin d → ℝ)
+        (dζ : Fin d → ℝ → ℝ)
+        (h_grad : ∀ η : Fin d → ℝ, (∀ i, deriv (log_ℓ i) (η i) = T_obs i - dζ i (η i)))
+        (h_concave : ∀ i, StrictConcaveOn ℝ Set.univ (log_ℓ i)) :
+        ∃! η₀ : Fin d → ℝ, ∀ i, dζ i (η₀ i) = T_obs i
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  notes: |
+    Lecture 5, pages 18-19: MLE in exponential families.
+    The key insight is strict concavity of log-likelihood ⟹ unique critical point.
+    This is a simplified 1D-per-coordinate version; the full multivariate version
+    would need StrictConcaveOn for functions on ℝ^d.

@@ -26,6 +26,10 @@ import Statlean.Sufficiency.Factorization
 import Statlean.Sufficiency.Basu
 import Statlean.Sufficiency.MinimalSufficiency
 
+-- Estimation (fully verified — MSE decomposition, risk dominance, MLE)
+import Statlean.Estimator.Basic
+import Statlean.ExpFamily.Basic
+
 /-! # Statlean Verified Library
 
 **Every declaration reachable from this import is fully proved (zero sorry).**
@@ -49,4 +53,6 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Sufficiency/Factorization**: Fisher-Neyman factorization (both directions)
 - **Sufficiency/Basu**: Basu's theorem
 - **Sufficiency/MinimalSufficiency**: Density ratio criterion (Thm C) + Subfamily extension (Thm A)
+- **Estimator/Basic**: MSE = Bias² + Var, unbiased MSE = Var, risk dominance
+- **ExpFamily/Basic**: MLE existence in natural exponential families
 -/
