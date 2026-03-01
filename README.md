@@ -83,3 +83,17 @@ sorry 数只减不增，详见 [INSTRUCTION.md](INSTRUCTION.md)。
 | Stieltjes inversion | Berry-Esseen 通用常数 | 1 |
 
 完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
+
+---
+
+## 文档索引
+
+| 文档 | 说明 |
+|------|------|
+| **[INSTRUCTION.md](INSTRUCTION.md)** | **贡献指南** — 环境搭建、4 种贡献方式、`theorems.yaml` 格式、验收标准、FAQ |
+| [theme/PIPELINE.md](theme/PIPELINE.md) | Pipeline 详解 — 各阶段（extract → ingest → generate → prove → gate）的输入输出和用法 |
+| [theme/prove_playbook.md](theme/prove_playbook.md) | 证明操作手册 — 策略选择表、Mathlib API 三级搜索法、condExp 专项模式、编译错误修复表 |
+| [theme/input/sorry_backlog.yaml](theme/input/sorry_backlog.yaml) | Sorry 缺口清单 — 所有待证目标的优先级、blocker、依赖关系 |
+| [CLAUDE.md](CLAUDE.md) | Claude Code 项目配置 — 文件组织原则、证明策略、Mathlib 搜索规则、效率规则 |
+| [theme/mathlib_api_index.md](theme/mathlib_api_index.md) | Mathlib API 索引 — 650+ 条常用 API，按 namespace 分类（证明前必读） |
+| [theme/INFRA_CLASSIFICATION.md](theme/INFRA_CLASSIFICATION.md) | 基础设施分类方案 — definition vs theorem 的判定与文件归属规则 |
