@@ -58,6 +58,12 @@ import Statlean.Sufficiency.LehmannScheffe
 import Statlean.LimitTheorems.Convergence
 import Statlean.LimitTheorems.Slutsky
 
+-- Delta Method (verified — CMT, tightness, delta method, √n corollary)
+import Statlean.LimitTheorems.DeltaMethod
+
+-- Scheffé's theorem (verified — L¹ density convergence)
+import Statlean.LimitTheorems.Scheffe
+
 /-! # Statlean Verified Library
 
 **Every declaration reachable from this import is fully proved (zero sorry).**
@@ -86,4 +92,8 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **ExpFamily/Basic**: MLE existence in natural exponential families
 - **LimitTheorems/Convergence**: AlmostSure, InProbability, InLp convergence modes
 - **LimitTheorems/Slutsky**: Slutsky's theorem (add, mul, div) + inv convergence in measure
+- **LimitTheorems/DeltaMethod**: Continuous mapping theorem, delta method (Shao Thm 1.12),
+  √n corollary (Shao Cor 1.1), tightness lemma (rescaled convergence ⟹ convergence in probability)
+- **LimitTheorems/Scheffe**: Scheffé's theorem (Shao Thm 1.5): density convergence a.e. + equal
+  integrals ⟹ L¹ convergence, via DCT on positive part
 -/

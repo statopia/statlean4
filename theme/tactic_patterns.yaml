@@ -1026,3 +1026,93 @@ anti_patterns:
     fix: "Use `simp only [stdGaussianPi]` or `unfold stdGaussianPi`."
     sources:
       - "MEMORY.md pattern #68"
+
+  - id: sqrt_n_cast_trap
+    description: >
+      `fun n => Real.sqrt n * (X n ω - c)` forces `n : ℝ`, breaking `X : ℕ → Ω → ℝ`.
+    fix: "Write `fun (n : ℕ) => Real.sqrt ↑n * ...` with explicit ℕ annotation and ↑ cast."
+    sources:
+      - "DeltaMethod.lean delta_method_sqrt_n"
+
+# ────────────────────────────────────────────────────────────────────────────
+# SECTION 15 — Convergence in distribution / delta method patterns
+# ────────────────────────────────────────────────────────────────────────────
+
+  - id: delta_method_decomposition
+    category: convergence
+    goal: "aₙ(g(Xₙ)-g(c)) →ᵈ d·Y  (delta method)"
+    tactics: |
+      -- Decompose: aₙ(g(Xₙ)-g(c)) = d·Wₙ + Rₙ
+      -- where Wₙ = aₙ(Xₙ-c), Rₙ = aₙ·r(Xₙ), r(x) = g(x)-g(c)-d(x-c)
+      -- Step 1: d·Wₙ →ᵈ d·Y via continuous_comp (mul by constant is continuous)
+      have h_dW : TendstoInDistribution (fun n ω => d * W n ω) l (fun ω => d * Y ω) μ :=
+        hconv.continuous_comp (continuous_const.mul continuous_id)
+      -- Step 2: Rₙ →ᵖ 0 via HasDerivAt.isLittleO + Xₙ →ᵖ c
+      -- Step 3: Apply tendstoInDistribution_of_tendstoInMeasure_sub
+      exact tendstoInDistribution_of_tendstoInMeasure_sub _ _ h_dW hR_to_zero hY_meas
+    notes: >
+      Key insight: use `tendstoInDistribution_of_tendstoInMeasure_sub` instead of
+      `slutsky_add` — avoids needing measurability of the sum.
+      The decomposition aₙ(g(X)-g(c)) = d·W + R is algebraic (ring identity).
+      The remainder R →ᵖ 0 follows from HasDerivAt giving little-o + tightness.
+    frequency: 1
+    sources:
+      - "DeltaMethod.lean:81-99"
+
+  - id: sqrt_n_corollary_from_general
+    category: convergence
+    goal: "√n(g(Xₙ)-g(c)) →ᵈ d·Y  from general delta method"
+    tactics: |
+      exact delta_method
+        (by filter_upwards [Filter.eventually_atTop.mpr ⟨1, fun n hn => hn⟩] with n hn
+            exact Real.sqrt_pos_of_pos (by positivity))
+        (Real.tendsto_sqrt_atTop.comp tendsto_natCast_atTop_atTop)
+        hconv hg hg_meas hX_meas
+    notes: >
+      Standard pattern for instantiating aₙ = √n:
+      - Positivity: filter_upwards + sqrt_pos_of_pos + positivity
+      - Tendency: sqrt_atTop.comp natCast_atTop
+      - Explicit (n : ℕ) annotation + ↑n cast required in the statement
+      - Note: delta_method requires (hg_meas : Measurable g) in addition to HasDerivAt
+    frequency: 1
+    sources:
+      - "DeltaMethod.lean:273-286"
+
+  - id: portmanteau_tightness_from_convergence_in_dist
+    category: convergence
+    goal: "Wₙ →ᵈ Y  implies  P(|Wₙ| ≥ M) → 0 uniformly for large M"
+    tactics: |
+      -- 1. Extract ProbabilityMeasure-level convergence
+      let pm_Y : ProbabilityMeasure ℝ := ⟨μ.map Y, ...⟩
+      let pm_W : ι → ProbabilityMeasure ℝ := fun n => ⟨μ.map (Wₙ), ...⟩
+      have hpm_conv : Tendsto pm_W l (nhds pm_Y) := hconv.tendsto
+      -- 2. Tail decay: (μ.map Y){|y| ≥ M} → 0 via tendsto_measure_iInter_atTop
+      -- 3. Portmanteau: limsup pm_W{|y|≥M} ≤ pm_Y{|y|≥M}
+      -- 4. eventually_lt_of_limsup_lt for pointwise bound
+    notes: >
+      Reusable 4-step pattern: ProbMeasure extraction → tail decay → Portmanteau → pointwise.
+      Antitone sets {|y|≥M} with empty intersection (via ⌈|y|⌉₊+1).
+      NNReal ↔ ENNReal bridging handled by ProbabilityMeasure.coe_mk.
+    frequency: 2
+    sources:
+      - "DeltaMethod.lean:74-128 (tightness lemma)"
+      - "DeltaMethod.lean:164-201 (remainder bound)"
+
+  - id: remainder_bound_via_isLittleO
+    category: convergence
+    goal: "aₙ·r(Xₙ) →ᵖ 0  where r(x) = o(x-c) from HasDerivAt"
+    tactics: |
+      -- Extract isLittleO from HasDerivAt
+      have hlo := hasDerivAt_iff_isLittleO.mp hg
+      -- Get η-ball bound: |r(x)| ≤ δ_r·|x-c| for |x-c| < η
+      filter_upwards [hlo.def hδ_r_pos] with x hx
+      -- Key inclusion: {|Rₙ|≥ε} ⊆ {|Xₙ-c|≥η} ∪ {|Wₙ|≥M}
+      -- Proof by contradiction on complement: |Rₙ| = aₙ|r(Xₙ)| ≤ (ε/M)·|Wₙ| < ε
+      -- Then measure_union_le + ENNReal.add_lt_add
+    notes: >
+      Set δ_r = ε/M where M comes from Portmanteau. The algebra uses
+      hrw : aₙ·r(Xₙ) = aₙ·(g(Xₙ)-g(c)-(Xₙ-c)·d) by ring, then
+      abs_mul + abs_of_pos + mul chain.
+    frequency: 1
+    sources:
+      - "DeltaMethod.lean:203-256"

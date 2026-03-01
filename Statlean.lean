@@ -55,5 +55,7 @@ import Statlean.Information.Basic
 import Statlean.Information.CramerRao
 import Statlean.Sufficiency.MinimalSufficiency
 import Statlean.LimitTheorems.Slutsky
+import Statlean.LimitTheorems.Scheffe
 import Statlean.LimitTheorems.CLT
+import Statlean.LimitTheorems.DeltaMethod
 import Statlean.Pipeline.Lecture9Handout
