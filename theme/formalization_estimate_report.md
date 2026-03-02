@@ -129,24 +129,72 @@
 
 ---
 
-## 二、当前项目覆盖率
+## 二、当前项目覆盖率（2026-03-02 更新）
 
-| 书中定理 | 项目状态 | 文件 |
-|----------|---------|------|
-| 1.10 Continuous Mapping | 未开始 | — |
-| 1.11 Slutsky | skeleton + sorry | `LimitTheorems/Slutsky.lean` |
-| 1.13-1.14 SLLN | **USLLN proved** | `LimitTheorems/USLLN.lean` |
-| 1.15 Lindeberg CLT | skeleton + sorry | `LimitTheorems/CLT.lean` |
-| 2.1 Exponential families | partial | `ExpFamily/Basic.lean` |
-| 2.2 Factorization | **zero sorry** | `Sufficiency/Factorization.lean` |
-| 2.4 Basu | **zero sorry** | `Sufficiency/Basu.lean` |
-| 2.5 Rao-Blackwell | **zero sorry** | `Variance/RaoBlackwell.lean` |
-| 3.1 Lehmann-Scheffé | **zero sorry** | `Sufficiency/LehmannScheffe.lean` |
-| 3.3 Cramér-Rao | skeleton | `Information/CramerRao.lean` |
-| Berry-Esseen (书外补充) | 2 sorry | `LimitTheorems/BerryEsseen.lean` |
-| Concentration (书外) | ~8 sorry | 多文件 |
+**总规模**：39 files · ~11,200 lines · ~396 declarations · 30 零 sorry 模块 · **7 sorry 待证**
 
-**已完成/接触：~12/92 定理（~13%），零 sorry 完成 ~6 个**
+### Chapter 1 — Probability Theory（7/17 完成，~41%）
+
+| 定理 | 状态 | 文件 |
+|------|------|------|
+| 1.1-1.4 Fatou/DCT/Fubini/RN | Mathlib 已有 | — |
+| 1.10 Continuous Mapping | **✅ zero sorry** | `LimitTheorems/DeltaMethod.lean` |
+| 1.11 Slutsky (add/mul/div) | **✅ zero sorry** | `LimitTheorems/Slutsky.lean` |
+| 1.12 Delta Method + √n 推论 | **✅ zero sorry** | `LimitTheorems/DeltaMethod.lean` |
+| 1.13-1.14 SLLN | **✅ zero sorry** (USLLN) | `LimitTheorems/USLLN.lean` |
+| 1.5 Scheffé | **✅ zero sorry** | `LimitTheorems/Scheffe.lean` |
+| 1.9 Lévy-Cramér 连续性 | ❌ **阻塞** — Mathlib 缺 | — |
+| 1.15 Lindeberg CLT | ❌ **阻塞** — 需 Lévy | `LimitTheorems/CLT.lean` |
+| 1.16-1.17 Edgeworth/Cornish-Fisher | ❌ 未开始 | — |
+| Berry-Esseen (书外) | **1 sorry** (Stieltjes) | `LimitTheorems/BerryEsseen.lean` |
+| CharFun Taylor 链 | **✅ zero sorry** | `CharFun/Taylor.lean` |
+| 收敛模式定义 (a.s./P/Lp) | **✅ zero sorry** | `LimitTheorems/Convergence.lean` |
+
+### Chapter 2 — Sufficiency & Completeness（5/6 完成，~83%）
+
+| 定理 | 状态 | 文件 |
+|------|------|------|
+| 2.1 指数族性质 + MLE | **✅ zero sorry** | `ExpFamily/Basic.lean` |
+| 2.2 因子分解（双向） | **✅ zero sorry** | `Sufficiency/Factorization.lean` |
+| 2.3 最小充分性（3 判据） | **✅ zero sorry** | `Sufficiency/MinimalSufficiency.lean` |
+| 2.4 Basu 定理 | **✅ zero sorry** | `Sufficiency/Basu.lean` |
+| 2.5 Rao-Blackwell (12 变体) | **✅ zero sorry** | `Variance/RaoBlackwell.lean` |
+| 2.6 渐近 MSE | ❌ 未开始 | — |
+
+### Chapter 3 — UMVUE, Cramér-Rao, Linear Models（3/17 完成，~18%）
+
+| 定理 | 状态 | 文件 |
+|------|------|------|
+| 3.1 Lehmann-Scheffé UMVUE | **✅ zero sorry** | `Sufficiency/LehmannScheffe.lean` |
+| 3.2 UMVUE 条件 | ✅ 隐含于 L-S | — |
+| 3.3 Cramér-Rao 下界 | **✅ zero sorry** | `Information/CramerRao.lean` |
+| 3.4 Hoeffding U-stat 方差界 | ❌ 未开始 | — |
+| 3.5 U-stat 渐近分布 | ❌ 未开始 | — |
+| 3.6-3.8 线性模型可估 + UMVUE | ❌ 未开始 | — |
+| 3.9 Gauss-Markov | ❌ 未开始 | — |
+| 3.10-3.17 (高级) | ❌ 未开始 | — |
+
+### 书外补充（集中不等式等）
+
+| 模块 | 状态 | sorry |
+|------|------|-------|
+| Gaussian Poincaré (1D proved) | 部分 | 2 sorry (Fubini) |
+| Log-Sobolev | 部分 | 3 sorry (hypercontractivity) |
+| Efron-Stein | 部分 | 2 sorry (Fubini) |
+| Sub-Gaussian / Herbst | 部分 | 1 sorry (blocked by LSI) |
+| ANOVA 方差分解 | **✅ zero sorry** | 0 |
+| Hermite 正交 + IBP | **✅ zero sorry** | 0 |
+
+### 汇总
+
+| 指标 | 数值 |
+|------|------|
+| 书中 92 个定理覆盖 | **~20 个零 sorry**（~22%） |
+| Phase 0（工具链） | **~90% 完成** |
+| Phase 1（Ch1 概率基础） | **~65% 完成**（Lévy 阻塞 CLT） |
+| Phase 2（Ch2 充分性） | **~83% 完成**（仅缺 2.6） |
+| Phase 3（Ch3 UMVUE/CR/LM） | **~18% 完成**（缺 U-stat、线性模型） |
+| Phase 4-7 | **0% 完成** |
 
 ---
 
@@ -261,48 +309,62 @@ Mathlib API 发现         ≈ 15%
 
 核心原则：**先建复用度最高的基础设施，使后续定理的边际成本最低**。
 
-### Phase 0：工具链（1-2 周）
+### Phase 0：工具链（1-2 周）— ✅ 已完成 ~90%
 
-在开始任何新定理前，先落地投入产出比最高的工具改进：
+| 工具 | 状态 |
+|------|------|
+| `theme/mathlib_api_index.md`（650+ API 索引） | ✅ 已完成 |
+| `scripts/gen_mathlib_index.lean`（自动生成） | ✅ 已完成 |
+| 增量编译（`lake build Statlean.Module`） | ✅ 已成标准流程 |
+| `MEMORY.md`（91 条 tactic pattern） | ✅ 持续积累 |
+| 完整 Mathlib 类型索引 tsv | ❌ 未做 |
+| `scripts/check_snippet.sh` 单 decl 编译 | ❌ 未做 |
 
-1. **`scripts/extract_signatures.py`** — 自动提取 .lean 文件的声明签名索引
-2. **完整 Mathlib 类型索引** — `mathlib_full_type_index.tsv`（离线查询用）
-3. **`scripts/check_snippet.sh`** — 单 declaration 增量编译
-4. **`tactic_patterns.yaml`** — 从已有零 sorry 证明中提取初始 pattern 库
+### Phase 1：Ch1 概率基础补全 — ✅ ~65% 完成
 
-### Phase 1：Ch1 概率基础补全（3-5 周）— 最高复用度
+| 优先级 | 定理 | 状态 |
+|--------|------|------|
+| P1 | 1.10 Continuous Mapping Theorem | **✅ zero sorry** |
+| P2 | 1.11 Slutsky's Theorem | **✅ zero sorry** |
+| P3 | 1.12 Delta Method + √n 推论 | **✅ zero sorry** |
+| — | 1.5 Scheffé | **✅ zero sorry** |
+| — | 1.13-1.14 SLLN (USLLN) | **✅ zero sorry** |
+| — | Berry-Esseen（书外） | **1 sorry**（Stieltjes 反演） |
+| — | CharFun Taylor 链（书外） | **✅ zero sorry** |
+| P4 | 1.9 Lévy-Cramér 连续性定理 | ❌ **阻塞** — Mathlib 缺（~500-700 行） |
+| P5 | 1.15 Lindeberg CLT | ❌ **阻塞** — 需 Lévy |
+| — | 1.16-1.17 Edgeworth/Cornish-Fisher | ❌ 未开始 |
 
-这些是后续所有章节的地基：
+### Phase 2：指数族 + 充分性补全 — ✅ ~83% 完成
 
-| 优先级 | 定理 | 复用度 | 难度 | 预计 token |
-|--------|------|--------|------|-----------|
-| **P1** | 1.10 Continuous Mapping Theorem | 极高（Ch2-7 全用） | 中 | 30-50M |
-| **P2** | 1.11 Slutsky's Theorem | 极高（渐近推断的核心） | 中 | 20-40M |
-| **P3** | 1.12 Delta Method | 极高（Ch3-7 反复出现） | 易 | 15-30M |
-| **P4** | 1.9 Lévy-Cramér 连续性定理 | 高（CLT + charfun 链） | 中 | 40-60M |
-| **P5** | 1.15 Lindeberg CLT | 高（所有渐近正态性的根） | 难 | 80-150M |
+| 优先级 | 内容 | 状态 |
+|--------|------|------|
+| P6 | 2.1 指数族性质 + MLE 存在唯一 | **✅ zero sorry** |
+| P7 | 2.3 Minimal Sufficiency（3 判据） | **✅ zero sorry** |
+| — | 2.2 Fisher-Neyman 因子分解（双向） | **✅ zero sorry** |
+| — | 2.4 Basu 定理 | **✅ zero sorry** |
+| — | 2.5 Rao-Blackwell MSE（12 变体） | **✅ zero sorry** |
+| P8 | 指数族完备性（Completeness） | ❌ **未开始** — Phase 6 (UMP/UMPU) 的前提 |
+| — | 2.6 渐近 MSE (Bayes) | ❌ 未开始 |
 
-**理由**：邵军书中 Ch3-7 几乎每个渐近结果都引用 Slutsky + Delta Method + CLT。不建好这三个，后面每个定理都被卡。
+**剩余工作**：指数族完备性是 Ch6 (UMPU) 的关键前提，建议优先形式化。
 
-### Phase 2：指数族 + 充分性补全（2-3 周）— Ch3-4 的前提
+### Phase 3：Fisher Information + Cramér-Rao + 线性模型 — ✅ 核心完成，线性模型未开始
 
-| 优先级 | 内容 | 复用度 | 难度 | 预计 token |
-|--------|------|--------|------|-----------|
-| **P6** | 2.1 指数族性质（完整版） | 极高（贯穿 Ch2-6） | 中 | 30-50M |
-| **P7** | 2.3 Minimal Sufficiency | 高 | 中 | 20-40M |
-| **P8** | Completeness of exponential families | 高 | 中 | 25-40M |
+| 优先级 | 内容 | 状态 |
+|--------|------|------|
+| P9 | Fisher information 定义 + score function | **✅ zero sorry** |
+| P10 | 3.3 Cramér-Rao Lower Bound | **✅ zero sorry** |
+| P11 | 3.1 Lehmann-Scheffé + 3.2 UMVUE 条件 | **✅ zero sorry** |
+| — | MLE 定义 + 不变性 (isMLE_comp) | **✅ zero sorry** |
+| — | MSE = Bias² + Variance | **✅ zero sorry** |
+| P12 | 3.4 Hoeffding U-stat 方差界 | ❌ 未开始 |
+| P13 | 3.5 U-stat 渐近分布 | ❌ 未开始（需 CLT） |
+| P14 | 3.6-3.8 线性模型可估 + UMVUE | ❌ 未开始 |
+| P15 | 3.9 Gauss-Markov | ❌ **优先** — 纯代数，不依赖渐近 |
+| — | 3.10-3.17 (高级) | ❌ 未开始 |
 
-**理由**：指数族是这本书的核心载体——UMVUE、UMP、UMPU 的存在性证明几乎都限定在指数族内。
-
-### Phase 3：Fisher Information + Cramér-Rao（2-3 周）— Ch3-4 核心
-
-| 优先级 | 内容 | 复用度 | 难度 | 预计 token |
-|--------|------|--------|------|-----------|
-| **P9** | Fisher information 定义 + 正则条件 | 极高 | 中 | 30-50M |
-| **P10** | 3.3 Cramér-Rao Lower Bound | 极高 | 中 | 40-70M |
-| **P11** | 3.2 UMVUE 条件 | 高 | 中 | 25-40M |
-
-**理由**：Cramér-Rao 是效率理论（Ch4 的 4.16-4.19）和渐近信息不等式的基石。没有它，Ch4 后半部分全部被阻塞。
+**剩余工作**：Gauss-Markov 是纯线性代数/投影定理，不依赖渐近理论，适合现在做。
 
 ### Phase 4：U-statistics + Linear Models 基础（3-4 周）
 
