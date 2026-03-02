@@ -131,7 +131,7 @@
 
 ## 二、当前项目覆盖率（2026-03-02 更新）
 
-**总规模**：39 files · ~11,200 lines · ~396 declarations · 30 零 sorry 模块 · **7 sorry 待证**
+**总规模**：40 files · ~11,300 lines · ~400 declarations · 31 零 sorry 模块 · **7 sorry 待证**
 
 ### Chapter 1 — Probability Theory（7/17 完成，~41%）
 
@@ -154,14 +154,14 @@
 
 | 定理 | 状态 | 文件 |
 |------|------|------|
-| 2.1 指数族性质 + MLE | **✅ zero sorry** | `ExpFamily/Basic.lean` |
+| 2.1 指数族性质 + MLE + NatExpFamily | **✅ zero sorry** | `ExpFamily/Basic.lean` |
 | 2.2 因子分解（双向） | **✅ zero sorry** | `Sufficiency/Factorization.lean` |
 | 2.3 最小充分性（3 判据） | **✅ zero sorry** | `Sufficiency/MinimalSufficiency.lean` |
 | 2.4 Basu 定理 | **✅ zero sorry** | `Sufficiency/Basu.lean` |
 | 2.5 Rao-Blackwell (12 变体) | **✅ zero sorry** | `Variance/RaoBlackwell.lean` |
 | 2.6 渐近 MSE | ❌ 未开始 | — |
 
-### Chapter 3 — UMVUE, Cramér-Rao, Linear Models（3/17 完成，~18%）
+### Chapter 3 — UMVUE, Cramér-Rao, Linear Models（4/17 完成，~24%）
 
 | 定理 | 状态 | 文件 |
 |------|------|------|
@@ -171,7 +171,7 @@
 | 3.4 Hoeffding U-stat 方差界 | ❌ 未开始 | — |
 | 3.5 U-stat 渐近分布 | ❌ 未开始 | — |
 | 3.6-3.8 线性模型可估 + UMVUE | ❌ 未开始 | — |
-| 3.9 Gauss-Markov | ❌ 未开始 | — |
+| 3.9 Gauss-Markov | **✅ zero sorry** | `Regression/GaussMarkov.lean` |
 | 3.10-3.17 (高级) | ❌ 未开始 | — |
 
 ### 书外补充（集中不等式等）
@@ -189,11 +189,11 @@
 
 | 指标 | 数值 |
 |------|------|
-| 书中 92 个定理覆盖 | **~20 个零 sorry**（~22%） |
+| 书中 92 个定理覆盖 | **~21 个零 sorry**（~23%） |
 | Phase 0（工具链） | **~90% 完成** |
 | Phase 1（Ch1 概率基础） | **~65% 完成**（Lévy 阻塞 CLT） |
-| Phase 2（Ch2 充分性） | **~83% 完成**（仅缺 2.6） |
-| Phase 3（Ch3 UMVUE/CR/LM） | **~18% 完成**（缺 U-stat、线性模型） |
+| Phase 2（Ch2 充分性） | **~83% 完成**（仅缺 2.6 + 指数族完备性） |
+| Phase 3（Ch3 UMVUE/CR/LM） | **~24% 完成**（+Gauss-Markov，缺 U-stat） |
 | Phase 4-7 | **0% 完成** |
 
 ---
@@ -316,7 +316,7 @@ Mathlib API 发现         ≈ 15%
 | `theme/mathlib_api_index.md`（650+ API 索引） | ✅ 已完成 |
 | `scripts/gen_mathlib_index.lean`（自动生成） | ✅ 已完成 |
 | 增量编译（`lake build Statlean.Module`） | ✅ 已成标准流程 |
-| `MEMORY.md`（91 条 tactic pattern） | ✅ 持续积累 |
+| `MEMORY.md`（97 条 tactic pattern） | ✅ 持续积累 |
 | 完整 Mathlib 类型索引 tsv | ❌ 未做 |
 | `scripts/check_snippet.sh` 单 decl 编译 | ❌ 未做 |
 
@@ -349,7 +349,7 @@ Mathlib API 发现         ≈ 15%
 
 **剩余工作**：指数族完备性是 Ch6 (UMPU) 的关键前提，建议优先形式化。
 
-### Phase 3：Fisher Information + Cramér-Rao + 线性模型 — ✅ 核心完成，线性模型未开始
+### Phase 3：Fisher Information + Cramér-Rao + 线性模型 — ✅ 核心完成 + Gauss-Markov
 
 | 优先级 | 内容 | 状态 |
 |--------|------|------|
@@ -361,10 +361,11 @@ Mathlib API 发现         ≈ 15%
 | P12 | 3.4 Hoeffding U-stat 方差界 | ❌ 未开始 |
 | P13 | 3.5 U-stat 渐近分布 | ❌ 未开始（需 CLT） |
 | P14 | 3.6-3.8 线性模型可估 + UMVUE | ❌ 未开始 |
-| P15 | 3.9 Gauss-Markov | ❌ **优先** — 纯代数，不依赖渐近 |
+| P15 | 3.9 Gauss-Markov | **✅ zero sorry** — 正交投影 API |
+| — | NatExpFamily 结构 + 密度比因子分解 | **✅ zero sorry** |
 | — | 3.10-3.17 (高级) | ❌ 未开始 |
 
-**剩余工作**：Gauss-Markov 是纯线性代数/投影定理，不依赖渐近理论，适合现在做。
+**剩余工作**：U-stat (3.4-3.5) 和线性模型高级理论 (3.6-3.8, 3.10-3.17)。
 
 ### Phase 4：U-statistics + Linear Models 基础（3-4 周）
 
@@ -373,7 +374,7 @@ Mathlib API 发现         ≈ 15%
 | **P12** | 3.4 Hoeffding decomposition | 高 | 中 | 30-50M |
 | **P13** | 3.5 U-statistic 渐近分布 | 高 | 难 | 60-100M |
 | **P14** | 3.6-3.8 线性模型可估性 + UMVUE | 中 | 中 | 40-60M |
-| **P15** | 3.9 Gauss-Markov | 中 | 易 | 20-30M |
+| **P15** | 3.9 Gauss-Markov | 中 | 易 | **✅ 已完成** |
 
 ### Phase 5：决策论 + Bayes 基础（3-4 周）
 
