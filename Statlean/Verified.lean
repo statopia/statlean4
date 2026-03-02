@@ -68,6 +68,9 @@ import Statlean.LimitTheorems.DeltaMethod
 -- Scheffé's theorem (verified — L¹ density convergence)
 import Statlean.LimitTheorems.Scheffe
 
+-- Central Limit Theorem (verified — iid CLT via charfun + Lévy continuity)
+import Statlean.LimitTheorems.CLT
+
 /-! # Statlean Verified Library
 
 **Every declaration reachable from this import is fully proved (zero sorry).**
@@ -105,4 +108,6 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **LimitTheorems/Levy**: Lévy continuity theorem (Shao Thm 1.9): forward (weak convergence
   ⟹ charfun convergence) + reverse (charfun convergence + continuity at 0 ⟹ weak convergence)
   via tightness + Prokhorov + charFun uniqueness
+- **LimitTheorems/CLT**: Central Limit Theorem (Shao Thm 1.4): iid mean-zero L³ random variables
+  with σ² > 0 ⟹ standardized sum converges weakly to N(0,1), via charfun Taylor bound + Lévy
 -/
