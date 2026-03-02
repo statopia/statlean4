@@ -71,6 +71,9 @@ import Statlean.LimitTheorems.Scheffe
 -- Central Limit Theorem (verified — iid CLT via charfun + Lévy continuity)
 import Statlean.LimitTheorems.CLT
 
+-- Lindeberg-Feller CLT (verified — triangular array CLT for non-iid row-independent random variables)
+import Statlean.LimitTheorems.LindebergFeller
+
 /-! # Statlean Verified Library
 
 **Every declaration reachable from this import is fully proved (zero sorry).**
@@ -110,4 +113,7 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
   via tightness + Prokhorov + charFun uniqueness
 - **LimitTheorems/CLT**: Central Limit Theorem (Shao Thm 1.4): iid mean-zero L³ random variables
   with σ² > 0 ⟹ standardized sum converges weakly to N(0,1), via charfun Taylor bound + Lévy
+- **LimitTheorems/LindebergFeller**: Lindeberg-Feller CLT (Shao Thm 1.6): triangular array of
+  row-independent mean-zero L² random variables satisfying the Lindeberg condition ⟹ standardized
+  row sums converge weakly to N(0,1), via charfun factorization + telescope + Feller condition
 -/

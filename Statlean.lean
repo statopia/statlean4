@@ -59,5 +59,6 @@ import Statlean.Sufficiency.MinimalSufficiency
 import Statlean.LimitTheorems.Slutsky
 import Statlean.LimitTheorems.Scheffe
 import Statlean.LimitTheorems.CLT
+import Statlean.LimitTheorems.LindebergFeller
 import Statlean.LimitTheorems.DeltaMethod
 import Statlean.Pipeline.Lecture9Handout
