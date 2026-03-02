@@ -34,6 +34,7 @@ import Statlean.EmpiricalProcess.Dudley
 import Statlean.Regression.Basic
 import Statlean.Regression.MasterBound
 import Statlean.Regression.Linear
+import Statlean.Regression.GaussMarkov
 
 -- SPD matrices (Log-Cholesky Fréchet means)
 import Statlean.SPD.FrechetMean

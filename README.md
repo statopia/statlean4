@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化统计的核心定理，涵盖估计理论、充分性、极限定理、集中不等式等。
 
-**当前规模**：39 个 Lean 文件 · ~11,200 行 · ~396 个声明 · 30 个零 sorry 模块 · **7 个 sorry 待证**
+**当前规模**：40 个 Lean 文件 · ~11,300 行 · ~400 个声明 · 31 个零 sorry 模块 · **7 个 sorry 待证**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -18,6 +18,7 @@
 | MSE = Bias² + Variance | `Estimator/Basic.lean` |
 | Lehmann-Scheffé UMVUE 定理 | `Sufficiency/LehmannScheffe.lean` |
 | Cramér-Rao 信息不等式 | `Information/CramerRao.lean` |
+| Gauss-Markov 定理 (BLUE) | `Regression/GaussMarkov.lean` |
 | 指数族 MLE 存在唯一性 | `ExpFamily/Basic.lean` |
 | MLE 定义 + 不变性定理 | `Estimator/Basic.lean` |
 
@@ -98,13 +99,13 @@ Statlean/
 ├── Sufficiency/        # 因子分解、Basu、最小充分、Lehmann-Scheffé (4 files)
 ├── Information/        # Fisher 信息、Cramér-Rao (2 files)
 ├── Estimator/          # MSE 分解、MLE 不变性 (1 file)
-├── ExpFamily/          # 指数族 MLE (1 file)
+├── ExpFamily/          # 指数族 MLE + NatExpFamily 结构 (1 file)
 ├── Statistic/          # ParametricFamily、IsUnbiased (1 file)
 ├── EmpiricalProcess/   # 覆盖数、Dudley 积分 (2 files)
-├── Regression/         # 最小二乘、主误差界 (3 files)
+├── Regression/         # 最小二乘、主误差界、Gauss-Markov (4 files)
 ├── SPD/                # Log-Cholesky Fréchet 均值 (3 files)
 ├── Pipeline/           # Pipeline 生成的存根 (1 file)
-└── Verified.lean       # 零 sorry 模块索引（30 个模块）
+└── Verified.lean       # 零 sorry 模块索引（31 个模块）
 ```
 
 ---

@@ -42,6 +42,7 @@ import Statlean.Information.CramerRao
 import Statlean.Regression.Basic
 import Statlean.Regression.Linear
 import Statlean.Regression.MasterBound
+import Statlean.Regression.GaussMarkov
 
 -- SPD matrices (verified)
 import Statlean.SPD.Determinant
@@ -96,4 +97,6 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
   √n corollary (Shao Cor 1.1), tightness lemma (rescaled convergence ⟹ convergence in probability)
 - **LimitTheorems/Scheffe**: Scheffé's theorem (Shao Thm 1.5): density convergence a.e. + equal
   integrals ⟹ L¹ convergence, via DCT on positive part
+- **Regression/GaussMarkov**: Gauss-Markov theorem (Shao Thm 3.9): OLS minimizes residual norm
+  (BLUE optimality via orthogonal projection)
 -/
