@@ -59,6 +59,9 @@ import Statlean.Sufficiency.LehmannScheffe
 import Statlean.LimitTheorems.Convergence
 import Statlean.LimitTheorems.Slutsky
 
+-- Lévy continuity theorem (verified — forward + tightness + reverse)
+import Statlean.LimitTheorems.Levy
+
 -- Delta Method (verified — CMT, tightness, delta method, √n corollary)
 import Statlean.LimitTheorems.DeltaMethod
 
@@ -99,4 +102,7 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
   integrals ⟹ L¹ convergence, via DCT on positive part
 - **Regression/GaussMarkov**: Gauss-Markov theorem (Shao Thm 3.9): OLS minimizes residual norm
   (BLUE optimality via orthogonal projection)
+- **LimitTheorems/Levy**: Lévy continuity theorem (Shao Thm 1.9): forward (weak convergence
+  ⟹ charfun convergence) + reverse (charfun convergence + continuity at 0 ⟹ weak convergence)
+  via tightness + Prokhorov + charFun uniqueness
 -/

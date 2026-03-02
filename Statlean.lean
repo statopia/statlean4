@@ -23,6 +23,7 @@ import Statlean.CharFun.Taylor
 
 -- Limit theorems
 import Statlean.LimitTheorems.Convergence
+import Statlean.LimitTheorems.Levy
 import Statlean.LimitTheorems.BerryEsseen
 import Statlean.LimitTheorems.USLLN
 
