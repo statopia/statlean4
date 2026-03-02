@@ -1,52 +1,86 @@
-# StatLean — 统计定理的 Lean 4 形式化的自动化工具
+# StatLean — Lean 4 形式化数理统计库
 
-用 Lean 4 + Mathlib 形式化统计的核心定理和概念。
+用 Lean 4 + Mathlib 形式化数理统计的核心定理，涵盖估计理论、充分性、极限定理、集中不等式等。
 
-**当前规模**：36 个 Lean 文件，~180 个声明，28 个零 sorry 模块。
+**当前规模**：39 个 Lean 文件 · ~11,200 行 · ~396 个声明 · 30 个零 sorry 模块 · **7 个 sorry 待证**
 
-> **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)** — 包含环境搭建、贡献方式、Pipeline 用法、验收标准等完整指南。
-
----
-
-## 已完成定理（全部零 sorry，机器可验证）
-
-| 领域 | 定理 | 文件 |
-|------|------|------|
-| 估计 | Rao-Blackwell MSE 定理 | `Variance/RaoBlackwell.lean` |
-| 估计 | MSE = Bias² + Variance | `Estimator/Basic.lean` |
-| 估计 | Lehmann-Scheffé UMVUE | `Sufficiency/LehmannScheffe.lean` |
-| 估计 | Cramér-Rao 下界 | `Information/CramerRao.lean` |
-| 估计 | 指数族 MLE 存在唯一性 | `ExpFamily/Basic.lean` |
-| 估计 | MLE 定义 + 不变性定理 | `Estimator/Basic.lean` |
-| 充分性 | Fisher-Neyman 因子分解（双向） | `Sufficiency/Factorization.lean` |
-| 充分性 | Basu 定理 | `Sufficiency/Basu.lean` |
-| 充分性 | 最小充分统计量密度比判据 | `Sufficiency/MinimalSufficiency.lean` |
-| 充分性 | 子族扩展判据 | `Sufficiency/MinimalSufficiency.lean` |
-| 集中不等式 | ANOVA 方差分解 | `Variance/ANOVA.lean` |
-| 集中不等式 | Hermite 正交性 + Parseval + IBP | `Gaussian/Hermite.lean` |
-| 极限定理 | 均匀强大数律 (USLLN) | `LimitTheorems/USLLN.lean` |
-| 极限定理 | Berry-Esseen 定理（模 2 个分析引理） | `LimitTheorems/BerryEsseen.lean` |
-| 极限定理 | 特征函数 Taylor 链 | `CharFun/Taylor.lean` |
-
-**9 个真实数学 sorry** 等待攻击（另有 18 个 Pipeline 生成的占位符 sorry）→ [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
+> **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
 ---
 
-## 快速开始
+## 已完成定理（零 sorry，机器可验证）
 
-```bash
-git clone https://github.com/<your-username>/statlean4.git && cd statlean4
-curl https://elan-init.tracing.rs/elan-init.sh -sSf | sh   # 安装 elan（已有则跳过）
-lake exe cache get                                           # 下载 Mathlib 缓存（~5 分钟）
-lake build Statlean                                          # 验证编译
+### 估计理论
+
+| 定理 | 文件 |
+|------|------|
+| Rao-Blackwell MSE 定理 | `Variance/RaoBlackwell.lean` |
+| MSE = Bias² + Variance | `Estimator/Basic.lean` |
+| Lehmann-Scheffé UMVUE 定理 | `Sufficiency/LehmannScheffe.lean` |
+| Cramér-Rao 信息不等式 | `Information/CramerRao.lean` |
+| 指数族 MLE 存在唯一性 | `ExpFamily/Basic.lean` |
+| MLE 定义 + 不变性定理 | `Estimator/Basic.lean` |
+
+### 充分性
+
+| 定理 | 文件 |
+|------|------|
+| Fisher-Neyman 因子分解（双向） | `Sufficiency/Factorization.lean` |
+| Basu 定理 | `Sufficiency/Basu.lean` |
+| 最小充分统计量密度比判据 | `Sufficiency/MinimalSufficiency.lean` |
+| 子族扩展判据 | `Sufficiency/MinimalSufficiency.lean` |
+
+### 极限定理
+
+| 定理 | 文件 |
+|------|------|
+| 均匀强大数律 (USLLN) | `LimitTheorems/USLLN.lean` |
+| Slutsky 定理（加法 / 乘法 / 除法） | `LimitTheorems/Slutsky.lean` |
+| 连续映射定理 (CMT) | `LimitTheorems/DeltaMethod.lean` |
+| Delta 方法 + √n 推论 | `LimitTheorems/DeltaMethod.lean` |
+| Scheffé 定理（密度 → L¹ 收敛） | `LimitTheorems/Scheffe.lean` |
+| Berry-Esseen 定理（模 1 个分析引理） | `LimitTheorems/BerryEsseen.lean` |
+| 特征函数 Taylor 链（charfun → exp decay） | `CharFun/Taylor.lean` |
+| 收敛模式（a.s. / 概率 / Lp） | `LimitTheorems/Convergence.lean` |
+
+### Gaussian 分析
+
+| 定理 | 文件 |
+|------|------|
+| Hermite 正交性 + Parseval + IBP | `Gaussian/Hermite.lean` |
+| Stein 恒等式 | `Gaussian/Stein.lean` |
+| ANOVA 方差分解 | `Variance/ANOVA.lean` |
+| Gaussian Poincaré 1D | `Gaussian/Poincare.lean` |
+
+### 其他
+
+| 定理 | 文件 |
+|------|------|
+| 覆盖数 + Dudley 积分 | `EmpiricalProcess/` |
+| 最小二乘 + 主误差界 | `Regression/` |
+| SPD Log-Cholesky Fréchet 均值 | `SPD/` |
+
+---
+
+## Berry-Esseen 证明链
+
+Berry-Esseen 定理是本库中最深的证明链之一，当前 **13 个引理已证明，仅剩 1 个分析 sorry**：
+
 ```
-
-```bash
-# (可选) 用 Codex CLI 替代 Claude Code
-AGENT_BACKEND=codex make -C theme prove-fallback
+charfun_taylor_third_moment       ← Taylor 展开 + 三阶矩界
+    ↓
+norm_charFun_le_one_sub           ← 单因子模界 |φ(s)| ≤ 1 - σ²s²/4
+    ↓
+norm_prod_sub_prod_le_sum_mul_pow ← 乘积望远镜 ‖∏z - ∏w‖ ≤ M^{n-1} · ∑‖z-w‖
+    ↓
+charfun_diff_exp_bound            ← 指数衰减界 ‖φ_S - φ_Φ‖ ≤ Cδ(|t|³+t⁴)e^{-t²/8}
+    ↓
+charfun_integral_bound            ← 积分界 ∫ ‖φ_S-φ_Φ‖/|t| ≤ Cδ
+    ↓
+esseen_concentration_universal    ← [sorry] Stieltjes 反演公式
+    ↓
+berry_esseen_theorem              ← |F_S(y) - Φ(y)| ≤ Cρ/(σ³√n)
 ```
-
-详细指南见 **[INSTRUCTION.md](INSTRUCTION.md)**。
 
 ---
 
@@ -54,22 +88,48 @@ AGENT_BACKEND=codex make -C theme prove-fallback
 
 ```
 Statlean/
-  Gaussian/          # 标准高斯、Stein、Hermite、Poincaré
-  Variance/          # Rao-Blackwell、ANOVA、Efron-Stein
-  Entropy/           # 熵、Log-Sobolev
-  SubGaussian/       # Herbst、Lipschitz 集中
-  CharFun/           # 特征函数 Taylor
-  LimitTheorems/     # USLLN、Berry-Esseen、CLT、收敛模式
-  Sufficiency/       # 因子分解、Basu、最小充分、Lehmann-Scheffé
-  Information/       # Fisher 信息、Cramér-Rao
-  Estimator/         # MSE 分解、MLE 不变性、风险支配
-  ExpFamily/         # 指数族 MLE
-  Statistic/         # ParametricFamily、IsUnbiased
-  EmpiricalProcess/  # 覆盖数、Dudley 积分
-  Regression/        # 最小二乘、主误差界
-  SPD/               # Log-Cholesky Fréchet 均值
-  Pipeline/          # Pipeline 生成的存根（待整理）
-  Verified.lean      # 零 sorry 模块索引
+├── Gaussian/           # 标准高斯、Stein、Hermite、Poincaré (4 files)
+├── Variance/           # Rao-Blackwell、ANOVA、Efron-Stein (3 files)
+├── Entropy/            # 熵定义、Log-Sobolev (2 files)
+├── SubGaussian/        # Herbst 论证、Lipschitz 集中 (2 files)
+├── CharFun/            # 特征函数 Taylor 链 (1 file)
+├── LimitTheorems/      # USLLN、Berry-Esseen、CLT、Slutsky、Delta Method、
+│                       # Scheffé、收敛模式 (7 files)
+├── Sufficiency/        # 因子分解、Basu、最小充分、Lehmann-Scheffé (4 files)
+├── Information/        # Fisher 信息、Cramér-Rao (2 files)
+├── Estimator/          # MSE 分解、MLE 不变性 (1 file)
+├── ExpFamily/          # 指数族 MLE (1 file)
+├── Statistic/          # ParametricFamily、IsUnbiased (1 file)
+├── EmpiricalProcess/   # 覆盖数、Dudley 积分 (2 files)
+├── Regression/         # 最小二乘、主误差界 (3 files)
+├── SPD/                # Log-Cholesky Fréchet 均值 (3 files)
+├── Pipeline/           # Pipeline 生成的存根 (1 file)
+└── Verified.lean       # 零 sorry 模块索引（30 个模块）
+```
+
+---
+
+## Sorry 缺口（7 个）
+
+| Blocker | 模块 | sorry 数 | 说明 |
+|---------|------|---------|------|
+| Stieltjes 反演公式 | BerryEsseen | 1 | Esseen 1945，需 Fourier 反演 |
+| Gaussian 超收缩性 | Poincaré + LogSobolev | 1 + 2 | Nelson 1973，需 Hermite 乘积线性化 |
+| Measure.pi Fubini | EfronStein + LogSobolev | 2 + 1 | Mathlib 缺 Bochner Fubini for Measure.pi |
+| ← blocked by LSI | Herbst | 1 | blocked by gaussian_lsi_normalized |
+
+完整清单与依赖关系 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
+
+---
+
+## 快速开始
+
+```bash
+git clone https://github.com/mockingbird-gan/statlean4.git && cd statlean4
+curl https://elan-init.tracing.rs/elan-init.sh -sSf | sh   # 安装 elan（已有则跳过）
+lake exe cache get                                           # 下载 Mathlib 缓存
+lake build Statlean                                          # 编译全库（零错误）
+lake build Statlean.Verified                                 # 验证零 sorry 模块
 ```
 
 ---
@@ -81,19 +141,7 @@ lake build                       # 零错误
 lake build Statlean.Verified     # 零 sorry 警告
 ```
 
-sorry 数只减不增，详见 [INSTRUCTION.md](INSTRUCTION.md)。
-
----
-
-## Sorry 缺口概览
-
-| Blocker | 阻塞 | sorry 数 |
-|---------|------|---------|
-| Measure.pi Fubini | EfronStein (2) + Poincaré 纤维化 (1) | 3 |
-| Gaussian hypercontractivity | LogSobolev (2) + Herbst (1) | 3 |
-| Fourier analysis | Berry-Esseen 通用常数 (3) | 3 |
-
-完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
+sorry 数只减不增，每次 commit 保证 `lake build` 零错误。
 
 ---
 
@@ -101,12 +149,9 @@ sorry 数只减不增，详见 [INSTRUCTION.md](INSTRUCTION.md)。
 
 | 文档 | 说明 |
 |------|------|
-| **[INSTRUCTION.md](INSTRUCTION.md)** | **贡献指南** — 环境搭建、4 种贡献方式、`theorems.yaml` 格式、验收标准、FAQ |
-| [theme/PIPELINE.md](theme/PIPELINE.md) | Pipeline 详解 — 各阶段（extract → ingest → generate → prove → gate）的输入输出和用法 |
-| [theme/formalize_playbook.md](theme/formalize_playbook.md) | 形式化操作手册 — 「形式化 XX 里的 YY」的 7 步 SOP（Claude Code / Codex 共用） |
-| [theme/prove_playbook.md](theme/prove_playbook.md) | 证明操作手册 — 策略选择表、Mathlib API 三级搜索法、condExp 专项模式、编译错误修复表 |
-| [theme/input/sorry_backlog.yaml](theme/input/sorry_backlog.yaml) | Sorry 缺口清单 — 所有待证目标的优先级、blocker、依赖关系 |
-| [CLAUDE.md](CLAUDE.md) | Claude Code 项目配置 — 文件组织原则、证明策略、Mathlib 搜索规则、效率规则 |
-| [AGENTS.md](AGENTS.md) | Codex CLI 项目配置 — 模块组织、证明策略、Mathlib 搜索（CLAUDE.md 的后端无关子集） |
-| [theme/mathlib_api_index.md](theme/mathlib_api_index.md) | Mathlib API 索引 — 650+ 条常用 API，按 namespace 分类（证明前必读） |
-| [theme/INFRA_CLASSIFICATION.md](theme/INFRA_CLASSIFICATION.md) | 基础设施分类方案 — definition vs theorem 的判定与文件归属规则 |
+| **[INSTRUCTION.md](INSTRUCTION.md)** | **贡献指南** — 环境搭建、贡献方式、验收标准 |
+| [theme/PIPELINE.md](theme/PIPELINE.md) | Pipeline 详解 — PDF → Lean 4 全流程 |
+| [theme/formalize_playbook.md](theme/formalize_playbook.md) | 形式化操作手册 — 7 步 SOP |
+| [theme/prove_playbook.md](theme/prove_playbook.md) | 证明操作手册 — 策略选择表、Mathlib 搜索法 |
+| [theme/input/sorry_backlog.yaml](theme/input/sorry_backlog.yaml) | Sorry 清单 — 优先级、blocker、依赖关系 |
+| [theme/mathlib_api_index.md](theme/mathlib_api_index.md) | Mathlib API 索引 — 650+ 条常用 API |
