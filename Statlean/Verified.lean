@@ -44,6 +44,7 @@ import Statlean.Regression.Basic
 import Statlean.Regression.Linear
 import Statlean.Regression.MasterBound
 import Statlean.Regression.GaussMarkov
+import Statlean.Regression.Estimability
 
 -- SPD matrices (verified)
 import Statlean.SPD.Determinant
