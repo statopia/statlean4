@@ -26,8 +26,9 @@ import Statlean.Sufficiency.Factorization
 import Statlean.Sufficiency.Basu
 import Statlean.Sufficiency.MinimalSufficiency
 
--- Estimation (verified — MSE decomposition, risk dominance, MLE)
+-- Estimation (verified — MSE decomposition, risk dominance, MLE, asymptotic normality, ARE)
 import Statlean.Estimator.Basic
+import Statlean.Estimator.Asymptotic
 import Statlean.ExpFamily.Basic
 
 -- Empirical process theory (verified)
@@ -71,7 +72,7 @@ import Statlean.LimitTheorems.Scheffe
 -- Central Limit Theorem (verified — iid CLT via charfun + Lévy continuity)
 import Statlean.LimitTheorems.CLT
 
--- Lindeberg-Feller CLT (verified — triangular array CLT for non-iid row-independent random variables)
+-- Lindeberg-Feller CLT (verified — triangular array CLT for non-iid row-independent RVs)
 import Statlean.LimitTheorems.LindebergFeller
 
 /-! # Statlean Verified Library
@@ -99,6 +100,8 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Sufficiency/MinimalSufficiency**: Density ratio criterion (Thm C) + Subfamily extension (Thm A)
 - **Estimator/Basic**: MSE = Bias² + Var, unbiased MSE = Var, risk dominance,
   likelihood, IsMLE, MLE invariance (isMLE_comp)
+- **Estimator/Asymptotic**: IsAsymptoticallyNormal, HasAsymptoticMSE, HasAsymptoticBias,
+  ARE, CLT→asymptotic normality bridge, scaled MSE decomposition, ARE inversion/comparison
 - **ExpFamily/Basic**: MLE existence in natural exponential families
 - **LimitTheorems/Convergence**: AlmostSure, InProbability, InLp convergence modes
 - **LimitTheorems/Slutsky**: Slutsky's theorem (add, mul, div) + inv convergence in measure

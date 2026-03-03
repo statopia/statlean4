@@ -50,6 +50,7 @@ import Statlean.Sufficiency.Factorization
 import Statlean.Sufficiency.Basu
 import Statlean.ExpFamily.Basic
 import Statlean.Estimator.Basic
+import Statlean.Estimator.Asymptotic
 import Statlean.Sufficiency.LehmannScheffe
 
 -- Fisher information and Cramér-Rao
