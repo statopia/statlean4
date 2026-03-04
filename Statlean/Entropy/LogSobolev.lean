@@ -956,12 +956,153 @@ After n steps, h_n = const = ∫g, so Ent(h_n) = 0.
   (b) Jensen for conditional entropy: Ent(E_j[φ]) ≤ E_j[Ent(φ)]
   (c) Iterated conditional expectation integrability
   (d) Handling the non-integrable g·log(g) case (LHS ≤ 0 when ∫g ≥ 1) -/
+-- Helper: Jensen for averaging operator E_i.
+-- For φ convex on [0,∞) (like x·log(x)), and g ≥ 0:
+--   (E_i g)(x) · log((E_i g)(x)) ≤ ∫ g(upd x i t) · log(g(upd x i t)) dγ(t)
+-- This is pointwise Jensen applied to the integral ∫ g(upd x i t) dγ(t).
+private lemma jensen_condExpect_mul_log {n : ℕ}
+    (g : (Fin n → ℝ) → ℝ)
+    (hg_nn : ∀ x, 0 ≤ g x)
+    (x : Fin n → ℝ) (i : Fin n)
+    (hslice_int : Integrable (fun t => g (Function.update x i t)) stdGaussian)
+    (hslice_log : Integrable (fun t => g (Function.update x i t) *
+        Real.log (g (Function.update x i t))) stdGaussian) :
+    (∫ t, g (Function.update x i t) ∂stdGaussian) *
+      Real.log (∫ t, g (Function.update x i t) ∂stdGaussian) ≤
+    ∫ t, g (Function.update x i t) * Real.log (g (Function.update x i t)) ∂stdGaussian := by
+  have hconv : ConvexOn ℝ (Set.Ici 0) (fun x => x * Real.log x) := convexOn_mul_log
+  have hcont : ContinuousOn (fun x => x * Real.log x) (Set.Ici 0) :=
+    continuous_mul_log.continuousOn
+  have hclosed : IsClosed (Set.Ici (0 : ℝ)) := isClosed_Ici
+  have hmem : ∀ᵐ t ∂stdGaussian, g (Function.update x i t) ∈ Set.Ici (0 : ℝ) :=
+    ae_of_all _ (fun t => hg_nn _)
+  exact hconv.map_integral_le hcont hclosed hmem hslice_int hslice_log
+
+-- Helper: condEntropyAt is nonneg for g ≥ 0 when the slice is integrable.
+private lemma condEntropyAt_nonneg_of_nonneg {n : ℕ}
+    (g : (Fin n → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
+    (x : Fin n → ℝ) (i : Fin n)
+    (hslice_int : Integrable (fun t => g (Function.update x i t)) stdGaussian)
+    (hslice_log : Integrable (fun t => g (Function.update x i t) *
+        Real.log (g (Function.update x i t))) stdGaussian) :
+    0 ≤ condEntropyAt stdGaussian g i x := by
+  simp only [condEntropyAt, entropy]
+  linarith [jensen_condExpect_mul_log g hg_nn x i hslice_int hslice_log]
+
+-- Helper: E_i g doesn't depend on coordinate i, so condEnt_i(E_i g) = 0.
+private lemma condEntropyAt_of_condExpect_self {n : ℕ}
+    (g : (Fin n → ℝ) → ℝ) (x : Fin n → ℝ) (i : Fin n) :
+    condEntropyAt stdGaussian
+      (fun y => ∫ t, g (Function.update y i t) ∂stdGaussian) i x = 0 := by
+  simp only [condEntropyAt, entropy]
+  -- The slice: t ↦ (E_i g)(update x i t) = ∫ s, g(update (update x i t) i s) dγ(s)
+  -- Since update (update x i t) i s = update x i s, this doesn't depend on t.
+  have hconst : ∀ t, (fun y => ∫ s, g (Function.update y i s) ∂stdGaussian)
+      (Function.update x i t) =
+    ∫ s, g (Function.update x i s) ∂stdGaussian := by
+    intro t
+    simp only
+    congr 1; ext s
+    rw [Function.update_idem]
+  -- Both integrals become c * (something) - same = 0
+  simp_rw [hconst]
+  simp [integral_const, Measure.real, measure_univ]
+
+-- Helper: E_i g is nonneg when g is nonneg.
+private lemma condExpect_nonneg_of_nonneg {n : ℕ}
+    (g : (Fin n → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x) (x : Fin n → ℝ) (i : Fin n) :
+    0 ≤ ∫ t, g (Function.update x i t) ∂stdGaussian :=
+  integral_nonneg (fun t => hg_nn _)
+
+-- Helper: ∫ h dγ¹ = ∫ h(fun _ => t) dγ(t) via piFinSuccAbove decomposition.
+private lemma integral_stdGaussianPi_one_eq (h : (Fin 1 → ℝ) → ℝ) :
+    ∫ x, h x ∂stdGaussianPi 1 = ∫ t, h (fun _ => t) ∂stdGaussian := by
+  have hfun_eq : (fun x : Fin 1 → ℝ => h x) = (fun x => h (fun _ => x 0)) := by
+    ext x; congr 1; ext j; exact congr_arg x (Fin.fin_one_eq_zero j)
+  rw [hfun_eq]
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin 1 => ℝ) (0 : Fin 1)
+  have hmp := measurePreserving_piFinSuccAbove (fun _ : Fin 1 => stdGaussian) (0 : Fin 1)
+  have hpi : stdGaussianPi 1 = Measure.pi (fun _ : Fin 1 => stdGaussian) := rfl
+  rw [hpi, ← hmp.symm.integral_comp' (g := fun x => h (fun _ => x 0))]
+  have he_zero : ∀ (p : ℝ × (Fin 0 → ℝ)), (e.symm p) 0 = p.1 := by
+    intro ⟨a, y⟩; simp [e, MeasurableEquiv.piFinSuccAbove]
+  have : (fun p : ℝ × (Fin 0 → ℝ) => h (fun _ => (e.symm p) 0)) =
+      (fun p => h (fun _ => p.1)) := by
+    ext p; rw [he_zero]
+  rw [this, integral_fun_fst (fun t => h (fun _ => t))]
+  simp [Measure.real, measure_univ]
+
+-- For n = 1, subadditivity is an equality: entropyPi γ¹ g = ∫ condEnt_0(g) dγ¹.
+-- Key: for Fin 1, update x 0 t = fun _ => t (the only index is 0),
+-- so condEnt_0(g)(x) doesn't depend on x.
+private lemma entropy_subadditivity_fin1
+    (g : (Fin 1 → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
+    (hg : Integrable g (stdGaussianPi 1)) :
+    entropyPi (stdGaussianPi 1) g ≤
+    ∑ i : Fin 1, ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi 1) := by
+  simp only [Finset.univ_unique, Finset.sum_singleton]
+  have hdef : (default : Fin 1) = 0 := rfl
+  have hupdate : ∀ (x : Fin 1 → ℝ) (t : ℝ),
+      Function.update x (0 : Fin 1) t = fun _ => t := by
+    intro x t; ext j
+    have : j = 0 := Fin.fin_one_eq_zero j
+    subst this; simp [Function.update_self]
+  have hconst_integrand : ∀ x : Fin 1 → ℝ,
+      condEntropyAt stdGaussian g default x =
+      (∫ t, g (fun _ => t) * Real.log (g (fun _ => t)) ∂stdGaussian) -
+      (∫ t, g (fun _ => t) ∂stdGaussian) * Real.log (∫ t, g (fun _ => t) ∂stdGaussian) := by
+    intro x
+    simp only [condEntropyAt, entropy, hdef]
+    simp_rw [hupdate]
+  simp_rw [hconst_integrand]
+  simp [integral_const, Measure.real, measure_univ]
+  simp only [entropyPi]
+  rw [integral_stdGaussianPi_one_eq, integral_stdGaussianPi_one_eq]
+
 private lemma entropy_subadditivity_of_nonneg {n : ℕ}
     (g : (Fin n → ℝ) → ℝ)
     (hg_nn : ∀ x, 0 ≤ g x)
     (hg : Integrable g (stdGaussianPi n)) :
     entropyPi (stdGaussianPi n) g ≤
     ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
+  -- Case split on n
+  rcases n with _ | m
+  · -- n = 0: empty sum = 0, entropyPi over singleton type = 0
+    simp only [Finset.univ_eq_empty, Finset.sum_empty]
+    have heval : ∀ (h : (Fin 0 → ℝ) → ℝ),
+        ∫ x, h x ∂(stdGaussianPi 0) = h Fin.elim0 := by
+      intro h
+      have : ∀ x : Fin 0 → ℝ, h x = h Fin.elim0 := fun x => by
+        congr 1; exact Subsingleton.elim x Fin.elim0
+      simp_rw [this]; simp [integral_const, Measure.real, measure_univ]
+    simp only [entropyPi, heval]; linarith
+  rcases m with _ | m'
+  · -- n = 1: equality case
+    exact entropy_subadditivity_fin1 g hg_nn hg
+  -- n = m' + 2 ≥ 2.
+  -- The genuine subadditivity case. Requires telescoping + data processing.
+  -- Equivalently: ∑_i Ent(E_i g) ≤ (n-1) · Ent(g)
+  -- where Ent(E_i g) = ∫ (E_i g)·log(E_i g) - (∫g)·log(∫g)
+  --
+  -- Proof strategy: telescoping via iterated conditional expectations.
+  -- Define h_k = E_{k-1} ... E_0[g] (average out coords 0,...,k-1 in order).
+  -- Chain rule: Ent(h_k) = ∫ condEnt_k(h_k) + Ent(h_{k+1}).
+  -- Telescoping: Ent(g) = ∑_k ∫ condEnt_k(h_k) + Ent(h_n).
+  -- Since h_n = const = ∫g, Ent(h_n) = 0.
+  -- Data processing: ∫ condEnt_k(h_k) ≤ ∫ condEnt_k(g) for each k.
+  -- Conclusion: Ent(g) ≤ ∑_k ∫ condEnt_k(g).
+  --
+  -- Blockers (~80 lines):
+  -- (a) Chain rule needs g·log(g) ∈ L¹ + Fubini integrability; non-integrable case separate
+  -- (b) Data processing: the key inequality, needs Jensen + Fubini for iterated averages
+  -- (c) Iterating: h_k integrability + nonneg preservation
+  --
+  -- Zero-sorry infrastructure available:
+  -- - `jensen_condExpect_mul_log`: φ(E_i g(x)) ≤ E_i[φ(g)](x)
+  -- - `condEntropyAt_of_condExpect_self`: condEnt_i(E_i g) = 0
+  -- - `condExpect_nonneg_of_nonneg`: E_i g ≥ 0 when g ≥ 0
+  -- - `entropy_chain_rule_pi`: Ent = ∫ condEnt + Ent(E_i g)
+  -- - `integral_condExpect_eq_integral_pi`: ∫ E_i g = ∫ g (Fubini)
   sorry
 
 private lemma entropy_subadditivity_pi {n : ℕ}
