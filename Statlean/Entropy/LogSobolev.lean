@@ -759,7 +759,7 @@ private lemma ae_memLp_slice_of_memLp_pi {n : ℕ}
   congr 1
   exact (Fin.insertNth_removeNth i t x).symm
 
-/-- **Fubini identity**: resampling a coordinate preserves the integral (sorry).
+/-- **Fubini identity**: resampling a coordinate preserves the integral.
 
 For product measure `μ^n` and any `h ∈ L¹(μ^n)`:
   `∫ (∫ h(update x i t) dμ(t)) d(μ^n)(x) = ∫ h(x) d(μ^n)(x)`
@@ -767,18 +767,61 @@ For product measure `μ^n` and any `h ∈ L¹(μ^n)`:
 This says: if `X ~ μ^n` and `T ~ μ_i` is an independent resample of coordinate `i`,
 then `E[h(update X i T)] = E[h(X)]`, because `update X i T ~ μ^n`.
 
-**Blocker**: Needs `Measure.pi` Fubini to:
+**Proof strategy**:
 1. Decompose `μ^n ≅ μ_i ⊗ μ_{-i}` via `measurePreserving_piFinSuccAbove`.
-2. Apply `integral_prod` to the iterated integral.
-3. Use that the inner integral `∫ h(update x i t) dμ(t)` doesn't depend on `x_i`.
-4. Apply `IsProbabilityMeasure.integral_univ` to collapse the `x_i` integral.
-
-**Estimated effort**: ~60 lines. -/
-private lemma integral_condExpect_eq_integral_pi {n : ℕ}
-    (h : (Fin n → ℝ) → ℝ) (hh : Integrable h (stdGaussianPi n)) (i : Fin n) :
+2. Use `Fin.update_insertNth` to show `update (insertNth i a y) i t = insertNth i t y`,
+   so the LHS integrand depends only on the `{-i}` coordinates.
+3. Collapse the `x_i` integral via `integral_fun_snd` (probability measure).
+4. Recover the RHS via Fubini swap (`integral_integral_swap`) + `integral_prod`. -/
+private lemma integral_condExpect_eq_integral_pi : ∀ {n : ℕ}
+    (h : (Fin n → ℝ) → ℝ) (_ : Integrable h (stdGaussianPi n)) (i : Fin n),
     ∫ x, (∫ t, h (Function.update x i t) ∂stdGaussian) ∂(stdGaussianPi n) =
-    ∫ x, h x ∂(stdGaussianPi n) := by
-  sorry
+    ∫ x, h x ∂(stdGaussianPi n)
+  | 0, _, _, i => Fin.elim0 i
+  | n + 1, h, hh, i => by
+    open MeasurableEquiv Fin in
+    -- Set up the piFinSuccAbove decomposition: γⁿ⁺¹ ≅ γ_i ⊗ γ^n
+    set e := piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) i
+    set μ' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+    set γ := stdGaussian
+    set γn := Measure.pi (fun j : Fin n => μ' (i.succAbove j))
+    have hmp := measurePreserving_piFinSuccAbove μ' i
+    have hpi : stdGaussianPi (n + 1) = Measure.pi μ' := rfl
+    -- Integrability of h ∘ e.symm on the product measure
+    have hint : Integrable (fun x : ℝ × (Fin n → ℝ) => h (e.symm x)) (γ.prod γn) :=
+      hmp.symm.integrable_comp_emb (MeasurableEquiv.measurableEmbedding _) |>.mpr (hpi ▸ hh)
+    -- Swapped integrability for Fubini
+    have hint_swap : Integrable (Function.uncurry fun (y : Fin n → ℝ) (t : ℝ) =>
+        h (e.symm (t, y))) (γn.prod γ) := by
+      have : (Function.uncurry fun (y : Fin n → ℝ) (t : ℝ) => h (e.symm (t, y))) =
+          (fun x => h (e.symm x)) ∘ Prod.swap := by ext ⟨y, t⟩; rfl
+      rw [this]; exact hint.swap
+    -- Auxiliary: the inner integral as a function of y only
+    set g : (Fin n → ℝ) → ℝ := fun y => ∫ t, h (e.symm (t, y)) ∂γ
+    calc ∫ x, (∫ t, h (Function.update x i t) ∂γ) ∂(stdGaussianPi (n + 1))
+      -- Step 1: Transform outer integral via piFinSuccAbove
+      _ = ∫ p : ℝ × (Fin n → ℝ), (∫ t, h (Function.update (e.symm p) i t) ∂γ)
+            ∂(γ.prod γn) := by
+          rw [hpi, ← hmp.symm.integral_comp' (g := fun x => ∫ t, h (Function.update x i t) ∂γ)]
+      -- Step 2: update (insertNth i a y) i t = insertNth i t y
+      _ = ∫ p : ℝ × (Fin n → ℝ), (∫ t, h (e.symm (t, p.2)) ∂γ) ∂(γ.prod γn) := by
+          congr 1; ext ⟨a, y⟩; congr 1; ext t
+          show h (Function.update ((insertNthEquiv (fun _ : Fin (n+1) => ℝ) i) (a, y)) i t) =
+              h ((insertNthEquiv (fun _ : Fin (n+1) => ℝ) i) (t, y))
+          congr 1; simp [insertNthEquiv, Fin.update_insertNth]
+      -- Step 3: Integrand depends only on p.2 — collapse first coordinate (prob measure)
+      _ = ∫ y : Fin n → ℝ, g y ∂γn := by
+          show ∫ p : ℝ × (Fin n → ℝ), g p.2 ∂(γ.prod γn) = ∫ y, g y ∂γn
+          rw [integral_fun_snd]; simp [Measure.real, measure_univ]
+      -- Step 4: Fubini swap ∫_y ∫_t = ∫_t ∫_y
+      _ = ∫ t : ℝ, (∫ y, h (e.symm (t, y)) ∂γn) ∂γ :=
+          integral_integral_swap hint_swap
+      -- Step 5: Reassemble via integral_prod
+      _ = ∫ p : ℝ × (Fin n → ℝ), h (e.symm p) ∂(γ.prod γn) :=
+          (integral_prod _ hint).symm
+      -- Step 6: Transform back via piFinSuccAbove
+      _ = ∫ x, h x ∂(stdGaussianPi (n + 1)) := by
+          rw [hpi, ← hmp.symm.integral_comp' (g := h)]
 
 /-- Integrability of conditional entropy (sorry).
 Follows from entropy subadditivity infrastructure. -/
