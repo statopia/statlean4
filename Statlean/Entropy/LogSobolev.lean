@@ -629,7 +629,7 @@ theorem gaussian_lsi_1d_core : SatisfiesLSI stdGaussian 2 := by
 theorem gaussian_lsi_1d : SatisfiesLSI stdGaussian 2 :=
   gaussian_lsi_1d_core
 
-/-! ### Tensorization sub-lemmas (zero sorry: 2, sorry: 5)
+/-! ### Tensorization sub-lemmas (zero sorry: 3, sorry: 4)
 
 The tensorization of LSI follows the standard scheme:
 1. **Entropy subadditivity** (chain rule for product measures):
@@ -706,25 +706,58 @@ private lemma entropy_subadditivity_pi {n : ℕ}
         ∂(stdGaussianPi n) := by
   sorry
 
-/-- **MemLp for coordinate slices** (sorry).
+/-- **MemLp for coordinate slices** (ae version, zero sorry).
 
-If `f ∈ L²(μ^n)`, then for each `x` and `i`,
-the slice `t ↦ f(update x i t) ∈ L²(μ)`.
+If `f ∈ L²(γⁿ)`, then for a.e. `x` and each `i`,
+the slice `t ↦ f(update x i t) ∈ L²(γ)`.
 
-**Blocker**: Requires Fubini for `Measure.pi` to show that
-`∫ ‖f(update x i t)‖² dμ(t) < ∞` for a.e. `x`, and then for ALL `x`
-(which may need extra regularity or a.e. version of the main proof).
+Note: the original all-`x` version is FALSE for general L² functions
+(counterexample: f can be infinite on a null set of `x_{-i}`).
 
-**Proof sketch**: By Fubini/Tonelli on `‖f‖²` w.r.t. the product decomposition
-`μ^n ≅ μ_i ⊗ μ_{-i}`. The slice norm is `∫_t ‖f(update x i t)‖² dμ_i(t)`,
-which is finite for a.e. `x_{-i}` by Fubini.
-
-**Estimated effort**: ~40 lines (Fubini + Tonelli). -/
-private lemma memLp_slice_of_memLp_pi {n : ℕ}
-    (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n))
-    (x : Fin n → ℝ) (i : Fin n) :
-    MemLp (fun t => f (Function.update x i t)) 2 stdGaussian := by
-  sorry
+Proof: Decompose `γⁿ ≅ γ_i ⊗ γ_{-i}` via `measurePreserving_piFinSuccAbove`.
+Apply `Integrable.prod_left_ae` to `‖f‖²` and `AEStronglyMeasurable.prodMk_right`
+to get ae slices in both integrability and measurability.
+Pull back from ae on `γ^{n-1}` to ae on `γⁿ` via `MeasurePreserving` of `removeNth`. -/
+private lemma ae_memLp_slice_of_memLp_pi {n : ℕ}
+    (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) (i : Fin n) :
+    ∀ᵐ x ∂(stdGaussianPi n), MemLp (fun t => f (Function.update x i t)) 2 stdGaussian := by
+  -- Since i : Fin n, we have n ≥ 1, so n = m + 1 for some m
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, (Nat.succ_pred_eq_of_pos (Fin.pos i)).symm⟩
+  -- Set up the equivalence piFinSuccAbove: (Fin (m+1) → ℝ) ≃ᵐ ℝ × (Fin m → ℝ)
+  let e := MeasurableEquiv.piFinSuccAbove (fun (_ : Fin (m + 1)) => ℝ) i
+  let g : ℝ × (Fin m → ℝ) → ℝ := f ∘ e.symm
+  -- MeasurePreserving for e
+  have hmp : MeasurePreserving e (stdGaussianPi (m + 1))
+      (stdGaussian.prod (stdGaussianPi m)) := by
+    simp only [stdGaussianPi]
+    exact measurePreserving_piFinSuccAbove (fun (_ : Fin (m + 1)) => stdGaussian) i
+  -- Step 1: g is MemLp 2 on the product measure
+  have hg : MemLp g 2 (stdGaussian.prod (stdGaussianPi m)) :=
+    hf.comp_measurePreserving hmp.symm
+  have hg_aesm := hg.1
+  -- Step 2: Integrable (fun p => g p ^ 2) on the product measure
+  have hg_int : Integrable (fun p => g p ^ 2) (stdGaussian.prod (stdGaussianPi m)) :=
+    (memLp_two_iff_integrable_sq hg_aesm).mp hg
+  -- Step 3: By Fubini, ae slices are integrable and AEStronglyMeasurable
+  have hg_slice : ∀ᵐ y ∂(stdGaussianPi m),
+      MemLp (fun t => g (t, y)) 2 stdGaussian := by
+    filter_upwards [hg_int.prod_left_ae, hg_aesm.prodMk_right] with y hy_int hy_aesm
+    exact (memLp_two_iff_integrable_sq hy_aesm).mpr hy_int
+  -- Step 4: Pull back from ae y to ae x via removeNth
+  have hmp_rem : MeasurePreserving (fun x : Fin (m + 1) → ℝ => Fin.removeNth i x)
+      (stdGaussianPi (m + 1)) (stdGaussianPi m) := by
+    change MeasurePreserving (Prod.snd ∘ e) _ _
+    simp only [stdGaussianPi]
+    exact measurePreserving_snd.comp
+      (measurePreserving_piFinSuccAbove (fun (_ : Fin (m + 1)) => stdGaussian) i)
+  -- Step 5: Convert g(t, removeNth i x) = f(update x i t)
+  filter_upwards [hmp_rem.quasiMeasurePreserving.ae hg_slice] with x hx
+  convert hx using 1
+  ext t
+  show f (Function.update x i t) = g (t, Fin.removeNth i x)
+  simp only [g, Function.comp_def]
+  congr 1
+  exact (Fin.insertNth_removeNth i t x).symm
 
 /-- **Fubini identity**: resampling a coordinate preserves the integral (sorry).
 
@@ -779,9 +812,8 @@ If `μ` satisfies `LSI(c)`, then `μ^n` satisfies the multi-dimensional LSI:
 3. **Fubini rewrite** (`integral_condExpect_eq_integral_pi`, sorry):
    `∫ (∫ (∂_i f(update x i t))² dμ(t)) d(μ^n)(x) = ∫ (∂_i f)² d(μ^n)`
 
-**Sorry count**: 5 (all blocked by `Measure.pi` Fubini infrastructure):
+**Sorry count**: 4 (all blocked by `Measure.pi` Fubini infrastructure):
 - `entropy_subadditivity_pi` — entropy chain rule (~150 lines)
-- `memLp_slice_of_memLp_pi` — L² for slices (~40 lines)
 - `integral_condExpect_eq_integral_pi` — Fubini identity (~60 lines)
 - `integrable_condEntropyAt` — integrability (~20 lines)
 - `integrable_condGrad` — integrability (~20 lines) -/
@@ -800,10 +832,9 @@ theorem tensorization_lsi_core (n : ℕ) (c : ℝ) : TensorizationLSIAt n c := b
         apply Finset.sum_le_sum; intro i _
         apply integral_mono_ae (integrable_condEntropyAt f hf i)
           (integrable_condGrad c gradf hgradf i)
-        apply ae_of_all; intro x
-        exact condEntropyAt_le_of_satisfiesLSI c hLSI f gradf hgrad x i
-          (memLp_slice_of_memLp_pi f hf x i)
-          (memLp_slice_of_memLp_pi (gradf i) (hgradf i) x i)
+        filter_upwards [ae_memLp_slice_of_memLp_pi f hf i,
+          ae_memLp_slice_of_memLp_pi (gradf i) (hgradf i) i] with x hf_x hg_x
+        exact condEntropyAt_le_of_satisfiesLSI c hLSI f gradf hgrad x i hf_x hg_x
     _ = c * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
         simp_rw [integral_const_mul]
         rw [← Finset.mul_sum]
