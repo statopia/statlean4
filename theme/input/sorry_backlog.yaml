@@ -1,6 +1,6 @@
-version: v93
+version: v95
 generated: 2026-03-04
-total_sorry: 10
+total_sorry: 9
 
 sorry_items:
 
@@ -39,6 +39,7 @@ sorry_items:
   estimated_lines: 80
   dependencies: []
   unlocks: [lsi.normalized]
+
 
 - id: herbst.subgaussian_mgf
   file: Statlean/SubGaussian/Herbst.lean
@@ -110,16 +111,4 @@ sorry_items:
   blocker: "Follows from Fubini + MemLp for slices."
   estimated_lines: 20
   dependencies: [lsi.memLp_slice]
-  unlocks: []
-
-- id: efronstein.aesm_htil
-  file: Statlean/Variance/EfronStein.lean
-  line: 1045
-  theorem: efron_stein_core_gen
-  type: honest
-  depth: 2
-  priority: 6
-  blocker: "AEStronglyMeasurable[M'] htil P' — htil from Doob-Dynkin is pi-sm but ae_eq_condExp needs M'-ae-sm. Need: sigmaAlgExcept j ⊓ sigmaAlgExcept i₀ = comap restrict (sigmaAlgExcept ⟨j,hj⟩) on product space, ~100 lines."
-  estimated_lines: 100
-  dependencies: []
   unlocks: []

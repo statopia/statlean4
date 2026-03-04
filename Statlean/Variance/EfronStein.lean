@@ -23,13 +23,11 @@ import Mathlib.MeasureTheory.Function.FactorsThrough
 See also `Statlean.Variance.ANOVA` for `sq_integral_le_integral_sq`,
 `variance_marginals_le_variance_prod`, and other ANOVA infrastructure.
 
-## Sorry gaps (1 sorry)
-- `efron_stein_core_gen/hg_es/hhtil_condExp` — `AEStronglyMeasurable[M'] htil P'` where
-  `htil` is the Doob-Dynkin factoring of `P[P[f|M]|N]` through `restrict`.
-  **Blocked by**: showing `M ⊓ N = comap restrict M'` for independent product measures
-  (σ-algebra intersection = common generators). ~100 lines of infrastructure.
-  The entire induction step (dimension reduction + variance transfer + LTV) is complete
-  modulo this one measurability sorry.
+## Key techniques
+- `hhtil_condExp` — `htil =ᵃᵉ[P'] P'[gtil|M']` proved via Dynkin π-λ on the big space:
+  Define `M'_full = comap restrict M'`, build π-system from `M'_full × σ_{i₀} × σ_j`,
+  show integral equality on each rectangle factor using independence + tower property,
+  extend via `induction_on_inter`, transfer to small space via `ae_map_iff`.
 
 ## Proved results
 - `condExp_condExp_comm_pi` — **fully proved** via Dynkin π-λ theorem:
@@ -1021,55 +1019,245 @@ private theorem efron_stein_core_gen (n : ℕ) :
           have : IsFiniteMeasure (P'.trim hM') := by
             constructor; rw [trim_measurableSet_eq hM' MeasurableSet.univ]; exact measure_lt_top _ _
           exact this.toSigmaFinite
-        -- (b) Show htil =ᵃᵉ[P'] condExp via ae_eq_condExp_of_forall_setIntegral_eq
+        -- (b) Show htil =ᵃᵉ[P'] P'[gtil | M'] via Dynkin π-λ on the big space
+        -- Strategy: define condE = P'[gtil|M'], show (htil ∘ restrict) =ᵃᵉ[P] (condE ∘ restrict)
+        -- using a π-system based on comap restrict M' (which generates pi), then transfer.
+        set M'_full := MeasurableSpace.comap restrict
+            (sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩)
+          with hM'_full_def
+        -- Restore MeasurableSpace.pi as the default instance (M'_full pollutes synthesis)
+        letI : MeasurableSpace (∀ k, X k) := MeasurableSpace.pi
+        have hM'_full_le_pi : M'_full ≤ MeasurableSpace.pi :=
+          le_trans hcomap_le_N hN
+        -- σ_coord k ≤ M'_full for k ≠ i₀ and k ≠ j
+        have hcoord_le_M'_full : ∀ (k : ι), k ≠ i₀ → k ≠ j → σ_coord (X := X) k ≤ M'_full := by
+          intro k hki hkj
+          show σ_coord (X := X) k ≤ MeasurableSpace.comap restrict
+            (sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩)
+          have hfact : (fun (x : ∀ l, X l) => x k) =
+            (fun (y : ∀ l : {l : ι // l ≠ i₀}, X l.val) => y ⟨k, hki⟩) ∘ restrict := rfl
+          rw [show σ_coord (X := X) k =
+            MeasurableSpace.comap (fun (x : ∀ l, X l) => x k)
+              (inferInstance : MeasurableSpace (X k)) from rfl]
+          rw [hfact, ← MeasurableSpace.comap_comp]
+          exact MeasurableSpace.comap_mono
+            (σ_coord_le_except (X := fun l : {l : ι // l ≠ i₀} => X l.val)
+              ⟨k, hki⟩ ⟨j, hj⟩ (fun h => hkj (congr_arg Subtype.val h)))
+        -- piSys' based on comap restrict M'
+        let piSys' : Set (Set (∀ k, X k)) :=
+          {s | ∃ (A B C : Set (∀ k, X k)),
+            @MeasurableSet _ M'_full A ∧
+            @MeasurableSet _ (σ_coord (X := X) i₀) B ∧
+            @MeasurableSet _ (σ_coord (X := X) j) C ∧
+            s = A ∩ B ∩ C}
+        have hpiSys'_pi : IsPiSystem piSys' := by
+          intro s₁ hs₁ s₂ hs₂ _hne
+          obtain ⟨A₁, B₁, C₁, hA₁, hB₁, hC₁, rfl⟩ := hs₁
+          obtain ⟨A₂, B₂, C₂, hA₂, hB₂, hC₂, rfl⟩ := hs₂
+          exact ⟨A₁ ∩ A₂, B₁ ∩ B₂, C₁ ∩ C₂, hA₁.inter hA₂, hB₁.inter hB₂, hC₁.inter hC₂,
+            by ext x; simp [Set.mem_inter_iff]; tauto⟩
+        have hpiSys'_gen : MeasurableSpace.pi = MeasurableSpace.generateFrom piSys' := by
+          apply le_antisymm
+          · rw [show (MeasurableSpace.pi : MeasurableSpace (∀ k, X k)) =
+              ⨆ k, σ_coord (X := X) k from rfl]
+            refine iSup_le ?_
+            intro k s hs
+            apply MeasurableSpace.measurableSet_generateFrom
+            by_cases hki : k = i₀
+            · subst hki
+              exact ⟨Set.univ, s, Set.univ, MeasurableSet.univ, hs, MeasurableSet.univ, by simp⟩
+            · by_cases hkj : k = j
+              · subst hkj
+                exact ⟨Set.univ, Set.univ, s, MeasurableSet.univ, MeasurableSet.univ, hs, by simp⟩
+              · exact ⟨s, Set.univ, Set.univ,
+                  hcoord_le_M'_full k hki hkj s hs,
+                  MeasurableSet.univ, MeasurableSet.univ, by simp⟩
+          · refine generateFrom_le ?_
+            intro s hs
+            obtain ⟨A, B, C, hA, hB, hC, rfl⟩ := hs
+            exact ((hM'_full_le_pi A hA).inter
+              (σ_coord_le_pi (X := X) i₀ B hB)).inter (σ_coord_le_pi (X := X) j C hC)
         have hhtil_int : Integrable htil P' := by
           rw [← hpi_map,
               integrable_map_measure hhtil_sm.aestronglyMeasurable hf_meas.aemeasurable,
               ← hhtil_eq]
           exact integrable_condExp
-        have hhtil_condExp : htil =ᵐ[P'] P'[gtil |
-            sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩] := by
-          refine ae_eq_condExp_of_forall_setIntegral_eq hM'
-            (hgtil_memlp.integrable (by norm_num))
-            (fun s _ _ => hhtil_int.integrableOn)
+        -- condE on the small space
+        set condE := P'[gtil |
+            sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩]
+          with hcondE_def
+        have hcondE_int : Integrable condE P' := integrable_condExp
+        -- condE ∘ restrict is (comap restrict M')-StronglyMeasurable hence N-sm and M-sm
+        have hcondE_comp_sm : @StronglyMeasurable _ _ _ M'_full (condE ∘ restrict) :=
+          @StronglyMeasurable.comp_measurable _ _ _ _
+            (sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩)
+            M'_full condE restrict stronglyMeasurable_condExp
+            ((measurable_iff_comap_le (f := restrict)).mpr le_rfl)
+        have hcondE_comp_N_sm : @StronglyMeasurable _ _ _ N (condE ∘ restrict) :=
+          hcondE_comp_sm.mono hcomap_le_N
+        have hcondE_comp_M_sm : @StronglyMeasurable _ _ _ M (condE ∘ restrict) :=
+          hcondE_comp_sm.mono hcomap_le_M
+        have hcondE_comp_int : Integrable (condE ∘ restrict) P := by
+          have hint : Integrable condE (P.map restrict) := by rw [hpi_map]; exact hcondE_int
+          exact hint.comp_measurable hf_meas
+        -- d = P[P[f|M]|N] - condE ∘ restrict on the big space
+        have hd_int : Integrable
+            (fun ω => P[P[f | M] | N] ω - (condE ∘ restrict) ω) P :=
+          integrable_condExp.sub hcondE_comp_int
+        -- ∫ d = 0
+        have hd_zero : ∫ x, (P[P[f | M] | N] x - (condE ∘ restrict) x) ∂P = 0 := by
+          rw [integral_sub integrable_condExp hcondE_comp_int]
+          have h1 : ∫ x, P[P[f | M] | N] x ∂P = ∫ x, f x ∂P := by
+            rw [integral_condExp hN, integral_condExp hM]
+          have h2 : ∫ x, (condE ∘ restrict) x ∂P = ∫ x, f x ∂P := by
+            have hcondE_sm_pi : AEStronglyMeasurable condE (P.map restrict) :=
+              hpi_map ▸ (stronglyMeasurable_condExp.mono hM').aestronglyMeasurable
+            have hstep1 : ∫ x, (condE ∘ restrict) x ∂P = ∫ x, condE x ∂P' := by
+              rw [show (fun x => (condE ∘ restrict) x) = (fun x => condE (restrict x)) from rfl]
+              rw [← integral_map hf_meas.aemeasurable hcondE_sm_pi, hpi_map]
+            have hgtil_sm_pi : AEStronglyMeasurable gtil (P.map restrict) := by
+              rw [hpi_map]; exact hgtil_sm.aestronglyMeasurable
+            have hstep2 : ∫ x, gtil x ∂P' = ∫ x, (gtil ∘ restrict) x ∂P := by
+              rw [show (fun x => (gtil ∘ restrict) x) = (fun x => gtil (restrict x)) from rfl]
+              rw [← integral_map hf_meas.aemeasurable hgtil_sm_pi, hpi_map]
+            rw [hstep1, integral_condExp hM', hstep2,
+              show (fun x => (gtil ∘ restrict) x) = g from hg_factor.symm]
+            exact integral_condExp hN
+          rw [h1, h2, sub_self]
+        -- ∫_s d = 0 for s ∈ piSys'
+        have h_piSys' : ∀ s ∈ piSys', ∫ x in s,
+            (P[P[f | M] | N] x - (condE ∘ restrict) x) ∂P = 0 := by
+          intro s hs
+          obtain ⟨A, B, C, hA, hB, hC, rfl⟩ := hs
+          have hA_N : @MeasurableSet _ N A := hcomap_le_N A hA
+          have hA_M : @MeasurableSet _ M A := hcomap_le_M A hA
+          have hB_M : @MeasurableSet _ M B :=
+            σ_coord_le_except (X := X) i₀ j (Ne.symm hj) B hB
+          have hC_N : @MeasurableSet _ N C :=
+            σ_coord_le_except (X := X) j i₀ hj C hC
+          have hAB_M : @MeasurableSet _ M (A ∩ B) := hA_M.inter hB_M
+          have hAC_N : @MeasurableSet _ N (A ∩ C) := hA_N.inter hC_N
+          have hM_indep_j := indep_sigmaAlgExcept_coord μ j
+          have hN_indep_i := indep_sigmaAlgExcept_coord μ i₀
+          -- LHS integral: ∫_{A∩B∩C} P[P[f|M]|N] = P.real(C) * P.real(B) * ∫_A f
+          -- Chain: factor B via N⊥σ_{i₀} → tower N on A∩C → factor C via M⊥σ_j → tower M on A
+          have hfM_int : Integrable (P[f | M]) P := integrable_condExp
+          have hfMN_int : Integrable (P[P[f | M] | N]) P := integrable_condExp
+          have hLHS : ∫ x in A ∩ B ∩ C, P[P[f | M] | N] x ∂P =
+              P.real C * P.real B * ∫ x in A, f x ∂P := by
+            have h1 : ∫ x in A ∩ B ∩ C, P[P[f | M] | N] x ∂P =
+                (∫ x in A ∩ C, P[P[f | M] | N] x ∂P) * P.real B := by
+              rw [show A ∩ B ∩ C = B ∩ (A ∩ C) from by ext x; simp [Set.mem_inter_iff]; tauto]
+              rw [← setIntegral_indicator (hN (A ∩ C) hAC_N)]
+              rw [setIntegral_eq_integral_mul_meas_of_indep μ hN
+                (σ_coord_le_pi (X := X) i₀) hN_indep_i
+                (hfMN_int.indicator (hN (A ∩ C) hAC_N))
+                (stronglyMeasurable_condExp.indicator hAC_N) hB]
+              rw [integral_indicator (hN (A ∩ C) hAC_N)]
+            have h2 : ∫ x in A ∩ C, P[P[f | M] | N] x ∂P =
+                ∫ x in A ∩ C, P[f | M] x ∂P :=
+              setIntegral_condExp hN hfM_int hAC_N
+            have h3 : ∫ x in A ∩ C, P[f | M] x ∂P =
+                (∫ x in A, P[f | M] x ∂P) * P.real C := by
+              rw [Set.inter_comm A C, ← setIntegral_indicator (hM A hA_M)]
+              rw [setIntegral_eq_integral_mul_meas_of_indep μ hM
+                (σ_coord_le_pi (X := X) j) hM_indep_j
+                (hfM_int.indicator (hM A hA_M))
+                (stronglyMeasurable_condExp.indicator hA_M) hC]
+              rw [integral_indicator (hM A hA_M)]
+            have h4 : ∫ x in A, P[f | M] x ∂P = ∫ x in A, f x ∂P :=
+              setIntegral_condExp hM (hf.integrable (by norm_num)) hA_M
+            rw [h1, h2, h3, h4]; ring
+          -- RHS integral: ∫_{A∩B∩C} (condE ∘ restrict) = P.real(C) * P.real(B) * ∫_A f
+          -- Same chain: condE ∘ restrict is N-sm AND M-sm (via comap ≤ N ∩ M)
+          have hRHS : ∫ x in A ∩ B ∩ C, (condE ∘ restrict) x ∂P =
+              P.real C * P.real B * ∫ x in A, f x ∂P := by
+            have h1 : ∫ x in A ∩ B ∩ C, (condE ∘ restrict) x ∂P =
+                (∫ x in A ∩ C, (condE ∘ restrict) x ∂P) * P.real B := by
+              rw [show A ∩ B ∩ C = B ∩ (A ∩ C) from by ext x; simp [Set.mem_inter_iff]; tauto]
+              rw [← setIntegral_indicator (hN (A ∩ C) hAC_N)]
+              rw [setIntegral_eq_integral_mul_meas_of_indep μ hN
+                (σ_coord_le_pi (X := X) i₀) hN_indep_i
+                (hcondE_comp_int.indicator (hN (A ∩ C) hAC_N))
+                (hcondE_comp_N_sm.indicator hAC_N) hB]
+              rw [integral_indicator (hN (A ∩ C) hAC_N)]
+            -- ∫_{A∩C} (condE ∘ restrict) = ∫_A (condE ∘ restrict) · P.real(C)
+            have h3 : ∫ x in A ∩ C, (condE ∘ restrict) x ∂P =
+                (∫ x in A, (condE ∘ restrict) x ∂P) * P.real C := by
+              rw [Set.inter_comm A C, ← setIntegral_indicator (hM A hA_M)]
+              rw [setIntegral_eq_integral_mul_meas_of_indep μ hM
+                (σ_coord_le_pi (X := X) j) hM_indep_j
+                (hcondE_comp_int.indicator (hM A hA_M))
+                (hcondE_comp_M_sm.indicator hA_M) hC]
+              rw [integral_indicator (hM A hA_M)]
+            -- ∫_A (condE ∘ restrict) = ∫_A f (via map + condExp on M'-set + tower on N)
+            have h4 : ∫ x in A, (condE ∘ restrict) x ∂P = ∫ x in A, f x ∂P := by
+              -- A ∈ comap restrict M', so A = restrict⁻¹(A') for some A' ∈ M'
+              obtain ⟨A', hA'_M', hA_eq⟩ := hA
+              rw [← hA_eq]
+              -- ∫_{restrict⁻¹(A')} (condE ∘ restrict) = ∫_{A'} condE dP'
+              have step1 : ∫ x in restrict ⁻¹' A', (condE ∘ restrict) x ∂P =
+                  ∫ x in A', condE x ∂P' := by
+                rw [← hpi_map]
+                have hcondE_sm' : AEStronglyMeasurable condE (P.map restrict) :=
+                  hpi_map ▸ (stronglyMeasurable_condExp.mono hM').aestronglyMeasurable
+                exact (setIntegral_map (hM' A' hA'_M') hcondE_sm'
+                  hf_meas.aemeasurable).symm
+              -- ∫_{A'} condE dP' = ∫_{A'} gtil dP' (condExp on M'-meas set)
+              have step2 : ∫ x in A', condE x ∂P' = ∫ x in A', gtil x ∂P' :=
+                setIntegral_condExp hM' (hgtil_memlp.integrable (by norm_num)) hA'_M'
+              -- ∫_{A'} gtil dP' = ∫_{restrict⁻¹(A')} g dP (map back + g = gtil ∘ restrict)
+              have step3 : ∫ x in A', gtil x ∂P' =
+                  ∫ x in restrict ⁻¹' A', g x ∂P := by
+                rw [← hpi_map]
+                have hgtil_sm' : AEStronglyMeasurable gtil (P.map restrict) :=
+                  hpi_map ▸ hgtil_sm.aestronglyMeasurable
+                rw [setIntegral_map (hM' A' hA'_M') hgtil_sm' hf_meas.aemeasurable]
+                exact integral_congr_ae (ae_restrict_of_ae
+                  (ae_of_all P fun x => (congrFun hg_factor x).symm))
+              -- ∫_{restrict⁻¹(A')} g dP = ∫_{restrict⁻¹(A')} f dP (tower on N)
+              have hA_N' : @MeasurableSet _ N (restrict ⁻¹' A') := by rw [hA_eq]; exact hA_N
+              have step4 : ∫ x in restrict ⁻¹' A', g x ∂P =
+                  ∫ x in restrict ⁻¹' A', f x ∂P := by
+                show ∫ x in restrict ⁻¹' A', P[f | N] x ∂P = _
+                exact setIntegral_condExp hN (hf.integrable (by norm_num)) hA_N'
+              linarith [step1, step2, step3, step4]
+            rw [h1, h3, h4]; ring
+          rw [integral_sub integrable_condExp.integrableOn hcondE_comp_int.integrableOn,
+              hLHS, hRHS, sub_self]
+        -- Dynkin extension: d =ᵃᵉ 0
+        have hd_ae : (fun ω => P[P[f | M] | N] ω - (condE ∘ restrict) ω) =ᵐ[P] 0 := by
+          rw [show (0 : (∀ j, X j) → ℝ) = fun _ => (0 : ℝ) from rfl]
+          refine Integrable.ae_eq_of_forall_setIntegral_eq _ _ hd_int (integrable_const 0)
             (fun s hs _hμs => ?_)
-            ?_
-          -- SORRY: AEStronglyMeasurable[M'] htil P'
-          -- htil is StronglyMeasurable[pi] (from Doob-Dynkin on P[P[f|M]|N]).
-          -- Need: AEStronglyMeasurable[M'] htil P' where M' = sigmaAlgExcept ⟨j,hj⟩.
-          -- Mathematically true: htil∘restrict = P[P[f|M]|N] =ᵃᵉ P[g|M] which is (M∩N)-sm,
-          -- and (M∩N) = comap restrict M' for independent products. But proving M∩N equals
-          -- (rather than just contains) comap restrict M' requires independence of coordinate
-          -- σ-algebras, which is non-trivial infrastructure.
-          -- Estimated effort: ~100 lines (σ-algebra intersection lemma for independent products)
-          on_goal 2 => exact sorry
-          have hs_pi : MeasurableSet s := hM' s hs
-          have hRs_N : @MeasurableSet _ N (restrict ⁻¹' s) := hcomap_le_N _ ⟨s, hs, rfl⟩
-          have hRs_M : @MeasurableSet _ M (restrict ⁻¹' s) := hcomap_le_M _ ⟨s, hs, rfl⟩
-          have h1 : ∫ x in s, htil x ∂P' = ∫ x in restrict ⁻¹' s, (htil ∘ restrict) x ∂P := by
-            rw [← hpi_map]
-            exact setIntegral_map hs_pi hhtil_sm.aestronglyMeasurable hf_meas.aemeasurable
-          have h2 : ∫ x in restrict ⁻¹' s, (htil ∘ restrict) x ∂P =
-              ∫ x in restrict ⁻¹' s, P[P[f | M] | N] x ∂P := by
-            congr 1; ext x; exact congrFun hhtil_eq.symm x
-          have h3 : ∫ x in restrict ⁻¹' s, P[P[f | M] | N] x ∂P =
-              ∫ x in restrict ⁻¹' s, P[f | M] x ∂P :=
-            setIntegral_condExp hN integrable_condExp hRs_N
-          have h4 : ∫ x in restrict ⁻¹' s, P[f | M] x ∂P =
-              ∫ x in restrict ⁻¹' s, f x ∂P :=
-            setIntegral_condExp hM (hf.integrable (by norm_num)) hRs_M
-          have h5 : ∫ x in restrict ⁻¹' s, f x ∂P =
-              ∫ x in restrict ⁻¹' s, g x ∂P :=
-            (setIntegral_condExp hN (hf.integrable (by norm_num)) hRs_N).symm
-          have h6 : ∫ x in restrict ⁻¹' s, g x ∂P =
-              ∫ x in restrict ⁻¹' s, (gtil ∘ restrict) x ∂P :=
-            integral_congr_ae (ae_restrict_of_ae (ae_of_all P fun x => congrFun hg_factor x))
-          have h7 : ∫ x in restrict ⁻¹' s, (gtil ∘ restrict) x ∂P =
-              ∫ x in s, gtil x ∂P' := by
-            rw [← hpi_map]
-            exact (setIntegral_map hs_pi hgtil_sm.aestronglyMeasurable
-              hf_meas.aemeasurable).symm
-          linarith [h1, h2, h3, h4, h5, h6, h7]
+          simp only [integral_const, smul_eq_mul, mul_zero]
+          refine @MeasurableSpace.induction_on_inter _ _
+            (fun s _ => ∫ x in s, (P[P[f | M] | N] x - (condE ∘ restrict) x) ∂P = 0)
+            piSys' hpiSys'_gen hpiSys'_pi ?_ ?_ ?_ ?_ s hs
+          · simp
+          · exact fun t ht => h_piSys' t ht
+          · intro t ht ht_zero
+            rw [setIntegral_compl ht hd_int]; linarith
+          · intro gs hpwd hgm hgs
+            rw [integral_iUnion hgm hpwd hd_int.integrableOn]
+            simp only [hgs, tsum_zero]
+        -- Transfer: htil =ᵃᵉ[P'] condE
+        have hhtil_condExp : htil =ᵐ[P'] condE := by
+          -- htil ∘ restrict = P[P[f|M]|N] pointwise, and d =ᵃᵉ[P] 0
+          -- ⟹ (htil - condE) ∘ restrict =ᵃᵉ[P] 0 ⟹ htil - condE =ᵃᵉ[P'] 0
+          have hae_big : ∀ᵐ ω ∂P, htil (restrict ω) = condE (restrict ω) := by
+            filter_upwards [hd_ae] with ω hω
+            have h1 : P[P[f | M] | N] ω = htil (restrict ω) := congrFun hhtil_eq ω
+            -- hω : (fun ω => ... - ...) ω = 0 ω, i.e., ... - ... = 0
+            have h2 : P[P[f | M] | N] ω - condE (restrict ω) = 0 := by
+              have := hω; simp only [Pi.zero_apply, Function.comp_apply] at this; exact this
+            linarith
+          -- Transfer: ∀ᵐ ω ∂P, p(restrict ω) → ∀ᵐ y ∂(P.map restrict), p y
+          have hae_small : ∀ᵐ y ∂(P.map restrict), htil y = condE y := by
+            rw [ae_map_iff hf_meas.aemeasurable
+              (hhtil_sm.measurableSet_eq_fun (stronglyMeasurable_condExp.mono hM'))]
+            exact hae_big
+          rw [hpi_map] at hae_small; exact hae_small
         -- (c) Variance transfer: Var[E[g|M]; P] = Var[E'[g̃|M']; P']
         have hvar_EgM : Var[P[g | M]; P] = Var[P'[gtil |
             sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩]; P'] := by

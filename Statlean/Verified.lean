@@ -9,8 +9,7 @@ import Statlean.Gaussian.Hermite
 -- Variance (verified)
 import Statlean.Variance.ANOVA
 import Statlean.Variance.RaoBlackwell
--- Note: Statlean.Variance.EfronStein has 2 sorry gaps (condVar/Jensen, core_gen)
--- The 16 proved declarations there are still usable but not imported here
+import Statlean.Variance.EfronStein
 
 -- Entropy definitions (verified)
 import Statlean.Entropy.Basic
