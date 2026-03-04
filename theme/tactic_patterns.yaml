@@ -7,10 +7,11 @@
 #   Statlean/Gaussian/Hermite.lean           (744 lines)
 #   Statlean/Variance/ANOVA.lean             (214 lines)
 #   Statlean/Variance/RaoBlackwell.lean      (287 lines)
+#   Statlean/Variance/EfronStein.lean        (1194 lines)
 #   Statlean/LimitTheorems/USLLN.lean        (580 lines)
 #   Statlean/CharFun/Taylor.lean             (645 lines)
-version: v1
-generated: 2026-03-02
+version: v2
+generated: 2026-03-04
 
 # ────────────────────────────────────────────────────────────────────────────
 # SECTION 1 — Integral rewriting and equality patterns
@@ -706,6 +707,69 @@ patterns:
       - "ANOVA.lean:75-78"
       - "ANOVA.lean:99-102"
 
+  - id: dimension_reduction_restrict_doob_dynkin
+    category: product
+    goal: "factor f : (∀ i, X i) → ℝ through restrict : (∀ i, X i) → (∀ j : {j // j ≠ i₀}, X j)"
+    tactics: |
+      -- 1. Define restrict map
+      set restrict := (fun x (j : {j : ι // j ≠ i₀}) => x j.val)
+      -- 2. Show sigmaAlgExcept i₀ ≤ comap restrict pi via comap_iSup + comap_comp
+      have hle_comap : sigmaAlgExcept (X := X) i₀ ≤
+          MeasurableSpace.comap restrict MeasurableSpace.pi := by
+        calc sigmaAlgExcept i₀
+            = ⨆ (k : ι) (_ : k ≠ i₀), σ_coord k := rfl
+          _ = ⨆ (j : {j // j ≠ i₀}), σ_coord j.val := ...
+          _ = ⨆ (j : {j // j ≠ i₀}), MeasurableSpace.comap (fun x => restrict x j) inferInstance :=
+              by simp_rw [MeasurableSpace.comap_comp]
+          _ = MeasurableSpace.comap restrict (⨆ j, MeasurableSpace.comap (· j) inferInstance) :=
+              (MeasurableSpace.comap_iSup).symm
+          _ = MeasurableSpace.comap restrict MeasurableSpace.pi := rfl
+      -- 3. Doob-Dynkin factoring
+      obtain ⟨gtil, hgtil_sm, hg_factor⟩ := (hg_sm.mono hle_comap).exists_eq_measurable_comp
+      -- 4. Pushforward measure identity
+      have hpi_map : (Measure.pi μ).map restrict = Measure.pi μ' := by
+        exact measurePreserving_piEquivPiSubtypeProd ... |>.map_eq
+    notes: >
+      Core pattern for dimension reduction induction on product spaces.
+      `comap_iSup` distributes comap over iSup for σ-algebra generators.
+      `comap_comp` rewrites `comap (f ∘ g) = comap g (comap f)`.
+      After factoring, transfer variance via `variance_map` and integrability via
+      `integrable_map_measure`. Then apply induction hypothesis on reduced space.
+    frequency: 2
+    sources:
+      - "EfronStein.lean:870-960 (efron_stein_core_gen dimension reduction)"
+
+  - id: integrable_map_measure_transfer
+    category: product
+    goal: "Integrable gtil (P.map restrict)  from  Integrable (gtil ∘ restrict) P"
+    tactics:
+      - "exact (integrable_map_measure hgtil_sm.aestronglyMeasurable hrestrict_meas.aemeasurable).mpr hf_int"
+      - "rwa [hpi_map] at this"
+    notes: >
+      `integrable_map_measure` requires AEStronglyMeasurable of the function and
+      AEMeasurable of the map. For `MemLp`, use `memLp_map_measure_iff` similarly.
+      Common in dimension reduction: transfer integrability from ambient to reduced space.
+    frequency: 2
+    sources:
+      - "EfronStein.lean:940-945"
+
+  - id: sum_subtype_reindex
+    category: product
+    goal: "∑ j in univ.erase i₀, f j = ∑ (j : {j // j ≠ i₀}), g j.val"
+    tactics: |
+      -- Rewrite each term first
+      simp_rw [hterm_eq]
+      -- Then reindex
+      symm
+      apply Finset.sum_subtype (Finset.univ.erase i₀) (fun x => by simp [Finset.mem_erase])
+    notes: >
+      `Finset.sum_subtype` reindexes a sum from a filtered Finset to a subtype Finset.
+      The second argument is a proof that `x ∈ S ↔ (predicate on x)`.
+      Key: the predicate for `univ.erase i₀` is `fun x => x ≠ i₀`, proved by `simp [Finset.mem_erase]`.
+    frequency: 2
+    sources:
+      - "EfronStein.lean:1000-1010"
+
 # ────────────────────────────────────────────────────────────────────────────
 # SECTION 9 — ENNReal / measure-theoretic conversion patterns
 # ────────────────────────────────────────────────────────────────────────────
@@ -927,6 +991,32 @@ patterns:
     sources:
       - "RaoBlackwell.lean:155-160"
 
+  - id: condExp_condExp_comm_via_induction_on_inter
+    category: variance
+    goal: "P[P[f|M]|N] =ᵐ P[P[f|N]|M]  (condExp commutativity on product space)"
+    tactics: |
+      -- Use Integrable.ae_eq_of_forall_setIntegral_eq to reduce to integral equality
+      refine Integrable.ae_eq_of_forall_setIntegral_eq _ _ integrable_condExp integrable_condExp
+        (fun s hs _hμs => ?_)
+      -- Apply MeasurableSpace.induction_on_inter on a π-system that generates pi
+      -- π-system: {A ∩ B ∩ C : A ∈ M ⊓ N, B ∈ σ_{i₀}, C ∈ σ_j}
+      refine MeasurableSpace.induction_on_inter
+        (generateFrom_piSys i₀ j hij).symm (isPiSystem_piSys i₀ j) ?_ ?_ ?_ ?_ s hs
+      -- Goal 1 (∅): simp
+      -- Goal 2 (π-system): independence of σ_coord from sigmaAlgExcept
+      --   Both sides = ∫_A f · P(B) · P(C) by pullout + tower + independence
+      -- Goal 3 (complement): ∫_{tᶜ} = ∫_univ - ∫_t
+      -- Goal 4 (countable union): integral_iUnion + series equality
+    notes: >
+      Key pattern: condExp commutativity on product measure via π-λ theorem.
+      Requires iIndepFun_pi for coordinate independence, and a π-system decomposition
+      that separates the two conditioning σ-algebras + their intersection.
+      The `Integrable.ae_eq_of_forall_setIntegral_eq` reduction is the standard approach
+      for ae equality of condExp compositions.
+    frequency: 2
+    sources:
+      - "EfronStein.lean:500-700 (condExp_condExp_comm_pi)"
+
   - id: integral_condVar_add_variance_condExp
     category: variance
     goal: "∫ Var[Y|G] dμ + Var[E[Y|G]; μ] = Var[Y; μ]  (law of total variance)"
@@ -1033,6 +1123,38 @@ anti_patterns:
     fix: "Write `fun (n : ℕ) => Real.sqrt ↑n * ...` with explicit ℕ annotation and ↑ cast."
     sources:
       - "DeltaMethod.lean delta_method_sqrt_n"
+
+  - id: ae_eq_condExp_requires_sub_sigma_aesm
+    description: >
+      `ae_eq_condExp_of_forall_setIntegral_eq hm` requires `AEStronglyMeasurable[m] f μ`
+      (sub-σ-algebra), NOT `AEStronglyMeasurable[m₀] f μ` (ambient). If f is
+      pi-StronglyMeasurable via Doob-Dynkin, `.aestronglyMeasurable` gives ambient-sm.
+      Need `sigmaAlgExcept j ⊓ sigmaAlgExcept i₀ = comap restrict (sigmaAlgExcept ⟨j,hj⟩)`
+      to convert, which is ~100 lines of σ-algebra infrastructure.
+    fix: >
+      Pre-identify sub-σ-algebra measurability requirements BEFORE launching prove agents.
+      Check if the proof goal involves `ae_eq_condExp` or `condExp_of_aestronglyMeasurable'`
+      and plan the AEStronglyMeasurable[m] construction explicitly as a sub-lemma.
+    sources:
+      - "EfronStein.lean:1045 (efron_stein_core_gen sorry)"
+      - "MEMORY.md pattern #72"
+
+  - id: measurableset_not_membership
+    description: >
+      `s ∈ sigmaAlgExcept j` fails with "failed to synthesize Membership (Set _) (MeasurableSpace _)".
+      MeasurableSpace is not a set of sets — `∈` notation does not work.
+    fix: "Use `@MeasurableSet _ (sigmaAlgExcept j) s` or `show MeasurableSet[sigmaAlgExcept j] s`."
+    sources:
+      - "EfronStein.lean:979 (agent D error)"
+
+  - id: anonymous_constructor_non_inductive
+    description: >
+      `⟨A, hA, rfl⟩` applied to a non-inductive type fails with
+      "anonymous constructor is not available for this type".
+      Happens when the expected type is a MeasurableSpace inequality, not an exists/struct.
+    fix: "Split into `apply ...; exact ⟨A, hA, rfl⟩` to let Lean resolve the target type first."
+    sources:
+      - "EfronStein.lean:980 (agent D error)"
 
 # ────────────────────────────────────────────────────────────────────────────
 # SECTION 15 — Convergence in distribution / delta method patterns

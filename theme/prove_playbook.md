@@ -161,6 +161,32 @@ repeat (最多 5 轮):
 
 ---
 
+## 6.5 维度缩减 / 子σ-代数任务预检（强制）
+
+攻击涉及**乘积空间降维**或**子 σ-代数上的 condExp** 的 sorry 前，必须额外检查：
+
+```
+预检清单:
+1. 目标是否涉及 ae_eq_condExp / condExp_of_aestronglyMeasurable'?
+   → 是: 识别需要的 AEStronglyMeasurable[m] (m = 子σ-代数)
+   → 预先规划 m-ae-sm 的构造路径（Doob-Dynkin? σ-algebra 交集恒等式?）
+   → 将 m-ae-sm 作为独立 sub-lemma 先行证明
+
+2. 是否需要 σ-algebra 交集/包含关系（如 sigmaAlgExcept i ⊓ sigmaAlgExcept j）?
+   → 是: 这类基础设施需要 comap_iSup + comap_comp + biSup 改写
+   → 预估 ~100 行，建议拆出独立辅助引理
+
+3. 是否涉及 Function.update / restrict 映射?
+   → 是: 检查 measurePreserving 和 variance_map 可用性
+   → 确保 integrable_map_measure / memLp_map_measure_iff 签名匹配
+```
+
+**经验教训**：EfronStein dimension reduction 中，agent 完成了 95% 的证明（314 行），
+但最后卡在 `AEStronglyMeasurable[M'] htil P'` — 因为 ambient-sm ≠ sub-σ-algebra-sm。
+如果在启动 agent 前预检此项，可以节省整轮 agent 的 debug 时间。
+
+---
+
 ## 7. 子引理分拆规则
 
 当证明需要 >3 个 Mathlib API 链式调用时，先分拆：
