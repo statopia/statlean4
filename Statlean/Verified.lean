@@ -75,6 +75,9 @@ import Statlean.LimitTheorems.CLT
 -- Lindeberg-Feller CLT (verified — triangular array CLT for non-iid row-independent RVs)
 import Statlean.LimitTheorems.LindebergFeller
 
+-- Cramér-Wold device (verified — multivariate Lévy + projection ⟺ weak convergence)
+import Statlean.LimitTheorems.CramerWold
+
 /-! # Statlean Verified Library
 
 **Every declaration reachable from this import is fully proved (zero sorry).**
@@ -119,4 +122,7 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **LimitTheorems/LindebergFeller**: Lindeberg-Feller CLT (Shao Thm 1.6): triangular array of
   row-independent mean-zero L² random variables satisfying the Lindeberg condition ⟹ standardized
   row sums converge weakly to N(0,1), via charfun factorization + telescope + Feller condition
+- **LimitTheorems/CramerWold**: Cramér-Wold device (Shao Thm 1.9(iii)): multivariate Lévy
+  continuity (charFun convergence → weak convergence in finite dimensions) + Cramér-Wold iff
+  (weak convergence ⟺ all 1D projections converge), via ONB tightness + Parseval pigeonhole
 -/
