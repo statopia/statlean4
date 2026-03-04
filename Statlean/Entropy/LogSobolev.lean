@@ -875,31 +875,6 @@ private lemma integrated_condEntropyAt_eq {n : ℕ}
   congr 1
   exact integral_condExpect_eq_integral_pi (fun x => g x * Real.log (g x)) hg_log i
 
-/-- **Jensen data processing for conditional entropy under coordinate averaging**.
-
-For product measure `γⁿ` and `g ≥ 0`, averaging `g` over coordinate `j` can only
-DECREASE the conditional entropy along a different coordinate `i ≠ j`:
-
-  `∫ φ(E_j[g](upd x i ·)) ≤ ∫ φ(g(upd x i ·))` for a.e. x
-
-where `E_j[g](x) = ∫ g(upd x j t) dγ(t)` and `φ(t) = t·log(t)`.
-
-Integrated over x, this gives `∫ condEnt_i(E_j g) ≤ ∫ condEnt_i(g)`.
-
-**Proof**: For fixed `x_{-i}`, the slice `t ↦ E_j g(upd x i t)` is a conditional expectation
-of `t ↦ g(upd x i t)` over coordinate j. By convexity of entropy:
-`Ent(E_j[h]) ≤ Ent(h)` for the conditional expectation E_j, applied to the slice h.
-
-**Blocker**: Requires conditional Jensen for `Ent(E[X]) ≤ E[Ent(X)]` on fiber integrals,
-plus commutativity of coordinate updates for `i ≠ j`. ~50 lines. -/
-private lemma condEntropyAt_avg_le {n : ℕ}
-    (g : (Fin n → ℝ) → ℝ) (i j : Fin n) (hij : i ≠ j) :
-    ∫ x, condEntropyAt stdGaussian
-      (fun y => (∫ t, g (Function.update y j t) ∂stdGaussian)) i x
-      ∂(stdGaussianPi n) ≤
-    ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
-  sorry
-
 /-- **Entropy chain rule for product measures** (exact identity).
 
 For product measure `γⁿ` and any `i : Fin n`:
@@ -952,18 +927,32 @@ private lemma entropy_chain_rule_pi {n : ℕ}
   rw [hfub]
   linarith [hsplit, hfub_log]
 
-/-- **Entropy subadditivity for product measures** (entropy chain rule).
+/-- **Entropy subadditivity for product measures** (Han's inequality).
 
 For the standard Gaussian product `γⁿ`, the entropy of `f²` is bounded by
 the sum of coordinate-wise conditional entropies:
   `Ent_{γⁿ}(f²) ≤ ∑_i E_{γⁿ}[Ent_i(f²)]`
 
-**Proof** (induction on n via entropy chain rule + Jensen data processing):
-- n = 0: both sides = 0 (Subsingleton).
-- n + 1: Entropy chain rule decomposes `Ent(g)` into `E[condEnt₀(g)] + Ent(E₀ g)`.
-  By induction hypothesis on n, `Ent(E₀ g) ≤ ∑_{i≥1} E[condEnt_i(E₀ g)]`.
-  By Jensen data processing: `condEnt_i(E₀ g) ≤ condEnt_i(g)` for i ≥ 1.
-  Combining gives the result. -/
+**Proof** (3 steps, no induction needed):
+
+1. **Chain rule identity** (`entropy_chain_rule_pi`, PROVED):
+   `Ent(g) = ∫ condEnt_i(g) + Ent_{-i}(E_i g)` for each i.
+   Summing over i: `n·Ent(g) = ∑_i ∫ condEnt_i(g) + ∑_i Ent_{-i}(E_i g)`.
+
+2. **Han's inequality for KL** (the key step):
+   `∑_i Ent_{-i}(E_i g) ≤ (n-1)·Ent(g)`.
+   Proof: Normalize h = g/M (M = ∫g). Then `Ent(g) = M·D(h·μ || μ)` and
+   `Ent_{-i}(E_i g) = M·D(h_{-i}·μ_{-i} || μ_{-i})`. The KL chain rule with product
+   reference gives `D(P||Q) = ∑_j D(P_{j|{<j}} || Q_j)` and
+   `D(P_{-i}||Q_{-i}) = ∑_{j≠i} D(P_{j|{<j}\{i}} || Q_j)`. Since conditioning on MORE
+   INCREASES KL (convexity of KL in 1st arg), each `D(P_{j|{<j}\{i}}) ≤ D(P_{j|{<j}})`.
+   So `∑_i D(P_{-i}) ≤ (n-1)·D(P)`.
+
+3. **Subtract**: From steps 1 and 2,
+   `∑_i ∫ condEnt_i = n·Ent - ∑Ent_{-i} ≥ n·Ent - (n-1)·Ent = Ent`.
+
+**Blocker**: Formalizing the KL chain rule for product measures + conditional KL
+ordering (~80 lines of Fubini + piFinSuccAbove + conditional density infrastructure). -/
 private lemma entropy_subadditivity_pi {n : ℕ}
     (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤

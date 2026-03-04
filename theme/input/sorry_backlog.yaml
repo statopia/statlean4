@@ -1,6 +1,6 @@
-version: v97
+version: v98
 generated: 2026-03-04
-total_sorry: 7
+total_sorry: 6
 
 sorry_items:
 
@@ -54,27 +54,15 @@ sorry_items:
 
 - id: lsi.entropy_subadditivity_pi
   file: Statlean/Entropy/LogSobolev.lean
-  line: 972
+  line: 961
   theorem: entropy_subadditivity_pi
   type: honest
   depth: 3
   priority: 10
-  blocker: "Entropy chain rule: Ent(f²) ≤ ∑_i E[Ent_i(f²)]. Decomposed into entropy chain rule identity + condEntropyAt_avg_le (Jensen data processing for conditional entropy). Needs Fubini for f²·log(f²) on Measure.pi."
-  estimated_lines: 100
-  dependencies: [lsi.condEntropyAt_avg_le]
-  unlocks: [herbst.subgaussian_mgf, lsi.integrable_condEntropy]
-
-- id: lsi.condEntropyAt_avg_le
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 901
-  theorem: condEntropyAt_avg_le
-  type: honest
-  depth: 2
-  priority: 11
-  blocker: "Jensen data processing: averaging g over coordinate j decreases conditional entropy along coordinate i (i ≠ j). Requires conditional Jensen for Ent(E[X]) ≤ E[Ent(X)] on fiber integrals + coordinate update commutativity. ~50 lines."
-  estimated_lines: 50
+  blocker: "Entropy subadditivity Ent(f²) ≤ ∑_i E[Ent_i(f²)]. PROVED sub-lemmas: (1) integrated_condEntropyAt_eq (zero sorry), (2) entropy_chain_rule_pi (zero sorry, exact identity). Remaining: Han's inequality for KL — ∑ Ent_{-i}(E_i g) ≤ (n-1)·Ent(g). Proof via conditional KL ordering: D(P_{j|A}) ≤ D(P_{j|B}) for A ⊂ B (convexity of KL). Needs KL chain rule for product measures + conditional density infrastructure. ~80 lines."
+  estimated_lines: 80
   dependencies: []
-  unlocks: [lsi.entropy_subadditivity_pi]
+  unlocks: [herbst.subgaussian_mgf, lsi.integrable_condEntropy]
 
 - id: lsi.integrable_condEntropy
   file: Statlean/Entropy/LogSobolev.lean
