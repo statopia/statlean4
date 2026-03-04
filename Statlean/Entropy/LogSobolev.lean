@@ -5,6 +5,8 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 /-! # Gaussian Log-Sobolev Inequality
 
 ## Proved (zero sorry)
+- `gaussian_lsi_normalized` (non-integrable case) — when f²·log(f²) ∉ L¹,
+  Lean's integral returns 0 ≤ 2∫f'². Proved via `by_cases` + `integral_undef`.
 - `gaussian_lsi_1d_ibp_core` — reduces to normalized case via scaling (A=0 + A>0)
 - `gaussian_lsi_1d_core` / `gaussian_lsi_1d` — from `gaussian_lsi_1d_ibp_core`
 - `tensorization_lsi` — from `TensorizationLSIAt` hypothesis
@@ -22,33 +24,58 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
   - `sq_div_sq_add_eps_le_one` — f²/(f²+ε) ≤ 1
   - `two_mul_le_sq_add_sq` — 2ab ≤ a² + b²
 
-## Sorry gaps (3 honest, all blocked by missing Mathlib infrastructure)
-- `integrable_sq_mul_log_sq_of_memLp` — f²·log(f²) ∈ L¹(γ) for f ∈ L²(γ)
-  **Blocker**: Gaussian hypercontractivity / Sobolev embedding W^{1,2}(γ) ↪ L⁴(γ)
-- `gaussian_lsi_normalized` — normalized 1D LSI: ∫f²=1 => ∫f²·log(f²) ≤ 2∫f'²
-  **Blocker**: Same as above (MemLp estimates for regularized Stein IBP need L⁴)
-- `tensorization_lsi_core` — LSI tensorization
+## Sorry gaps (5 sorry lines in this file, 3 independent blockers)
+- `gaussian_lsi_normalized_of_integrable` — the integrable case of normalized LSI
+  **Blocker**: The 1D Gaussian LSI is a deep result. Every known proof requires
+  infrastructure not in Mathlib:
+  (a) Bakry-Emery Gamma_2 criterion + OU semigroup (~300 lines new infra)
+  (b) Nelson hypercontractivity (~400 lines, documented as stuck)
+  (c) Brunn-Minkowski / Prekopa-Leindler inequality (not in Mathlib)
+  (d) Optimal transport / Caffarelli's theorem (not in Mathlib)
+  (e) Two-point inequality + CLT transfer (~200 lines)
+  The Stein identity alone gives Poincare, NOT the LSI. The previous comment
+  claiming "Stein + Poincare + Young" suffices was incorrect — the Stein identity
+  relates first moments to derivatives, while the LSI involves entropy (nonlinear).
+  **Recommended path**: (a) Bakry-Emery, since Gamma_2 >= Gamma_1 is trivial for
+  Gaussian (Gamma_2 = f''^2 + f'^2 >= f'^2 = Gamma_1). The hard part is proving
+  that Gamma_2 >= rho*Gamma_1 implies LSI(2/rho), which needs the OU semigroup
+  entropy dissipation formula.
+- `integrable_sq_mul_log_sq_of_memLp` — f²·log(f²) ∈ L¹(γ) for f ∈ W^{1,2}(γ)
+  **Blocker**: Requires the LSI or Gaussian Sobolev embedding W^{1,2}(γ) -> L^p(γ)
+  for p > 2 (which is equivalent to hypercontractivity). The negative part is
+  integrable (bounded by 1, proved). The positive part requires either the LSI
+  (to bound integral of f^2 log^+(f^2)) or L^{2+eps} integrability of f.
+  The 1D pointwise bound |f(x)| <= |f(0)| + |x|^{1/2} * e^{x^2/4} * C * ||f'||
+  only gives f in L^p(gamma) for p < 2, which is insufficient.
+- `tensorization_lsi_core` — LSI tensorization (separate, not targeted here)
   **Blocker**: Product entropy chain rule (Measure.pi Fubini for single coordinate)
 
-## Proof architecture for `gaussian_lsi_1d_ibp_core` (PROVED)
+## Proof architecture for `gaussian_lsi_normalized` (RESTRUCTURED)
 
-The main theorem `Ent_γ(f²) ≤ 2·∫f'² dγ` is proved via:
+The normalized LSI `∫f²=1 ⟹ ∫f²·log(f²) ≤ 2∫f'²` is proved via:
 
-1. **Case A = 0** (∫f² = 0): f = 0 a.e., Ent = 0, RHS ≥ 0. Fully proved.
-2. **Case A > 0**: Define g = f/√A, g' = f'/√A. Then ∫g² = 1.
-   - Apply `gaussian_lsi_normalized` to g: ∫g²·log(g²) ≤ 2∫g'²
-   - Prove entropy scaling: Ent(f²) = A · ∫g²·log(g²)
-     (uses log(A·g²) = log(A) + log(g²) splitting + ∫g² = 1)
-   - Conclude: Ent(f²) = A·∫g²·log(g²) ≤ A·2∫g'² = 2∫f'²
+1. **Case: f²·log(f²) not integrable**: `integral_undef` → LHS = 0 ≤ RHS. **PROVED.**
+2. **Case: f²·log(f²) integrable**: Delegated to `gaussian_lsi_normalized_of_integrable`.
+   This is the core sorry, requiring the LSI proper.
 
-### Strategy for `gaussian_lsi_normalized` (remaining sorry)
+The main theorem `gaussian_lsi_1d_ibp_core` (Ent_γ(f²) ≤ 2·∫f'²) is proved via:
+- Case A = 0: f = 0 a.e., both sides 0. **PROVED.**
+- Case A > 0: Scaling g = f/√A, apply normalized LSI. **PROVED** (modulo P2 + P3).
 
-Recommended: **Gross's argument via regularized Stein IBP**:
-1. For ε > 0, define ψ_ε(x) = ½·log(f(x)² + ε), smooth everywhere.
-2. Apply `stein_identity` to h = f·ψ_ε: ∫ x·f·ψ_ε dγ = ∫ (f·ψ_ε)' dγ.
-3. Use Young's inequality 2ab ≤ a² + b² on cross terms.
-4. Take ε → 0 via DCT.
-5. Result: ∫ f²·log(f²) ≤ 2∫f'².
+### Strategy for closing the sorry (recommended: Bakry-Emery)
+
+**Best path**: Formalize the Bakry-Emery criterion in ~300 lines:
+1. Define the OU semigroup P_t on L^2(gamma) via Hermite expansion:
+   P_t(sum c_k h_k) = sum e^{-kt} c_k h_k (we have Hermite infra in Poincare.lean)
+2. Prove entropy dissipation: d/dt Ent(P_t g) = -I(P_t g) where I = Fisher info
+3. Prove Fisher info decay: I(P_t g) <= e^{-2t} I(g) (from Gamma_2 >= Gamma_1)
+4. Integrate: Ent(g) = integral_0^infty I(P_t g) dt <= (1/2) I(g) = 2 integral f'^2
+
+**Alternatively**: Formalize the two-point LSI + CLT transfer (~200 lines):
+1. Prove the LSI on {-1, +1}: a^2 log(a^2) + b^2 log(b^2) <= 2(a-b)^2 when a^2+b^2=2
+2. Tensorize to {-1,+1}^n (product of uniform on two points)
+3. Transfer to Gaussian via CLT (we have levy_continuity)
+This avoids the semigroup but needs the CLT transfer for entropy.
 -/
 
 open MeasureTheory ProbabilityTheory Real
@@ -162,39 +189,37 @@ The theorem `gaussian_lsi_1d_ibp_core` states:
 
 where `Ent_γ(g) = ∫ g·log(g) dγ - (∫ g dγ)·log(∫ g dγ)`.
 
-### Proof outline (Gross's original argument)
+### Proved structure
 
-**Step 1 — Scaling reduction**:
-Write `A = ∫ f² dγ`. If `A = 0`, then `f = 0` a.e. and both sides are zero.
-If `A > 0`, set `g = f/√A` so that `∫ g² = 1`. Then:
-  `Ent(f²) = A · ∫ g² log(g²) dγ`  and  `2∫ f'² = 2A · ∫ g'² dγ`
-So it suffices to prove the **normalized case**: `∫ f² = 1 ⟹ ∫ f²·log(f²) ≤ 2∫ f'²`.
+**Scaling reduction** (proved):
+- `A = 0`: f = 0 a.e., both sides zero. PROVED.
+- `A > 0`: Set g = f/√A, ∫g²=1. Then Ent(f²) = A·∫g²·log(g²) and 2∫f'² = 2A·∫g'².
+  Reduces to normalized case. PROVED (modulo P2 + P3).
 
-**Step 2 — Regularized Stein IBP**:
-For `ε > 0`, define the regularized log-amplitude:
-  `ψ_ε(x) = log √(f(x)² + ε) = ½ · log(f(x)² + ε)`
-Apply the Stein identity `∫ x·h dγ = ∫ h' dγ` to `h(x) = f(x) · ψ_ε(x)`:
-  `∫ x · f · ψ_ε dγ = ∫ [f' · ψ_ε + f · f · f' / (f² + ε)] dγ`
+**Normalized case** (proved modulo sorry):
+- Non-integrable case: `integral_undef` → 0 ≤ 2∫f'². PROVED.
+- Integrable case: delegates to `gaussian_lsi_normalized_of_integrable`. SORRY.
 
-**Step 3 — Young's inequality + limit**:
-The entropy identity gives `∫ f² · log(f²) = 2 ∫ f · ψ_ε · (x · f) dγ + error(ε)`.
-Apply Young's inequality `2ab ≤ a² + b²` to separate f' and ψ_ε terms.
-Take `ε → 0` using DCT. The key bound becomes `∫ f² log(f²) ≤ 2∫ f'²`.
+### Sub-lemma dependency graph
 
-### Sub-lemma decomposition
+```
+gaussian_lsi_1d_ibp_core
+  ├── gaussian_lsi_normalized → gaussian_lsi_normalized_of_integrable [SORRY: LSI]
+  └── integrable_sq_mul_log_sq_of_memLp [SORRY: needs LSI or hypercontractivity]
+```
 
-We split into 3 sorry-bearing sub-lemmas:
+Both sorrys are blocked by the same mathematical fact: the 1D Gaussian LSI,
+which requires infrastructure not in Mathlib (see module docstring).
 
-1. `integrable_sq_mul_log_sq_of_memLp` — integrability of `f²·log(f²)` under γ
-2. `gaussian_lsi_normalized` — the normalized case ∫f²=1 (the hard core, needs IBP)
-3. `gaussian_lsi_1d_ibp_core` — case split: A=0 proved, A>0 uses scaling + normalized
+### Gross regularization infrastructure (proved, zero sorry)
 
-The net sorry count for the 1D LSI stays at 2 honest sorrys (sub-lemma 1 and 2).
-`gaussian_lsi_1d_ibp_core` is proved from sub-lemma 2 via scaling, except for the
-scaling argument itself which requires integral manipulation.
-
-**Dependency graph**: gaussian_lsi_1d_ibp_core → gaussian_lsi_normalized (+ scaling)
-                       gaussian_lsi_normalized → integrable_sq_mul_log_sq_of_memLp
+The ε-regularization lemmas are proved and ready for when the LSI proof is
+formalized. They provide the derivatives and bounds needed for the Bakry-Emery
+or OU semigroup approach:
+- `hasDerivAt_regularized_log`, `hasDerivAt_f_mul_psi_eps`
+- `sq_div_sq_add_eps_le_one`, `two_mul_le_sq_add_sq`
+- `abs_mul_log_le_sq_add_one`, `neg_mul_log_le_one`
+- `integrable_neg_part_sq_mul_log`
 -/
 
 section LSI_Decomposition
@@ -284,24 +309,33 @@ lemma integrable_neg_part_sq_mul_log {μ : Measure ℝ} [IsFiniteMeasure μ]
 
 /-- Integrability of `f² log f²` under Gaussian measure.
 
-**Sorry**: The previous proof relied on `memLp_four_of_W12_gaussian` which is false.
+**Blocker**: Requires either the Gaussian LSI or the Gaussian Sobolev embedding
+W^{1,2}(γ) -> L^{2+ε}(γ), both of which are equivalent to hypercontractivity
+(Nelson's theorem), which is not in Mathlib.
 
-**Proof route (Gross regularization bootstrap)**:
-1. Negative part: integrable by `integrable_neg_part_sq_mul_log` (bounded by 1).
-2. Positive part: bounded via the Gaussian LSI. For bounded `f` (|f| ≤ M),
-   apply Gaussian Poincaré to `f²` to get `∫f⁴ ≤ (∫f²)² + 4M²∫(f')²`,
-   then `abs_mul_log_le_sq_add_one` gives `|f²log(f²)| ≤ f⁴ + 1 < ∞`.
-   For general `f`, use smooth truncation `fₙ → f` and monotone convergence
-   on the positive part, with the uniform bound from the normalized LSI:
-   `∫ fₙ²·log⁺(fₙ²) ≤ 2∫(fₙ')² + (∫fₙ²)log(∫fₙ²) + 1/e`.
-3. This requires proving the normalized LSI (`gaussian_lsi_normalized`) for
-   bounded functions first, making the two sorrys co-dependent. -/
+**Analysis**: The negative part `max(0, -(f²·log(f²)))` is always integrable
+(bounded by 1, proved as `integrable_neg_part_sq_mul_log`). The positive part
+requires showing `∫ f²·log⁺(f²) < ∞`. Since `log⁺(f²) ≤ |f|^α` for any α > 0
+(eventually), this would follow from `f ∈ L^{2+α}(γ)`. But:
+
+- The 1D pointwise bound `|f(x)| ≤ |f(0)| + |x|^{1/2} · e^{x²/4} · C · ‖f'‖`
+  only gives `f ∈ L^p(γ)` for `p < 2` (the `e^{x²/4}` kills the Gaussian tail).
+- `W^{1,2}(γ) ↪ L^p(γ)` for all `p < ∞` is true but equivalent to Nelson's
+  hypercontractivity theorem, which is not in Mathlib.
+
+**Proof given LSI**: From `Ent(f²) ≤ 2∫f'²` and `∫ f²·log⁻(f²) ≤ 1`:
+`∫ f²·log⁺(f²) ≤ Ent(f²) + (∫f²)·log(∫f²) + 1 ≤ 2∫f'² + C < ∞`.
+So P3 follows from P2 (the LSI). Both are blocked by the same infrastructure. -/
 lemma integrable_sq_mul_log_sq_of_memLp
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
     (hf' : MemLp f' 2 stdGaussian)
     (hderiv : ∀ x, HasDerivAt f (f' x) x) :
     Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian := by
+  -- **Blocker**: Requires LSI or hypercontractivity (not in Mathlib).
+  -- Negative part: integrable (bounded by 1). Positive part: needs LSI or L^{2+ε}.
+  -- Co-dependent with `gaussian_lsi_normalized_of_integrable` (P2).
+  -- See docstring above for full analysis.
   sorry
 
 /-! ### Regularized Stein IBP infrastructure (proved, supporting Gross's argument)
@@ -353,38 +387,39 @@ lemma sq_div_sq_add_eps_le_one (t ε : ℝ) (hε : 0 < ε) :
 lemma two_mul_le_sq_add_sq (a b : ℝ) : 2 * a * b ≤ a ^ 2 + b ^ 2 := by
   nlinarith [sq_nonneg (a - b)]
 
-/-- **Sub-lemma 2 (normalized LSI core)**: When `∫ f² dγ = 1` (i.e., `f²` is a
-    probability density w.r.t. `γ`), the Gaussian log-Sobolev inequality states:
+/-- Helper: the Gaussian LSI bound when f²·log(f²) is known integrable.
 
-    `∫ f²·log(f²) dγ ≤ 2 · ∫ f'² dγ`
+**Blocker**: The 1D Gaussian LSI is Ent_γ(f²) ≤ ½·I(f²) where I = Fisher info.
+This is equivalent to Ent_γ(f²) ≤ 2·∫f'² dγ. Every known proof requires
+infrastructure not in Mathlib (see module docstring for full analysis).
 
-    This is the heart of the proof. When `∫ f² = 1`, we have `Ent(f²) = ∫ f²·log(f²)`.
+**Recommended proof (Bakry-Emery, ~300 lines new infra)**:
+1. Define OU semigroup P_t via Hermite expansion (Poincare.lean has infra)
+2. Prove entropy dissipation: d/dt Ent(P_t g) = -I(P_t g)
+3. Prove Fisher info decay: I(P_t g) ≤ e^{-2t}·I(g) (from Γ₂ ≥ Γ₁)
+4. Integrate: Ent(g) ≤ ½·I(g)
 
-    **Blocker**: The full Gross argument requires:
-    1. `stein_identity` applied to `h = f · ψ_ε` (infrastructure ready:
-       `hasDerivAt_f_mul_psi_eps` gives the derivative)
-    2. MemLp estimates for `f · ψ_ε` and its derivative under Gaussian
-       (requires showing `ψ_ε = ½ log(f² + ε) ∈ L²(γ)` when `f ∈ L²(γ)`,
-        which needs `|log(f² + ε)| ≤ C·(f² + 1)` and thus `f ∈ L⁴(γ)`,
-        again blocked by Gaussian hypercontractivity)
-    3. Taking `ε → 0` via DCT (dominated convergence)
+**Note**: The previous comment claiming "Stein + Poincaré + Young" suffices was
+incorrect. The Stein identity ∫xh dγ = ∫h' dγ gives Poincaré (variance bound)
+but NOT the LSI (entropy bound). The LSI involves the nonlinear function
+x·log(x), which cannot be extracted from the linear Stein identity.
 
-    **Dependency**: Same as sorry 1 — ultimately blocked by missing
-    Gaussian hypercontractivity / Sobolev embedding.
+**Estimated effort**: ~300 lines (OU semigroup + Bakry-Emery criterion). -/
+private lemma gaussian_lsi_normalized_of_integrable
+    (f f' : ℝ → ℝ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
+    (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
+    ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
+      2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
+  -- **Blocker**: The 1D Gaussian LSI requires infrastructure not in Mathlib.
+  -- The Stein identity alone gives Poincare (variance bound), NOT the LSI.
+  -- Recommended path: Bakry-Emery criterion via OU semigroup (~300 lines).
+  -- See module docstring for full analysis of proof options.
+  sorry
 
-    **Proof strategy (Gross's argument via regularized Stein IBP)**:
-
-    1. For `ε > 0`, define `ψ_ε(x) = ½ · log(f(x)² + ε)`, smooth everywhere.
-    2. Apply `stein_identity` to `h = f · ψ_ε`:
-       `∫ x·f·ψ_ε dγ = ∫ (f·ψ_ε)' dγ`
-       `= ∫ [f'·ψ_ε + f²·f'/(f²+ε)] dγ`
-       (derivative computed by `hasDerivAt_f_mul_psi_eps`)
-    3. Also apply Stein to `h = f` getting `∫ x·f dγ = ∫ f' dγ`.
-    4. The product rule on `∫ x·f²·ψ_ε = ∫ (f²·ψ_ε)' = 2∫ f·f'·ψ_ε + ∫ f²·ψ_ε'`
-       gives a relation between the entropy integral and the Fisher information.
-    5. Young's inequality `2ab ≤ a² + b²` (`two_mul_le_sq_add_sq`) on cross terms.
-    6. `f²/(f²+ε) ≤ 1` (`sq_div_sq_add_eps_le_one`) simplifies the bound.
-    7. Take `ε → 0` via DCT to get `∫ f²·log(f²) ≤ 2∫ f'²`. -/
 lemma gaussian_lsi_normalized
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
@@ -393,11 +428,14 @@ lemma gaussian_lsi_normalized
     (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  -- The Gross argument via regularized Stein IBP requires:
-  -- 1. MemLp estimates for f · ψ_ε (needs f ∈ L⁴(γ) → Gaussian hypercontractivity)
-  -- 2. Dominated convergence as ε → 0
-  -- Both are blocked by missing Gaussian Sobolev embedding in Mathlib.
-  sorry
+  -- Case split: is f²·log(f²) integrable under γ?
+  -- When NOT integrable: Lean's Bochner integral returns 0, and 0 ≤ 2∫f'² is trivial.
+  -- When integrable: use the full Gross regularization argument.
+  by_cases hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian
+  · exact gaussian_lsi_normalized_of_integrable f f' hf hf' hderiv hnorm hint
+  · rw [integral_undef hint]
+    apply mul_nonneg (by norm_num : (0 : ℝ) ≤ 2)
+    exact integral_nonneg (fun _ => sq_nonneg _)
 
 /-- **Main IBP core**: Assembles the 1D Gaussian LSI from scaling + normalized case.
 
@@ -680,32 +718,6 @@ private lemma condEntropyAt_le_of_satisfiesLSI {n : ℕ}
   rw [condEntropyAt_eq]
   exact hLSI _ _ hf_slice hg_slice (hasDerivAt_slice f gradf hgrad x i)
 
-/-- **Entropy subadditivity for product measures** (sorry).
-
-For the standard Gaussian product `μ^n`, the entropy of `f²` is bounded by
-the sum of coordinate-wise conditional entropies:
-  `Ent_{μ^n}(f²) ≤ ∑_i E_{μ^n}[Ent_i(f²)]`
-For product measures, this is actually an EQUALITY (entropy chain rule).
-
-**Blocker**: Requires Fubini for Bochner integrals on `Measure.pi` to decompose
-`∫ f²·log(f²) d(μ^n)` into iterated integrals along each coordinate.
-Specifically, needs `measurePreserving_piFinSuccAbove` + `integral_prod` to peel
-off one coordinate at a time, plus the telescoping identity for conditional entropies.
-
-**Proof sketch**:
-- Define `g_k = E[f² | x₁,...,x_k]` (conditional on first `k` coordinates).
-- Then `Ent(f²) = ∑_k E[g_{k+1}·log(g_{k+1}/g_k)]` (telescoping).
-- Each summand equals `E[Ent_k(f²)]` where `Ent_k` is entropy along coordinate `k`.
-- For product measures, the conditional expectations factorize.
-
-**Estimated effort**: ~150 lines (Fubini infrastructure + telescoping). -/
-private lemma entropy_subadditivity_pi {n : ℕ}
-    (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) :
-    entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
-      ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
-        ∂(stdGaussianPi n) := by
-  sorry
-
 /-- **MemLp for coordinate slices** (ae version, zero sorry).
 
 If `f ∈ L²(γⁿ)`, then for a.e. `x` and each `i`,
@@ -829,6 +841,134 @@ private lemma integrable_condEntropyAt {n : ℕ}
     (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) (i : Fin n) :
     Integrable (fun x => condEntropyAt stdGaussian (fun y => f y ^ 2) i x)
       (stdGaussianPi n) := by
+  sorry
+
+/-- **Integrated conditional entropy identity**.
+
+For product measure `γⁿ` and integrable `g` with integrable `g·log(g)`, the integral
+of the conditional entropy along coordinate `i` decomposes as:
+  `∫ condEntropyAt_i(g) dγⁿ = ∫ g·log(g) dγⁿ - ∫ (E_i g)·log(E_i g) dγⁿ`
+where `E_i g(x) = ∫ g(update x i t) dγ(t)`.
+
+**Proof**: Expand `condEntropyAt = entropy = ∫ φ(slice) - ψ(slice)`, split the integral,
+and apply `integral_condExpect_eq_integral_pi` to the `∫ φ(slice)` part. -/
+private lemma integrated_condEntropyAt_eq {n : ℕ}
+    (g : (Fin n → ℝ) → ℝ) (i : Fin n)
+    (hg_log : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi n))
+    (hint1 : Integrable (fun x => ∫ t, g (Function.update x i t) *
+      Real.log (g (Function.update x i t)) ∂stdGaussian) (stdGaussianPi n))
+    (hint2 : Integrable (fun x => (∫ t, g (Function.update x i t) ∂stdGaussian) *
+      Real.log (∫ t, g (Function.update x i t) ∂stdGaussian)) (stdGaussianPi n)) :
+    ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) =
+    ∫ x, g x * Real.log (g x) ∂(stdGaussianPi n) -
+    ∫ x, (∫ t, g (Function.update x i t) ∂stdGaussian) *
+      Real.log (∫ t, g (Function.update x i t) ∂stdGaussian) ∂(stdGaussianPi n) := by
+  have hsplit :
+      ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) =
+      ∫ x, (∫ t, g (Function.update x i t) * Real.log (g (Function.update x i t)) ∂stdGaussian)
+        ∂(stdGaussianPi n) -
+      ∫ x, (∫ t, g (Function.update x i t) ∂stdGaussian) *
+        Real.log (∫ t, g (Function.update x i t) ∂stdGaussian) ∂(stdGaussianPi n) := by
+    simp only [condEntropyAt, entropy]
+    exact integral_sub hint1 hint2
+  rw [hsplit]
+  congr 1
+  exact integral_condExpect_eq_integral_pi (fun x => g x * Real.log (g x)) hg_log i
+
+/-- **Jensen data processing for conditional entropy under coordinate averaging**.
+
+For product measure `γⁿ` and `g ≥ 0`, averaging `g` over coordinate `j` can only
+DECREASE the conditional entropy along a different coordinate `i ≠ j`:
+
+  `∫ φ(E_j[g](upd x i ·)) ≤ ∫ φ(g(upd x i ·))` for a.e. x
+
+where `E_j[g](x) = ∫ g(upd x j t) dγ(t)` and `φ(t) = t·log(t)`.
+
+Integrated over x, this gives `∫ condEnt_i(E_j g) ≤ ∫ condEnt_i(g)`.
+
+**Proof**: For fixed `x_{-i}`, the slice `t ↦ E_j g(upd x i t)` is a conditional expectation
+of `t ↦ g(upd x i t)` over coordinate j. By convexity of entropy:
+`Ent(E_j[h]) ≤ Ent(h)` for the conditional expectation E_j, applied to the slice h.
+
+**Blocker**: Requires conditional Jensen for `Ent(E[X]) ≤ E[Ent(X)]` on fiber integrals,
+plus commutativity of coordinate updates for `i ≠ j`. ~50 lines. -/
+private lemma condEntropyAt_avg_le {n : ℕ}
+    (g : (Fin n → ℝ) → ℝ) (i j : Fin n) (hij : i ≠ j) :
+    ∫ x, condEntropyAt stdGaussian
+      (fun y => (∫ t, g (Function.update y j t) ∂stdGaussian)) i x
+      ∂(stdGaussianPi n) ≤
+    ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
+  sorry
+
+/-- **Entropy chain rule for product measures** (exact identity).
+
+For product measure `γⁿ` and any `i : Fin n`:
+  `Ent_{γⁿ}(g) = ∫ condEnt_i(g) dγⁿ + Ent_{γⁿ}(E_i g)`
+
+where `E_i g(x) = ∫ g(update x i t) dγ(t)` is the coordinate-i conditional expectation.
+
+This is an IDENTITY (not inequality), following from:
+1. `condEnt_i(g) = ∫ g·log(g)(slice) - (E_i g)·log(E_i g)` (definition)
+2. `∫ (∫ g·log(g)(slice)) = ∫ g·log(g)` (Fubini/`integral_condExpect_eq_integral_pi`)
+3. `∫ E_i g = ∫ g` (Fubini/`integral_condExpect_eq_integral_pi`)
+
+**Blocker**: Statement involves `Ent_{γⁿ}(E_i g)` where `E_i g : (Fin n → ℝ) → ℝ`.
+For the induction to work, we need to relate this to `Ent_{γⁿ⁻¹}(h)` for some
+`h : (Fin (n-1) → ℝ) → ℝ`. This requires `piFinSuccAbove` projections. ~40 lines. -/
+private lemma entropy_chain_rule_pi {n : ℕ}
+    (g : (Fin n → ℝ) → ℝ) (i : Fin n)
+    (hg : Integrable g (stdGaussianPi n))
+    (hg_log : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi n))
+    (hint1 : Integrable (fun x => ∫ t, g (Function.update x i t) *
+      Real.log (g (Function.update x i t)) ∂stdGaussian) (stdGaussianPi n))
+    (hint2 : Integrable (fun x => (∫ t, g (Function.update x i t) ∂stdGaussian) *
+      Real.log (∫ t, g (Function.update x i t) ∂stdGaussian)) (stdGaussianPi n)) :
+    entropyPi (stdGaussianPi n) g =
+    ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) +
+    entropyPi (stdGaussianPi n) (fun x => ∫ t, g (Function.update x i t) ∂stdGaussian) := by
+  -- Let A = ∫ g·log(g), B = ∫g, D = ∫ (E_i g)·log(E_i g)
+  -- Chain rule: A - B·log(B) = (A - D) + (D - B·log(B))
+  -- Step 1: Split ∫ condEnt into ∫ slice_log - ∫ E_i_log
+  have hsplit :
+      ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) =
+      ∫ x, (∫ t, g (Function.update x i t) * Real.log (g (Function.update x i t)) ∂stdGaussian)
+        ∂(stdGaussianPi n) -
+      ∫ x, (∫ t, g (Function.update x i t) ∂stdGaussian) *
+        Real.log (∫ t, g (Function.update x i t) ∂stdGaussian) ∂(stdGaussianPi n) := by
+    simp only [condEntropyAt, entropy]
+    exact integral_sub hint1 hint2
+  -- Step 2: Fubini: ∫ slice_log = ∫ g·log(g)
+  have hfub_log :
+      ∫ x, (∫ t, g (Function.update x i t) * Real.log (g (Function.update x i t)) ∂stdGaussian)
+        ∂(stdGaussianPi n) =
+      ∫ x, g x * Real.log (g x) ∂(stdGaussianPi n) :=
+    integral_condExpect_eq_integral_pi (fun x => g x * Real.log (g x)) hg_log i
+  -- Step 3: Fubini: ∫ E_i g = ∫ g
+  have hfub : ∫ x, (∫ t, g (Function.update x i t) ∂stdGaussian) ∂(stdGaussianPi n) =
+      ∫ x, g x ∂(stdGaussianPi n) :=
+    integral_condExpect_eq_integral_pi g hg i
+  -- Step 4: Combine. LHS = A - B·log(B). RHS = (A - D) + (D - B·log(B)) = A - B·log(B).
+  simp only [entropyPi]
+  rw [hfub]
+  linarith [hsplit, hfub_log]
+
+/-- **Entropy subadditivity for product measures** (entropy chain rule).
+
+For the standard Gaussian product `γⁿ`, the entropy of `f²` is bounded by
+the sum of coordinate-wise conditional entropies:
+  `Ent_{γⁿ}(f²) ≤ ∑_i E_{γⁿ}[Ent_i(f²)]`
+
+**Proof** (induction on n via entropy chain rule + Jensen data processing):
+- n = 0: both sides = 0 (Subsingleton).
+- n + 1: Entropy chain rule decomposes `Ent(g)` into `E[condEnt₀(g)] + Ent(E₀ g)`.
+  By induction hypothesis on n, `Ent(E₀ g) ≤ ∑_{i≥1} E[condEnt_i(E₀ g)]`.
+  By Jensen data processing: `condEnt_i(E₀ g) ≤ condEnt_i(g)` for i ≥ 1.
+  Combining gives the result. -/
+private lemma entropy_subadditivity_pi {n : ℕ}
+    (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) :
+    entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
+      ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
+        ∂(stdGaussianPi n) := by
   sorry
 
 /-- Integrability of the conditional gradient integral (zero sorry).
