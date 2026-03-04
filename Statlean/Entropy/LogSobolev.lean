@@ -15,6 +15,8 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
   `log_le_sub_one'`, `entropy_eq_two_integral_sq_log_abs`, `entropy_sq_nonneg_of_integrable`
 - **Gross regularization infrastructure** (new, zero sorry):
   - `abs_mul_log_le_sq_add_one` — `|t log t| ≤ t² + 1` for t ≥ 0
+  - `neg_mul_log_le_one` — `-(t log t) ≤ 1` for t ≥ 0 (negative part bound)
+  - `integrable_neg_part_sq_mul_log` — negative part of f²·log(f²) is integrable
   - `hasDerivAt_regularized_log` — d/dx [½ log(f²+ε)] = f·f'/(f²+ε)
   - `hasDerivAt_f_mul_psi_eps` — d/dx [f·ψ_ε] = f'·ψ_ε + f²·f'/(f²+ε)
   - `sq_div_sq_add_eps_le_one` — f²/(f²+ε) ≤ 1
@@ -234,14 +236,66 @@ lemma abs_mul_log_le_sq_add_one (t : ℝ) (ht : 0 ≤ t) :
 -- Correct approach: prove the log-Sobolev inequality first (via Gross regularization,
 -- infrastructure already present below), which gives ∫ f² log(f²/‖f‖₂²) dγ ≤ 2∫(f')²dγ
 -- and implies integrability of f² log f² without L⁴.
--- Alternatively, add MemLp f 4 as an explicit hypothesis if the caller can provide it.
+--
+-- Architecture for the proof:
+-- 1. The negative part f²·log⁻(f²) is bounded by 1/e pointwise (proved below as
+--    `neg_mul_log_le_inv_exp`), hence always integrable under any finite measure.
+-- 2. The positive part f²·log⁺(f²) requires the Gaussian LSI to bound.
+-- 3. The LSI and integrability are co-dependent: the Gross regularization argument
+--    proves both simultaneously via truncation + monotone convergence.
+-- 4. Specifically: for bounded f, all L² conditions for Stein identity are met,
+--    the Gross argument gives the LSI, and `abs_mul_log_le_sq_add_one` + Poincaré
+--    on f² gives L⁴ → integrability. For general f, take smooth truncation limits.
+
+/-- The negative part of `t * log t` is bounded by `1` for `t ≥ 0`:
+    `-(t * log t) ≤ 1` when `0 ≤ t ≤ 1`, and `t * log t ≥ 0` when `t ≥ 1`.
+    In particular, `max(0, -(t * log t)) ≤ 1` for all `t ≥ 0`. -/
+lemma neg_mul_log_le_one (t : ℝ) (ht : 0 ≤ t) :
+    -(t * Real.log t) ≤ 1 := by
+  rcases eq_or_lt_of_le ht with rfl | htp
+  · simp
+  rcases le_or_gt 1 t with h1 | h1
+  · -- t ≥ 1: t * log t ≥ 0, so -(t * log t) ≤ 0 ≤ 1
+    have : 0 ≤ t * Real.log t := mul_nonneg htp.le (Real.log_nonneg h1)
+    linarith
+  · -- 0 < t < 1: use log(1/t) ≤ 1/t - 1, i.e., -log t ≤ 1/t - 1
+    -- Then t·(-log t) ≤ t·(1/t - 1) = 1 - t ≤ 1
+    have hlog_bound := Real.log_le_sub_one_of_pos (inv_pos.mpr htp)
+    rw [Real.log_inv] at hlog_bound
+    -- hlog_bound : -log t ≤ t⁻¹ - 1
+    have hmul : t * (-Real.log t) ≤ t * (t⁻¹ - 1) :=
+      mul_le_mul_of_nonneg_left hlog_bound htp.le
+    have hsimpl : t * (t⁻¹ - 1) = 1 - t := by
+      rw [mul_sub, mul_inv_cancel₀ (ne_of_gt htp), mul_one]
+    linarith
+
+/-- Integrability of the negative part of `f²·log(f²)` under any finite measure.
+    Since `-(f²·log(f²)) ≤ 1` pointwise (for f² ≥ 0), the negative part
+    `max(0, -(f²·log(f²)))` is bounded, hence integrable. -/
+lemma integrable_neg_part_sq_mul_log {μ : Measure ℝ} [IsFiniteMeasure μ]
+    (f : ℝ → ℝ) (hf : Measurable f) :
+    Integrable (fun x => max (0 : ℝ) (-(f x ^ 2 * Real.log (f x ^ 2)))) μ := by
+  have hm : Measurable (fun x => max (0 : ℝ) (-(f x ^ 2 * Real.log (f x ^ 2)))) := by
+    exact measurable_const.max ((hf.pow_const 2 |>.mul (hf.pow_const 2 |>.log)).neg)
+  apply (integrable_const (1 : ℝ)).mono hm.aestronglyMeasurable
+  filter_upwards with x
+  rw [Real.norm_of_nonneg (le_max_left 0 _), norm_one]
+  exact max_le zero_le_one (neg_mul_log_le_one (f x ^ 2) (sq_nonneg _))
 
 /-- Integrability of `f² log f²` under Gaussian measure.
 
 **Sorry**: The previous proof relied on `memLp_four_of_W12_gaussian` which is false.
-The correct proof should follow from the Gross log-Sobolev inequality, which gives
-`∫ f² log(f²/‖f‖₂²) dγ ≤ 2 ∫ (f')² dγ`, directly implying the integrability.
-This avoids the need for `f ∈ L⁴(γ)`. -/
+
+**Proof route (Gross regularization bootstrap)**:
+1. Negative part: integrable by `integrable_neg_part_sq_mul_log` (bounded by 1).
+2. Positive part: bounded via the Gaussian LSI. For bounded `f` (|f| ≤ M),
+   apply Gaussian Poincaré to `f²` to get `∫f⁴ ≤ (∫f²)² + 4M²∫(f')²`,
+   then `abs_mul_log_le_sq_add_one` gives `|f²log(f²)| ≤ f⁴ + 1 < ∞`.
+   For general `f`, use smooth truncation `fₙ → f` and monotone convergence
+   on the positive part, with the uniform bound from the normalized LSI:
+   `∫ fₙ²·log⁺(fₙ²) ≤ 2∫(fₙ')² + (∫fₙ²)log(∫fₙ²) + 1/e`.
+3. This requires proving the normalized LSI (`gaussian_lsi_normalized`) for
+   bounded functions first, making the two sorrys co-dependent. -/
 lemma integrable_sq_mul_log_sq_of_memLp
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
