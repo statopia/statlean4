@@ -1,4 +1,4 @@
-version: v92
+version: v93
 generated: 2026-03-04
 total_sorry: 10
 
@@ -18,7 +18,7 @@ sorry_items:
 
 - id: lsi.normalized
   file: Statlean/Entropy/LogSobolev.lean
-  line: 346
+  line: 400
   theorem: gaussian_lsi_normalized
   type: blocked
   depth: 3
@@ -26,11 +26,11 @@ sorry_items:
   blocker: "Gross regularized Stein IBP. integrable_sq_mul_log_sq_of_memLp now sorry-ed directly (previous proof used false memLp_four_of_W12_gaussian). Correct approach: prove LSI via Gross regularization, then derive integrability of f² log f² as a corollary. All Gross regularization infrastructure (5 lemmas) already proved."
   estimated_lines: 120
   dependencies: [lsi.integrable_sq_log]
-  unlocks: []
+  unlocks: [herbst.subgaussian_mgf]
 
 - id: lsi.integrable_sq_log
   file: Statlean/Entropy/LogSobolev.lean
-  line: 251
+  line: 305
   theorem: integrable_sq_mul_log_sq_of_memLp
   type: honest
   depth: 2
@@ -39,66 +39,6 @@ sorry_items:
   estimated_lines: 80
   dependencies: []
   unlocks: [lsi.normalized]
-
-- id: lsi.entropy_subadditivity_pi
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 653
-  theorem: entropy_subadditivity_pi
-  type: honest
-  depth: 3
-  priority: 10
-  blocker: "Entropy chain rule: Ent(f²) ≤ ∑_i E[Ent_i(f²)]. Needs Fubini for f²·log(f²) on Measure.pi + telescoping conditional entropy identity."
-  estimated_lines: 150
-  dependencies: []
-  unlocks: []
-
-- id: lsi.memLp_slice
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 673
-  theorem: memLp_slice_of_memLp_pi
-  type: honest
-  depth: 2
-  priority: 11
-  blocker: "L² for coordinate slices. Needs Fubini/Tonelli on ‖f‖² via measurePreserving_piFinSuccAbove."
-  estimated_lines: 40
-  dependencies: []
-  unlocks: []
-
-- id: lsi.fubini_update
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 694
-  theorem: integral_condExpect_eq_integral_pi
-  type: honest
-  depth: 2
-  priority: 12
-  blocker: "Resampling a coordinate preserves the integral. Needs measurePreserving_piFinSuccAbove + integral_prod + update_insertNth identity."
-  estimated_lines: 60
-  dependencies: []
-  unlocks: []
-
-- id: lsi.integrable_condEntropy
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 702
-  theorem: integrable_condEntropyAt
-  type: honest
-  depth: 2
-  priority: 13
-  blocker: "Follows from entropy_subadditivity infrastructure."
-  estimated_lines: 20
-  dependencies: [lsi.entropy_subadditivity_pi]
-  unlocks: []
-
-- id: lsi.integrable_condGrad
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 711
-  theorem: integrable_condGrad
-  type: honest
-  depth: 2
-  priority: 14
-  blocker: "Follows from Fubini + MemLp for slices."
-  estimated_lines: 20
-  dependencies: [lsi.memLp_slice]
-  unlocks: []
 
 - id: herbst.subgaussian_mgf
   file: Statlean/SubGaussian/Herbst.lean
@@ -112,14 +52,74 @@ sorry_items:
   dependencies: [lsi.normalized, lsi.entropy_subadditivity_pi]
   unlocks: []
 
-- id: efronstein.induction
+- id: lsi.entropy_subadditivity_pi
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 707
+  theorem: entropy_subadditivity_pi
+  type: honest
+  depth: 3
+  priority: 10
+  blocker: "Entropy chain rule: Ent(f²) ≤ ∑_i E[Ent_i(f²)]. Needs Fubini for f²·log(f²) on Measure.pi + telescoping conditional entropy identity."
+  estimated_lines: 150
+  dependencies: []
+  unlocks: [herbst.subgaussian_mgf, lsi.integrable_condEntropy]
+
+- id: lsi.memLp_slice
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 727
+  theorem: memLp_slice_of_memLp_pi
+  type: honest
+  depth: 2
+  priority: 11
+  blocker: "L² for coordinate slices. Needs Fubini/Tonelli on ‖f‖² via measurePreserving_piFinSuccAbove."
+  estimated_lines: 40
+  dependencies: []
+  unlocks: [lsi.integrable_condGrad]
+
+- id: lsi.fubini_update
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 748
+  theorem: integral_condExpect_eq_integral_pi
+  type: honest
+  depth: 2
+  priority: 12
+  blocker: "Resampling a coordinate preserves the integral. Needs measurePreserving_piFinSuccAbove + integral_prod + update_insertNth identity."
+  estimated_lines: 60
+  dependencies: []
+  unlocks: []
+
+- id: lsi.integrable_condEntropy
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 756
+  theorem: integrable_condEntropyAt
+  type: blocked
+  depth: 2
+  priority: 13
+  blocker: "Follows from entropy_subadditivity infrastructure."
+  estimated_lines: 20
+  dependencies: [lsi.entropy_subadditivity_pi]
+  unlocks: []
+
+- id: lsi.integrable_condGrad
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 765
+  theorem: integrable_condGrad
+  type: blocked
+  depth: 2
+  priority: 14
+  blocker: "Follows from Fubini + MemLp for slices."
+  estimated_lines: 20
+  dependencies: [lsi.memLp_slice]
+  unlocks: []
+
+- id: efronstein.aesm_htil
   file: Statlean/Variance/EfronStein.lean
-  line: 821
+  line: 1045
   theorem: efron_stein_core_gen
   type: honest
   depth: 2
   priority: 6
-  blocker: "Dimension reduction step in strong induction. g = E[f|σ_{-i₀}] viewed on reduced index type via Measure.pi marginal equivalence. condExp_comm NOW PROVED — this sorry is UNBLOCKED. Needs: construct equivalent function on ∏_{j≠i₀} X_j, show variance/condVar transfer, apply IH."
-  estimated_lines: 80
+  blocker: "AEStronglyMeasurable[M'] htil P' — htil from Doob-Dynkin is pi-sm but ae_eq_condExp needs M'-ae-sm. Need: sigmaAlgExcept j ⊓ sigmaAlgExcept i₀ = comap restrict (sigmaAlgExcept ⟨j,hj⟩) on product space, ~100 lines."
+  estimated_lines: 100
   dependencies: []
   unlocks: []

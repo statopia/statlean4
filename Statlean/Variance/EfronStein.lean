@@ -7,6 +7,7 @@ import Mathlib.Probability.CondVar
 import Mathlib.MeasureTheory.Function.L2Space
 import Mathlib.MeasureTheory.Integral.Prod
 import Mathlib.Probability.ConditionalExpectation
+import Mathlib.MeasureTheory.Function.FactorsThrough
 
 /-! # Efron-Stein Inequality
 
@@ -23,10 +24,12 @@ See also `Statlean.Variance.ANOVA` for `sq_integral_le_integral_sq`,
 `variance_marginals_le_variance_prod`, and other ANOVA infrastructure.
 
 ## Sorry gaps (1 sorry)
-- `efron_stein_core_gen/hg_es` — Efron-Stein applied to `g = E[f|N]` on reduced index set.
-  **Blocked by**: quotient reduction `∏_ι X → ∏_{ι\{i₀}} X` with Var/condVar transfer
-  via `measurePreserving_piEquivPiSubtypeProd`. Rest of inductive step fully proved
-  (sum splitting, i₀ term = 0, j≠i₀ comparison via `efron_stein_condVar_le_of_condExp`).
+- `efron_stein_core_gen/hg_es/hhtil_condExp` — `AEStronglyMeasurable[M'] htil P'` where
+  `htil` is the Doob-Dynkin factoring of `P[P[f|M]|N]` through `restrict`.
+  **Blocked by**: showing `M ⊓ N = comap restrict M'` for independent product measures
+  (σ-algebra intersection = common generators). ~100 lines of infrastructure.
+  The entire induction step (dimension reduction + variance transfer + LTV) is complete
+  modulo this one measurability sorry.
 
 ## Proved results
 - `condExp_condExp_comm_pi` — **fully proved** via Dynkin π-λ theorem:
@@ -809,16 +812,313 @@ private theorem efron_stein_core_gen (n : ℕ) :
     -- We use E-S for g on the same space, then split and bound.
     have hg_es : Var[g; Measure.pi μ] ≤
         ∑ j : ι, (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] := by
-      -- Apply IH to g viewed on the reduced index type {j | j ≠ i₀}.
-      -- g = E[f|sigmaAlgExcept i₀] is strongly measurable w.r.t. sigmaAlgExcept i₀,
-      -- meaning it does not depend on coordinate i₀.
-      -- The dimension reduction requires:
-      -- 1. Constructing an equivalent function on ∏_{j≠i₀} X_j
-      -- 2. Showing variance and condVar transfer through the equivalence
-      -- 3. Applying ih with Fintype.card {j | j ≠ i₀} = n
-      -- This infrastructure (Bochner Fubini for Measure.pi marginals)
-      -- is the same blocker as condExp_condExp_comm_pi.
-      sorry
+      -- Dimension reduction: g = E[f|σ_{-i₀}] is σ_{-i₀}-measurable,
+      -- so by Doob-Dynkin it factors through the restriction map.
+      -- We apply IH to the factored function g̃ on the reduced index set {j ≠ i₀}.
+      set restrict := (fun x (j : {j : ι // j ≠ i₀}) => x j.val :
+        (∀ j, X j) → ∀ j : {j : ι // j ≠ i₀}, X j.val) with hrestrict_def
+      -- Step 1: sigmaAlgExcept i₀ ≤ comap restrict MeasurableSpace.pi
+      have hle_comap : sigmaAlgExcept (X := X) i₀ ≤
+          MeasurableSpace.comap restrict MeasurableSpace.pi := by
+        apply iSup₂_le
+        intro j hj
+        rw [Set.mem_compl_iff, Set.mem_singleton_iff] at hj
+        have : (fun (x : ∀ k, X k) => x j) =
+          (fun (y : ∀ k : {k : ι // k ≠ i₀}, X k.val) => y ⟨j, hj⟩) ∘ restrict := rfl
+        rw [this, ← MeasurableSpace.comap_comp]
+        exact MeasurableSpace.comap_mono (le_iSup (fun (k : {k : ι // k ≠ i₀}) =>
+          MeasurableSpace.comap (fun (y : ∀ k : {k : ι // k ≠ i₀}, X k.val) => y k)
+            (inferInstance : MeasurableSpace (X k.val))) ⟨j, hj⟩)
+      -- Step 2: Factor g = g̃ ∘ restrict (Doob-Dynkin lemma)
+      have hg_sm : StronglyMeasurable[sigmaAlgExcept (X := X) i₀] g :=
+        stronglyMeasurable_condExp
+      obtain ⟨gtil, hgtil_sm, hg_factor⟩ :=
+        (hg_sm.mono hle_comap).exists_eq_measurable_comp
+      -- Step 3: Marginal measure (π μ).map restrict = π μ'
+      set μ' := (fun j : {j : ι // j ≠ i₀} => μ j.val)
+      have hf_meas : Measurable restrict :=
+        measurable_pi_lambda _ (fun j => measurable_pi_apply j.val)
+      have hpi_map : (Measure.pi μ).map restrict = Measure.pi μ' := by
+        have hmp := measurePreserving_piEquivPiSubtypeProd μ (· ≠ i₀)
+        have hrest : restrict =
+          Prod.fst ∘ (MeasurableEquiv.piEquivPiSubtypeProd X (· ≠ i₀)) := by
+          ext x j; rfl
+        rw [hrest, ← Measure.map_map measurable_fst
+          (MeasurableEquiv.piEquivPiSubtypeProd X (· ≠ i₀)).measurable,
+          hmp.map_eq]
+        exact Measure.fst_prod
+      -- Step 4: Variance transfer Var[g; π μ] = Var[g̃; π μ']
+      have hvar_eq : Var[g; Measure.pi μ] = Var[gtil; Measure.pi μ'] := by
+        rw [hg_factor,
+          ← variance_map hgtil_sm.aemeasurable hf_meas.aemeasurable,
+          hpi_map]
+      -- Step 5: MemLp transfer
+      have hgtil_memlp : MemLp gtil 2 (Measure.pi μ') := by
+        rw [← hpi_map,
+          memLp_map_measure_iff hgtil_sm.aestronglyMeasurable hf_meas.aemeasurable]
+        rw [← hg_factor]; exact hg
+      -- Step 6: Cardinality
+      have hcard : Fintype.card {j : ι // j ≠ i₀} = n := by
+        rw [Fintype.card_subtype_compl, Fintype.card_subtype_eq, hn]; simp
+      -- Step 7: Apply IH to g̃ on reduced space
+      have hih := ih μ' gtil hcard hgtil_memlp
+      -- hih : Var[g̃; π μ'] ≤ ∑_{j'} (π μ')[Var[g̃; π μ' | sigmaAlgExcept j']]
+      -- Step 8: Transfer the sum back to the full space
+      -- Strategy: For each j ≠ i₀, show P'[Var[g̃|σ'_{-j'}]] = P[Var[g|σ_j]] by:
+      -- (a) Commutativity: P[g|M] =ᵃᵉ P[P[f|M]|N], which is N-sm, factors through restrict
+      -- (b) ae_eq_condExp: the factored function = P'[g̃|M'] a.e.
+      -- (c) variance_map + variance_congr + LTV gives integral equality
+      set P := Measure.pi μ with hP_def
+      set P' := Measure.pi μ' with hP'_def
+      -- Key comap inequality: comap restrict M'_j ≤ N ⊓ M_j (for each j ≠ i₀)
+      -- This means: for S ∈ M'_j, restrict⁻¹(S) ∈ N ⊓ M_j
+      -- Key measurability facts for restrict w.r.t. sub-σ-algebras
+      -- For S ∈ M' (small space), restrict⁻¹'(S) is both N- and M-measurable
+      -- Proof: M' generators are eval k' for k' ≠ ⟨j,hj⟩
+      --   eval k' ∘ restrict = eval k'.val
+      --   k'.val ≠ i₀ (always), k'.val ≠ j (since k' ≠ ⟨j,hj⟩)
+      --   So σ_coord k'.val ≤ N ⊓ M
+
+      -- restrict is (N, pi_small)-measurable
+      have hrestrict_N_meas : @Measurable _ _ (sigmaAlgExcept (X := X) i₀)
+          MeasurableSpace.pi restrict := by
+        apply @measurable_pi_lambda _ _ _ (sigmaAlgExcept (X := X) i₀) _
+        intro k'
+        exact @Measurable.of_comap_le _ _ (sigmaAlgExcept (X := X) i₀) _ (fun x => x k'.val)
+          (σ_coord_le_except (X := X) k'.val i₀ k'.property)
+      -- restrict is (M, M')-measurable for each j ≠ i₀
+      -- We prove comap restrict M' ≤ M via the Galois connection
+      have hcomap_M'_le_M : ∀ (j : ι) (hj : j ≠ i₀),
+          MeasurableSpace.comap restrict
+            (sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩) ≤
+          sigmaAlgExcept (X := X) j := by
+        intro j hj
+        -- M' = ⨆ k' ∈ {⟨j,hj⟩}ᶜ, comap (eval k') inst
+        -- comap restrict M' = ⨆ k' ∈ {⟨j,hj⟩}ᶜ, comap restrict (comap (eval k') inst)
+        --                    = ⨆ k' ∈ {⟨j,hj⟩}ᶜ, comap (eval k' ∘ restrict) inst
+        --                    = ⨆ k' ∈ {⟨j,hj⟩}ᶜ, comap (eval k'.val) inst
+        --                    = ⨆ k' ∈ {⟨j,hj⟩}ᶜ, σ_coord k'.val
+        -- Each k' ≠ ⟨j,hj⟩ means k'.val ≠ j, so σ_coord k'.val ≤ sigmaAlgExcept j
+        -- Unfold M' to its iSup form and distribute comap over it
+        -- M' ≤ comap restrict (sigmaAlgExcept j)
+        -- ⟺ ⨆ k' ∈ {⟨j,hj⟩}ᶜ, comap (eval k') inst ≤ comap restrict (sigmaAlgExcept j)
+        -- ⟺ ∀ k' ∈ {⟨j,hj⟩}ᶜ, comap (eval k') inst ≤ comap restrict (sigmaAlgExcept j)
+        -- Each: comap (eval k') inst = comap (eval k' ∘ restrict ∘ id) inst
+        --       but we need: comap (eval k') inst ≤ comap restrict (sigmaAlgExcept j)
+        --       ⟺ for all A ∈ inst, (eval k')⁻¹(A) ∈ comap restrict (sigmaAlgExcept j)
+        --       ⟺ for all A, ∃ s ∈ sigmaAlgExcept j, (eval k')⁻¹(A) = restrict⁻¹'(s)
+        --       This is NOT the right direction for comap.
+        -- Actually: comap (eval k') inst ≤ comap restrict (sigmaAlgExcept j)
+        --   means: for s ∈ comap (eval k') inst, s ∈ comap restrict (sigmaAlgExcept j)
+        --   i.e., for s = (eval k')⁻¹(A), there exists t ∈ sigmaAlgExcept j with s = restrict⁻¹'(t).
+        --   Take t = (eval k'.val)⁻¹(A). Then restrict⁻¹'(t) = (eval k'.val)⁻¹(A) = (eval k' ∘ restrict)⁻¹(A)
+        --   = (eval k')⁻¹(A) ∘ restrict... hmm.
+        -- Let me use a cleaner formulation via le_trans with comap_comp:
+        -- comap (eval k') inst = comap (eval k' ∘ restrict⁻¹... no.
+        -- Actually: we need to go through the definition.
+        -- s ∈ comap (eval k') inst ⟹ s = {y | y k' ∈ A} for some A
+        -- This is a set on the SMALL space.
+        -- restrict⁻¹'(s) = {x | restrict(x) k' ∈ A} = {x | x k'.val ∈ A}
+        -- = (eval k'.val)⁻¹(A) ∈ σ_coord k'.val ≤ sigmaAlgExcept j (since k'.val ≠ j)
+        -- So we need: s ∈ comap restrict (sigmaAlgExcept j)
+        -- means ∃ u ∈ sigmaAlgExcept j, s = restrict⁻¹'(u)... wait, NO.
+        -- comap restrict (sigmaAlgExcept j) = {s on big space | ...}. But s is on the SMALL space!
+        -- I think the issue is: comap restrict M' is a σ-algebra on the BIG space.
+        -- The original goal is: comap restrict M' ≤ sigmaAlgExcept j (on the big space).
+        -- So for s on the BIG space with s ∈ comap restrict M',
+        -- we need s ∈ sigmaAlgExcept j (on the big space).
+        -- s ∈ comap restrict M' means s = restrict⁻¹'(t) for some t ∈ M' (on small space).
+        -- Need: restrict⁻¹'(t) ∈ sigmaAlgExcept j.
+        -- This is what we need to show.
+        -- The approach: suffices M' ≤ {t small | restrict⁻¹'(t) ∈ sigmaAlgExcept j}
+        -- The RHS is MeasurableSpace.comap restrict (sigmaAlgExcept j)... wait:
+        -- No! comap restrict (sigmaAlgExcept j) = {s BIG | ∃ t ∈ sigmaAlgExcept j, s = restrict⁻¹'(t)}
+        -- That's a σ-algebra on the BIG space, not the small space!
+        -- What we want: the set {t SMALL | restrict⁻¹'(t) ∈ sigmaAlgExcept j} as a MeasurableSpace on SMALL.
+        -- This is: MeasurableSpace.map restrict (sigmaAlgExcept j)
+        -- (map f m = {t | f⁻¹'(t) ∈ m})
+        -- So: M' ≤ map restrict (sigmaAlgExcept j)
+        -- And this is equivalent to: restrict is (sigmaAlgExcept j, M')-measurable
+        -- (by measurable_iff_le_map).
+        -- NOW: we can't use measurable_pi_lambda because M' ≤ pi_small but the j-th component
+        -- is not sigmaAlgExcept j-measurable.
+        -- BUT: M' doesn't include the j-th component!
+        -- So we need: M' ≤ map restrict (sigmaAlgExcept j).
+        -- Unfold M' and check each generator.
+        -- Generator k' ≠ ⟨j,hj⟩: comap (eval k') inst
+        -- Need: comap (eval k') inst ≤ map restrict (sigmaAlgExcept j)
+        -- i.e., ∀ A, {y | y k' ∈ A} ∈ map restrict (sigmaAlgExcept j)
+        -- i.e., ∀ A, restrict⁻¹'({y | y k' ∈ A}) ∈ sigmaAlgExcept j
+        -- i.e., ∀ A, {x | x k'.val ∈ A} ∈ sigmaAlgExcept j
+        -- i.e., σ_coord k'.val ≤ sigmaAlgExcept j  ✓ (since k'.val ≠ j)
+        -- So the proof is: unfold M', iSup₂_le, for each k' show the generator ≤ map restrict M.
+        -- And measurable_iff_le_map or direct.
+        -- The approach: intro s hs, obtain, then show restrict⁻¹'(t) ∈ sigmaAlgExcept j
+        -- by showing M' ≤ map restrict (sigmaAlgExcept j) and hence t ∈ map restrict (sigmaAlgExcept j).
+        -- Direct: for t ∈ M', restrict⁻¹'(t) ∈ sigmaAlgExcept j.
+        -- We show this by: {t | restrict⁻¹'(t) ∈ sigmaAlgExcept j} is a σ-algebra containing M''s generators.
+        -- This σ-algebra is MeasurableSpace.map restrict (sigmaAlgExcept j).
+        -- So: suffices M' ≤ MeasurableSpace.map restrict (sigmaAlgExcept j)
+        intro s hs
+        obtain ⟨t, ht, rfl⟩ := hs
+        -- t ∈ M' on small space, need restrict⁻¹'(t) ∈ sigmaAlgExcept j on big space
+        suffices h : sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩ ≤
+            MeasurableSpace.map restrict (sigmaAlgExcept (X := X) j) from h t ht
+        unfold sigmaAlgExcept
+        apply iSup₂_le
+        intro k' hk'
+        rw [Set.mem_compl_iff, Set.mem_singleton_iff] at hk'
+        have hkval_ne_j : k'.val ≠ j := fun h => hk' (Subtype.ext h)
+        -- Need: comap (eval k') inst ≤ map restrict (sigmaAlgExcept j)
+        -- i.e., ∀ A ∈ inst, restrict⁻¹'({y | y k' ∈ A}) ∈ sigmaAlgExcept j
+        -- Since restrict⁻¹'({y | y k' ∈ A}) = {x | x k'.val ∈ A} ∈ σ_coord k'.val ≤ sigmaAlgExcept j
+        intro u hu
+        obtain ⟨A, hA, rfl⟩ := hu
+        change @MeasurableSet _ (sigmaAlgExcept (X := X) j)
+          (restrict ⁻¹' ((fun y => y k') ⁻¹' A))
+        have : restrict ⁻¹' ((fun y => y k') ⁻¹' A) = (fun x : ∀ l, X l => x k'.val) ⁻¹' A := by
+          ext x; simp [restrict]
+        rw [this]
+        apply σ_coord_le_except (X := X) k'.val j hkval_ne_j
+        exact ⟨A, hA, rfl⟩
+      -- Step 8a: For each j ≠ i₀, show E_{μ'}[Var[g̃|σ'_j']] = E_μ[Var[g|σ_j]]
+      have hterm_eq : ∀ (j : ι) (hj : j ≠ i₀),
+          P'[Var[gtil; P' | sigmaAlgExcept ⟨j, hj⟩]] =
+          P[Var[g; P | sigmaAlgExcept j]] := by
+        intro j hj
+        set M := sigmaAlgExcept (X := X) j
+        set N := sigmaAlgExcept (X := X) i₀
+        have hM : M ≤ MeasurableSpace.pi := sigmaAlgExcept_le (X := X) j
+        have hN : N ≤ MeasurableSpace.pi := sigmaAlgExcept_le (X := X) i₀
+        -- (a) By commutativity: P[g|M] =ᵃᵉ P[P[f|M]|N]
+        have hcomm : P[g | M] =ᵐ[P] P[P[f | M] | N] :=
+          condExp_condExp_comm_pi μ f (hf.integrable (by norm_num)) i₀ j hj
+        -- P[P[f|M]|N] is N-sm, hence factors through restrict by Doob-Dynkin
+        have hfMN_sm : StronglyMeasurable[N] (P[P[f | M] | N]) := stronglyMeasurable_condExp
+        obtain ⟨htil, hhtil_sm, hhtil_eq⟩ :=
+          (hfMN_sm.mono hle_comap).exists_eq_measurable_comp
+        -- hhtil_eq : P[P[f|M]|N] = htil ∘ restrict (pointwise)
+        -- Sub-σ-algebra comap inequalities (no `set` to avoid instance pollution)
+        have hM' : sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩ ≤
+            MeasurableSpace.pi :=
+          sigmaAlgExcept_le (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩
+        have hcomap_le_N : MeasurableSpace.comap restrict
+            (sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩) ≤ N :=
+          (measurable_iff_comap_le (f := restrict)).mp (hrestrict_N_meas.mono le_rfl hM')
+        have hcomap_le_M : MeasurableSpace.comap restrict
+            (sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩) ≤ M :=
+          hcomap_M'_le_M j hj
+        -- SigmaFinite instances
+        haveI hsfM : SigmaFinite (P.trim hM) := by
+          have : IsFiniteMeasure (P.trim hM) := by
+            constructor; rw [trim_measurableSet_eq hM MeasurableSet.univ]; exact measure_lt_top _ _
+          exact this.toSigmaFinite
+        haveI hsfN : SigmaFinite (P.trim hN) := by
+          have : IsFiniteMeasure (P.trim hN) := by
+            constructor; rw [trim_measurableSet_eq hN MeasurableSet.univ]; exact measure_lt_top _ _
+          exact this.toSigmaFinite
+        haveI hsfM' : SigmaFinite (P'.trim hM') := by
+          have : IsFiniteMeasure (P'.trim hM') := by
+            constructor; rw [trim_measurableSet_eq hM' MeasurableSet.univ]; exact measure_lt_top _ _
+          exact this.toSigmaFinite
+        -- (b) Show htil =ᵃᵉ[P'] condExp via ae_eq_condExp_of_forall_setIntegral_eq
+        have hhtil_int : Integrable htil P' := by
+          rw [← hpi_map,
+              integrable_map_measure hhtil_sm.aestronglyMeasurable hf_meas.aemeasurable,
+              ← hhtil_eq]
+          exact integrable_condExp
+        have hhtil_condExp : htil =ᵐ[P'] P'[gtil |
+            sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩] := by
+          refine ae_eq_condExp_of_forall_setIntegral_eq hM'
+            (hgtil_memlp.integrable (by norm_num))
+            (fun s _ _ => hhtil_int.integrableOn)
+            (fun s hs _hμs => ?_)
+            ?_
+          -- SORRY: AEStronglyMeasurable[M'] htil P'
+          -- htil is StronglyMeasurable[pi] (from Doob-Dynkin on P[P[f|M]|N]).
+          -- Need: AEStronglyMeasurable[M'] htil P' where M' = sigmaAlgExcept ⟨j,hj⟩.
+          -- Mathematically true: htil∘restrict = P[P[f|M]|N] =ᵃᵉ P[g|M] which is (M∩N)-sm,
+          -- and (M∩N) = comap restrict M' for independent products. But proving M∩N equals
+          -- (rather than just contains) comap restrict M' requires independence of coordinate
+          -- σ-algebras, which is non-trivial infrastructure.
+          -- Estimated effort: ~100 lines (σ-algebra intersection lemma for independent products)
+          on_goal 2 => exact sorry
+          have hs_pi : MeasurableSet s := hM' s hs
+          have hRs_N : @MeasurableSet _ N (restrict ⁻¹' s) := hcomap_le_N _ ⟨s, hs, rfl⟩
+          have hRs_M : @MeasurableSet _ M (restrict ⁻¹' s) := hcomap_le_M _ ⟨s, hs, rfl⟩
+          have h1 : ∫ x in s, htil x ∂P' = ∫ x in restrict ⁻¹' s, (htil ∘ restrict) x ∂P := by
+            rw [← hpi_map]
+            exact setIntegral_map hs_pi hhtil_sm.aestronglyMeasurable hf_meas.aemeasurable
+          have h2 : ∫ x in restrict ⁻¹' s, (htil ∘ restrict) x ∂P =
+              ∫ x in restrict ⁻¹' s, P[P[f | M] | N] x ∂P := by
+            congr 1; ext x; exact congrFun hhtil_eq.symm x
+          have h3 : ∫ x in restrict ⁻¹' s, P[P[f | M] | N] x ∂P =
+              ∫ x in restrict ⁻¹' s, P[f | M] x ∂P :=
+            setIntegral_condExp hN integrable_condExp hRs_N
+          have h4 : ∫ x in restrict ⁻¹' s, P[f | M] x ∂P =
+              ∫ x in restrict ⁻¹' s, f x ∂P :=
+            setIntegral_condExp hM (hf.integrable (by norm_num)) hRs_M
+          have h5 : ∫ x in restrict ⁻¹' s, f x ∂P =
+              ∫ x in restrict ⁻¹' s, g x ∂P :=
+            (setIntegral_condExp hN (hf.integrable (by norm_num)) hRs_N).symm
+          have h6 : ∫ x in restrict ⁻¹' s, g x ∂P =
+              ∫ x in restrict ⁻¹' s, (gtil ∘ restrict) x ∂P :=
+            integral_congr_ae (ae_restrict_of_ae (ae_of_all P fun x => congrFun hg_factor x))
+          have h7 : ∫ x in restrict ⁻¹' s, (gtil ∘ restrict) x ∂P =
+              ∫ x in s, gtil x ∂P' := by
+            rw [← hpi_map]
+            exact (setIntegral_map hs_pi hgtil_sm.aestronglyMeasurable
+              hf_meas.aemeasurable).symm
+          linarith [h1, h2, h3, h4, h5, h6, h7]
+        -- (c) Variance transfer: Var[E[g|M]; P] = Var[E'[g̃|M']; P']
+        have hvar_EgM : Var[P[g | M]; P] = Var[P'[gtil |
+            sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩]; P'] := by
+          have hstep1 : Var[P[g | M]; P] = Var[P[P[f | M] | N]; P] := variance_congr hcomm
+          have hstep2 : Var[P[P[f | M] | N]; P] = Var[htil ∘ restrict; P] :=
+            variance_congr (show P[P[f | M] | N] =ᵐ[P] htil ∘ restrict from by rw [hhtil_eq])
+          have hstep3 : Var[htil ∘ restrict; P] = Var[htil; P'] := by
+            have := variance_map (Y := restrict) (μ := P) hhtil_sm.aemeasurable hf_meas.aemeasurable
+            rw [hpi_map] at this; linarith
+          have hstep4 : Var[htil; P'] = Var[P'[gtil |
+              sigmaAlgExcept (X := fun k : {k : ι // k ≠ i₀} => X k.val) ⟨j, hj⟩]; P'] :=
+            variance_congr hhtil_condExp
+          linarith [hstep1, hstep2, hstep3, hstep4]
+        -- LTV on both sides
+        have hltv_gM := integral_condVar_add_variance_condExp hM (μ := P) hg
+        have hltv_gtilM' := integral_condVar_add_variance_condExp hM' (μ := P') hgtil_memlp
+        linarith [hltv_gM, hltv_gtilM', hvar_eq, hvar_EgM]
+      -- Step 8b: Assemble the sum inequality
+      -- ∑_j P[Var[g|σ_j]] = P[Var[g|σ_{i₀}]] + ∑_{j≠i₀} P[Var[g|σ_j]]
+      --                    = 0 + ∑_{j≠i₀} P'[Var[g̃|σ'_{j'}]]  (by hltv_g + hterm_eq)
+      --                    = ∑_j' P'[Var[g̃|σ'_j']]
+      --                    ≥ Var[g̃] = Var[g]                    (by hih + hvar_eq)
+      have hsum_transfer : ∑ j' : {j : ι // j ≠ i₀},
+          P'[Var[gtil; P' | sigmaAlgExcept j']] =
+          ∑ j ∈ Finset.univ.erase i₀,
+            P[Var[g; P | sigmaAlgExcept j]] := by
+        -- Rewrite LHS term-by-term
+        have : ∀ j' : {j : ι // j ≠ i₀},
+            P'[Var[gtil; P' | sigmaAlgExcept j']] =
+            P[Var[g; P | sigmaAlgExcept j'.val]] := fun ⟨j, hj⟩ => hterm_eq j hj
+        simp_rw [this]
+        -- Now: ∑ j' : {j // j ≠ i₀}, F j'.val = ∑ j ∈ univ.erase i₀, F j
+        symm
+        apply Finset.sum_subtype
+        intro x
+        simp [Finset.mem_erase]
+      calc Var[g; Measure.pi μ]
+          = Var[gtil; Measure.pi μ'] := hvar_eq
+        _ ≤ ∑ j' : {j : ι // j ≠ i₀},
+              P'[Var[gtil; P' | sigmaAlgExcept j']] := hih
+        _ = ∑ j ∈ Finset.univ.erase i₀,
+              P[Var[g; P | sigmaAlgExcept j]] := hsum_transfer
+        _ ≤ 0 + ∑ j ∈ Finset.univ.erase i₀,
+              P[Var[g; P | sigmaAlgExcept j]] := by linarith
+        _ = P[Var[g; P | sigmaAlgExcept i₀]] +
+            ∑ j ∈ Finset.univ.erase i₀,
+              P[Var[g; P | sigmaAlgExcept j]] := by rw [← hltv_g]
+        _ = ∑ j : ι, P[Var[g; P | sigmaAlgExcept j]] := by
+            rw [← Finset.sum_erase_add Finset.univ _ (Finset.mem_univ i₀), add_comm]
     -- Split the g sum and use hltv_g for the i₀ term
     have hg_sum_split :
         ∑ j : ι, (Measure.pi μ)[Var[g; Measure.pi μ | sigmaAlgExcept j]] =
