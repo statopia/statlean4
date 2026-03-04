@@ -11,8 +11,8 @@ sorry_items:
   type: stuck
   depth: 1
   priority: 1
-  blocker: "Universal constant quantification — berry_esseen_smoothing is PROVED but quantifies (∃ C₁ C₂) after (∀ T μ). Need Stieltjes/Fourier inversion to get universal constants. Mathlib has Fourier inversion (Analysis.Fourier.Inversion) but needs bridging to CDF/charfun setting. ~200-300 lines new infrastructure."
-  estimated_lines: 250
+  blocker: "Universal constant quantification — berry_esseen_smoothing is PROVED but quantifies (∃ C₁ C₂) after (∀ T μ). Need Stieltjes/Fourier inversion to get universal constants. Agent H exhaustive analysis: tried CDF Lipschitz averaging, Fejér kernels, truncated Fourier, ratio tricks — ALL require Fourier inversion formula for compactly supported functions. Mathlib has Analysis.Fourier.Inversion but needs ~150 lines bridging to CDF/charfun/probability setting. Core: ∫ B_h(y-z) dμ(z) = (1/2π)∫ B̂_h(t)φ_μ(t)e^{-ity} dt for compactly supported B_h."
+  estimated_lines: 200
   dependencies: []
   unlocks: []
 
@@ -47,20 +47,20 @@ sorry_items:
   type: blocked
   depth: 3
   priority: 9
-  blocker: "Sub-Gaussian MGF bound for Lipschitz functions on Gaussian. Standard proof via LSI → Herbst argument. Blocked by Gaussian LSI (lsi.normalized_of_integrable + lsi.entropy_subadditivity_pi)."
+  blocker: "Sub-Gaussian MGF bound for Lipschitz functions on Gaussian. Standard proof via LSI → Herbst argument. Blocked by Gaussian LSI (lsi.normalized_of_integrable + lsi.entropy_subadditivity_of_nonneg)."
   estimated_lines: 60
-  dependencies: [lsi.normalized_of_integrable, lsi.entropy_subadditivity_pi]
+  dependencies: [lsi.normalized_of_integrable, lsi.entropy_subadditivity_of_nonneg]
   unlocks: []
 
-- id: lsi.entropy_subadditivity_pi
+- id: lsi.entropy_subadditivity_of_nonneg
   file: Statlean/Entropy/LogSobolev.lean
-  line: 961
-  theorem: entropy_subadditivity_pi
+  line: 959
+  theorem: entropy_subadditivity_of_nonneg
   type: honest
   depth: 3
   priority: 10
-  blocker: "Entropy subadditivity Ent(f²) ≤ ∑_i E[Ent_i(f²)]. PROVED sub-lemmas: (1) integrated_condEntropyAt_eq (zero sorry), (2) entropy_chain_rule_pi (zero sorry, exact identity). Remaining: Han's inequality for KL — ∑ Ent_{-i}(E_i g) ≤ (n-1)·Ent(g). Proof via conditional KL ordering: D(P_{j|A}) ≤ D(P_{j|B}) for A ⊂ B (convexity of KL). Needs KL chain rule for product measures + conditional density infrastructure. ~80 lines."
-  estimated_lines: 80
+  blocker: "Entropy subadditivity Ent(g) ≤ ∑_i ∫ condEnt_i(g) for g ≥ 0 integrable. REFACTORED: extracted from entropy_subadditivity_pi (n=0 case now PROVED). Statement simplified: takes (g ≥ 0, g ∈ L¹) instead of (MemLp f 2). PROVED sub-lemmas: (1) integrated_condEntropyAt_eq (zero sorry), (2) entropy_chain_rule_pi (zero sorry). Remaining: telescoping + data processing. Proof: define h_k = E_{k-1}...E_0[g], telescope Ent(g) = ∑_k ∫ condEnt_k(h_k), then data processing ∫ condEnt_k(h_k) ≤ ∫ condEnt_k(g) via Jensen (x·log(x) convex) + commutativity of E_j with update(·, k, ·) for j ≠ k. ~120 lines."
+  estimated_lines: 120
   dependencies: []
   unlocks: [herbst.subgaussian_mgf, lsi.integrable_condEntropy]
 
@@ -73,5 +73,5 @@ sorry_items:
   priority: 13
   blocker: "Follows from entropy_subadditivity infrastructure."
   estimated_lines: 20
-  dependencies: [lsi.entropy_subadditivity_pi]
+  dependencies: [lsi.entropy_subadditivity_of_nonneg]
   unlocks: []

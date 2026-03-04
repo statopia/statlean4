@@ -927,38 +927,65 @@ private lemma entropy_chain_rule_pi {n : ℕ}
   rw [hfub]
   linarith [hsplit, hfub_log]
 
-/-- **Entropy subadditivity for product measures** (Han's inequality).
+/-- **Entropy subadditivity for nonneg integrable functions** (Han's inequality).
 
-For the standard Gaussian product `γⁿ`, the entropy of `f²` is bounded by
-the sum of coordinate-wise conditional entropies:
-  `Ent_{γⁿ}(f²) ≤ ∑_i E_{γⁿ}[Ent_i(f²)]`
+For g ≥ 0 on γⁿ with g ∈ L¹:
+  `Ent_{γⁿ}(g) ≤ ∑_i ∫ condEnt_i(g) dγⁿ`
 
-**Proof** (3 steps, no induction needed):
+This is the conditional entropy version of Han's inequality, stated without
+requiring g·log(g) ∈ L¹ (the proof handles the non-integrable case separately).
 
-1. **Chain rule identity** (`entropy_chain_rule_pi`, PROVED):
-   `Ent(g) = ∫ condEnt_i(g) + Ent_{-i}(E_i g)` for each i.
-   Summing over i: `n·Ent(g) = ∑_i ∫ condEnt_i(g) + ∑_i Ent_{-i}(E_i g)`.
+**Proof sketch** (telescoping + data processing):
+Define h₀ = g, h_{k+1}(x) = ∫ h_k(update x k t) dγ(t) (average over coord k).
+After n steps, h_n = const = ∫g, so Ent(h_n) = 0.
 
-2. **Han's inequality for KL** (the key step):
-   `∑_i Ent_{-i}(E_i g) ≤ (n-1)·Ent(g)`.
-   Proof: Normalize h = g/M (M = ∫g). Then `Ent(g) = M·D(h·μ || μ)` and
-   `Ent_{-i}(E_i g) = M·D(h_{-i}·μ_{-i} || μ_{-i})`. The KL chain rule with product
-   reference gives `D(P||Q) = ∑_j D(P_{j|{<j}} || Q_j)` and
-   `D(P_{-i}||Q_{-i}) = ∑_{j≠i} D(P_{j|{<j}\{i}} || Q_j)`. Since conditioning on MORE
-   INCREASES KL (convexity of KL in 1st arg), each `D(P_{j|{<j}\{i}}) ≤ D(P_{j|{<j}})`.
-   So `∑_i D(P_{-i}) ≤ (n-1)·D(P)`.
+1. **Telescoping** (from `entropy_chain_rule_pi`):
+   For each k: Ent(h_k) = ∫ condEnt_k(h_k) + Ent(h_{k+1}).
+   Summing: Ent(g) = Ent(h₀) = ∑_k ∫ condEnt_k(h_k).
 
-3. **Subtract**: From steps 1 and 2,
-   `∑_i ∫ condEnt_i = n·Ent - ∑Ent_{-i} ≥ n·Ent - (n-1)·Ent = Ent`.
+2. **Data processing** (Jensen, since x·log(x) is convex):
+   For each k: ∫ condEnt_k(h_k) ≤ ∫ condEnt_k(g).
+   Key: h_k = E_{k-1}∘...∘E_0[g] and E_j commutes with `update(·, k, ·)` for j < k.
+   So the slice of h_k at coord k is E_0...E_{k-1}[slice of g at k],
+   and entropy decreases under conditional expectation (Jensen).
 
-**Blocker**: Formalizing the KL chain rule for product measures + conditional KL
-ordering (~80 lines of Fubini + piFinSuccAbove + conditional density infrastructure). -/
+3. **Conclusion**: Ent(g) = ∑_k ∫ condEnt_k(h_k) ≤ ∑_k ∫ condEnt_k(g).
+
+**Blocker**: Formalizing requires ~120 lines:
+  (a) Commutativity: E_j ∘ update(·, k, ·) = update(·, k, ·) ∘ E_j for j ≠ k
+  (b) Jensen for conditional entropy: Ent(E_j[φ]) ≤ E_j[Ent(φ)]
+  (c) Iterated conditional expectation integrability
+  (d) Handling the non-integrable g·log(g) case (LHS ≤ 0 when ∫g ≥ 1) -/
+private lemma entropy_subadditivity_of_nonneg {n : ℕ}
+    (g : (Fin n → ℝ) → ℝ)
+    (hg_nn : ∀ x, 0 ≤ g x)
+    (hg : Integrable g (stdGaussianPi n)) :
+    entropyPi (stdGaussianPi n) g ≤
+    ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
+  sorry
+
 private lemma entropy_subadditivity_pi {n : ℕ}
     (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
         ∂(stdGaussianPi n) := by
-  sorry
+  -- Set g = f² for readability
+  set g : (Fin n → ℝ) → ℝ := fun x => f x ^ 2 with hg_def
+  -- g is nonneg
+  have hg_nn : ∀ x, 0 ≤ g x := fun x => sq_nonneg (f x)
+  -- Handle the n = 0 case (both sides are 0 over singleton type)
+  rcases n with _ | m
+  · simp only [Finset.univ_eq_empty, Finset.sum_empty]
+    -- Reduce integrals over singleton type (Fin 0 → ℝ) to function evaluation
+    have heval : ∀ (h : (Fin 0 → ℝ) → ℝ),
+        ∫ x, h x ∂(stdGaussianPi 0) = h Fin.elim0 := by
+      intro h
+      have : ∀ x : Fin 0 → ℝ, h x = h Fin.elim0 := fun x => by
+        congr 1; exact Subsingleton.elim x Fin.elim0
+      simp_rw [this]; simp [integral_const, Measure.real, measure_univ]
+    simp only [entropyPi, heval]; linarith
+  -- For n = m + 1 ≥ 1, use entropy_subadditivity_of_nonneg.
+  exact entropy_subadditivity_of_nonneg g hg_nn hf.integrable_sq
 
 /-- Integrability of the conditional gradient integral (zero sorry).
 Follows from Fubini (`Integrable.integral_prod_right`) + MemLp for coordinate slices. -/
