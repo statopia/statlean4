@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化统计的核心定理，目前已涵盖估计理论、充分性、极限定理、集中不等式、回归分析等。
 
-**当前规模**：44 个 Lean 文件 · ~14,100 行 · ~480 个声明 · 37 个零 sorry 模块 · **6 个 sorry 待证**
+**当前规模**：45 个 Lean 文件 · ~14,400 行 · ~490 个声明 · 38 个零 sorry 模块 · **6 个 sorry 待证**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -21,6 +21,7 @@
 | Slutsky 定理（加法 / 乘法 / 除法） | `LimitTheorems/Slutsky.lean` | Shao Thm 1.10 |
 | 连续映射定理 (CMT) | `LimitTheorems/DeltaMethod.lean` | |
 | Delta 方法 + √n 推论 | `LimitTheorems/DeltaMethod.lean` | Shao Thm 1.12 |
+| Cramér-Wold 装置（多元 Lévy + 投影 ⟺ 弱收敛） | `LimitTheorems/CramerWold.lean` | Shao Thm 1.9(iii) |
 | Scheffé 定理（密度 → L¹ 收敛） | `LimitTheorems/Scheffe.lean` | Shao Thm 1.5 |
 | 均匀强大数律 (USLLN) | `LimitTheorems/USLLN.lean` | |
 | 收敛模式（a.s. / 概率 / Lp） | `LimitTheorems/Convergence.lean` | |
@@ -117,6 +118,15 @@ Lindeberg-Feller CLT (Shao Thm 1.6):
   charfun_lindeberg_pointwise        ← charfun 逐点收敛到 Gaussian charfun
       ↓
   lindeberg_feller_clt               ← 三角阵列标准化行和 ⟹ N(0,1)
+
+Cramér-Wold 装置 (Shao Thm 1.9(iii)):
+  isTight_of_charFun_tendsto (1D)   ← 1D Lévy 紧性（Esseen 界 + DCT）
+      ↓
+  isTight_of_charFun_tendsto_inner  ← 多元紧性（ONB 逐坐标紧性 + Parseval 鸽巢）
+      ↓
+  cramer_wold_charFun               ← 多元 Lévy 连续性（Prokhorov + charFun 唯一性）
+      ↓
+  cramer_wold_iff                   ← μₙ →ᵈ μ₀ ⟺ ∀c, ⟨c,·⟩♯μₙ →ᵈ ⟨c,·⟩♯μ₀
 ```
 
 ---
@@ -130,8 +140,8 @@ Statlean/
 ├── Entropy/            # 熵定义、Log-Sobolev (2 files)
 ├── SubGaussian/        # Herbst 论证、Lipschitz 集中 (2 files)
 ├── CharFun/            # 特征函数 Taylor 链 (1 file)
-├── LimitTheorems/      # CLT、Lindeberg-Feller、Lévy、Berry-Esseen、USLLN、
-│                       # Slutsky、Delta Method、Scheffé、收敛模式 (8 files)
+├── LimitTheorems/      # CLT、Lindeberg-Feller、Lévy、Cramér-Wold、Berry-Esseen、
+│                       # USLLN、Slutsky、Delta Method、Scheffé、收敛模式 (10 files)
 ├── Sufficiency/        # 因子分解、Basu、最小充分、Lehmann-Scheffé (4 files)
 ├── Information/        # Fisher 信息、Cramér-Rao (2 files)
 ├── Estimator/          # MSE 分解、MLE 不变性、渐近理论 (2 files)
@@ -141,7 +151,7 @@ Statlean/
 ├── Regression/         # 最小二乘、主误差界、Gauss-Markov、可估性 (5 files)
 ├── SPD/                # Log-Cholesky Fréchet 均值 (3 files)
 ├── Pipeline/           # Pipeline 生成的存根 (1 file)
-└── Verified.lean       # 零 sorry 模块索引（37 个模块）
+└── Verified.lean       # 零 sorry 模块索引（38 个模块）
 ```
 
 ---
