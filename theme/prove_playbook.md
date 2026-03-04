@@ -157,6 +157,12 @@ repeat (最多 5 轮):
   → 记录已完成的部分（sub-lemma 留在文件中）
   → 记录失败原因和已尝试策略到 sorry_backlog.yaml
   → 退出，不无限重试
+
+早期终止规则（/prove-deep agent 强制）:
+  - 如果 agent 连续 3 轮无文件修改 → 立即 TaskStop
+  - 如果 agent 运行 >15 min 且无文件修改 → 立即 TaskStop
+  - 如果 sorry_backlog 标记 type: stuck + blocker 描述明确 → 不重复派 agent 攻击同一 sorry
+  - 停止后记录 partial progress 到 sorry_backlog.yaml
 ```
 
 ---

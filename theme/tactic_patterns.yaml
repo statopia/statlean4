@@ -1220,6 +1220,43 @@ anti_patterns:
       - "DeltaMethod.lean:74-128 (tightness lemma)"
       - "DeltaMethod.lean:164-201 (remainder bound)"
 
+  - id: entropy_subadditivity_telescoping
+    category: entropy
+    goal: "Ent(g) ≤ ∑_i ∫ condEnt_i(g) for g ≥ 0 integrable on product measure"
+    tactics: |
+      -- Telescoping approach (NOT direct Han's inequality):
+      -- Define h_k = E_{k-1} ... E_0[g] (iterated averaging)
+      -- h_0 = g, h_n = const = ∫g
+      -- Chain rule (proved): Ent(h_k) = ∫ condEnt_k(h_k) + Ent(h_{k+1})
+      -- Telescope: Ent(g) = ∑_k ∫ condEnt_k(h_k)
+      -- Data processing (Jensen for x·log(x) convex):
+      --   ∫ condEnt_k(h_k) ≤ ∫ condEnt_k(g)
+      -- Key: Ent(avg) ≤ avg(Ent), NOT Ent(avg) ≤ Ent(original)
+    notes: >
+      Direct Han's inequality (KL chain rule) is much heavier to formalize.
+      The telescoping approach uses only: (1) entropy_chain_rule_pi (proved),
+      (2) Jensen for x·log(x) convex + Fubini commutativity.
+      For n=0: both sides = 0 (Subsingleton.elim + integral_const).
+      For n=1: equality (condEnt_0 integrates to exactly Ent(g)).
+    frequency: 1
+    sources:
+      - "LogSobolev.lean:930-965"
+
+  - id: fin0_integral_singleton
+    category: measure_theory
+    goal: "∫ h x ∂(stdGaussianPi 0) = h Fin.elim0"
+    tactics: |
+      have hsub : Subsingleton (Fin 0 → ℝ) := inferInstance
+      have : ∀ x : Fin 0 → ℝ, h x = h Fin.elim0 := fun x => by
+        congr 1; exact Subsingleton.elim x Fin.elim0
+      simp_rw [this]; simp [integral_const, Measure.real, measure_univ]
+    notes: >
+      For Fin 0 → ℝ (singleton type), any integral reduces to function
+      evaluation at Fin.elim0. Probability measure gives ∫ c = c.
+    frequency: 2
+    sources:
+      - "LogSobolev.lean:986-998"
+
   - id: remainder_bound_via_isLittleO
     category: convergence
     goal: "aₙ·r(Xₙ) →ᵖ 0  where r(x) = o(x-c) from HasDerivAt"
