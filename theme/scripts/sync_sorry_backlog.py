@@ -36,10 +36,26 @@ def find_sorry_sites(statlean_dir: Path) -> List[Dict[str, Any]]:
         current_decl_line: int = 0
         current_decl_kind: str = "unknown"  # "theorem", "lemma", "def", etc.
 
+        in_block_comment = False
         for i, line in enumerate(lines, 1):
+            # Track block comments /- ... -/ and /-! ... -/
+            # Simple heuristic: track nesting depth
+            if not in_block_comment:
+                if re.search(r"/[-!]", line) and not re.search(r"-/", line):
+                    in_block_comment = True
+                    continue
+                # Single-line block comment: /- ... -/ on same line
+                if re.search(r"/[-!]", line) and re.search(r"-/", line):
+                    # Remove block comment content before checking for sorry
+                    line = re.sub(r"/[-!].*?-/", "", line)
+            else:
+                if re.search(r"-/", line):
+                    in_block_comment = False
+                continue
+
             # Track declarations
             decl_match = re.match(
-                r"^\s*(?:noncomputable\s+)?(theorem|lemma|def|abbrev|structure|class)\s+(\w+)", line
+                r"^\s*(?:noncomputable\s+)?(?:private\s+|protected\s+)?(theorem|lemma|def|abbrev|structure|class)\s+(\w+)", line
             )
             if decl_match:
                 current_decl_kind = decl_match.group(1)

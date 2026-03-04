@@ -1,44 +1,20 @@
-version: v84
-generated: 2026-03-02
-total_sorry: 7
-
-# CHANGELOG v84:
-# - charfun_integral_bound FULLY PROVED (BerryEsseen.lean, ~110 lines)
-#   Key: integral_mono_of_nonneg + setIntegral_le_integral + norm_cast for rpow→pow
-#   Young's inequality |t|³ ≤ 1+t⁴ to get integrable majorant
-# - Berry-Esseen sorry: 2 → 1 (only esseen_concentration_universal remains)
-# - All downstream lemmas (esseen_charfun_integral_bound, berry_esseen_theorem)
-#   hypothesis changed from hn : 0 < n to hn : 2 ≤ n
+version: v90
+generated: 2026-03-04
+total_sorry: 11
 
 sorry_items:
-
-# === Berry-Esseen (1 sorry) ===
 
 - id: berry_esseen.esseen_concentration
   file: Statlean/LimitTheorems/BerryEsseen.lean
   line: 524
   theorem: esseen_concentration_universal
-  type: honest
+  type: stuck
   depth: 1
-  priority: 8
-  blocker: "Stieltjes inversion formula for CDF differences — not in Mathlib. Needs: (1) Fourier inversion for distributions, (2) truncation error bounded by C₂/T using bounded density of Gaussian. Classical result (Esseen 1945) but substantial formalization effort (~250 lines)."
+  priority: 1
+  blocker: "Universal constant quantification — berry_esseen_smoothing is PROVED but quantifies (∃ C₁ C₂) after (∀ T μ). Need Stieltjes/Fourier inversion to get universal constants. Mathlib has Fourier inversion (Analysis.Fourier.Inversion) but needs bridging to CDF/charfun setting. ~200-300 lines new infrastructure."
   estimated_lines: 250
   dependencies: []
   unlocks: []
-
-# === Log-Sobolev / Hypercontractivity (3 sorry) ===
-
-- id: lsi.hypercontractivity
-  file: Statlean/Gaussian/Poincare.lean
-  line: 528
-  theorem: memLp_four_of_W12_gaussian
-  type: honest
-  depth: 2
-  priority: 3
-  blocker: "Gaussian hypercontractivity W^{1,2}(γ) → L⁴(γ) — Nelson 1973. Requires Hermite product linearization formula (~150 lines)."
-  estimated_lines: 200
-  dependencies: []
-  unlocks: [lsi.normalized]
 
 - id: lsi.normalized
   file: Statlean/Entropy/LogSobolev.lean
@@ -47,59 +23,109 @@ sorry_items:
   type: blocked
   depth: 3
   priority: 2
-  blocker: "Gross's regularized Stein IBP (blocked by hypercontractivity)"
+  blocker: "Gross regularized Stein IBP. integrable_sq_mul_log_sq_of_memLp now sorry-ed directly (previous proof used false memLp_four_of_W12_gaussian). Correct approach: prove LSI via Gross regularization, then derive integrability of f² log f² as a corollary. All Gross regularization infrastructure (5 lemmas) already proved."
   estimated_lines: 120
-  dependencies: [lsi.hypercontractivity]
+  dependencies: [lsi.integrable_sq_log]
+  unlocks: []
+
+- id: lsi.integrable_sq_log
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 245
+  theorem: integrable_sq_mul_log_sq_of_memLp
+  type: honest
+  depth: 2
+  priority: 3
+  blocker: "Integrability of f²·log(f²) under Gaussian. Previous proof used false lemma memLp_four_of_W12_gaussian. Correct approach: prove via Gross regularization (prove LSI first using monotone convergence on ε-regularized entropy, which avoids needing integrability a priori). All Gross regularization infrastructure (5 helper lemmas) already proved."
+  estimated_lines: 80
+  dependencies: []
+  unlocks: [lsi.normalized]
+
+- id: lsi.hypercontractivity
+  file: DELETED
+  theorem: memLp_four_of_W12_gaussian
+  type: false_statement
+  depth: 0
+  priority: 0
+  blocker: "MATHEMATICALLY FALSE. W^{1,2}(γ) does NOT embed into L⁴(γ). Counterexample: f = ∑ k^{-3/2} hermiteNorm_k has f,f' ∈ L²(γ) but E[hermiteNorm(k)⁴] grows faster than 4^k, so ‖f‖₄ = ∞. The correct approach for the downstream LSI does NOT need L⁴; use the Gross log-Sobolev inequality directly to get integrability of f² log f². Theorem deleted from Poincare.lean."
+  estimated_lines: 0
+  dependencies: []
   unlocks: []
 
 - id: lsi.tensorization
   file: Statlean/Entropy/LogSobolev.lean
-  line: 609
+  line: 734
   theorem: tensorization_lsi_core
-  type: honest
+  type: decomposed
   depth: 3
   priority: 4
-  blocker: "product entropy decomposition + Measure.pi Fubini"
-  estimated_lines: 80
+  blocker: "DECOMPOSED into 5 sub-lemma sorrys + 2 proved lemmas (hasDerivAt_slice, condEntropyAt_le_of_satisfiesLSI). Main proof structure is a calc chain: entropy_subadditivity → 1D LSI per slice → Fubini rewrite. All 5 sorrys blocked by Measure.pi Bochner Fubini infrastructure. Same infrastructure as efronstein.condexp_comm."
+  estimated_lines: 290
   dependencies: []
   unlocks: []
+  sub_sorrys:
+    - id: lsi.entropy_subadditivity_pi
+      file: Statlean/Entropy/LogSobolev.lean
+      line: 648
+      theorem: entropy_subadditivity_pi
+      blocker: "Entropy chain rule: Ent(f²) ≤ ∑_i E[Ent_i(f²)]. Needs Fubini for f²·log(f²) on Measure.pi + telescoping conditional entropy identity."
+      estimated_lines: 150
+    - id: lsi.memLp_slice
+      file: Statlean/Entropy/LogSobolev.lean
+      line: 669
+      theorem: memLp_slice_of_memLp_pi
+      blocker: "L² for coordinate slices. Needs Fubini/Tonelli on ‖f‖² via measurePreserving_piFinSuccAbove. Note: only a.e. in x; current statement says ∀ x."
+      estimated_lines: 40
+    - id: lsi.fubini_update
+      file: Statlean/Entropy/LogSobolev.lean
+      line: 690
+      theorem: integral_condExpect_eq_integral_pi
+      blocker: "Resampling a coordinate preserves the integral. Needs measurePreserving_piFinSuccAbove + integral_prod + update_insertNth identity."
+      estimated_lines: 60
+    - id: lsi.integrable_condEntropy
+      file: Statlean/Entropy/LogSobolev.lean
+      line: 698
+      theorem: integrable_condEntropyAt
+      blocker: "Follows from entropy_subadditivity infrastructure."
+      estimated_lines: 20
+    - id: lsi.integrable_condGrad
+      file: Statlean/Entropy/LogSobolev.lean
+      line: 706
+      theorem: integrable_condGrad
+      blocker: "Follows from Fubini + MemLp for slices."
+      estimated_lines: 20
 
-# === Efron-Stein (2 sorry) ===
-
-- id: efronstein.condvar
+- id: efronstein.condexp_comm
   file: Statlean/Variance/EfronStein.lean
   line: 254
-  theorem: efron_stein_condVar_le_of_condExp
+  theorem: condExp_condExp_comm_pi
   type: honest
-  depth: 1
+  depth: 2
   priority: 5
-  blocker: "Bochner Fubini for Measure.pi single-coordinate integration"
-  estimated_lines: 80
+  blocker: "Commutativity of condExp on product space. Path: define fiberIntegral → show = condExp via Fubini → commutativity via Function.update_comm. Mathlib has measurePreserving_piEquivPiSubtypeProd + iIndepFun_pi. Needs Bochner Fubini for Measure.pi."
+  estimated_lines: 100
   dependencies: []
-  unlocks: [efronstein.core_gen]
+  unlocks: [efronstein.induction]
 
-- id: efronstein.core_gen
+- id: efronstein.induction
   file: Statlean/Variance/EfronStein.lean
   line: 529
-  theorem: efron_stein_core_gen
+  theorem: efron_stein_core_unique
   type: blocked
-  depth: 1
+  depth: 3
   priority: 6
-  blocker: "Blocked by efron_stein_condVar_le_of_condExp"
-  estimated_lines: 40
-  dependencies: [efronstein.condvar]
+  blocker: "Dimension reduction step in strong induction. Needs g = E[f|σ_{-i₀}] viewed on reduced index type via Measure.pi marginal equivalence. Same Bochner Fubini infrastructure as condexp_comm."
+  estimated_lines: 80
+  dependencies: [efronstein.condexp_comm]
   unlocks: []
 
-# === Sub-Gaussian (1 sorry) ===
-
-- id: subgaussian.herbst
+- id: herbst.subgaussian_mgf
   file: Statlean/SubGaussian/Herbst.lean
   line: 77
-  theorem: hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi
+  theorem: herbstBound_neg
   type: blocked
-  depth: 1
+  depth: 3
   priority: 9
-  blocker: "Blocked by LSI (gaussian_lsi_normalized)"
+  blocker: "Sub-Gaussian MGF bound for Lipschitz functions on Gaussian. Standard proof via LSI → Herbst argument. Blocked by Gaussian LSI (lsi.normalized + lsi.tensorization)."
   estimated_lines: 60
-  dependencies: [lsi.normalized]
+  dependencies: [lsi.normalized, lsi.tensorization]
   unlocks: []

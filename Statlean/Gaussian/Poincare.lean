@@ -12,9 +12,10 @@ import Mathlib.Analysis.InnerProductSpace.l2Space
 - `gaussian_poincare_of_efron_stein` — via Efron-Stein + coordinate bound
 - `gaussian_poincare_of_condVar_sum` — via conditional variance sum
 
-## Sorry gaps (1 sorry)
-- `memLp_four_of_W12_gaussian` — `f ∈ W^{1,2}(γ) → f ∈ L⁴(γ)`, blocked by Hermite
-  product linearization.
+## Deleted (false theorem)
+- `memLp_four_of_W12_gaussian` — W^{1,2}(γ) → L⁴(γ) is mathematically FALSE.
+  Counterexample: f = ∑ k⁻³ᐟ² hermiteNorm_k has f,f' ∈ L²(γ) but f ∉ L⁴(γ)
+  because E[hermiteNorm(k)⁴] grows faster than 4ᵏ.
 
 ## Proved (was sorry)
 - `condExp_eq_fiberAvg_pi` — disintegration identity via `ae_eq_condExp_of_forall_setIntegral_eq`,
@@ -489,43 +490,34 @@ theorem gaussian_poincare_1d
     Var[f; stdGaussian] ≤ ∫ x, f' x ^ 2 ∂stdGaussian :=
   gaussian_poincare_1d_core f f' hf hf' hderiv
 
-/-! ## Gaussian hypercontractivity: W^{1,2}(γ) → L⁴(γ)
+/-! ## FALSE: W^{1,2}(γ) does NOT embed into L⁴(γ)
 
-The Nelson hypercontractivity theorem (1973) states that if `f ∈ W^{1,2}(γ)`
-(i.e., `f, f' ∈ L²(γ)` with `HasDerivAt`), then `f ∈ L⁴(γ)`.
+The statement `f, f' ∈ L²(γ) ⟹ f ∈ L⁴(γ)` is **mathematically false**.
 
-### Proof architecture
+### Counterexample
 
-1. **Hermite partial sums converge in L²**: By Parseval (`hermite_parseval`),
-   `S_N f = ∑_{k<N} aₖ eₖ → f` in L²(γ).
-2. **Uniform L⁴ bound for partial sums**: The Hermite product linearization
-   formula gives `‖S_N f‖₄⁴ ≤ C · (‖f‖₂² + ‖f'‖₂²)²` uniformly in N.
-3. **Fatou's lemma**: Extract an a.e. convergent subsequence from the L²
-   convergence, then apply Fatou's lemma with the uniform L⁴ bound.
+Let `f = ∑_{k≥1} k⁻³ᐟ² · hermiteNorm k` (orthonormal Hermite expansion).
+- `‖f‖₂² = ∑ k⁻³ ≈ 1.20 < ∞`, so `f ∈ L²(γ)`.
+- `‖f'‖₂² = ∑ k · k⁻³ = ∑ k⁻² ≈ 1.64 < ∞`, so `f' ∈ L²(γ)`.
+- `E[hermiteNorm(k)⁴]` grows faster than `4ᵏ` (the `r=0` term in the
+  Hermite product formula contributes `(2k)!/(k!)² ∼ 4ᵏ/√(πk)`).
+  So `‖f‖₄⁴ ≥ ∑ k⁻⁶ · E[hermiteNorm(k)⁴] = ∞`.
 
-### Status
-The theorem is sorry-ed, blocked by the Hermite product linearization formula
-`Hₘ · Hₙ = ∑_{k} C(m,k) · C(n,k) · k! · H_{m+n-2k}` which requires ~150
-lines of algebraic formalization not present in Mathlib v4.28. -/
+### What IS true
 
-/-- **Gaussian hypercontractivity (W^{1,2}(γ) → L⁴(γ))**: If `f ∈ L²(γ)` and `f' ∈ L²(γ)`
-with `HasDerivAt`, then `f ∈ L⁴(γ)`.
+Nelson hypercontractivity says `‖P_t f‖_q ≤ ‖f‖_p` for the OU semigroup
+`P_t`, with `q = 1 + (p-1)e²ᵗ`. This is a bound on the *semigroup*, not
+on Sobolev spaces. For chaos-k components, it gives `‖f_k‖₄ ≤ 3^{k/2} ‖f_k‖₂`.
 
-This is the 1D case of the Nelson hypercontractivity theorem (1973).
+For the downstream use (LogSobolev: integrability of `f² log f²`), the correct
+approach is to prove the log-Sobolev inequality directly (e.g., via the Gross
+regularization method already in LogSobolev.lean), which gives
+`∫ f² log(f²/‖f‖₂²) dγ ≤ 2 ∫ (f')² dγ` and implies integrability of
+`f² log f²` without needing `f ∈ L⁴(γ)`.
 
-**Blocker**: Requires the Hermite product linearization formula, which gives a
-uniform L⁴ bound for the Hermite partial sums `S_N f`. The reduction via
-Fatou's lemma (L² convergence → a.e. subsequence → Fatou → MemLp) then
-gives the result.
+### Deleted
 
-**Estimated effort**: ~200 lines (Hermite linearization + L⁴ bound + Fatou). -/
-theorem memLp_four_of_W12_gaussian
-    (f f' : ℝ → ℝ)
-    (hf : MemLp f 2 stdGaussian)
-    (hf' : MemLp f' 2 stdGaussian)
-    (hderiv : ∀ x, HasDerivAt f (f' x) x) :
-    MemLp f 4 stdGaussian := by
-  sorry
+The false theorem `memLp_four_of_W12_gaussian` has been removed. -/
 
 /-- The fiber average: integrate f over coordinate i, keeping other coordinates fixed. -/
 private noncomputable def fiberAvg (i : Fin n) (f : (Fin n → ℝ) → ℝ) (x : Fin n → ℝ) : ℝ :=

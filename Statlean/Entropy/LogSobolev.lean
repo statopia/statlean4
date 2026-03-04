@@ -227,37 +227,28 @@ lemma abs_mul_log_le_sq_add_one (t : ℝ) (ht : 0 ≤ t) :
       nlinarith [mul_inv_cancel₀ (ne_of_gt htp)]
     linarith [sq_nonneg t]
 
--- `memLp_four_of_W12_gaussian` is defined and exported from
--- `Statlean.Gaussian.Poincare` (sorry-ed, blocked by Hermite product linearization).
+-- NOTE: The previous approach used `memLp_four_of_W12_gaussian` (W^{1,2}(γ) → L⁴(γ)),
+-- which is mathematically FALSE (counterexample: f = ∑ k^{-3/2} hermiteNorm_k, f ∈ W^{1,2}
+-- but ‖f‖₄ = ∞ because E[hermiteNorm_k⁴] grows faster than 4^k).
+--
+-- Correct approach: prove the log-Sobolev inequality first (via Gross regularization,
+-- infrastructure already present below), which gives ∫ f² log(f²/‖f‖₂²) dγ ≤ 2∫(f')²dγ
+-- and implies integrability of f² log f² without L⁴.
+-- Alternatively, add MemLp f 4 as an explicit hypothesis if the caller can provide it.
 
+/-- Integrability of `f² log f²` under Gaussian measure.
+
+**Sorry**: The previous proof relied on `memLp_four_of_W12_gaussian` which is false.
+The correct proof should follow from the Gross log-Sobolev inequality, which gives
+`∫ f² log(f²/‖f‖₂²) dγ ≤ 2 ∫ (f')² dγ`, directly implying the integrability.
+This avoids the need for `f ∈ L⁴(γ)`. -/
 lemma integrable_sq_mul_log_sq_of_memLp
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
     (hf' : MemLp f' 2 stdGaussian)
     (hderiv : ∀ x, HasDerivAt f (f' x) x) :
     Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian := by
-  -- Step 1: f ∈ L⁴(γ) by Gaussian hypercontractivity
-  have hf4 : MemLp f 4 stdGaussian := memLp_four_of_W12_gaussian f f' hf hf' hderiv
-  -- Step 2: f⁴ is integrable under γ (MemLp f 4 ⟹ ∫ ‖f‖⁴ < ∞ ⟹ ∫ f⁴ < ∞)
-  have hf4_int : Integrable (fun x => f x ^ 4) stdGaussian := by
-    have h4eq : (4 : ENNReal) = Nat.cast (4 : Nat) := by norm_cast
-    rw [h4eq] at hf4
-    exact hf4.integrable_norm_pow'.congr (ae_of_all _ fun x => by
-      simp [Real.norm_eq_abs, Even.pow_abs ⟨2, rfl⟩])
-  -- Step 3: |f²·log(f²)| ≤ f⁴ + 1 by abs_mul_log_le_sq_add_one
-  -- Therefore f²·log(f²) is integrable by domination
-  refine (hf4_int.norm.add (integrable_const 1)).mono'
-    ((hf.aestronglyMeasurable.pow _).mul
-      ((Real.measurable_log.comp_aemeasurable
-        (hf.aestronglyMeasurable.pow _).aemeasurable).aestronglyMeasurable))
-    (ae_of_all _ fun x => ?_)
-  -- Pointwise bound: ‖f²·log(f²)‖ ≤ ‖f⁴‖ + 1
-  change ‖f x ^ 2 * Real.log (f x ^ 2)‖ ≤ ‖f x ^ 4‖ + 1
-  simp only [Real.norm_eq_abs]
-  calc |f x ^ 2 * Real.log (f x ^ 2)|
-      ≤ (f x ^ 2) ^ 2 + 1 := abs_mul_log_le_sq_add_one (f x ^ 2) (sq_nonneg _)
-    _ = f x ^ 4 + 1 := by ring_nf
-    _ ≤ |f x ^ 4| + 1 := by gcongr; exact le_abs_self _
+  sorry
 
 /-! ### Regularized Stein IBP infrastructure (proved, supporting Gross's argument)
 
@@ -584,29 +575,187 @@ theorem gaussian_lsi_1d_core : SatisfiesLSI stdGaussian 2 := by
 theorem gaussian_lsi_1d : SatisfiesLSI stdGaussian 2 :=
   gaussian_lsi_1d_core
 
+/-! ### Tensorization sub-lemmas (zero sorry: 2, sorry: 5)
+
+The tensorization of LSI follows the standard scheme:
+1. **Entropy subadditivity** (chain rule for product measures):
+   `Ent_{μ^n}(g) ≤ ∑_i E_{μ^n}[Ent_i(g)]`
+   where `Ent_i(g)(x) = Ent_{μ_i}(t ↦ g(update x i t))`.
+2. **1D LSI per slice**: For each coordinate `i` and fixed `x_{-i}`,
+   `Ent_i(f²)(x) ≤ c · ∫ (∂_i f(update x i t))² dμ(t)`.
+3. **Fubini rewrite**: `∫ (∫ h(update x i t) dμ(t)) d(μ^n)(x) = ∫ h d(μ^n)`.
+4. **Sum and conclude**: `Ent(f²) ≤ c · ∑_i ∫ (∂_i f)² d(μ^n)`.
+
+Steps 1, 3 are sorry'd (Fubini for `Measure.pi`). Step 2 is proved. -/
+
+section TensorizationInfra
+
+/-- The derivative of a coordinate slice `t ↦ f(update x i t)` at any point `t`.
+Uses `Function.update_idem` to show `update(update x i t, i, s) = update(x, i, s)`.
+Zero sorry. -/
+private lemma hasDerivAt_slice {n : ℕ}
+    (f : (Fin n → ℝ) → ℝ)
+    (gradf : Fin n → (Fin n → ℝ) → ℝ)
+    (hgrad : ∀ x (i : Fin n),
+      HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i))
+    (x : Fin n → ℝ) (i : Fin n) (t : ℝ) :
+    HasDerivAt (fun s => f (Function.update x i s))
+      (gradf i (Function.update x i t)) t := by
+  have h := hgrad (Function.update x i t) i
+  rw [Function.update_self] at h
+  have heq : (fun s => f (Function.update (Function.update x i t) i s)) =
+             (fun s => f (Function.update x i s)) := by
+    funext s; congr 1; exact Function.update_idem t s x
+  rwa [heq] at h
+
+/-- 1D LSI applied to a coordinate slice.
+For fixed `x`, the function `t ↦ f(update x i t)` satisfies the entropy bound
+via `SatisfiesLSI`. Zero sorry. -/
+private lemma condEntropyAt_le_of_satisfiesLSI {n : ℕ}
+    (c : ℝ)
+    (hLSI : SatisfiesLSI stdGaussian c)
+    (f : (Fin n → ℝ) → ℝ)
+    (gradf : Fin n → (Fin n → ℝ) → ℝ)
+    (hgrad : ∀ x' (i' : Fin n),
+      HasDerivAt (fun t => f (Function.update x' i' t)) (gradf i' x') (x' i'))
+    (x : Fin n → ℝ) (i : Fin n)
+    (hf_slice : MemLp (fun t => f (Function.update x i t)) 2 stdGaussian)
+    (hg_slice : MemLp (fun t => gradf i (Function.update x i t)) 2 stdGaussian) :
+    condEntropyAt stdGaussian (fun y => f y ^ 2) i x ≤
+      c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian := by
+  rw [condEntropyAt_eq]
+  exact hLSI _ _ hf_slice hg_slice (hasDerivAt_slice f gradf hgrad x i)
+
+/-- **Entropy subadditivity for product measures** (sorry).
+
+For the standard Gaussian product `μ^n`, the entropy of `f²` is bounded by
+the sum of coordinate-wise conditional entropies:
+  `Ent_{μ^n}(f²) ≤ ∑_i E_{μ^n}[Ent_i(f²)]`
+For product measures, this is actually an EQUALITY (entropy chain rule).
+
+**Blocker**: Requires Fubini for Bochner integrals on `Measure.pi` to decompose
+`∫ f²·log(f²) d(μ^n)` into iterated integrals along each coordinate.
+Specifically, needs `measurePreserving_piFinSuccAbove` + `integral_prod` to peel
+off one coordinate at a time, plus the telescoping identity for conditional entropies.
+
+**Proof sketch**:
+- Define `g_k = E[f² | x₁,...,x_k]` (conditional on first `k` coordinates).
+- Then `Ent(f²) = ∑_k E[g_{k+1}·log(g_{k+1}/g_k)]` (telescoping).
+- Each summand equals `E[Ent_k(f²)]` where `Ent_k` is entropy along coordinate `k`.
+- For product measures, the conditional expectations factorize.
+
+**Estimated effort**: ~150 lines (Fubini infrastructure + telescoping). -/
+private lemma entropy_subadditivity_pi {n : ℕ}
+    (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) :
+    entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
+      ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
+        ∂(stdGaussianPi n) := by
+  sorry
+
+/-- **MemLp for coordinate slices** (sorry).
+
+If `f ∈ L²(μ^n)`, then for each `x` and `i`,
+the slice `t ↦ f(update x i t) ∈ L²(μ)`.
+
+**Blocker**: Requires Fubini for `Measure.pi` to show that
+`∫ ‖f(update x i t)‖² dμ(t) < ∞` for a.e. `x`, and then for ALL `x`
+(which may need extra regularity or a.e. version of the main proof).
+
+**Proof sketch**: By Fubini/Tonelli on `‖f‖²` w.r.t. the product decomposition
+`μ^n ≅ μ_i ⊗ μ_{-i}`. The slice norm is `∫_t ‖f(update x i t)‖² dμ_i(t)`,
+which is finite for a.e. `x_{-i}` by Fubini.
+
+**Estimated effort**: ~40 lines (Fubini + Tonelli). -/
+private lemma memLp_slice_of_memLp_pi {n : ℕ}
+    (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n))
+    (x : Fin n → ℝ) (i : Fin n) :
+    MemLp (fun t => f (Function.update x i t)) 2 stdGaussian := by
+  sorry
+
+/-- **Fubini identity**: resampling a coordinate preserves the integral (sorry).
+
+For product measure `μ^n` and any `h ∈ L¹(μ^n)`:
+  `∫ (∫ h(update x i t) dμ(t)) d(μ^n)(x) = ∫ h(x) d(μ^n)(x)`
+
+This says: if `X ~ μ^n` and `T ~ μ_i` is an independent resample of coordinate `i`,
+then `E[h(update X i T)] = E[h(X)]`, because `update X i T ~ μ^n`.
+
+**Blocker**: Needs `Measure.pi` Fubini to:
+1. Decompose `μ^n ≅ μ_i ⊗ μ_{-i}` via `measurePreserving_piFinSuccAbove`.
+2. Apply `integral_prod` to the iterated integral.
+3. Use that the inner integral `∫ h(update x i t) dμ(t)` doesn't depend on `x_i`.
+4. Apply `IsProbabilityMeasure.integral_univ` to collapse the `x_i` integral.
+
+**Estimated effort**: ~60 lines. -/
+private lemma integral_condExpect_eq_integral_pi {n : ℕ}
+    (h : (Fin n → ℝ) → ℝ) (hh : Integrable h (stdGaussianPi n)) (i : Fin n) :
+    ∫ x, (∫ t, h (Function.update x i t) ∂stdGaussian) ∂(stdGaussianPi n) =
+    ∫ x, h x ∂(stdGaussianPi n) := by
+  sorry
+
+/-- Integrability of conditional entropy (sorry).
+Follows from entropy subadditivity infrastructure. -/
+private lemma integrable_condEntropyAt {n : ℕ}
+    (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) (i : Fin n) :
+    Integrable (fun x => condEntropyAt stdGaussian (fun y => f y ^ 2) i x)
+      (stdGaussianPi n) := by
+  sorry
+
+/-- Integrability of the conditional gradient integral (sorry).
+Follows from Fubini + MemLp for coordinate slices. -/
+private lemma integrable_condGrad {n : ℕ}
+    (c : ℝ) (gradf : Fin n → (Fin n → ℝ) → ℝ)
+    (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n)) (i : Fin n) :
+    Integrable (fun x => c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
+      (stdGaussianPi n) := by
+  sorry
+
+end TensorizationInfra
+
 /-- **Tensorization of the log-Sobolev inequality**.
 
-    If `μ` satisfies `LSI(c)`, then `μ^n` satisfies the multi-dimensional LSI:
-    `Ent_{μ^n}(f²) ≤ c · ∑_i E_{μ^n}[(∂_i f)²]`.
+If `μ` satisfies `LSI(c)`, then `μ^n` satisfies the multi-dimensional LSI:
+  `Ent_{μ^n}(f²) ≤ c · ∑_i E_{μ^n}[(∂_i f)²]`.
 
-    **Blocker**: Requires the **entropy chain rule** for product measures:
-    `Ent_{μ^n}(g) = ∑_i E_{x_{-i}} [Ent_{μ_i}(g(x_{-i}, ·))]`
-    where `x_{-i}` denotes all coordinates except `i`.
+**Proof**: Decompose into 3 steps:
+1. **Entropy subadditivity** (`entropy_subadditivity_pi`, sorry):
+   `Ent(f²) ≤ ∑_i E[condEntropyAt_i(f²)]`
+2. **1D LSI per slice** (`condEntropyAt_le_of_satisfiesLSI`, proved):
+   `condEntropyAt_i(f²)(x) ≤ c · ∫ (∂_i f(update x i t))² dμ(t)`
+3. **Fubini rewrite** (`integral_condExpect_eq_integral_pi`, sorry):
+   `∫ (∫ (∂_i f(update x i t))² dμ(t)) d(μ^n)(x) = ∫ (∂_i f)² d(μ^n)`
 
-    This chain rule requires:
-    1. **Disintegration / conditional entropy**: Mathlib's `Measure.pi` lacks
-       coordinate-wise conditional integration (Fubini along a single coordinate).
-    2. **Iterated entropy decomposition**: The telescoping identity
-       `Ent(g) = ∑_i E[Ent_i(g)]` where `Ent_i` is conditional entropy along
-       coordinate `i`, requires conditional expectations w.r.t. product σ-algebras.
-    3. **Applying 1D LSI to each slice**: For fixed `x_{-i}`, need to apply
-       `SatisfiesLSI μ c` to the function `t ↦ f(update x i t)`, which requires
-       showing that the slice inherits the regularity hypotheses.
-
-    **Status**: Blocked by missing `Measure.pi` Fubini for single coordinate slicing
-    and conditional entropy infrastructure in Mathlib as of v4.28. -/
+**Sorry count**: 5 (all blocked by `Measure.pi` Fubini infrastructure):
+- `entropy_subadditivity_pi` — entropy chain rule (~150 lines)
+- `memLp_slice_of_memLp_pi` — L² for slices (~40 lines)
+- `integral_condExpect_eq_integral_pi` — Fubini identity (~60 lines)
+- `integrable_condEntropyAt` — integrability (~20 lines)
+- `integrable_condGrad` — integrability (~20 lines) -/
 theorem tensorization_lsi_core (n : ℕ) (c : ℝ) : TensorizationLSIAt n c := by
-  sorry
+  intro hLSI f gradf hf hgradf hgrad
+  -- Step 1: entropy subadditivity (sorry)
+  -- Step 2: 1D LSI per coordinate (proved)
+  -- Step 3: Fubini rewrite (sorry)
+  calc entropyPi (stdGaussianPi n) (fun x => f x ^ 2)
+      ≤ ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
+          ∂(stdGaussianPi n) :=
+        entropy_subadditivity_pi f hf
+    _ ≤ ∑ i : Fin n, ∫ x,
+          (c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
+          ∂(stdGaussianPi n) := by
+        apply Finset.sum_le_sum; intro i _
+        apply integral_mono_ae (integrable_condEntropyAt f hf i)
+          (integrable_condGrad c gradf hgradf i)
+        apply ae_of_all; intro x
+        exact condEntropyAt_le_of_satisfiesLSI c hLSI f gradf hgrad x i
+          (memLp_slice_of_memLp_pi f hf x i)
+          (memLp_slice_of_memLp_pi (gradf i) (hgradf i) x i)
+    _ = c * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
+        simp_rw [integral_const_mul]
+        rw [← Finset.mul_sum]
+        congr 1; congr 1 with i
+        exact integral_condExpect_eq_integral_pi (fun x => (gradf i x) ^ 2)
+          (hgradf i).integrable_sq i
 
 theorem gaussian_log_sobolev
     (n : ℕ) (f : (Fin n → ℝ) → ℝ)
