@@ -831,14 +831,48 @@ private lemma integrable_condEntropyAt {n : ℕ}
       (stdGaussianPi n) := by
   sorry
 
-/-- Integrability of the conditional gradient integral (sorry).
-Follows from Fubini + MemLp for coordinate slices. -/
+/-- Integrability of the conditional gradient integral (zero sorry).
+Follows from Fubini (`Integrable.integral_prod_right`) + MemLp for coordinate slices. -/
 private lemma integrable_condGrad {n : ℕ}
     (c : ℝ) (gradf : Fin n → (Fin n → ℝ) → ℝ)
     (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n)) (i : Fin n) :
     Integrable (fun x => c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
       (stdGaussianPi n) := by
-  sorry
+  -- Factor out the constant c
+  apply Integrable.const_mul _ c
+  -- Remains: Integrable (fun x => ∫ t, (gradf i (update x i t))² dγ) (γⁿ)
+  -- Decompose n = m + 1 from i : Fin n
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, (Nat.succ_pred_eq_of_pos (Fin.pos i)).symm⟩
+  -- Set up piFinSuccAbove decomposition: γⁿ⁺¹ ≅ γ_i × γᵐ
+  let e := MeasurableEquiv.piFinSuccAbove (fun (_ : Fin (m + 1)) => ℝ) i
+  set γ := stdGaussian
+  set μ' : Fin (m + 1) → Measure ℝ := fun _ => γ
+  set γn := Measure.pi (fun j : Fin m => μ' (i.succAbove j))
+  have hmp := measurePreserving_piFinSuccAbove μ' i
+  have hpi : stdGaussianPi (m + 1) = Measure.pi μ' := rfl
+  -- Transfer (gradf i) to product measure via piFinSuccAbove: L² preserved
+  have hg_prod : MemLp ((gradf i) ∘ e.symm) 2 (γ.prod γn) :=
+    (hgradf i).comp_measurePreserving hmp.symm
+  -- (gradf i ∘ e.symm)² ∈ L¹(γ × γᵐ) from MemLp 2
+  have hint_prod := hg_prod.integrable_sq
+  -- Fubini: ∫_t integrable → conditional integral is integrable in y
+  have hint_cond := Integrable.integral_prod_right (f := fun p : ℝ × (Fin m → ℝ) =>
+      (gradf i (e.symm p)) ^ 2) hint_prod
+  -- removeNth is measure-preserving: γⁿ⁺¹ → γᵐ
+  have hmp_rem : MeasurePreserving (fun x : Fin (m + 1) → ℝ => Fin.removeNth i x)
+      (stdGaussianPi (m + 1)) γn := by
+    change MeasurePreserving (Prod.snd ∘ e) _ _
+    simp only [stdGaussianPi]
+    exact measurePreserving_snd.comp
+      (measurePreserving_piFinSuccAbove (fun (_ : Fin (m + 1)) => stdGaussian) i)
+  -- Pullback: rewrite integrand as composition with removeNth
+  rw [show (fun x => ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂γ) =
+      (fun y => ∫ t, (gradf i (e.symm (t, y))) ^ 2 ∂γ) ∘
+        (fun x => Fin.removeNth i x) from by
+    ext x; simp only [Function.comp_def]
+    congr 1; ext t; congr 1; congr 1
+    exact (Fin.insertNth_removeNth i t x).symm]
+  exact (hmp_rem.integrable_comp hint_cond.1).mpr hint_cond
 
 end TensorizationInfra
 
@@ -855,11 +889,13 @@ If `μ` satisfies `LSI(c)`, then `μ^n` satisfies the multi-dimensional LSI:
 3. **Fubini rewrite** (`integral_condExpect_eq_integral_pi`, sorry):
    `∫ (∫ (∂_i f(update x i t))² dμ(t)) d(μ^n)(x) = ∫ (∂_i f)² d(μ^n)`
 
-**Sorry count**: 4 (all blocked by `Measure.pi` Fubini infrastructure):
+**Sorry count**: 2 (blocked by `Measure.pi` Fubini infrastructure):
 - `entropy_subadditivity_pi` — entropy chain rule (~150 lines)
-- `integral_condExpect_eq_integral_pi` — Fubini identity (~60 lines)
 - `integrable_condEntropyAt` — integrability (~20 lines)
-- `integrable_condGrad` — integrability (~20 lines) -/
+
+**Proved** (zero sorry):
+- `integral_condExpect_eq_integral_pi` — Fubini identity
+- `integrable_condGrad` — integrability of conditional gradient -/
 theorem tensorization_lsi_core (n : ℕ) (c : ℝ) : TensorizationLSIAt n c := by
   intro hLSI f gradf hf hgradf hgrad
   -- Step 1: entropy subadditivity (sorry)
