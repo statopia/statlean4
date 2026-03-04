@@ -1,4 +1,4 @@
-version: v98
+version: v101
 generated: 2026-03-04
 total_sorry: 6
 
@@ -26,7 +26,7 @@ sorry_items:
   blocker: "1D Gaussian LSI: Ent_γ(f²) ≤ 2∫f'² when f²·log(f²) integrable. DEEP RESULT: the Stein identity alone gives Poincare, NOT the LSI. Every known proof requires infrastructure not in Mathlib: (a) Bakry-Emery Γ₂ + OU semigroup (~300 lines), (b) Nelson hypercontractivity (~400 lines, stuck), (c) Brunn-Minkowski (not in Mathlib), (d) optimal transport (not in Mathlib), (e) two-point LSI + CLT transfer (~200 lines). Recommended path: (a) Bakry-Emery, since Γ₂ ≥ Γ₁ is trivial for Gaussian. Hard part: OU semigroup entropy dissipation."
   estimated_lines: 300
   dependencies: []
-  unlocks: [lsi.integrable_sq_log, herbst.subgaussian_mgf]
+  unlocks: [herbst.subgaussian_mgf, lsi.integrable_sq_log]
 
 - id: lsi.integrable_sq_log
   file: Statlean/Entropy/LogSobolev.lean
@@ -54,13 +54,13 @@ sorry_items:
 
 - id: lsi.entropy_subadditivity_of_nonneg
   file: Statlean/Entropy/LogSobolev.lean
-  line: 959
+  line: 1106
   theorem: entropy_subadditivity_of_nonneg
   type: honest
   depth: 3
   priority: 10
-  blocker: "Entropy subadditivity Ent(g) ≤ ∑_i ∫ condEnt_i(g) for g ≥ 0 integrable. REFACTORED: extracted from entropy_subadditivity_pi (n=0 case now PROVED). Statement simplified: takes (g ≥ 0, g ∈ L¹) instead of (MemLp f 2). PROVED sub-lemmas: (1) integrated_condEntropyAt_eq (zero sorry), (2) entropy_chain_rule_pi (zero sorry). Remaining: telescoping + data processing. Proof: define h_k = E_{k-1}...E_0[g], telescope Ent(g) = ∑_k ∫ condEnt_k(h_k), then data processing ∫ condEnt_k(h_k) ≤ ∫ condEnt_k(g) via Jensen (x·log(x) convex) + commutativity of E_j with update(·, k, ·) for j ≠ k. ~120 lines."
-  estimated_lines: 120
+  blocker: "Entropy subadditivity Ent(g) ≤ ∑_i ∫ condEnt_i(g) for g ≥ 0 integrable. CASES: n=0 PROVED (singleton type), n=1 PROVED (integral_stdGaussianPi_one_eq + constancy of condEnt_0). n≥2 SORRY. Zero-sorry infra: jensen_condExpect_mul_log, condEntropyAt_nonneg_of_nonneg, condEntropyAt_of_condExpect_self, condExpect_nonneg_of_nonneg, integral_stdGaussianPi_one_eq, entropy_subadditivity_fin1. BLOCKER for n≥2: data processing inequality ∫ condEnt_k(h_k) ≤ ∫ condEnt_k(g) does NOT follow from simple Jensen — there is an extra positive Jensen residual term. Equivalent to ∑_i Ent(E_i g) ≤ (n-1)·Ent(g) which is tighter than individual bounds. Needs either KL divergence chain rule or careful Fubini + iterated conditional expectations. ~80 lines for n≥2 case."
+  estimated_lines: 80
   dependencies: []
   unlocks: [herbst.subgaussian_mgf, lsi.integrable_condEntropy]
 
