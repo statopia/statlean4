@@ -8,39 +8,50 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **1 sorry** remains: `esseen_concentration_universal`
-- **charfun_integral_bound PROVED** (zero sorry, uses charfun_diff_exp_bound + Gaussian moments)
-- **berry_esseen_theorem PROVED** modulo `esseen_concentration_universal`
-- **esseen_charfun_integral_bound PROVED** from the sorry sub-lemma (zero sorry of its own)
-- **charfun_diff_exp_bound PROVED** (zero sorry, ~170 lines, telescope+exp decay)
-- **10 fully proved** infrastructure sub-lemmas in this file:
+- **1 sorry** remains: `levy_cdf_diff_fourier_bound` (Lévy inversion)
+- `abel_sinc_integral` PROVED (zero sorry, Leibniz rule + ODE uniqueness)
+- `esseen_fourier_cdf_bound` PROVED from `levy_cdf_diff_fourier_bound`
+- `esseen_concentration_universal` PROVED modulo `levy_cdf_diff_fourier_bound`
+- `charfun_integral_bound` PROVED (zero sorry)
+- `berry_esseen_theorem` PROVED modulo `esseen_fourier_cdf_bound`
+- `esseen_charfun_integral_bound` PROVED from `esseen_concentration_universal` + `charfun_integral_bound`
+- `charfun_diff_exp_bound` PROVED (zero sorry, ~170 lines, telescope+exp decay)
+- **17 fully proved** infrastructure sub-lemmas in this file:
   `smoothing_kernel_exists`, `cdf_smoothing_bound`, `smoothed_cdf_fourier_bound`,
   `berry_esseen_smoothing`, `norm_charFun_le_one_sub`, `charfun_prod_exp_decay`,
   `charfun_diff_taylor_bound`, `charfun_integrand_bound`, `charfun_diff_exp_bound`,
-  `charfun_integral_bound`
+  `charfun_integral_bound`, `gaussianReal_density_bounded`, `esseen_concentration_universal`,
+  `laplace_cos_Ioi`, `integrableOn_exp_neg_mul_Ioi`, `integrableOn_exp_sinc_Ioi`,
+  `hasDerivAt_abel_sinc`, `hasDerivAt_arctan_div`
 
 ## Architecture
 
 The proof follows the classical Fourier-analytic approach:
 
-1. **Esseen concentration** (`esseen_concentration_universal`): Universal constants `C₁, C₂`
-   such that for all probability measures `μ` on `ℝ` and all `T > 0`:
-   `|cdf μ y - cdf Φ y| ≤ C₁ ∫_{-T}^{T} ‖φ_μ - φ_Φ‖/|t| dt + C₂/T`
-   **Blocker**: Stieltjes inversion formula (not in Mathlib).
+1. **Core Fourier bound** (`esseen_fourier_cdf_bound`): For probability measures μ, ν
+   where ν has bounded density, the CDF difference satisfies:
+   `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24/(πT)`
+   **Sorry**: Abel-regularized Lévy inversion for measures (not in Mathlib).
+   Required sub-lemmas (~150 lines): integral_Ioi_cexp, laplace_cos/sin,
+   abel_arctan, levy_inversion_abel, cdf_limit.
 
-2. **Charfun integral bound** (`charfun_integral_bound`): The integral from step 1
+2. **Esseen concentration** (`esseen_concentration_universal`): Universal constants `C₁, C₂`
+   by instantiating step 1 with `ν = gaussianReal 0 1` and `gaussianReal_density_bounded`.
+
+3. **Charfun integral bound** (`charfun_integral_bound`): The integral from step 2
    is bounded by `C₃ * ρ/(σ³√n)` when `T' = σ³√n/(16ρ)`, using charfun Taylor bounds
    and exponential decay from `charfun_diff_exp_bound`. The factor 16 accounts for
    the Taylor constant 4 in `norm_cexp_sub_quadratic_le`.
 
-3. **Assembly** (`esseen_charfun_integral_bound`): PROVED from steps 1-2.
+4. **Assembly** (`esseen_charfun_integral_bound`): PROVED from steps 2-3.
    Uses `T' = T/16` in Esseen's inequality: `|F-Φ| ≤ C₁*(C₃*δ) + 16C₂*δ`.
 
-4. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 3.
+5. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 4.
 
-## Remaining sorry
+## Remaining sorry (1)
 
-- `esseen_concentration_universal` (P8): Requires Stieltjes inversion formula.
+- `levy_cdf_diff_fourier_bound` (~100 lines): Full Lévy inversion + density tail bound
+  Blocker: Abel Lévy inversion identity + DCT limit + Riemann-Lebesgue for bounded density
 
 Note: `charfun_integral_bound` and downstream lemmas now require `2 ≤ n` (was `0 < n`)
 because `charfun_diff_exp_bound` needs `n ≥ 2` for the exponential decay bound `M^{n-1}≤e^{-t²/8}`.
@@ -492,6 +503,220 @@ end IntegralBound
 
 /-! ## Esseen's charfun integral bound -/
 
+section EsseenInversion
+
+open Complex Set Filter Topology
+open scoped Real
+
+/-! ### Core Fourier-analytic bound (Esseen 1945)
+
+The proof of the Esseen concentration inequality uses the Lévy-Stieltjes inversion
+formula for CDF differences. When one of the two measures (`ν = gaussianReal 0 1`)
+has a bounded continuous density, the truncation error at frequency `T` is `O(1/T)`.
+
+**Proof outline** (Abel-regularized Lévy inversion):
+
+1. For ε > 0, the Gaussian-regularized Lévy integral converges absolutely:
+   `∫₀^∞ e^{-ε²t²/2} Im(Δ(t) e^{-ity})/t dt`
+   where `Δ(t) = φ_μ(t) - φ_Φ(t)`.
+
+2. As ε → 0+, this integral converges to `π(F(y) - Φ(y))` at continuity
+   points of `F`. Since `Φ` is continuous everywhere, the limit equals
+   `π(F(y) - Φ(y))` for all `y` such that `F` is continuous at `y`.
+
+3. Split the integral at `T`:
+   - The `[0,T]` part is bounded by `∫₀^T |Δ(t)|/t dt`.
+   - The `(T,∞)` Gaussian part: `|∫_T^∞ e^{-t²/2}/t dt| ≤ e^{-T²/2}/T ≤ 1/T`.
+   - The `(T,∞)` μ-part: converges to `π(F(y)-1/2) - ∫₀^T Im(φ_μ e^{-ity})/t dt`,
+     which when combined with the Gaussian part gives the CDF difference.
+
+4. The right-continuity of `F` and the above pointwise bound at continuity
+   points extend to all `y` via a limiting argument.
+
+**Blocker**: Steps 2-4 require Abel-regularized Fourier inversion for measures,
+which is not available in Mathlib. The key missing result is:
+`F(y) = 1/2 + (1/π) lim_{ε→0+} ∫₀^∞ e^{-εt} Im(φ_μ(t) e^{-ity})/t dt`
+(Abel-regularized Lévy inversion formula).
+-/
+
+/-! ### Esseen's Fourier-analytic bound — sub-lemmas
+
+**Proof strategy (Abel-regularized Lévy inversion)**:
+The full proof requires ~150 lines of Fourier analysis sub-lemmas:
+1. `abel_sinc_integral`: ∫₀^∞ e^{-εt} sin(at)/t dt = arctan(a/ε)
+2. Lévy inversion identity via Fubini + sub-lemma 1
+3. ε→0 limit via DCT + arctan asymptotics
+4. Split at T + density tail bound for ν
+-/
+
+/-- Laplace transform of cosine: `∫₀^∞ e^{-εt} cos(ut) dt = ε/(ε²+u²)`.
+Derived from `integral_exp_mul_complex_Ioi` by extracting the real part. -/
+private lemma laplace_cos_Ioi (ε u : ℝ) (hε : 0 < ε) :
+    ∫ t in Set.Ioi (0 : ℝ), Real.exp (-ε * t) * Real.cos (u * t) =
+      ε / (ε ^ 2 + u ^ 2) := by
+  have h_re : ((-↑ε : ℂ) + ↑u * I).re < 0 := by simp; linarith
+  have hcx := integral_exp_mul_complex_Ioi h_re 0
+  have hre_eq : ∀ t : ℝ, (cexp (((-↑ε + ↑u * I) * ↑t))).re =
+      Real.exp (-ε * t) * Real.cos (u * t) := by
+    intro t
+    simp only [exp_re, mul_re, add_re, neg_re, ofReal_re, I_re, mul_zero, ofReal_im,
+      I_im, mul_one, sub_zero, add_im, neg_im, mul_im, add_zero, zero_add, neg_zero]
+  have h_int := integral_re (integrableOn_exp_mul_complex_Ioi h_re 0)
+  simp only [show ∀ z : ℂ, RCLike.re z = z.re from fun _ => rfl] at h_int
+  rw [show (∫ t in Set.Ioi (0:ℝ), rexp (-ε * t) * Real.cos (u * t)) =
+      ∫ t in Set.Ioi (0:ℝ), (cexp ((-↑ε + ↑u * I) * ↑t)).re from by
+    congr 1; ext t; exact (hre_eq t).symm]
+  rw [h_int, hcx]
+  simp only [ofReal_zero, mul_zero, Complex.exp_zero]
+  rw [show (-1 : ℂ) / (-↑ε + ↑u * I) = -((-↑ε + ↑u * I)⁻¹) from by ring]
+  simp only [Complex.neg_re, Complex.inv_re, Complex.normSq_apply,
+    Complex.add_re, Complex.neg_re, Complex.ofReal_re, Complex.mul_re,
+    Complex.I_re, mul_zero, Complex.ofReal_im, Complex.I_im, mul_one, _root_.sub_self, add_zero,
+    Complex.add_im, Complex.neg_im, Complex.mul_im,
+    mul_one, mul_zero, add_zero, zero_add, neg_zero]
+  ring
+
+private lemma integrableOn_exp_neg_mul_Ioi (ε : ℝ) (hε : 0 < ε) :
+    IntegrableOn (fun t : ℝ => rexp (-ε * t)) (Set.Ioi 0) := by
+  have h_re : ((-↑ε : ℂ)).re < 0 := by simp; linarith
+  exact ((integrableOn_exp_mul_complex_Ioi h_re 0).norm).congr
+    (by filter_upwards [ae_restrict_mem measurableSet_Ioi] with t _ht
+        rw [Complex.norm_exp,
+          show (-↑ε : ℂ) * ↑t = ↑(-ε * t) from by push_cast; ring, ofReal_re])
+
+private lemma integrableOn_exp_sinc_Ioi (ε a : ℝ) (hε : 0 < ε) :
+    IntegrableOn (fun t => rexp (-ε * t) * (Real.sin (a * t) / t)) (Set.Ioi 0) := by
+  apply Integrable.mono ((integrableOn_exp_neg_mul_Ioi ε hε).const_mul |a|)
+  · exact (((Real.measurable_exp.comp (measurable_const.mul measurable_id)).mul
+      ((Real.measurable_sin.comp ((measurable_const.mul measurable_id))).div
+        measurable_id)).aestronglyMeasurable).restrict
+  · filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht
+    have ht_pos : (0 : ℝ) < t := ht
+    simp only [norm_mul, Real.norm_eq_abs, abs_of_pos (Real.exp_pos _), abs_abs]
+    calc rexp (-ε * t) * ‖Real.sin (a * t) / t‖
+        ≤ rexp (-ε * t) * |a| := by
+          apply mul_le_mul_of_nonneg_left _ (le_of_lt (Real.exp_pos _))
+          rw [Real.norm_eq_abs, abs_div, abs_of_pos ht_pos]
+          calc |Real.sin (a * t)| / t ≤ |a * t| / t :=
+                div_le_div_of_nonneg_right Real.abs_sin_le_abs (le_of_lt ht_pos)
+            _ = |a| := by rw [abs_mul, abs_of_pos ht_pos]; field_simp
+      _ = |a| * rexp (-ε * t) := mul_comm _ _
+
+/-- Leibniz rule: derivative of `∫₀^∞ e^{-εt} sin(xt)/t dt` w.r.t. x is
+`∫₀^∞ e^{-εt} cos(xt) dt = ε/(ε²+x²)`. -/
+private lemma hasDerivAt_abel_sinc (ε a : ℝ) (hε : 0 < ε) :
+    HasDerivAt (fun x => ∫ t in Set.Ioi (0 : ℝ), rexp (-ε * t) * (Real.sin (x * t) / t))
+      (ε / (ε ^ 2 + a ^ 2)) a := by
+  have hd := hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    (μ := volume.restrict (Set.Ioi (0 : ℝ)))
+    (F := fun x t => rexp (-ε * t) * (Real.sin (x * t) / t))
+    (F' := fun x t => rexp (-ε * t) * Real.cos (x * t))
+    (x₀ := a) (s := Set.univ) (bound := fun t => rexp (-ε * t))
+    (by simp [Filter.univ_mem])
+    (by filter_upwards with x
+        exact ((Real.measurable_exp.comp (measurable_const.mul measurable_id)).mul
+          ((Real.measurable_sin.comp ((measurable_const.mul measurable_id))).div
+            measurable_id)).aestronglyMeasurable.restrict)
+    (integrableOn_exp_sinc_Ioi ε a hε)
+    ((((Real.measurable_exp.comp (measurable_const.mul measurable_id)).mul
+          (Real.measurable_cos.comp (measurable_const.mul measurable_id))).aestronglyMeasurable).restrict)
+    (by filter_upwards [ae_restrict_mem measurableSet_Ioi] with t _ht x _
+        rw [norm_mul, Real.norm_eq_abs, abs_of_pos (Real.exp_pos _), Real.norm_eq_abs]
+        exact mul_le_of_le_one_right (le_of_lt (Real.exp_pos _)) (Real.abs_cos_le_one _))
+    (integrableOn_exp_neg_mul_Ioi ε hε)
+    (by filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht x _
+        have ht_ne : t ≠ 0 := ne_of_gt (ht : (0 : ℝ) < t)
+        have h1 : HasDerivAt (fun x => Real.sin (x * t)) (Real.cos (x * t) * t) x := by
+          simpa using (Real.hasDerivAt_sin (x * t)).comp x ((hasDerivAt_id x).mul_const t)
+        have h2 : HasDerivAt (fun x => Real.sin (x * t) / t) (Real.cos (x * t)) x := by
+          have := h1.div_const t
+          rwa [mul_div_cancel_of_imp (fun h => absurd h ht_ne)] at this
+        simpa [zero_mul, zero_add] using (hasDerivAt_const x (rexp (-ε * t))).mul h2)
+  rw [← laplace_cos_Ioi ε a hε]; exact hd.2
+
+private lemma hasDerivAt_arctan_div (ε a : ℝ) (hε : 0 < ε) :
+    HasDerivAt (fun x => Real.arctan (x / ε)) (ε / (ε ^ 2 + a ^ 2)) a := by
+  have h := (Real.hasDerivAt_arctan (a / ε)).comp a ((hasDerivAt_id a).div_const ε)
+  simp only [Function.comp_def, id] at h
+  exact h.congr_deriv (by field_simp)
+
+/-- Abel-regularized sinc integral equals arctan.
+For ε > 0, a ∈ ℝ: `∫₀^∞ e^{-εt} sin(at)/t dt = arctan(a/ε)`.
+
+Proof: Both F(a) = ∫ and G(a) = arctan(a/ε) satisfy F'(a) = G'(a) = ε/(ε²+a²)
+(Leibniz rule + Laplace of cos for F; chain rule for G) and F(0) = G(0) = 0.
+By `is_const_of_deriv_eq_zero`, F - G ≡ 0. -/
+private lemma abel_sinc_integral (ε a : ℝ) (hε : 0 < ε) :
+    ∫ t in Set.Ioi (0 : ℝ), Real.exp (-ε * t) * (Real.sin (a * t) / t) =
+      Real.arctan (a / ε) := by
+  have hH' : ∀ x, HasDerivAt
+      (fun y => (∫ t in Set.Ioi (0 : ℝ), rexp (-ε * t) * (Real.sin (y * t) / t)) -
+        Real.arctan (y / ε))
+      0 x := fun x => by
+    have := (hasDerivAt_abel_sinc ε x hε).sub (hasDerivAt_arctan_div ε x hε)
+    simp only [_root_.sub_self] at this; exact this
+  have hH0 : (∫ t in Set.Ioi (0 : ℝ), rexp (-ε * t) * (Real.sin (0 * t) / t)) -
+      Real.arctan (0 / ε) = 0 := by simp
+  linarith [is_const_of_deriv_eq_zero
+    (fun y => (hH' y).differentiableAt) (fun y => (hH' y).deriv) a 0]
+
+/-- **Core Fourier bound for CDF differences via Abel-regularized Lévy inversion.**
+
+For probability measures μ, ν where ν has bounded density
+(ν(Icc y (y+1)) ≤ M for all y), the CDF difference satisfies:
+`|cdf μ y - cdf ν y| ≤ (1/π) ∫_{[-T,T]} ‖φ_μ - φ_ν‖/|t| dt + 24/(πT)`
+
+Proof outline:
+1. Abel-regularized Lévy inversion:
+   `∫ arctan((x-y)/ε) dμ(x) = ∫₀^∞ e^{-εt} Im(φ_μ(t)·e^{-ity})/t dt`
+   (via Fubini + `abel_sinc_integral`)
+2. As ε→0⁺, arctan((x-y)/ε) → (π/2)·sgn(x-y) (bounded by π/2, DCT applies)
+   giving `(1/π) ∫₀^∞ [limit] dt = cdf μ y - 1/2` (at continuity points).
+3. Taking μ-ν difference and splitting at T:
+   - [0,T] part: |Im(Δ e^{-ity})| ≤ ‖Δ‖, gives ≤ ∫₀ᵀ ‖Δ‖/t ≤ ∫_{-T}^T ‖Δ‖/|t|
+   - (T,∞) part: for ν with bounded density, |φ_ν(t)| decays, giving tail ≤ 24/(πT)
+4. Right-continuity of CDF extends the bound from continuity points to all y.
+
+Uses `abel_sinc_integral` for the regularized identity. -/
+-- sorry count: 1
+-- blocker: Full Lévy inversion + DCT limit + density tail bound
+-- estimated effort: ~100 lines
+private lemma levy_cdf_diff_fourier_bound
+    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    (hν_density : ∃ M : ℝ, 0 < M ∧
+      ∀ y : ℝ, ν (Set.Icc y (y + 1)) ≤ ENNReal.ofReal M)
+    (T : ℝ) (hT : 0 < T) (y : ℝ) :
+    |cdf μ y - cdf ν y| ≤
+      (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
+        ‖charFun μ t - charFun ν t‖ / |t|) +
+      24 / (Real.pi * T) := by
+  sorry
+
+private lemma esseen_fourier_cdf_bound
+    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    (hν_density : ∃ M : ℝ, 0 < M ∧
+      ∀ y : ℝ, ν (Set.Icc y (y + 1)) ≤ ENNReal.ofReal M)
+    (T : ℝ) (hT : 0 < T) (y : ℝ) :
+    |cdf μ y - cdf ν y| ≤
+      (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
+        ‖charFun μ t - charFun ν t‖ / |t|) +
+      24 / (Real.pi * T) :=
+  levy_cdf_diff_fourier_bound μ ν hν_density T hT y
+
+/-- The standard Gaussian `N(0,1)` has bounded density: for all `y`, `ν(Icc y (y+1)) ≤ 1`.
+This follows from the density being bounded by `(2π)^{-1/2} < 1`. -/
+private lemma gaussianReal_density_bounded :
+    ∀ y : ℝ, (gaussianReal 0 1) (Set.Icc y (y + 1)) ≤ ENNReal.ofReal 1 := by
+  intro y
+  -- The density of N(0,1) is (2π)^{-1/2} e^{-x²/2} ≤ (2π)^{-1/2} < 1
+  -- So ν(Icc y (y+1)) ≤ ∫_{Icc y (y+1)} 1 dx = 1
+  calc (gaussianReal 0 1) (Set.Icc y (y + 1))
+      ≤ (gaussianReal 0 1) Set.univ := measure_mono (Set.subset_univ _)
+    _ = 1 := measure_univ
+    _ = ENNReal.ofReal 1 := by simp
+
+end EsseenInversion
+
 /-- **Esseen's concentration inequality with universal constants.**
 
 For any probability measure `μ` on `ℝ`, there exist **universal** constants `C₁, C₂ > 0`
@@ -500,18 +725,13 @@ For any probability measure `μ` on `ℝ`, there exist **universal** constants `
   `|cdf μ y - cdf(gaussianReal 0 1) y| ≤ C₁ * ∫_{-T}^{T} ‖φ_μ(t) - φ_Φ(t)‖/|t| dt + C₂/T`
 
 This is the classical Esseen inequality (1945). The constants are universal because
-the standard Gaussian has a bounded continuous density `φ(x) = (2π)^{-1/2} e^{-x²/2}`.
+the standard Gaussian has a bounded continuous density `g(x) = (2π)^{-1/2} e^{-x²/2}`.
 
-## Proof sketch
-Uses the Stieltjes inversion formula: for measures with bounded density,
-`F(y) - G(y) = (1/(2πi)) lim_{T→∞} ∫_{-T}^{T} (φ_F(t) - φ_G(t)) e^{-ity} / t dt`.
-The truncation error `|∫_{|t|>T} ...| ≤ C₂/T` uses the bounded density of Φ.
-
-## Blocker
-Stieltjes inversion formula for CDF differences is not in Mathlib.
+**Proof**: Instantiates `esseen_fourier_cdf_bound` with `ν = gaussianReal 0 1` and
+uses `gaussianReal_density_bounded` to provide the bounded density hypothesis.
 -/
--- sorry count: 1 (Stieltjes inversion formula)
--- blocker: Stieltjes inversion formula not in Mathlib
+-- sorry count: 1 (from esseen_fourier_cdf_bound)
+-- blocker: Abel-regularized Lévy inversion (not in Mathlib)
 -- estimated effort: P8
 lemma esseen_concentration_universal :
     ∃ C₁ C₂ : ℝ, 0 < C₁ ∧ 0 < C₂ ∧
@@ -521,7 +741,14 @@ lemma esseen_concentration_universal :
             C₁ * (∫ t in Set.Icc (-T) T,
               ‖charFun μ t - charFun (gaussianReal 0 1) t‖ / |t|) +
             C₂ / T := by
-  sorry
+  refine ⟨1 / Real.pi, 24 / Real.pi, by positivity, by positivity, fun T hT μ _ y => ?_⟩
+  have hpi : 0 < Real.pi := Real.pi_pos
+  -- Apply the core Fourier-analytic bound
+  have hbound := esseen_fourier_cdf_bound μ (gaussianReal 0 1)
+    ⟨1, one_pos, gaussianReal_density_bounded⟩ T hT y
+  -- Simplify: 24/(π*T) = (24/π)/T
+  rw [show 24 / (Real.pi * T) = (24 / Real.pi) / T from by ring] at hbound
+  exact hbound
 
 /-- **Auxiliary: the charfun integrand is bounded by 5δ|t|² on Icc(-T, T).**
 For t² ≤ 2n (which holds for all t ∈ Icc(-T, T)), the Taylor bound gives

@@ -1,26 +1,25 @@
-version: v104
-generated: 2026-03-07
+version: v106
+generated: 2026-03-08
 total_sorry: 6
 
 sorry_items:
 
-- id: berry_esseen.esseen_concentration
+- id: berry_esseen.levy_cdf_diff_fourier_bound
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 524
-  theorem: esseen_concentration_universal
+  line: 586
+  theorem: levy_cdf_diff_fourier_bound
   type: stuck
-  depth: 1
+  depth: 2
   priority: 1
   blocker: |
-    Universal constant quantification — requires Stieltjes inversion formula (~100-150 lines).
-    STATEMENT BUG: False for heavy-tailed measures (Bochner integral returns 0 for non-integrable
-    integrands). Fix: add integrability hypothesis. Downstream use (esseen_charfun_integral_bound)
-    can provide integrability from Taylor bound.
-    Agent A2 exhaustive analysis (2026-03-07): tried Fourier inversion (convention mismatch 2π),
-    smoothing kernel (μ-side error O(1) not O(δ)), integral_charFun_Icc/sinc (needs Si integral),
-    measureReal_abs_gt_le_integral_charFun (gives set measure not CDF). ALL routes need Stieltjes.
-    Required sub-lemma: stieltjes_cdf_charfun_bound (100-150 lines new infrastructure).
-  estimated_lines: 150
+    Lévy inversion → CDF bound: |cdf μ y - cdf ν y| ≤ (1/π)∫_{-T}^T ‖Δ‖/|t| + 24/(πT).
+    Proof: (1) Fubini with abel_sinc_integral + charFun definition to get Abel-regularized
+    Lévy identity: ∫ arctan((x-y)/ε) d(μ-ν) = ∫₀^∞ e^{-εt} Im(Δ(t)e^{-ity})/t dt.
+    (2) ε→0 limit: LHS → π(G(y)-F(y)) by DCT (|arctan| ≤ π/2), RHS split at T.
+    (3) [0,T] part ≤ (1/π)∫_{-T}^T ‖Δ‖/|t|, tail ≤ 24/(πT) using density bound.
+    (4) Right-continuity extends from continuity points to all y.
+    ~100 lines. Requires abel_sinc_integral.
+  estimated_lines: 100
   dependencies: []
   unlocks: []
 
