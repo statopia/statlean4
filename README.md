@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化统计的核心定理，目前已涵盖估计理论、充分性、极限定理、集中不等式、回归分析等。
 
-**当前规模**：45 个 Lean 文件 · ~14,400 行 · ~490 个声明 · 38 个零 sorry 模块 · **6 个 sorry 待证**
+**当前规模**：45 个 Lean 文件 · ~14,500 行 · ~570 个声明 · 40 个零 sorry 模块 · **6 个 sorry 待证**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -93,10 +93,14 @@ charfun_diff_exp_bound            ← 指数衰减界 ‖φ_S - φ_Φ‖ ≤ Cδ
     ↓
 charfun_integral_bound            ← 积分界 ∫ ‖φ_S-φ_Φ‖/|t| ≤ Cδ
     ↓
-esseen_concentration_universal    ← [sorry] Stieltjes 反演公式
+esseen_concentration_universal    ← [sorry] Stieltjes 反演公式（~150 行新基础设施）
     ↓
 berry_esseen_theorem              ← |F_S(y) - Φ(y)| ≤ Cρ/(σ³√n)
 ```
+
+> **⚠️ 已知问题**：`esseen_concentration_universal` 的当前声明对重尾分布（无有限一阶矩）在数学上不正确——
+> Bochner 积分对不可积被积函数返回 0，导致 RHS = C₂/T 不足以控制 LHS ≈ 1。
+> 修复方案：添加可积性假设。下游调用 `esseen_charfun_integral_bound` 可从 Taylor 界提供此条件。
 
 ---
 
@@ -151,21 +155,30 @@ Statlean/
 ├── Regression/         # 最小二乘、主误差界、Gauss-Markov、可估性 (5 files)
 ├── SPD/                # Log-Cholesky Fréchet 均值 (3 files)
 ├── Pipeline/           # Pipeline 生成的存根 (1 file)
-└── Verified.lean       # 零 sorry 模块索引（38 个模块）
+└── Verified.lean       # 零 sorry 模块索引（40 个模块）
 ```
 
 ---
 
-## Sorry 缺口（6 个）
+## Sorry 缺口（6 个，3 独立 blocker + 3 下游依赖）
 
-| Blocker | 模块 | sorry 数 | 说明 |
-|---------|------|---------|------|
-| Stieltjes 反演公式 | BerryEsseen | 1 | Esseen 1945，需 Fourier 反演桥接到 CDF/概率设置 (~200 行) |
-| Gaussian LSI | LogSobolev | 1 | 1D Gaussian log-Sobolev，需 Bakry-Emery Γ₂ + OU 半群 (~300 行) |
-| 熵子可加性 n≥2 | LogSobolev | 1 | Han 不等式，n=0/1 已证，n≥2 需 data processing (~80 行) |
-| f²·log(f²) 可积 | LogSobolev | 1 | blocked by Gaussian LSI |
-| 条件熵可积 | LogSobolev | 1 | blocked by 熵子可加性 |
-| Sub-Gaussian MGF | Herbst | 1 | blocked by Gaussian LSI + 熵子可加性 |
+| ID | Blocker | 模块 | 预估行数 | 状态 |
+|----|---------|------|---------|------|
+| P1 | **Stieltjes 反演公式** | BerryEsseen | ~150 | stuck — 需 Fourier 反演桥接到 CDF 设置；**当前声明对重尾分布有误**（需加可积性假设） |
+| P2 | **Gaussian LSI** | LogSobolev | ~250 | stuck — 推荐路线：Two-point LSI + CLT transfer（95% 可行，Statlean 依赖全部就绪）|
+| P10 | **熵子可加性 n≥2** | LogSobolev | ~120 | honest — Han 不等式，n=0/1 已证，需 telescoping + data processing，**无 Mathlib blocker** |
+| P3 | f²·log(f²) 可积 | LogSobolev | ~80 | blocked by P2 |
+| P13 | 条件熵可积 | LogSobolev | ~20 | blocked by P10 |
+| P9 | Sub-Gaussian MGF | Herbst | ~60 | blocked by P2 + P10 |
+
+```
+依赖 DAG:
+  P1 (Berry-Esseen) ── 独立
+  P2 (Gaussian LSI) ─┬─→ P3 (f²log 可积)
+                      └─→ P9 (Sub-Gaussian MGF) ←─┐
+  P10 (熵子可加) ────┬─→ P13 (条件熵可积)          │
+                      └────────────────────────────┘
+```
 
 完整清单与依赖关系 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
 
