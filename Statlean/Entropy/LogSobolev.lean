@@ -389,22 +389,40 @@ lemma two_mul_le_sq_add_sq (a b : ℝ) : 2 * a * b ≤ a ^ 2 + b ^ 2 := by
 
 /-- Helper: the Gaussian LSI bound when f²·log(f²) is known integrable.
 
-**Blocker**: The 1D Gaussian LSI is Ent_γ(f²) ≤ ½·I(f²) where I = Fisher info.
-This is equivalent to Ent_γ(f²) ≤ 2·∫f'² dγ. Every known proof requires
-infrastructure not in Mathlib (see module docstring for full analysis).
+**Blocker**: The 1D Gaussian LSI `Ent_γ(f²) ≤ 2·∫f'² dγ`. Every known proof requires
+infrastructure not in Mathlib. The Stein identity `∫xh dγ = ∫h' dγ` gives Poincaré
+(variance bound) but NOT the LSI, because the LSI involves the nonlinear function
+`x·log(x)` which cannot be extracted from the linear Stein identity.
 
-**Recommended proof (Bakry-Emery, ~300 lines new infra)**:
-1. Define OU semigroup P_t via Hermite expansion (Poincare.lean has infra)
-2. Prove entropy dissipation: d/dt Ent(P_t g) = -I(P_t g)
-3. Prove Fisher info decay: I(P_t g) ≤ e^{-2t}·I(g) (from Γ₂ ≥ Γ₁)
-4. Integrate: Ent(g) ≤ ½·I(g)
+**Recommended proof — Bakry-Emery via OU semigroup (~250 lines)**:
 
-**Note**: The previous comment claiming "Stein + Poincaré + Young" suffices was
-incorrect. The Stein identity ∫xh dγ = ∫h' dγ gives Poincaré (variance bound)
-but NOT the LSI (entropy bound). The LSI involves the nonlinear function
-x·log(x), which cannot be extracted from the linear Stein identity.
+Sub-lemma DAG:
+```
+gaussian_lsi_normalized_of_integrable
+  ├── ou_entropy_le_half_fisher: Ent_γ(g) ≤ ½ I_γ(g)
+  │     ├── ou_entropy_eq_integral_fisher: Ent_γ(g) = ∫₀^∞ I(P_t g) dt
+  │     │     ├── entropy_dissipation: d/dt Ent(P_t g) = -I(P_t g)  (~80 lines)
+  │     │     └── ou_semigroup_ergodic: Ent(P_t g) → 0 as t → ∞    (~30 lines)
+  │     └── ou_fisher_info_decay: I(P_t g) ≤ e^{-2t} I(g)          (~80 lines)
+  │           └── bakry_emery_gamma2: Γ₂(f) ≥ Γ₁(f) for Gaussian   (~30 lines)
+  └── fisherInfo_sq: I_γ(f²) = 4∫(f')²                             (~10 lines)
+```
 
-**Estimated effort**: ~300 lines (OU semigroup + Bakry-Emery criterion). -/
+Key definitions needed:
+- `ouSemigroup t f x := ∫ f(e^{-t}x + √(1-e^{-2t})y) dγ(y)` (Mehler formula)
+- `fisherInfo g g' := ∫ (g')²/g dγ`
+
+Key proof steps:
+1. `fisherInfo_sq`: `(f²)' = 2ff'`, so `(2ff')²/f² = 4(f')²`
+2. `bakry_emery_gamma2`: OU generator `L = ∂² - x·∂`, Γ₂(f) = f''²+f'² ≥ f'² = Γ₁(f)
+3. `ou_fisher_info_decay`: Γ₂ ≥ Γ₁ ⟹ d/dt I(P_t g) ≤ -2·I(P_t g) ⟹ Grönwall
+4. `entropy_dissipation`: d/dt Ent(P_t g) = ∫(1+log P_t g)·LP_t g dγ = -I(P_t g)
+5. `ou_semigroup_ergodic`: P_t g → ∫g in L¹(γ), Ent(P_t g) → 0
+6. FTC: Ent(g) = ∫₀^∞ I(P_t g) dt ≤ ∫₀^∞ e^{-2t}·I(g) dt = ½·I(g)
+7. For g = f²: Ent(f²) ≤ ½·4∫(f')² = 2∫(f')²
+
+**Alternative paths**: (b) hypercontractivity ~400 lines, (c) two-point LSI + CLT ~200 lines.
+**Estimated effort**: ~250 lines for path (a). -/
 private lemma gaussian_lsi_normalized_of_integrable
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)

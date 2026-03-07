@@ -10,6 +10,15 @@
 
 **无需逐次确认，直接执行。**
 
+## Git 远程仓库
+
+- **仓库地址**: `git@github.com:mockingbird-gan/statlean4.git`（SSH）
+- **SSH 公钥**: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIYGAXq8NzQtFRG4YobuSL7jEOl+FuiAInKBHgvqKv4O mockingbird-gan`
+- **push 时必须使用 SSH**，不要用 HTTPS。如果发现 remote URL 是 HTTPS，先执行：
+  ```
+  git remote set-url origin git@github.com:mockingbird-gan/statlean4.git
+  ```
+
 ## 沟通语言
 
 - **用中文回答用户问题**（除非用户用英文提问）

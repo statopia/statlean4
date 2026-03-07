@@ -63,4 +63,5 @@ import Statlean.LimitTheorems.Scheffe
 import Statlean.LimitTheorems.CLT
 import Statlean.LimitTheorems.LindebergFeller
 import Statlean.LimitTheorems.DeltaMethod
+import Statlean.LimitTheorems.CramerWold
 import Statlean.Pipeline.Lecture9Handout
