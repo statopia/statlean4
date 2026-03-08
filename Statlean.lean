@@ -49,6 +49,7 @@ import Statlean.Statistic.Sample
 
 -- Moments (moment, central moment, skewness, kurtosis)
 import Statlean.Moments.Basic
+import Statlean.Moments.Covariance
 
 -- Hypothesis testing
 import Statlean.Testing.Basic

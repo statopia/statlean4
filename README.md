@@ -80,7 +80,10 @@
 | 假设检验（检验函数、功效、UMP、Neyman-Pearson） | `Testing/Basic.lean` |
 | 置信集（覆盖概率、置信区间、枢轴量） | `Confidence/Basic.lean` |
 | 样本统计（样本均值 / 方差、次序统计量、分位数、中位数） | `Statistic/Sample.lean` |
-| 矩（k 阶矩 / 中心矩、偏度、峰度） | `Moments/Basic.lean` |
+| 矩（k 阶矩 / 中心矩、偏度、峰度、绝对矩、截断矩、累量） | `Moments/Basic.lean` |
+| Chebyshev 不等式 | `Moments/Basic.lean` |
+| Var(X)=E[X²]-(EX)²、Cov(X,X)=Var(X) | `Moments/Basic.lean` |
+| Cauchy-Schwarz (协方差)、\|ρ\|≤1、独立方差可加 | `Moments/Covariance.lean` |
 | 收敛模式（完全收敛、矩收敛、全变差收敛） | `LimitTheorems/Convergence.lean` |
 | 决策理论（损失函数、风险、容许、Minimax、Bayes） | `Estimator/Basic.lean` |
 

@@ -65,6 +65,7 @@ import Statlean.Confidence.Basic
 
 -- Moments (verified)
 import Statlean.Moments.Basic
+import Statlean.Moments.Covariance
 
 -- Lehmann-Scheffé (verified)
 import Statlean.Sufficiency.LehmannScheffe
@@ -122,9 +123,14 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
   Rao-Blackwell UMVUE bridge, exponential family UMVUE, unestimability theorem
 - **ExpFamily/Basic**: MLE existence in natural exponential families
 - **Statistic/Sample**: sampleMean, sampleVariance, orderStatistic, sampleQuantile, sampleMedian
-- **Testing/Basic**: TestFunction, PowerFunction, TypeI/II errors, Size, HasLevel, IsUMP, NeymanPearson
+- **Testing/Basic**: TestFunction, PowerFunction, TypeI/II errors, Size, HasLevel,
+  IsUMP, NeymanPearson
 - **Confidence/Basic**: CoverageProb, IsConfidenceSet, IsConfidenceInterval, IsPivot
-- **Moments/Basic**: moment, centralMoment, skewness, kurtosis, excessKurtosis
+- **Moments/Basic**: moment, centralMoment, skewness, kurtosis, excessKurtosis,
+  absoluteMoment, truncatedMoment, covariance, correlation, cumulant,
+  variance_eq_moment_sub_sq, covariance_self_eq_variance, chebyshev_ineq
+- **Moments/Covariance**: variance_add_eq, sq_covariance_le_variance_mul (Cauchy-Schwarz),
+  corrCoeff, corrCoeff_abs_le_one, variance_sum_of_covariance_zero, variance_sum_independent
 - **LimitTheorems/Convergence**: AlmostSure, InProbability, InLp, CompleteConvergence,
   MomentConvergence, TotalVariationConvergence
 - **LimitTheorems/Slutsky**: Slutsky's theorem (add, mul, div) + inv convergence in measure
