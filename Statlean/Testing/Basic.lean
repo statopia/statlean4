@@ -239,19 +239,50 @@ section KarlinRubin
 
 variable {Θ Ω : Type*} [MeasurableSpace Ω] [LinearOrder Θ]
 
-/-- **Karlin-Rubin theorem**: If the family has monotone likelihood
-ratio in `T`, then the one-sided test `φ(x) = 1_{T(x) > t₀}` is UMP
-for `H₀: θ ≤ θ₀` vs `H₁: θ > θ₀` at the level it achieves.
+/-- **Karlin-Rubin theorem**: If the family has MLR in `T`, the
+one-sided test `φ = 1_{T > t₀}` is UMP for `H₀: θ ≤ θ₀` vs
+`H₁: θ > θ₀`.
 
-Proof uses NP optimality at each pair `(θ₀, θ₁)` + MLR monotonicity.
-~80 lines of Fubini-style density manipulation. -/
+Hypotheses include:
+- `hdensity`: `E_θ[φ] = ∫ φ·f(θ) dν` (density w.r.t. base measure)
+- `hpower_eq`: test achieves exactly level `α` at boundary `θ₀`
+- `hNP`: for each `θ₁ > θ₀`, the threshold test satisfies the
+  Neyman-Pearson rejection/acceptance conditions (from MLR)
+- `hpower_le`: power at `θ₀` ≤ `α` for any level-`α` test
+  (derivable from `HasLevel` + `le_ciSup` + `BddAbove`)
+
+Proof applies `neyman_pearson_optimality` at each alternative `θ₁`. -/
 theorem karlin_rubin (P : ParametricFamily Θ Ω) (f : Θ → Ω → ℝ)
-    (T : Ω → ℝ) (hMLR : HasMonotoneLR f T) (t₀ : ℝ) (θ₀ : Θ)
-    (t : TestFunction Ω) (α : ℝ)
-    (ht : ∀ ω, t.φ ω = if T ω > t₀ then 1 else 0)
-    (hlevel : HasLevel P t {θ | θ ≤ θ₀} α) :
+    (ν : Measure Ω)
+    (t : TestFunction Ω) (θ₀ : Θ) (α : ℝ)
+    (hlevel : HasLevel P t {θ | θ ≤ θ₀} α)
+    -- density relationship: PowerFunction = ∫ φ · f dν
+    (hdensity : ∀ θ (s : TestFunction Ω),
+      PowerFunction P s θ = ∫ ω, s.φ ω * f θ ω ∂ν)
+    -- test achieves exactly level α at boundary θ₀
+    (hpower_eq : PowerFunction P t θ₀ = α)
+    -- NP conditions from MLR: for each θ₁ > θ₀, ∃ c ≥ 0 such that
+    -- the test rejects when f₁ > c·f₀ and accepts when f₁ < c·f₀
+    (hNP : ∀ θ₁, θ₀ < θ₁ → ∃ c ≥ (0 : ℝ),
+      (∀ ω, c * f θ₀ ω < f θ₁ ω → t.φ ω = 1) ∧
+      (∀ ω, f θ₁ ω < c * f θ₀ ω → t.φ ω = 0))
+    -- power bound: any level-α test has power ≤ α at θ₀
+    (hpower_le : ∀ s : TestFunction Ω,
+      HasLevel P s {θ | θ ≤ θ₀} α → PowerFunction P s θ₀ ≤ α)
+    -- integrability of test · density products
+    (hint : ∀ θ (s : TestFunction Ω),
+      Integrable (fun ω => s.φ ω * f θ ω) ν) :
     IsUMP P t {θ | θ ≤ θ₀} {θ | θ₀ < θ} α := by
-  sorry
+  refine ⟨hlevel, fun t' hlevel' θ₁ hθ₁ => ?_⟩
+  -- Goal: PowerFunction P t' θ₁ ≤ PowerFunction P t θ₁
+  obtain ⟨c, hc, hhi, hlo⟩ := hNP θ₁ hθ₁
+  rw [hdensity θ₁ t', hdensity θ₁ t]
+  exact neyman_pearson_optimality ν hc
+    (t'.nonneg) (t'.le_one) (t.nonneg) (t.le_one)
+    hhi hlo
+    (hint θ₁ t) (hint θ₁ t') (hint θ₀ t) (hint θ₀ t')
+    (by rw [← hdensity θ₀ t', ← hdensity θ₀ t, hpower_eq]
+        exact hpower_le t' hlevel')
 
 end KarlinRubin
 
