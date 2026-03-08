@@ -63,6 +63,8 @@ import Statlean.ExpFamily.Basic
 import Statlean.Estimator.Basic
 import Statlean.Estimator.Asymptotic
 import Statlean.Estimator.UMVUE
+import Statlean.Estimator.Bayes
+import Statlean.Estimator.Robust
 import Statlean.Sufficiency.LehmannScheffe
 
 -- Fisher information and Cramér-Rao

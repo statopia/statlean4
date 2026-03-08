@@ -25,10 +25,12 @@ import Statlean.Sufficiency.Factorization
 import Statlean.Sufficiency.Basu
 import Statlean.Sufficiency.MinimalSufficiency
 
--- Estimation (verified — MSE, MLE, UMVUE, asymptotic normality, ARE)
+-- Estimation (verified — MSE, MLE, UMVUE, Bayes, robust, asymptotic theory)
 import Statlean.Estimator.Basic
 import Statlean.Estimator.Asymptotic
 import Statlean.Estimator.UMVUE
+import Statlean.Estimator.Bayes
+import Statlean.Estimator.Robust
 import Statlean.ExpFamily.Basic
 
 -- Empirical process theory (verified)

@@ -261,5 +261,40 @@ def IsUMVUE (P : ParametricFamily Θ Ω)
 
 end Efficiency
 
+section MethodOfMoments
+/-! ## Method of Moments -/
+variable {Ω : Type*} [MeasurableSpace Ω]
+
+/-- `θ̂` is a **method of moments estimator** if it solves the moment equations:
+the first `k` population moments at `θ̂(x)` equal the sample moments at `x`.
+`popMoments θ j` = j-th population moment at θ, `sampleMoments x j` = j-th sample moment. -/
+def IsMoMEstimator [MeasurableSpace Θ] (_P : ParametricFamily Θ Ω)
+    (θ_hat : Ω → Θ) (k : ℕ)
+    (popMoments : Θ → Fin k → ℝ)
+    (sampleMoments : Ω → Fin k → ℝ) : Prop :=
+  Measurable θ_hat ∧ ∀ ω, popMoments (θ_hat ω) = sampleMoments ω
+
+end MethodOfMoments
+
+section JamesStein
+/-! ## James-Stein and Shrinkage Estimators -/
+
+/-- The **James-Stein estimator** for the p-dimensional normal mean problem:
+`δ_JS(X) = (1 - (p-2)/‖X‖²) · X`. Shrinks toward the origin. -/
+noncomputable def jamesSteinEstimator (p : ℕ) (X : Fin p → ℝ) : Fin p → ℝ :=
+  fun i => (1 - (p - 2 : ℝ) / (∑ j, X j ^ 2)) * X i
+
+/-- A **shrinkage estimator** interpolates between a raw estimator `δ₀` and a
+target value `t`: `δ(ω) = λ · δ₀(ω) + (1 - λ) · t`. -/
+def IsShrinkage {Ω : Type*} (δ : Ω → ℝ) (δ₀ : Ω → ℝ) (t c : ℝ) : Prop :=
+  ∀ ω, δ ω = c * δ₀ ω + (1 - c) * t
+
+/-- An estimator `δ` is **equivariant** under a group action if applying the
+transformation to the data applies the same transformation to the estimate:
+`δ(g · ω) = g · δ(ω)` for all group elements `g`. -/
+def IsEquivariant {Ω A G : Type*} (δ : Ω → A) (actΩ : G → Ω → Ω) (actA : G → A → A) : Prop :=
+  ∀ g ω, δ (actΩ g ω) = actA g (δ ω)
+
+end JamesStein
 
 end Statlean.Estimator

@@ -1,5 +1,6 @@
 import Statlean.Estimator.Basic
 import Statlean.LimitTheorems.Levy
+import Statlean.Information.Basic
 import Mathlib.Probability.Distributions.Gaussian.CharFun
 
 /-! # Asymptotic Estimator Theory
@@ -140,5 +141,68 @@ theorem are_gt_one_iff {v₁ v₂ : NNReal} (h₁ : 0 < (v₁ : ℝ)) :
     1 < ARE v₁ v₂ ↔ (v₁ : ℝ) < v₂ := by
   simp only [ARE]
   exact one_lt_div h₁
+
+section MLEAsymptotics
+/-! ## MLE Large Sample Theory
+
+Definitions for MLE consistency, asymptotic normality, and asymptotic efficiency.
+These are statement-level definitions — the proofs require regularity conditions
+that vary by setting. -/
+
+variable {Ω : Type*} [MeasurableSpace Ω]
+
+/-- An MLE sequence `θ̂ₙ` is **consistent** for `θ₀` if `θ̂ₙ →ᵖ θ₀`
+under `P_{θ₀}` (convergence in probability).
+
+Uses the measure-theoretic formulation: `P_{θ₀}(d(θ̂ₙ, θ₀) > ε) → 0`. -/
+def IsMLEConsistent [PseudoMetricSpace Θ]
+    (P : ParametricFamily Θ Ω)
+    (θ_hat : ℕ → Ω → Θ) (θ₀ : Θ) : Prop :=
+  ∀ ε > 0, Filter.Tendsto
+    (fun n => (P.measure θ₀) {ω | ε < dist (θ_hat n ω) θ₀})
+    Filter.atTop (𝓝 0)
+
+/-- An MLE sequence is **asymptotically normal** with rate `√n` and
+asymptotic variance `1/I(θ)` (Fisher information):
+`√n(θ̂ₙ - θ) →ᵈ N(0, 1/I(θ))` under `P_θ`. -/
+def IsMLEAsymptoticallyNormal
+    (P : ParametricFamily ℝ Ω) (logDensity : ℝ → Ω → ℝ)
+    (θ_hat : ℕ → Ω → ℝ) : Prop :=
+  ∃ v : ℝ → NNReal,
+    (∀ θ, fisherInformation P logDensity θ > 0 →
+      (v θ : ℝ) = 1 / fisherInformation P logDensity θ) ∧
+    IsAsymptoticallyNormal P θ_hat id v
+
+/-- An estimator sequence `Tₙ` is **asymptotically efficient** for `g(θ)` if
+its asymptotic variance attains the Cramér-Rao lower bound:
+`AsymVar(Tₙ) = (g'(θ))² / I(θ)`. -/
+def IsAsymptoticallyEfficient
+    (P : ParametricFamily ℝ Ω) (logDensity : ℝ → Ω → ℝ)
+    (T : ℕ → Ω → ℝ) (g : ℝ → ℝ) (v : ℝ → NNReal) : Prop :=
+  IsAsymptoticallyNormal P T g v ∧
+  ∀ θ, fisherInformation P logDensity θ > 0 →
+    (v θ : ℝ) = (deriv g θ) ^ 2 / fisherInformation P logDensity θ
+
+/-- **Superefficiency**: an estimator is superefficient at `θ₀` if its
+asymptotic variance is strictly less than the CR bound there. By Le Cam's
+theorem, the set of superefficiency points has Lebesgue measure zero. -/
+def IsSuperefficient
+    (P : ParametricFamily ℝ Ω) (logDensity : ℝ → Ω → ℝ)
+    (T : ℕ → Ω → ℝ) (g : ℝ → ℝ) (v : ℝ → NNReal) (θ₀ : ℝ) : Prop :=
+  IsAsymptoticallyNormal P T g v ∧
+  fisherInformation P logDensity θ₀ > 0 ∧
+  (v θ₀ : ℝ) < (deriv g θ₀) ^ 2 / fisherInformation P logDensity θ₀
+
+/-- If the MLE is asymptotically normal with variance 1/I(θ), it is
+asymptotically efficient for estimating θ itself (g = id). -/
+theorem mle_an_implies_efficient
+    (P : ParametricFamily ℝ Ω) (logDensity : ℝ → Ω → ℝ)
+    (θ_hat : ℕ → Ω → ℝ)
+    (h : IsMLEAsymptoticallyNormal P logDensity θ_hat) :
+    ∃ v, IsAsymptoticallyEfficient P logDensity θ_hat id v := by
+  obtain ⟨v, hv, han⟩ := h
+  exact ⟨v, han, fun θ hI => by simp [deriv_id', one_pow, hv θ hI]⟩
+
+end MLEAsymptotics
 
 end Statlean.Estimator
