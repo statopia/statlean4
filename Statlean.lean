@@ -43,8 +43,18 @@ import Statlean.SPD.FrechetMean
 import Statlean.SPD.Determinant
 import Statlean.SPD.Geodesic
 
--- Statistic foundations (completeness, ancillary)
+-- Statistic foundations (completeness, ancillary, sample statistics)
 import Statlean.Statistic.Basic
+import Statlean.Statistic.Sample
+
+-- Moments (moment, central moment, skewness, kurtosis)
+import Statlean.Moments.Basic
+
+-- Hypothesis testing
+import Statlean.Testing.Basic
+
+-- Confidence sets
+import Statlean.Confidence.Basic
 
 -- Sufficiency
 import Statlean.Sufficiency.Factorization
@@ -52,6 +62,7 @@ import Statlean.Sufficiency.Basu
 import Statlean.ExpFamily.Basic
 import Statlean.Estimator.Basic
 import Statlean.Estimator.Asymptotic
+import Statlean.Estimator.UMVUE
 import Statlean.Sufficiency.LehmannScheffe
 
 -- Fisher information and Cramér-Rao

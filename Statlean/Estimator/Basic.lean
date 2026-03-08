@@ -1,12 +1,26 @@
 import Statlean.Statistic.Basic
+import Statlean.Information.Basic
 import Statlean.Variance.RaoBlackwell
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Measure.Decomposition.RadonNikodym
+import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
 
 /-! # Estimator/Basic
 
 Estimator definitions and basic properties: MSE bias-variance decomposition,
 risk dominance ordering, unbiased MSE = variance.
+
+## Definitions
+
+* `Bias` — finite-sample bias `E_θ[δ] - g(θ)`
+* `MSE` — mean squared error `E_θ[(δ - g(θ))²]`
+* `IsConsistent` — consistent estimator (convergence in probability)
+* `IsAdmissible` — admissible estimator (no dominating alternative)
+* `IsMinimax` — minimax estimator
+* `BayesRisk` — Bayes risk w.r.t. a prior
+* `IsBayesEstimator` — Bayes estimator (minimizes Bayes risk)
+* `IsEfficient` — efficient estimator (attains Cramér–Rao lower bound)
+* `IsUMVUE` — uniformly minimum variance unbiased estimator
 
 Core types (`ParametricFamily`, `IsUnbiased`) live in
 `Statlean.Statistic.Basic`; this file adds estimator-specific API.
@@ -17,7 +31,7 @@ PIPELINE_ID: lec5.unbiased_mse_eq_variance
 PIPELINE_ID: lec5.loss_function_definition
 -/
 
-open MeasureTheory ProbabilityTheory
+open MeasureTheory ProbabilityTheory Filter
 
 namespace Statlean.Estimator
 
@@ -144,5 +158,108 @@ theorem isMLE_comp [MeasurableSpace Θ]
     exact hω
 
 end MLE
+
+section BiasAndMSE
+/-! ## Bias and MSE -/
+
+variable {Ω : Type*} [MeasurableSpace Ω]
+
+/-- **Finite-sample bias** of an estimator `δ` for `g(θ)`:
+`Bias_θ(δ) = E_θ[δ] - g(θ)`. -/
+noncomputable def Bias (P : ParametricFamily Θ Ω) (δ : Ω → ℝ) (g : Θ → ℝ) (θ : Θ) : ℝ :=
+  ∫ ω, δ ω ∂(P.measure θ) - g θ
+
+/-- **Mean squared error** of an estimator `δ` for `g(θ)`:
+`MSE_θ(δ) = E_θ[(δ - g(θ))²]`. -/
+noncomputable def MSE (P : ParametricFamily Θ Ω) (δ : Ω → ℝ) (g : Θ → ℝ) (θ : Θ) : ℝ :=
+  ∫ ω, (δ ω - g θ) ^ 2 ∂(P.measure θ)
+
+end BiasAndMSE
+
+section Consistency
+/-! ## Consistent estimator -/
+
+variable {Ω : Type*} [MeasurableSpace Ω]
+
+/-- An estimator sequence `δₙ` is **(weakly) consistent** for `g(θ)` if
+`δₙ →^P g(θ)` under `P_θ` for every `θ`.
+
+Uses Mathlib's `TendstoInMeasure` (= convergence in measure;
+for probability measures this is convergence in probability). -/
+def IsConsistent (P : ParametricFamily Θ Ω)
+    (δ : ℕ → Ω → ℝ) (g : Θ → ℝ) : Prop :=
+  ∀ θ, TendstoInMeasure (P.measure θ) δ atTop (fun _ => g θ)
+
+end Consistency
+
+section Admissibility
+/-! ## Admissibility, minimax, Bayes -/
+
+variable {Ω : Type*} [MeasurableSpace Ω]
+variable {A : Type*} [MeasurableSpace A]
+
+/-- An estimator `δ` is **admissible** under risk `R` if no other
+measurable estimator dominates it: there is no `δ'` with
+`R(θ, δ') ≤ R(θ, δ)` for all `θ` and strict inequality for some `θ`. -/
+def IsAdmissible (P : ParametricFamily Θ Ω) (L : Θ → A → ℝ)
+    (δ : Ω → A) : Prop :=
+  ¬∃ δ' : Ω → A, Measurable δ' ∧
+    Dominates (fun θ => Risk (P.measure θ) L θ δ') (fun θ => Risk (P.measure θ) L θ δ)
+
+/-- An estimator `δ` is **minimax** under loss `L` if it minimizes
+the worst-case risk: `sup_θ R(θ, δ) ≤ sup_θ R(θ, δ')` for all
+measurable `δ'`. -/
+def IsMinimax (P : ParametricFamily Θ Ω) (L : Θ → A → ℝ)
+    (δ : Ω → A) : Prop :=
+  ∀ δ' : Ω → A, Measurable δ' →
+    iSup (fun θ => Risk (P.measure θ) L θ δ) ≤
+    iSup (fun θ => Risk (P.measure θ) L θ δ')
+
+/-- **Bayes risk** of an estimator `δ` w.r.t. prior `π` on `Θ`:
+`r(π, δ) = ∫ R(θ, δ) dπ(θ)`. -/
+noncomputable def BayesRisk [MeasurableSpace Θ]
+    (P : ParametricFamily Θ Ω) (L : Θ → A → ℝ)
+    (π : Measure Θ) (δ : Ω → A) : ℝ :=
+  ∫ θ, Risk (P.measure θ) L θ δ ∂π
+
+/-- An estimator `δ` is a **Bayes estimator** w.r.t. prior `π` if
+it minimizes the Bayes risk among all measurable estimators. -/
+def IsBayesEstimator [MeasurableSpace Θ]
+    (P : ParametricFamily Θ Ω) (L : Θ → A → ℝ)
+    (π : Measure Θ) (δ : Ω → A) : Prop :=
+  Measurable δ ∧
+  ∀ δ' : Ω → A, Measurable δ' →
+    BayesRisk P L π δ ≤ BayesRisk P L π δ'
+
+end Admissibility
+
+section Efficiency
+/-! ## Efficiency and UMVUE -/
+
+variable {Ω : Type*} [MeasurableSpace Ω]
+
+/-- An unbiased estimator `δ` is **efficient** for `g(θ)` if its variance
+attains the Cramér–Rao lower bound: `Var_θ(δ) = (g'(θ))² / I(θ)`.
+
+We state this as: MSE (= Var for unbiased) equals the CR bound. -/
+def IsEfficient (P : ParametricFamily ℝ Ω)
+    (logDensity : ℝ → Ω → ℝ)
+    (δ : Ω → ℝ) (g : ℝ → ℝ) : Prop :=
+  IsUnbiased P δ g ∧
+  ∀ θ, fisherInformation P logDensity θ > 0 →
+    MSE P δ g θ = (deriv g θ) ^ 2 / fisherInformation P logDensity θ
+
+/-- `δ` is a **uniformly minimum variance unbiased estimator** (UMVUE)
+for `g(θ)` if it is unbiased and has the smallest variance among all
+unbiased estimators:
+`∀ δ' unbiased, Var_θ(δ) ≤ Var_θ(δ')` for all `θ`. -/
+def IsUMVUE (P : ParametricFamily Θ Ω)
+    (δ : Ω → ℝ) (g : Θ → ℝ) : Prop :=
+  IsUnbiased P δ g ∧
+  ∀ δ' : Ω → ℝ, IsUnbiased P δ' g →
+    ∀ θ, MSE P δ g θ ≤ MSE P δ' g θ
+
+end Efficiency
+
 
 end Statlean.Estimator
