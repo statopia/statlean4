@@ -57,8 +57,8 @@ import Statlean.SPD.Geodesic
 import Statlean.Statistic.Basic
 import Statlean.Statistic.Sample
 
--- Hypothesis testing (verified)
-import Statlean.Testing.Basic
+-- Hypothesis testing (has 1 sorry: karlin_rubin)
+-- import Statlean.Testing.Basic
 
 -- Confidence sets (verified)
 import Statlean.Confidence.Basic
@@ -124,7 +124,9 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **ExpFamily/Basic**: MLE existence in natural exponential families
 - **Statistic/Sample**: sampleMean, sampleVariance, orderStatistic, sampleQuantile, sampleMedian
 - **Testing/Basic**: TestFunction, PowerFunction, TypeI/II errors, Size, HasLevel,
-  IsUMP, NeymanPearson
+  IsUMP, NeymanPearson, pValue, IsUnbiasedTest, IsSimilarTest, IsUMPU,
+  HasMonotoneLR, np_integrand_nonneg, np_integral_nonneg,
+  neyman_pearson_optimality (1 sorry: karlin_rubin)
 - **Confidence/Basic**: CoverageProb, IsConfidenceSet, IsConfidenceInterval, IsPivot
 - **Moments/Basic**: moment, centralMoment, skewness, kurtosis, excessKurtosis,
   absoluteMoment, truncatedMoment, covariance, correlation, cumulant,
