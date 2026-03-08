@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化统计的核心定理，目前已涵盖估计理论、充分性、极限定理、集中不等式、回归分析等。
 
-**当前规模**：45 个 Lean 文件 · ~14,500 行 · ~570 个声明 · 40 个零 sorry 模块 · **6 个 sorry 待证**
+**当前规模**：50 个 Lean 文件 · ~15,400 行 · ~600 个声明 · 44 个零 sorry 模块 · **6 个 sorry 待证（BerryEsseen 仅剩 1 个）**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -34,6 +34,10 @@
 | Rao-Blackwell MSE 定理 | `Variance/RaoBlackwell.lean` |
 | MSE = Bias² + Variance | `Estimator/Basic.lean` |
 | Lehmann-Scheffé UMVUE 定理 | `Sufficiency/LehmannScheffe.lean` |
+| UMVUE a.e. 唯一性（平行四边形恒等式） | `Estimator/UMVUE.lean` |
+| Efficient ⇒ UMVUE | `Estimator/UMVUE.lean` |
+| 指数族 UMVUE（完备充分 + Doob-Dynkin） | `Estimator/UMVUE.lean` |
+| 完备充分下不可估性定理 | `Estimator/UMVUE.lean` |
 | Cramér-Rao 信息不等式 | `Information/CramerRao.lean` |
 | 指数族 MLE 存在唯一性 | `ExpFamily/Basic.lean` |
 | MLE 定义 + 不变性定理 | `Estimator/Basic.lean` |
@@ -69,6 +73,17 @@
 | Efron-Stein 不等式 | `Variance/EfronStein.lean` |
 | 熵非负性（Jensen） + 链式规则 | `Entropy/Basic.lean` + `Entropy/LogSobolev.lean` |
 
+### 统计基础定义
+
+| 定义 | 文件 |
+|------|------|
+| 假设检验（检验函数、功效、UMP、Neyman-Pearson） | `Testing/Basic.lean` |
+| 置信集（覆盖概率、置信区间、枢轴量） | `Confidence/Basic.lean` |
+| 样本统计（样本均值 / 方差、次序统计量、分位数、中位数） | `Statistic/Sample.lean` |
+| 矩（k 阶矩 / 中心矩、偏度、峰度） | `Moments/Basic.lean` |
+| 收敛模式（完全收敛、矩收敛、全变差收敛） | `LimitTheorems/Convergence.lean` |
+| 决策理论（损失函数、风险、容许、Minimax、Bayes） | `Estimator/Basic.lean` |
+
 ### 其他
 
 | 定理 | 文件 |
@@ -80,7 +95,7 @@
 
 ## Berry-Esseen 证明链
 
-Berry-Esseen 定理是本库中最深的证明链之一，当前 **13 个引理已证明，仅剩 1 个分析 sorry**：
+Berry-Esseen 定理是本库中最深的证明链之一，当前 **18 个引理已证明，仅剩 1 个 sorry**：
 
 ```
 charfun_taylor_third_moment       ← Taylor 展开 + 三阶矩界
@@ -93,7 +108,11 @@ charfun_diff_exp_bound            ← 指数衰减界 ‖φ_S - φ_Φ‖ ≤ Cδ
     ↓
 charfun_integral_bound            ← 积分界 ∫ ‖φ_S-φ_Φ‖/|t| ≤ Cδ
     ↓
-esseen_concentration_universal    ← [sorry] Stieltjes 反演公式（~150 行新基础设施）
+abel_sinc_integral                ← ∫₀^∞ e^{-εt} sin(at)/t dt = arctan(a/ε)
+    ↓
+levy_cdf_diff_fourier_bound       ← [sorry] Lévy 反演 → CDF 界（~100 行 Fourier 分析）
+    ↓
+esseen_concentration_universal    ← Esseen 不等式 + Gauss 密度界
     ↓
 berry_esseen_theorem              ← |F_S(y) - Φ(y)| ≤ Cρ/(σ³√n)
 ```
@@ -148,14 +167,17 @@ Statlean/
 │                       # USLLN、Slutsky、Delta Method、Scheffé、收敛模式 (10 files)
 ├── Sufficiency/        # 因子分解、Basu、最小充分、Lehmann-Scheffé (4 files)
 ├── Information/        # Fisher 信息、Cramér-Rao (2 files)
-├── Estimator/          # MSE 分解、MLE 不变性、渐近理论 (2 files)
+├── Estimator/          # MSE 分解、MLE 不变性、UMVUE 定理、渐近理论 (3 files)
 ├── ExpFamily/          # 指数族 MLE + NatExpFamily 结构 (1 file)
-├── Statistic/          # ParametricFamily、IsUnbiased (1 file)
+├── Testing/            # 假设检验（UMP、Neyman-Pearson） (1 file)
+├── Confidence/         # 置信集、枢轴量 (1 file)
+├── Moments/            # 矩、偏度、峰度 (1 file)
+├── Statistic/          # ParametricFamily、IsUnbiased、样本统计 (2 files)
 ├── EmpiricalProcess/   # 覆盖数、Dudley 积分 (2 files)
 ├── Regression/         # 最小二乘、主误差界、Gauss-Markov、可估性 (5 files)
 ├── SPD/                # Log-Cholesky Fréchet 均值 (3 files)
 ├── Pipeline/           # Pipeline 生成的存根 (1 file)
-└── Verified.lean       # 零 sorry 模块索引（40 个模块）
+└── Verified.lean       # 零 sorry 模块索引（44 个模块）
 ```
 
 ---
@@ -164,7 +186,7 @@ Statlean/
 
 | ID | Blocker | 模块 | 预估行数 | 状态 |
 |----|---------|------|---------|------|
-| P1 | **Stieltjes 反演公式** | BerryEsseen | ~150 | stuck — 需 Fourier 反演桥接到 CDF 设置；**当前声明对重尾分布有误**（需加可积性假设） |
+| P1 | **Lévy CDF 反演界** | BerryEsseen | ~100 | stuck — `abel_sinc_integral` 已证，需 Fubini + DCT + Gaussian 尾界；**当前声明对重尾分布有误**（需加可积性假设） |
 | P2 | **Gaussian LSI** | LogSobolev | ~250 | stuck — 推荐路线：Two-point LSI + CLT transfer（95% 可行，Statlean 依赖全部就绪）|
 | P10 | **熵子可加性 n≥2** | LogSobolev | ~120 | honest — Han 不等式，n=0/1 已证，需 telescoping + data processing，**无 Mathlib blocker** |
 | P3 | f²·log(f²) 可积 | LogSobolev | ~80 | blocked by P2 |

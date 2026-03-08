@@ -25,9 +25,10 @@ import Statlean.Sufficiency.Factorization
 import Statlean.Sufficiency.Basu
 import Statlean.Sufficiency.MinimalSufficiency
 
--- Estimation (verified — MSE decomposition, risk dominance, MLE, asymptotic normality, ARE)
+-- Estimation (verified — MSE, MLE, UMVUE, asymptotic normality, ARE)
 import Statlean.Estimator.Basic
 import Statlean.Estimator.Asymptotic
+import Statlean.Estimator.UMVUE
 import Statlean.ExpFamily.Basic
 
 -- Empirical process theory (verified)
@@ -52,6 +53,16 @@ import Statlean.SPD.Geodesic
 
 -- Statistics foundations (verified)
 import Statlean.Statistic.Basic
+import Statlean.Statistic.Sample
+
+-- Hypothesis testing (verified)
+import Statlean.Testing.Basic
+
+-- Confidence sets (verified)
+import Statlean.Confidence.Basic
+
+-- Moments (verified)
+import Statlean.Moments.Basic
 
 -- Lehmann-Scheffé (verified)
 import Statlean.Sufficiency.LehmannScheffe
@@ -101,12 +112,19 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Sufficiency/Factorization**: Fisher-Neyman factorization (both directions)
 - **Sufficiency/Basu**: Basu's theorem
 - **Sufficiency/MinimalSufficiency**: Density ratio criterion (Thm C) + Subfamily extension (Thm A)
-- **Estimator/Basic**: MSE = Bias² + Var, unbiased MSE = Var, risk dominance,
-  likelihood, IsMLE, MLE invariance (isMLE_comp)
+- **Estimator/Basic**: MSE = Bias² + Var, unbiased MSE = Var, risk dominance, loss functions,
+  likelihood, IsMLE, MLE invariance, IsConsistent, IsAdmissible, IsMinimax, BayesRisk, IsEfficient
 - **Estimator/Asymptotic**: IsAsymptoticallyNormal, HasAsymptoticMSE, HasAsymptoticBias,
   ARE, CLT→asymptotic normality bridge, scaled MSE decomposition, ARE inversion/comparison
+- **Estimator/UMVUE**: UMVUE a.e. uniqueness (parallelogram identity), efficient ⇒ UMVUE,
+  Rao-Blackwell UMVUE bridge, exponential family UMVUE, unestimability theorem
 - **ExpFamily/Basic**: MLE existence in natural exponential families
-- **LimitTheorems/Convergence**: AlmostSure, InProbability, InLp convergence modes
+- **Statistic/Sample**: sampleMean, sampleVariance, orderStatistic, sampleQuantile, sampleMedian
+- **Testing/Basic**: TestFunction, PowerFunction, TypeI/II errors, Size, HasLevel, IsUMP, NeymanPearson
+- **Confidence/Basic**: CoverageProb, IsConfidenceSet, IsConfidenceInterval, IsPivot
+- **Moments/Basic**: moment, centralMoment, skewness, kurtosis, excessKurtosis
+- **LimitTheorems/Convergence**: AlmostSure, InProbability, InLp, CompleteConvergence,
+  MomentConvergence, TotalVariationConvergence
 - **LimitTheorems/Slutsky**: Slutsky's theorem (add, mul, div) + inv convergence in measure
 - **LimitTheorems/DeltaMethod**: Continuous mapping theorem, delta method (Shao Thm 1.12),
   √n corollary (Shao Cor 1.1), tightness lemma (rescaled convergence ⟹ convergence in probability)
