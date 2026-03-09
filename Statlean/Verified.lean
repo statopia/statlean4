@@ -37,6 +37,9 @@ import Statlean.ExpFamily.Basic
 import Statlean.EmpiricalProcess.CoveringNumber
 import Statlean.EmpiricalProcess.Dudley
 
+-- Distributions (verified)
+import Statlean.Distribution.TDist
+
 -- Fisher information and Cramér-Rao (verified)
 import Statlean.Information.Basic
 import Statlean.Information.CramerRao

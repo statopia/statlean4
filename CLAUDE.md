@@ -87,6 +87,21 @@
 - **IBP 路线**：`integral_mul_deriv_eq_deriv_mul_of_integrable` + density chain rule
 - **L^p 降级**：`MemLp.mono_exponent` + `integrable_withDensity_iff` 处理 Gaussian 可积性
 
+### Sorry 等级判定与校准（强制）
+
+**参考表**：`theme/sorry_grading.md`（等级定义 + 实际攻击记录 + 当前评估）
+
+**攻击前**：对目标 sorry 进行 S/A/B/C/D/E 等级判定，输出预计时间和 token。
+**攻击后**：记录实际数据到 `theme/sorry_grading.md` 的「实际攻击记录」表，校准等级范围。
+
+校准规则：
+- 实际偏离预计 >50% → 标注异常原因
+- 同等级连续 3 次偏离 → 调整该等级的预计范围
+- 新产生的 sorry → 判定等级并加入「当前评估」表
+- 已关闭的 sorry → 从「当前评估」移到「实际记录」
+
+详见 `theme/prove_playbook.md` §1（启动流程步骤 5）和 §9（攻击后校准）。
+
 ### 验收标准
 - `lake build` 零错误
 - sorry 数只减不增
@@ -243,12 +258,37 @@
 1. **Claude 输出报告** — 每次会话的实质性工作结束后，主动输出上述报告
 2. **用户审阅** — 用户决定哪些值得固化
 3. **用户指令固化** — 用户说「采纳 X」后，Claude 执行：
-   - Lean/Mathlib 模式 → 写入 `MEMORY.md`（已有机制）
+   - Lean/Mathlib 模式 → 写入 memory（见下方 Memory 分层写入规则）
    - Pipeline 改进 → 更新对应 `theme/scripts/` 代码或 pipeline skill
    - 分类规则 → 更新 `theme/scripts/classify.py` 的 `_THEOREM_RULES` 或 ontology
    - 证明策略 → 更新 `theme/prove_playbook.md`
-   - 踩坑记录 → 写入 `MEMORY.md` 或 CLAUDE.md 的「关键模式」小节
+   - 踩坑记录 → 写入 memory（见下方规则）
 4. **不自动写入** — 报告本身只是建议，**未经用户确认不修改任何文件**
+
+### Memory 分层写入规则（强制）
+
+Memory 目录：`~/.claude/projects/-home-gavin-statlean/memory/`
+
+**MEMORY.md**（自动加载前 200 行）只放：
+- 项目状态、文件结构、sorry 概要、关键 API、slash commands
+- **Recently Learned Patterns** 区域：最近常用的 pattern（单行摘要，≤15 条）
+- 超过 15 条时，把最旧的移入 `patterns.md`
+
+**Topic 文件**（按需 Read 加载）：
+| 文件 | 内容 |
+|------|------|
+| `patterns.md` | 全部编号 Lean/Mathlib 模式（按类别分组） |
+| `pitfalls.md` | 踩坑记录 + 结构性 blocker |
+| `completed.md` | 里程碑历史 |
+| `convergence_patterns.md` | 收敛证明详细模式 |
+
+**写入流程**：
+1. 新 pattern → 先加到 `MEMORY.md` 的 "Recently Learned Patterns"（单行摘要）
+2. 同时加到 `patterns.md` 的对应类别下（完整描述 + 来源）
+3. 踩坑记录 → 加到 `pitfalls.md`
+4. 里程碑 → 加到 `completed.md`
+5. 新的专题（如某类证明的详细 pattern 积累 ≥5 条）→ 创建新 topic 文件，从 MEMORY.md 链接
+6. **MEMORY.md 必须保持 <200 行** — 每次写入后检查行数，超出则精简或移入 topic 文件
 
 ### 什么算「实质性工作」（触发报告）
 

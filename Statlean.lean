@@ -68,6 +68,9 @@ import Statlean.Estimator.Bayes
 import Statlean.Estimator.Robust
 import Statlean.Sufficiency.LehmannScheffe
 
+-- Distributions (chi-squared, t-distribution)
+import Statlean.Distribution.TDist
+
 -- Fisher information and Cramér-Rao
 import Statlean.Information.Basic
 import Statlean.Information.CramerRao

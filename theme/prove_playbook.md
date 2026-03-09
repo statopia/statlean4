@@ -15,8 +15,14 @@
    补充：grep theme/mathlib_full_type_index.tsv 查全量 Mathlib 声明
 3. 读 .claude/projects/*/memory/MEMORY.md — 查已知 pattern
 4. 如果 backlog 有 proof_sketch / blocker — 按其指引走
-5. 选择证明策略（见策略选择表）
-6. 如果证明需要 >3 步 — 先分拆子引理
+5. **等级判定（强制）**：按 `theme/sorry_grading.md` 的快速判定流程，
+   对目标 sorry 进行 S/A/B/C/D/E 等级评估，记录预计时间和 token 消耗。
+   - 输出格式：`等级: X, 预计: ~Ymin / ~ZK token, 理由: ...`
+   - 等级 E + 无明确路线 → 标记 honest sorry，不启动攻击（除非 /prove-deep 模式）
+   - 等级 S/A → 直接攻击，不派 subagent
+   - 等级 B/C/D → 派 subagent 攻击
+6. 选择证明策略（见策略选择表）
+7. 如果证明需要 >3 步 — 先分拆子引理
 ```
 
 ### Phase 0 工具链（强制使用）
@@ -236,3 +242,29 @@ linarith [h_int, h_ae, h_eq]
 - 删除别人的证明或修改其他定理
 - 把 sorry 换成 `sorry` 的变体（如 `native_decide` hack）
 - 修改定理签名来逃避证明
+
+---
+
+## 9. 攻击后校准（强制）
+
+每次 sorry 攻击完成后（无论成功或失败），必须执行：
+
+```
+1. 记录实际数据：
+   - 定理名、等级（攻击前判定的）、实际 token、实际时间、结果（零 sorry / N sorry / 失败）
+
+2. 校准 `theme/sorry_grading.md`：
+   - 将本次记录追加到「实际攻击记录」表
+   - 如果实际数据偏离预计 >50%：
+     a. 偏低（比预计简单）→ 考虑降级该类型的等级范围
+     b. 偏高（比预计难）→ 考虑升级该等级的预计值
+   - 如果同等级连续 3 次偏离 → 修改等级定义表的预计范围
+
+3. 更新「当前 Sorry 等级评估」表：
+   - 已关闭的 sorry → 移到「实际攻击记录」
+   - 新产生的 sorry → 判定等级并加入
+   - 依赖关系变化 → 更新 blocker 字段
+```
+
+**目的**：通过持续校准，使等级判定越来越准确，避免低估（浪费 agent 在 E 级上）
+或高估（S 级不必要地派 subagent）。

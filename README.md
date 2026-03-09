@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化统计的核心定理，目前已涵盖估计理论、充分性、极限定理、集中不等式、回归分析等。
 
-**当前规模**：50 个 Lean 文件 · ~15,400 行 · ~600 个声明 · 44 个零 sorry 模块 · **6 个 sorry 待证（BerryEsseen 仅剩 1 个）**
+**当前规模**：53 个 Lean 文件 · ~17,500 行 · ~700 个声明 · 46 个零 sorry 模块 · **8 个 sorry 待证**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -24,7 +24,13 @@
 | Cramér-Wold 装置（多元 Lévy + 投影 ⟺ 弱收敛） | `LimitTheorems/CramerWold.lean` | Shao Thm 1.9(iii) |
 | Scheffé 定理（密度 → L¹ 收敛） | `LimitTheorems/Scheffe.lean` | Shao Thm 1.5 |
 | 均匀强大数律 (USLLN) | `LimitTheorems/USLLN.lean` | |
-| 收敛模式（a.s. / 概率 / Lp） | `LimitTheorems/Convergence.lean` | |
+| 收敛蕴含（a.s.→概率 / 概率→子列a.s. / 完全→a.s.） | `LimitTheorems/Convergence.lean` | |
+| Borel-Cantelli 引理（第一 + 第二） | `LimitTheorems/Convergence.lean` | |
+| Kolmogorov 零一律 | `LimitTheorems/Convergence.lean` | Shao Thm 1.1 |
+| Helly 选择定理 | `LimitTheorems/Convergence.lean` | |
+| Portmanteau 定理（弱收敛等价条件） | `LimitTheorems/Convergence.lean` | |
+| Lyapunov → Lindeberg 条件 | `LimitTheorems/Convergence.lean` | after Shao Thm 1.6 |
+| 多元 CLT（Cramér-Wold + 1D CLT） | `LimitTheorems/Convergence.lean` | |
 | 特征函数 Taylor 链（charfun → exp decay） | `CharFun/Taylor.lean` | |
 
 ### 估计理论
@@ -84,8 +90,11 @@
 | Chebyshev 不等式 | `Moments/Basic.lean` |
 | Var(X)=E[X²]-(EX)²、Cov(X,X)=Var(X) | `Moments/Basic.lean` |
 | Cauchy-Schwarz (协方差)、\|ρ\|≤1、独立方差可加 | `Moments/Covariance.lean` |
-| 收敛模式（完全收敛、矩收敛、全变差收敛） | `LimitTheorems/Convergence.lean` |
+| 收敛模式（完全收敛、矩收敛、全变差收敛、弱收敛） | `LimitTheorems/Convergence.lean` |
 | 决策理论（损失函数、风险、容许、Minimax、Bayes） | `Estimator/Basic.lean` |
+| Glivenko-Cantelli 定理（经验 CDF 一致收敛）⚡ | `LimitTheorems/Convergence.lean` |
+| Kolmogorov 极大不等式 ⚡ | `LimitTheorems/Convergence.lean` |
+| Edgeworth 展开（一阶修正定义） | `LimitTheorems/Convergence.lean` |
 
 ### 其他
 
@@ -185,27 +194,30 @@ Statlean/
 
 ---
 
-## Sorry 缺口（6 个，3 独立 blocker + 3 下游依赖）
+## Sorry 缺口（8 个，3 独立 blocker + 5 下游/独立）
 
-| ID | Blocker | 模块 | 预估行数 | 状态 |
-|----|---------|------|---------|------|
-| P1 | **Lévy CDF 反演界** | BerryEsseen | ~100 | stuck — `abel_sinc_integral` 已证，需 Fubini + DCT + Gaussian 尾界；**当前声明对重尾分布有误**（需加可积性假设） |
-| P2 | **Gaussian LSI** | LogSobolev | ~250 | stuck — 推荐路线：Two-point LSI + CLT transfer（95% 可行，Statlean 依赖全部就绪）|
-| P10 | **熵子可加性 n≥2** | LogSobolev | ~120 | honest — Han 不等式，n=0/1 已证，需 telescoping + data processing，**无 Mathlib blocker** |
-| P3 | f²·log(f²) 可积 | LogSobolev | ~80 | blocked by P2 |
-| P13 | 条件熵可积 | LogSobolev | ~20 | blocked by P10 |
-| P9 | Sub-Gaussian MGF | Herbst | ~60 | blocked by P2 + P10 |
+| ID | 模块 | 等级 | 预估时间 | 状态 |
+|----|------|------|---------|------|
+| P1 | BerryEsseen — Lévy CDF 反演界 | E | 5-10 hr | stuck — Stieltjes inversion |
+| P2 | LogSobolev — Gaussian LSI core | E | 5-10 hr | stuck — hypercontractivity (Nelson '73) |
+| P3 | LogSobolev — normalized LSI | C | 30-60 min | blocked by P2 |
+| P10 | LogSobolev — 张量化 | D | 2-4 hr | entropy subadditivity + Fubini |
+| P13 | LogSobolev — 条件熵可积 | C | 30-60 min | Fubini for Measure.pi |
+| P9 | Herbst — Sub-Gaussian MGF | S | 5 min | blocked by P2 |
+| — | Convergence — Glivenko-Cantelli (Dini bootstrap) | B-C | 30-60 min | 部分证明，剩 monotone CDF uniform convergence |
+| — | Convergence — Kolmogorov maximal (cross-term) | B | 20-40 min | 部分证明，剩独立性 cross-term |
 
 ```
 依赖 DAG:
   P1 (Berry-Esseen) ── 独立
   P2 (Gaussian LSI) ─┬─→ P3 (f²log 可积)
                       └─→ P9 (Sub-Gaussian MGF) ←─┐
-  P10 (熵子可加) ────┬─→ P13 (条件熵可积)          │
+  P10 (张量化) ──────┬─→ P13 (条件熵可积)          │
                       └────────────────────────────┘
+  Convergence (2) ── 独立
 ```
 
-完整清单与依赖关系 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
+等级分类详见 [`sorry_grading.md`](theme/sorry_grading.md) · 完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
 
 ---
 

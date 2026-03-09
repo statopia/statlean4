@@ -16,6 +16,8 @@ risk dominance ordering, unbiased MSE = variance.
 * `MSE` — mean squared error `E_θ[(δ - g(θ))²]`
 * `IsConsistent` — consistent estimator (convergence in probability)
 * `IsAdmissible` — admissible estimator (no dominating alternative)
+* `IsOptimal` — optimal estimator (minimizes risk for all θ)
+* `IsEquivalentRisk` — two rules have equal risk everywhere
 * `IsMinimax` — minimax estimator
 * `BayesRisk` — Bayes risk w.r.t. a prior
 * `IsBayesEstimator` — Bayes estimator (minimizes Bayes risk)
@@ -230,6 +232,75 @@ def IsBayesEstimator [MeasurableSpace Θ]
   Measurable δ ∧
   ∀ δ' : Ω → A, Measurable δ' →
     BayesRisk P L π δ ≤ BayesRisk P L π δ'
+
+/-- Two decision rules are **risk-equivalent** if they have the same risk
+for every parameter value. -/
+def IsEquivalentRisk (P : ParametricFamily Θ Ω) (L : Θ → A → ℝ)
+    (δ₁ δ₂ : Ω → A) : Prop :=
+  ∀ θ, Risk (P.measure θ) L θ δ₁ = Risk (P.measure θ) L θ δ₂
+
+/-- A decision rule `δ` is **optimal** if it is as good as any other
+measurable rule: `R(θ, δ) ≤ R(θ, δ')` for all `θ` and all `δ'`. -/
+def IsOptimal (P : ParametricFamily Θ Ω) (L : Θ → A → ℝ)
+    (δ : Ω → A) : Prop :=
+  Measurable δ ∧
+  ∀ δ' : Ω → A, Measurable δ' →
+    ∀ θ, Risk (P.measure θ) L θ δ ≤ Risk (P.measure θ) L θ δ'
+
+/-- **Shao §2.3.2 (1)**: An optimal rule is admissible. -/
+theorem IsOptimal.isAdmissible (P : ParametricFamily Θ Ω) (L : Θ → A → ℝ)
+    (δ : Ω → A) (hopt : IsOptimal P L δ) : IsAdmissible P L δ := by
+  intro ⟨δ', hm', hdom⟩
+  obtain ⟨hle, θ₀, hlt⟩ := hdom
+  have h := hopt.2 δ' hm' θ₀
+  linarith
+
+/-- **Shao §2.3.2 (2)**: If `δ*` is optimal and `δ₀` is admissible,
+then `δ₀` is also optimal and risk-equivalent to `δ*`. -/
+theorem IsOptimal.admissible_isOptimal_and_equivalent
+    (P : ParametricFamily Θ Ω) (L : Θ → A → ℝ)
+    (δ_star δ₀ : Ω → A) (hm₀ : Measurable δ₀)
+    (hopt : IsOptimal P L δ_star) (hadm : IsAdmissible P L δ₀) :
+    IsOptimal P L δ₀ ∧ IsEquivalentRisk P L δ₀ δ_star := by
+  constructor
+  · constructor
+    · exact hm₀
+    · intro δ' hm' θ
+      -- δ₀ admissible means ¬∃ δ' dominating δ₀
+      -- Suppose for contradiction that R(θ, δ₀) > R(θ, δ') for some θ, δ'
+      -- We show R(θ, δ₀) = R(θ, δ*) for all θ, and δ* is optimal
+      -- First show δ₀ equivalent to δ*
+      have heq : ∀ θ, Risk (P.measure θ) L θ δ₀ = Risk (P.measure θ) L θ δ_star := by
+        intro θ
+        apply le_antisymm
+        · -- If R(δ₀, θ) > R(δ*, θ), then δ* dominates δ₀, contradicting admissibility
+          by_contra h
+          push_neg at h
+          exact hadm ⟨δ_star, hopt.1, fun θ' => hopt.2 δ₀ hm₀ θ', θ, h⟩
+        · exact hopt.2 δ₀ hm₀ θ
+      rw [heq θ]
+      exact hopt.2 δ' hm' θ
+  · intro θ
+    apply le_antisymm
+    · by_contra h
+      push_neg at h
+      exact hadm ⟨δ_star, hopt.1, fun θ' => hopt.2 δ₀ hm₀ θ', θ, h⟩
+    · exact hopt.2 δ₀ hm₀ θ
+
+/-- **Shao §2.3.2 (3)**: If two admissible rules are not risk-equivalent,
+then no optimal rule exists. -/
+theorem no_optimal_of_two_admissible_not_equivalent
+    (P : ParametricFamily Θ Ω) (L : Θ → A → ℝ)
+    (δ₁ δ₂ : Ω → A) (hm₁ : Measurable δ₁) (hm₂ : Measurable δ₂)
+    (hadm₁ : IsAdmissible P L δ₁) (hadm₂ : IsAdmissible P L δ₂)
+    (hne : ¬IsEquivalentRisk P L δ₁ δ₂) :
+    ∀ δ : Ω → A, ¬IsOptimal P L δ := by
+  intro δ hopt
+  have ⟨_, heq₁⟩ := IsOptimal.admissible_isOptimal_and_equivalent P L δ δ₁ hm₁ hopt hadm₁
+  have ⟨_, heq₂⟩ := IsOptimal.admissible_isOptimal_and_equivalent P L δ δ₂ hm₂ hopt hadm₂
+  apply hne
+  intro θ
+  rw [heq₁ θ, heq₂ θ]
 
 end Admissibility
 
