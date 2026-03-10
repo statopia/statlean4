@@ -1,0 +1,7 @@
+首页标题去掉mathematical
+第五页去掉 prefer MemLp 这句
+第八页去掉quantitative results这一栏，把左边那栏放正中间
+第十页 18 problems里难度分级按照第九页的分级制度来写，然后去掉status这一句
+第十一页 这个设计是这样的，用户的工作流是两种 上传含目标定理的pdf或者latex（并声明要形式化的定理名），或者直接输入定理名，然后输入api key，会得到一个预估的时间和token消耗，同意后继续，中间可以看到一些形式化过程的log，最后会得到形式化完成的lean文件，以及可以贡献到statlean库的可复用部分，另外一个用户视角的工作流是可以选择open sorry goals，后续流程一样。 然后删掉architecture这一块
+
+

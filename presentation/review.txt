@@ -1,0 +1,7 @@
+第二页：background或者说the problem是llm时代要做统计证明相关的训练的话没有数据，lean是一种很好的工具，但是目前math库比较完善，stat没有较完整的库。our approach突出ai-assisted formalization, with claude code就先不用写了，然后还有ai辅助的自动入库的功能 benefits这一块 复用性，discovery留下。 example去掉
+第三页：module architecture这块去掉
+第四页：和第五页交换位置
+第五页：pipeline input改成 pdf/latex（最好指定位置和需要形式化的内容），或者直接文字说明
+第六页：theorem extraction的第三步把那个公式去掉
+第八页：把false lemma detection那块去掉
+

@@ -286,4 +286,93 @@ theorem karlin_rubin (P : ParametricFamily Θ Ω) (f : Θ → Ω → ℝ)
 
 end KarlinRubin
 
+/-! ## Bayes Test Optimality (Shao Thm 4.2)
+
+For simple-vs-simple testing H₀: density f₀ vs H₁: density f₁ with
+prior weights π₀, π₁ > 0, the Bayes risk of a test φ is
+  r(φ) = π₀ · ∫ φ · f₀ dν + π₁ · (1 - ∫ φ · f₁ dν).
+The likelihood-ratio test that rejects when f₁ > (π₀/π₁) · f₀
+minimizes this Bayes risk among all tests.
+-/
+
+section BayesTest
+
+variable {Ω : Type*} [MeasurableSpace Ω]
+
+/-- **Bayes risk** for simple-vs-simple testing: weighted type-I + type-II error.
+  `bayesTestRisk π₀ π₁ ν f₀ f₁ φ = π₀ · ∫ φ f₀ dν + π₁ · (1 - ∫ φ f₁ dν)`. -/
+noncomputable def bayesTestRisk (π₀ π₁ : ℝ)
+    (ν : Measure Ω) (f₀ f₁ : Ω → ℝ) (φ : Ω → ℝ) : ℝ :=
+  π₀ * ∫ ω, φ ω * f₀ ω ∂ν + π₁ * (1 - ∫ ω, φ ω * f₁ ω ∂ν)
+
+/-- **Bayes test optimality** (Shao Thm 4.2): the likelihood-ratio test
+`φ` that rejects when `f₁(ω) > (π₀/π₁) · f₀(ω)` minimizes the Bayes risk
+`π₀ · E₀[ψ] + π₁ · (1 - E₁[ψ])` among all tests `ψ ∈ [0,1]`.
+
+Proof: the NP integrand inequality gives `(φ-ψ)(f₁ - c·f₀) ≥ 0` pointwise
+with `c = π₀/π₁`. Multiply by `π₁ > 0` and integrate to get
+`π₁·∫(φ-ψ)f₁ ≥ π₀·∫(φ-ψ)f₀`, which rearranges to
+`bayesTestRisk(ψ) ≥ bayesTestRisk(φ)`. -/
+theorem bayes_test_optimality (ν : Measure Ω)
+    {f₀ f₁ : Ω → ℝ} {π₀ π₁ : ℝ} (hπ₁ : 0 < π₁)
+    {φ ψ : Ω → ℝ}
+    (hψ_nn : ∀ ω, 0 ≤ ψ ω) (hψ_le : ∀ ω, ψ ω ≤ 1)
+    (hφ_nn : ∀ ω, 0 ≤ φ ω) (hφ_le : ∀ ω, φ ω ≤ 1)
+    -- φ is the NP test with cutoff c = π₀/π₁
+    (hφ_hi : ∀ ω, (π₀ / π₁) * f₀ ω < f₁ ω → φ ω = 1)
+    (hφ_lo : ∀ ω, f₁ ω < (π₀ / π₁) * f₀ ω → φ ω = 0)
+    -- integrability
+    (hint_φf₁ : Integrable (fun ω => φ ω * f₁ ω) ν)
+    (hint_ψf₁ : Integrable (fun ω => ψ ω * f₁ ω) ν)
+    (hint_φf₀ : Integrable (fun ω => φ ω * f₀ ω) ν)
+    (hint_ψf₀ : Integrable (fun ω => ψ ω * f₀ ω) ν) :
+    bayesTestRisk π₀ π₁ ν f₀ f₁ φ ≤ bayesTestRisk π₀ π₁ ν f₀ f₁ ψ := by
+  -- Use neyman_pearson_optimality with c = π₀/π₁
+  -- Case 1: π₀ ≥ 0 → c = π₀/π₁ ≥ 0, apply NP directly
+  -- We show: π₁ · ∫ψf₁ ≤ π₁ · ∫φf₁ and π₀ · ∫φf₀ ≤ π₀ · ∫ψf₀ + π₀ · (∫φf₀ - ∫ψf₀)
+  -- More directly: expand Bayes risks and use NP optimality
+  simp only [bayesTestRisk]
+  -- Suffices: π₁ * ∫φf₁ - π₀ * ∫φf₀ ≥ π₁ * ∫ψf₁ - π₀ * ∫ψf₀
+  suffices h : π₁ * ∫ ω, ψ ω * f₁ ω ∂ν - π₀ * ∫ ω, ψ ω * f₀ ω ∂ν ≤
+      π₁ * ∫ ω, φ ω * f₁ ω ∂ν - π₀ * ∫ ω, φ ω * f₀ ω ∂ν by linarith
+  -- From NP integrand: ∀ ω, 0 ≤ (φ ω - ψ ω)(f₁ ω - (π₀/π₁) f₀ ω)
+  -- Multiply by π₁: 0 ≤ (φ-ψ)(π₁ f₁ - π₀ f₀) pointwise
+  have hpw : ∀ ω, 0 ≤ π₁ * ((φ ω - ψ ω) * (f₁ ω - π₀ / π₁ * f₀ ω)) :=
+    fun ω => mul_nonneg (le_of_lt hπ₁)
+      (np_integrand_nonneg hψ_nn hψ_le hφ_nn hφ_le hφ_hi hφ_lo ω)
+  -- Rewrite: π₁(φ-ψ)(f₁ - (π₀/π₁)f₀) = π₁(φf₁-ψf₁) - π₀(φf₀-ψf₀)
+  have hcancel : π₀ / π₁ * π₁ = π₀ := div_mul_cancel₀ π₀ (ne_of_gt hπ₁)
+  have hpw' : ∀ ω, 0 ≤ π₁ * (φ ω * f₁ ω - ψ ω * f₁ ω) -
+      π₀ * (φ ω * f₀ ω - ψ ω * f₀ ω) := by
+    intro ω
+    have h := hpw ω
+    -- π₁ * ((φ-ψ) * (f₁ - (π₀/π₁)*f₀))
+    -- = π₁*(φ-ψ)*f₁ - π₁*(φ-ψ)*(π₀/π₁)*f₀
+    -- = π₁*(φ*f₁-ψ*f₁) - (π₀/π₁*π₁)*(φ*f₀-ψ*f₀)
+    -- = π₁*(φ*f₁-ψ*f₁) - π₀*(φ*f₀-ψ*f₀)
+    have key : π₁ * ((φ ω - ψ ω) * (f₁ ω - π₀ / π₁ * f₀ ω)) =
+        π₁ * (φ ω * f₁ ω - ψ ω * f₁ ω) -
+        π₀ * (φ ω * f₀ ω - ψ ω * f₀ ω) := by
+      field_simp
+    linarith [key]
+  -- Integrate: ∫ [π₁(φf₁-ψf₁) - π₀(φf₀-ψf₀)] ≥ 0
+  have hint1 : 0 ≤ ∫ ω, (π₁ * (φ ω * f₁ ω - ψ ω * f₁ ω) -
+      π₀ * (φ ω * f₀ ω - ψ ω * f₀ ω)) ∂ν := integral_nonneg hpw'
+  -- Split the integral into separate integrals
+  have h_int1 : Integrable (fun ω => π₁ * (φ ω * f₁ ω - ψ ω * f₁ ω)) ν :=
+    (hint_φf₁.sub hint_ψf₁).const_mul _
+  have h_int2 : Integrable (fun ω => π₀ * (φ ω * f₀ ω - ψ ω * f₀ ω)) ν :=
+    (hint_φf₀.sub hint_ψf₀).const_mul _
+  have h_eq1 : ∫ ω, π₁ * (φ ω * f₁ ω - ψ ω * f₁ ω) ∂ν =
+      π₁ * (∫ ω, φ ω * f₁ ω ∂ν - ∫ ω, ψ ω * f₁ ω ∂ν) := by
+    rw [integral_const_mul, integral_sub hint_φf₁ hint_ψf₁]
+  have h_eq2 : ∫ ω, π₀ * (φ ω * f₀ ω - ψ ω * f₀ ω) ∂ν =
+      π₀ * (∫ ω, φ ω * f₀ ω ∂ν - ∫ ω, ψ ω * f₀ ω ∂ν) := by
+    rw [integral_const_mul, integral_sub hint_φf₀ hint_ψf₀]
+  have hsplit := integral_sub h_int1 h_int2
+  rw [hsplit, h_eq1, h_eq2] at hint1
+  linarith
+
+end BayesTest
+
 end Statlean.Testing
