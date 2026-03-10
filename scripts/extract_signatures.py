@@ -29,6 +29,46 @@ END_RE = re.compile(r'^\s*(end)\s+(.*)', re.MULTILINE)
 IMPORT_RE = re.compile(r'^import\s+(.+)', re.MULTILINE)
 
 
+def find_code_sorry_lines(lines: list[str]) -> list[int]:
+    """Find lines containing `sorry` in actual code (not comments or docstrings).
+
+    Skips:
+      - Line comments: `-- ...`
+      - Block comments / docstrings: `/- ... -/`, `/-! ... -/`, `/-- ... -/`
+    Returns 1-indexed line numbers.
+    """
+    sorry_lines = []
+    in_block_comment = False
+    for i, line in enumerate(lines):
+        # Track block comment state
+        j = 0
+        code_part = []
+        while j < len(line):
+            if in_block_comment:
+                # Look for end of block comment
+                end_idx = line.find('-/', j)
+                if end_idx >= 0:
+                    in_block_comment = False
+                    j = end_idx + 2
+                else:
+                    break  # rest of line is in block comment
+            else:
+                # Check for line comment
+                if line[j:j+2] == '--':
+                    break  # rest of line is a comment
+                # Check for block comment start
+                if line[j:j+2] == '/-':
+                    in_block_comment = True
+                    j += 2
+                    continue
+                code_part.append(line[j])
+                j += 1
+        code_str = ''.join(code_part)
+        if SORRY_RE.search(code_str):
+            sorry_lines.append(i + 1)
+    return sorry_lines
+
+
 def extract_signature_block(lines: list[str], start: int) -> str:
     """Extract the type signature from a declaration start line.
     Collects lines until ':=' or 'where' or ':= by' or next declaration."""
@@ -65,12 +105,18 @@ def process_file(path: Path) -> dict:
     lines = text.split('\n')
 
     imports = IMPORT_RE.findall(text)
-    has_sorry = bool(SORRY_RE.search(text))
-    sorry_lines = [i + 1 for i, l in enumerate(lines) if SORRY_RE.search(l)]
+    sorry_lines = find_code_sorry_lines(lines)
+    has_sorry = len(sorry_lines) > 0
+
+    # Collect all declaration start lines first
+    decl_matches = list(DECL_RE.finditer(text))
+    decl_start_lines = []
+    for m in decl_matches:
+        decl_start_lines.append(text[:m.start()].count('\n') + 1)
 
     declarations = []
-    for m in DECL_RE.finditer(text):
-        line_no = text[:m.start()].count('\n') + 1
+    for idx, m in enumerate(decl_matches):
+        line_no = decl_start_lines[idx]
         kind_raw = m.group(2).strip()
         # Normalize kind
         for k in ('theorem', 'lemma', 'def', 'abbrev', 'instance',
@@ -82,12 +128,11 @@ def process_file(path: Path) -> dict:
             kind = kind_raw
         name = m.group(3)
         sig = extract_signature_block(lines, line_no - 1)
-        # Check if this declaration has sorry
-        decl_has_sorry = False
-        for sl in sorry_lines:
-            if line_no <= sl <= line_no + 60:
-                decl_has_sorry = True
-                break
+        # Check if this declaration has sorry — only within its own span
+        # (from this decl start to next decl start, capped at +60 lines)
+        next_line = decl_start_lines[idx + 1] if idx + 1 < len(decl_start_lines) else line_no + 60
+        end_line = min(next_line, line_no + 60)
+        decl_has_sorry = any(line_no <= sl < end_line for sl in sorry_lines)
         declarations.append({
             'line': line_no,
             'kind': kind,
