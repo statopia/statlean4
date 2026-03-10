@@ -24,7 +24,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
   - `sq_div_sq_add_eps_le_one` — f²/(f²+ε) ≤ 1
   - `two_mul_le_sq_add_sq` — 2ab ≤ a² + b²
 
-## Sorry gaps (5 sorry lines in this file, 3 independent blockers)
+## Sorry gaps (4 sorry lines in this file, 3 independent blockers)
 - `gaussian_lsi_normalized_of_integrable` — the integrable case of normalized LSI
   **Blocker**: The 1D Gaussian LSI is a deep result. Every known proof requires
   infrastructure not in Mathlib:
@@ -387,55 +387,31 @@ lemma sq_div_sq_add_eps_le_one (t ε : ℝ) (hε : 0 < ε) :
 lemma two_mul_le_sq_add_sq (a b : ℝ) : 2 * a * b ≤ a ^ 2 + b ^ 2 := by
   nlinarith [sq_nonneg (a - b)]
 
-/-- Helper: the Gaussian LSI bound when f²·log(f²) is known integrable.
+/-- **1D Gaussian log-Sobolev inequality** (Gross 1975).
 
-**Blocker**: The 1D Gaussian LSI `Ent_γ(f²) ≤ 2·∫f'² dγ`. Every known proof requires
-infrastructure not in Mathlib. The Stein identity `∫xh dγ = ∫h' dγ` gives Poincaré
-(variance bound) but NOT the LSI, because the LSI involves the nonlinear function
-`x·log(x)` which cannot be extracted from the linear Stein identity.
+For `f, f'` in `L^2(gamma)` with `integral(f^2) = 1` and `f^2 log(f^2)` integrable:
+  `integral(f^2 * log(f^2)) <= 2 * integral(f'^2)`
 
-**Recommended proof — Bakry-Emery via OU semigroup (~250 lines)**:
+Equivalently in Fisher information form: `Ent(g) <= 1/2 * I(g)` where
+`g = f^2`, `I(g) = integral((g')^2/g) = 4*integral(f'^2)`.
 
-Sub-lemma DAG:
-```
-gaussian_lsi_normalized_of_integrable
-  ├── ou_entropy_le_half_fisher: Ent_γ(g) ≤ ½ I_γ(g)
-  │     ├── ou_entropy_eq_integral_fisher: Ent_γ(g) = ∫₀^∞ I(P_t g) dt
-  │     │     ├── entropy_dissipation: d/dt Ent(P_t g) = -I(P_t g)  (~80 lines)
-  │     │     └── ou_semigroup_ergodic: Ent(P_t g) → 0 as t → ∞    (~30 lines)
-  │     └── ou_fisher_info_decay: I(P_t g) ≤ e^{-2t} I(g)          (~80 lines)
-  │           └── bakry_emery_gamma2: Γ₂(f) ≥ Γ₁(f) for Gaussian   (~30 lines)
-  └── fisherInfo_sq: I_γ(f²) = 4∫(f')²                             (~10 lines)
-```
-
-Key definitions needed:
-- `ouSemigroup t f x := ∫ f(e^{-t}x + √(1-e^{-2t})y) dγ(y)` (Mehler formula)
-- `fisherInfo g g' := ∫ (g')²/g dγ`
-
-Key proof steps:
-1. `fisherInfo_sq`: `(f²)' = 2ff'`, so `(2ff')²/f² = 4(f')²`
-2. `bakry_emery_gamma2`: OU generator `L = ∂² - x·∂`, Γ₂(f) = f''²+f'² ≥ f'² = Γ₁(f)
-3. `ou_fisher_info_decay`: Γ₂ ≥ Γ₁ ⟹ d/dt I(P_t g) ≤ -2·I(P_t g) ⟹ Grönwall
-4. `entropy_dissipation`: d/dt Ent(P_t g) = ∫(1+log P_t g)·LP_t g dγ = -I(P_t g)
-5. `ou_semigroup_ergodic`: P_t g → ∫g in L¹(γ), Ent(P_t g) → 0
-6. FTC: Ent(g) = ∫₀^∞ I(P_t g) dt ≤ ∫₀^∞ e^{-2t}·I(g) dt = ½·I(g)
-7. For g = f²: Ent(f²) ≤ ½·4∫(f')² = 2∫(f')²
-
-**Alternative paths**: (b) hypercontractivity ~400 lines, (c) two-point LSI + CLT ~200 lines.
-**Estimated effort**: ~250 lines for path (a). -/
+**Blocker**: Every known proof requires OU semigroup infrastructure not in Mathlib:
+(a) Bakry-Emery via OU semigroup (~250 lines): define `P_t` via Mehler formula,
+    prove entropy dissipation `d/dt Ent(P_t g) = -I(P_t g)`, Fisher decay
+    `I(P_t g) <= e^{-2t} I(g)`, integrate to get `Ent(g) <= 1/2 I(g)`.
+(b) Hypercontractivity of OU semigroup (~400 lines)
+(c) Two-point inequality + CLT transfer (~200 lines) -/
 private lemma gaussian_lsi_normalized_of_integrable
     (f f' : ℝ → ℝ)
-    (hf : MemLp f 2 stdGaussian)
-    (hf' : MemLp f' 2 stdGaussian)
-    (hderiv : ∀ x, HasDerivAt f (f' x) x)
-    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
-    (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
+    (_hf : MemLp f 2 stdGaussian)
+    (_hf' : MemLp f' 2 stdGaussian)
+    (_hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (_hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
+    (_hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  -- **Blocker**: The 1D Gaussian LSI requires infrastructure not in Mathlib.
-  -- The Stein identity alone gives Poincare (variance bound), NOT the LSI.
-  -- Recommended path: Bakry-Emery criterion via OU semigroup (~300 lines).
-  -- See module docstring for full analysis of proof options.
+  -- Blocker: Requires OU semigroup infrastructure (Bakry-Emery criterion).
+  -- See docstring above for proof architecture.
   sorry
 
 lemma gaussian_lsi_normalized
