@@ -1,8 +1,8 @@
-# StatLean — Lean 4 形式化统计库
+# StatLean — Lean 4 形式化统计学库
 
-用 Lean 4 + Mathlib 形式化统计的核心定理，目前已涵盖估计理论、充分性、极限定理、集中不等式、回归分析等。
+用 Lean 4 + Mathlib 形式化数理统计的核心定理，涵盖估计理论、充分性、极限定理、集中不等式、回归分析、Gaussian 分析等。
 
-**当前规模**：53 个 Lean 文件 · ~17,500 行 · ~700 个声明 · 46 个零 sorry 模块 · **8 个 sorry 待证**
+**当前规模**：55 个 Lean 文件 · ~19,000 行 · ~750 个声明 · 51 个零 sorry 模块 · **9 个 sorry 待证**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -10,7 +10,7 @@
 
 ## 已完成定理（零 sorry，机器可验证）
 
-### 极限定理（Shao Ch.1）
+### 极限定理（Shao Ch.1 全覆盖）
 
 | 定理 | 文件 | 参考 |
 |------|------|------|
@@ -30,6 +30,9 @@
 | Helly 选择定理 | `LimitTheorems/Convergence.lean` | |
 | Portmanteau 定理（弱收敛等价条件） | `LimitTheorems/Convergence.lean` | |
 | Lyapunov → Lindeberg 条件 | `LimitTheorems/Convergence.lean` | after Shao Thm 1.6 |
+| Pólya 定理（连续极限 CDF ⟹ 一致收敛） | `LimitTheorems/Convergence.lean` | |
+| Glivenko-Cantelli（经验 CDF 一致收敛） | `LimitTheorems/Convergence.lean` | |
+| Kolmogorov 极大不等式 | `LimitTheorems/Convergence.lean` | |
 | 多元 CLT（Cramér-Wold + 1D CLT） | `LimitTheorems/Convergence.lean` | |
 | 特征函数 Taylor 链（charfun → exp decay） | `CharFun/Taylor.lean` | |
 
@@ -49,6 +52,8 @@
 | MLE 定义 + 不变性定理 | `Estimator/Basic.lean` |
 | 渐近正态性 + 渐近 MSE + ARE | `Estimator/Asymptotic.lean` |
 | 线性模型可估性 + BLUE/UMVUE | `Regression/Estimability.lean` |
+| Bayes 估计 + 后验风险 | `Estimator/Bayes.lean` |
+| 稳健估计（影响函数、崩溃点） | `Estimator/Robust.lean` |
 
 ### 充分性
 
@@ -74,10 +79,25 @@
 |------|------|
 | Hermite 正交性 + Parseval + IBP | `Gaussian/Hermite.lean` |
 | Stein 恒等式 | `Gaussian/Stein.lean` |
+| Gaussian Poincaré 不等式 | `Gaussian/Poincare.lean` |
+| **Ornstein-Uhlenbeck 半群** (Mehler 公式) | `Gaussian/OrnsteinUhlenbeck.lean` |
+| OU 不变性（∫P_t f dγ = ∫f dγ） | `Gaussian/OrnsteinUhlenbeck.lean` |
+| OU 空间交换（(P_t f)' = e⁻ᵗ P_t(f')） | `Gaussian/OrnsteinUhlenbeck.lean` |
+| OU 收敛（P_t f → E[f]） | `Gaussian/OrnsteinUhlenbeck.lean` |
+| OU 正性（P_t g > 0 a.e.） | `Gaussian/OrnsteinUhlenbeck.lean` |
+| Gaussian Dirichlet form（∫Lφ·ψ dγ = -∫φ'ψ' dγ） | `Gaussian/OrnsteinUhlenbeck.lean` |
+| 积分 Cauchy-Schwarz（(∫h)²/(∫k) ≤ ∫h²/k） | `Gaussian/OrnsteinUhlenbeck.lean` |
 | ANOVA 方差分解 | `Variance/ANOVA.lean` |
-| Gaussian Poincaré 1D | `Gaussian/Poincare.lean` |
 | Efron-Stein 不等式 | `Variance/EfronStein.lean` |
-| 熵非负性（Jensen） + 链式规则 | `Entropy/Basic.lean` + `Entropy/LogSobolev.lean` |
+| 熵非负性（Jensen）+ 条件熵非负 | `Entropy/Basic.lean` |
+| 熵子可加性（链式规则 + DPI 框架） | `Entropy/LogSobolev.lean` |
+
+### 假设检验
+
+| 定理 | 文件 |
+|------|------|
+| Neyman-Pearson 引理 | `Testing/Basic.lean` |
+| Karlin-Rubin（单调似然比 → UMP） | `Testing/Basic.lean` |
 
 ### 统计基础定义
 
@@ -92,16 +112,35 @@
 | Cauchy-Schwarz (协方差)、\|ρ\|≤1、独立方差可加 | `Moments/Covariance.lean` |
 | 收敛模式（完全收敛、矩收敛、全变差收敛、弱收敛） | `LimitTheorems/Convergence.lean` |
 | 决策理论（损失函数、风险、容许、Minimax、Bayes） | `Estimator/Basic.lean` |
-| Glivenko-Cantelli 定理（经验 CDF 一致收敛）⚡ | `LimitTheorems/Convergence.lean` |
-| Kolmogorov 极大不等式 ⚡ | `LimitTheorems/Convergence.lean` |
-| Edgeworth 展开（一阶修正定义） | `LimitTheorems/Convergence.lean` |
-
-### 其他
-
-| 定理 | 文件 |
-|------|------|
 | 覆盖数 + Dudley 积分 | `EmpiricalProcess/` |
 | SPD Log-Cholesky Fréchet 均值 | `SPD/` |
+
+---
+
+## 正在进行：1D Gaussian Log-Sobolev 不等式
+
+通过 **Bakry-Emery 准则**（Ornstein-Uhlenbeck 半群方法）证明 1D Gaussian LSI：
+
+$$\text{Ent}_\gamma(f^2) \leq 2 \int (f')^2 \, d\gamma$$
+
+当前进度：10 个引理已证明，3 个核心 sorry + 若干正则性 sorry 待攻击。
+
+```
+ouSemigroup_zero           ✅  P_0 = id
+integral_ouSemigroup       ✅  ∫ P_t f dγ = ∫ f dγ (Fubini + Gaussian 仿射稳定性)
+ouSemigroup_hasDerivAt     ✅  (P_t f)' = e⁻ᵗ P_t(f') (Leibniz 规则)
+ouSemigroup_tendsto        ✅  P_t f(x) → E[f] (DCT)
+ouSemigroup_pos_ae         ✅  P_t g > 0 a.e. for t > 0
+gaussian_dirichlet_form    ✅  ∫ Lφ·ψ dγ = -∫ φ'ψ' dγ (Stein identity)
+integral_sq_div_le         ✅  (∫h)²/(∫k) ≤ ∫(h²/k) (Cauchy-Schwarz)
+dirichlet_form_entropy     ✅  ∫ L(P_t g)(1+log P_t g) dγ = -Fisher (IBP)
+entropy_dissipation        ✅  wiring: d/dt Ent(P_t g) = -I(P_t g) [模 sub-lemmas]
+fisherInfo_ouSemigroup_le  ✅  structure: I(P_t g) ≤ e⁻²ᵗ I(g) [模 integrability]
+                           ─────────────────────────────
+ouSemigroup_time_deriv     ❌  ∂_t P_t g = Lg (OU equation, A级)
+entropy_hasDerivAt         ❌  Leibniz for entropy functional (B级)
+main wiring                ❌  Ent(g) ≤ I(g)/2 (depends on above)
+```
 
 ---
 
@@ -129,21 +168,15 @@ esseen_concentration_universal    ← Esseen 不等式 + Gauss 密度界
 berry_esseen_theorem              ← |F_S(y) - Φ(y)| ≤ Cρ/(σ³√n)
 ```
 
-> **⚠️ 已知问题**：`esseen_concentration_universal` 的当前声明对重尾分布（无有限一阶矩）在数学上不正确——
-> Bochner 积分对不可积被积函数返回 0，导致 RHS = C₂/T 不足以控制 LHS ≈ 1。
-> 修复方案：添加可积性假设。下游调用 `esseen_charfun_integral_bound` 可从 Taylor 界提供此条件。
-
 ---
 
-## CLT 证明链
-
-iid CLT 和 Lindeberg-Feller CLT 已完整证明（零 sorry）：
+## CLT 证明链（零 sorry，完整形式化）
 
 ```
 iid CLT (Shao Thm 1.4):
   charfun_normalized_sum_bound    ← charfun Taylor + 三角阵列界
       ↓
-  levy_continuity                 ← Lévy 连续性定理（含 Prokhorov + charFun 唯一性）
+  levy_continuity                 ← Lévy 连续性定理
       ↓
   central_limit_theorem           ← 标准化和 ⟹ N(0,1)
 
@@ -157,9 +190,9 @@ Lindeberg-Feller CLT (Shao Thm 1.6):
 Cramér-Wold 装置 (Shao Thm 1.9(iii)):
   isTight_of_charFun_tendsto (1D)   ← 1D Lévy 紧性（Esseen 界 + DCT）
       ↓
-  isTight_of_charFun_tendsto_inner  ← 多元紧性（ONB 逐坐标紧性 + Parseval 鸽巢）
+  isTight_of_charFun_tendsto_inner  ← 多元紧性（ONB 逐坐标紧性 + Parseval）
       ↓
-  cramer_wold_charFun               ← 多元 Lévy 连续性（Prokhorov + charFun 唯一性）
+  cramer_wold_charFun               ← 多元 Lévy 连续性
       ↓
   cramer_wold_iff                   ← μₙ →ᵈ μ₀ ⟺ ∀c, ⟨c,·⟩♯μₙ →ᵈ ⟨c,·⟩♯μ₀
 ```
@@ -170,54 +203,49 @@ Cramér-Wold 装置 (Shao Thm 1.9(iii)):
 
 ```
 Statlean/
-├── Gaussian/           # 标准高斯、Stein、Hermite、Poincaré (4 files)
+├── Gaussian/           # 标准高斯、Stein、Hermite、Poincaré、Ornstein-Uhlenbeck (5 files)
 ├── Variance/           # Rao-Blackwell、ANOVA、Efron-Stein (3 files)
 ├── Entropy/            # 熵定义、Log-Sobolev (2 files)
 ├── SubGaussian/        # Herbst 论证、Lipschitz 集中 (2 files)
 ├── CharFun/            # 特征函数 Taylor 链 (1 file)
 ├── LimitTheorems/      # CLT、Lindeberg-Feller、Lévy、Cramér-Wold、Berry-Esseen、
-│                       # USLLN、Slutsky、Delta Method、Scheffé、收敛模式 (10 files)
+│                       # USLLN、Slutsky、Delta Method、Scheffé、收敛模式 (12 files)
 ├── Sufficiency/        # 因子分解、Basu、最小充分、Lehmann-Scheffé (4 files)
 ├── Information/        # Fisher 信息、Cramér-Rao (2 files)
-├── Estimator/          # MSE 分解、MLE 不变性、UMVUE 定理、渐近理论 (3 files)
-├── ExpFamily/          # 指数族 MLE + NatExpFamily 结构 (1 file)
-├── Testing/            # 假设检验（UMP、Neyman-Pearson） (1 file)
+├── Estimator/          # MSE 分解、MLE 不变性、UMVUE、渐近、Bayes、稳健 (6 files)
+├── ExpFamily/          # 指数族 MLE + NatExpFamily (1 file)
+├── Testing/            # 假设检验（UMP、Neyman-Pearson、Karlin-Rubin） (1 file)
 ├── Confidence/         # 置信集、枢轴量 (1 file)
-├── Moments/            # 矩、偏度、峰度 (1 file)
-├── Statistic/          # ParametricFamily、IsUnbiased、样本统计 (2 files)
+├── Moments/            # 矩、偏度、峰度、协方差 (2 files)
+├── Statistic/          # ParametricFamily、样本统计 (2 files)
 ├── EmpiricalProcess/   # 覆盖数、Dudley 积分 (2 files)
-├── Regression/         # 最小二乘、主误差界、Gauss-Markov、可估性 (5 files)
+├── Regression/         # 最小二乘、Gauss-Markov、可估性 (5 files)
 ├── SPD/                # Log-Cholesky Fréchet 均值 (3 files)
-├── Pipeline/           # Pipeline 生成的存根 (1 file)
-└── Verified.lean       # 零 sorry 模块索引（44 个模块）
+├── Distribution/       # t 分布 (1 file)
+└── Verified.lean       # 零 sorry 模块索引
 ```
 
 ---
 
-## Sorry 缺口（8 个，3 独立 blocker + 5 下游/独立）
+## Sorry 缺口
 
-| ID | 模块 | 等级 | 预估时间 | 状态 |
-|----|------|------|---------|------|
-| P1 | BerryEsseen — Lévy CDF 反演界 | E | 5-10 hr | stuck — Stieltjes inversion |
-| P2 | LogSobolev — Gaussian LSI core | E | 5-10 hr | stuck — hypercontractivity (Nelson '73) |
-| P3 | LogSobolev — normalized LSI | C | 30-60 min | blocked by P2 |
-| P10 | LogSobolev — 张量化 | D | 2-4 hr | entropy subadditivity + Fubini |
-| P13 | LogSobolev — 条件熵可积 | C | 30-60 min | Fubini for Measure.pi |
-| P9 | Herbst — Sub-Gaussian MGF | S | 5 min | blocked by P2 |
-| — | Convergence — Glivenko-Cantelli (Dini bootstrap) | B-C | 30-60 min | 部分证明，剩 monotone CDF uniform convergence |
-| — | Convergence — Kolmogorov maximal (cross-term) | B | 20-40 min | 部分证明，剩独立性 cross-term |
+| 模块 | Sorry | 简述 | Blocker |
+|------|-------|------|---------|
+| BerryEsseen | 1 | Lévy CDF 反演界 | Stieltjes inversion (~100 行 Fourier) |
+| OrnsteinUhlenbeck | 3 | OU time derivative + Leibniz entropy + main wiring | Bakry-Emery 证明最后 3 步 |
+| LogSobolev | 3 | integrable f²·log f²、条件熵可积、DPI | blocked by Gaussian LSI |
+| Herbst | 1 | Sub-Gaussian MGF | blocked by Gaussian LSI |
+| LogSobolev | 1 | non-integrable case | 可能在 Lean 约定下为 false |
 
 ```
 依赖 DAG:
-  P1 (Berry-Esseen) ── 独立
-  P2 (Gaussian LSI) ─┬─→ P3 (f²log 可积)
-                      └─→ P9 (Sub-Gaussian MGF) ←─┐
-  P10 (张量化) ──────┬─→ P13 (条件熵可积)          │
-                      └────────────────────────────┘
-  Convergence (2) ── 独立
+  BerryEsseen (1 sorry)          ── 独立
+  OrnsteinUhlenbeck (3 sorry) ──→ LogSobolev.LSI ──→ LogSobolev (3 sorry)
+                                                  └─→ Herbst (1 sorry)
+  LogSobolev.non_integrable (1)  ── 独立（可能 false）
 ```
 
-等级分类详见 [`sorry_grading.md`](theme/sorry_grading.md) · 完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
+完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
 
 ---
 
