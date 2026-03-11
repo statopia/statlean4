@@ -14,18 +14,29 @@ Before spending hours on a proof, determine what Mathlib already has and what's 
 
 ## Audit Steps (parallelize where possible)
 
+### 0. Check proof knowledge base (MANDATORY FIRST)
+- Read `theme/proof_knowledge.yaml` — check if L3/L2 already covers the proof goal
+- If matched: the key_api list is the starting point, skip to step 2 for those specific APIs
+- `grep -i '<keyword>' theme/statlean_api_index.tsv` — check StatLean self-built API (614 declarations)
+
 ### 1. Decompose the proof goal
 Break the target theorem into the key lemmas it needs. For each sub-lemma:
 
-### 2. Check Mathlib coverage
-For each sub-lemma, search `.lake/packages/mathlib/`:
+### 2. Check coverage (StatLean + Mathlib)
+For each sub-lemma, search in order:
+- **StatLean first**: `grep -i '<keyword>' theme/statlean_api_index.tsv`
+- **Mathlib index**: `grep -i '<keyword>' theme/mathlib_full_type_index.tsv` (51K entries)
+- **Mathlib curated**: `theme/mathlib_api_index.md` (650+ entries with annotations)
+- **Mathlib source** (only if indexes miss): search `.lake/packages/mathlib/Mathlib/`
+
+For each match, classify:
 - Direct match (exact theorem exists)
 - Partial match (theorem exists but for different types, e.g., real vs. ennreal)
 - Analogous result (e.g., Mathlib has the L² version but you need L^p)
 - Nothing found
 
 ### 3. Check known gaps
-Cross-reference with project memory's "Mathlib Gaps" section.
+Cross-reference with project memory's "Mathlib Gaps" section and `theme/input/sorry_backlog.yaml` blockers.
 
 ### 4. Produce coverage report
 

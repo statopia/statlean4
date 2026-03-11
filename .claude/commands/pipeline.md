@@ -65,9 +65,9 @@ If `--prove-depth deep`:
      - `model: "sonnet"` (good balance of speed and capability)
      - **prompt 必须包含 Phase 0 工具链指令**：
        "先用 python3 scripts/extract_signatures.py 读声明索引，
-        先读 theme/tactic_patterns.yaml 查找匹配 goal 的 pattern，
-        先读 theme/mathlib_api_index.md 查找相关 API，
-        补充用 grep theme/mathlib_full_type_index.tsv 查全量索引，
+        先读 theme/proof_knowledge.yaml 匹配 goal，
+        L3/L2 匹配到 → 按 key_api grep statlean_api_index.tsv 和 mathlib_full_type_index.tsv 查签名，跳过 mathlib_api_index 全文,
+        未匹配 → 读 theme/mathlib_api_index.md + grep 两个索引，
         tactic 试错阶段用 bash scripts/check_snippet.sh 增量编译，
         每证完一个子引理立即写入 .lean 文件并 lake build 验证"
   3. Wait for all agents to complete
@@ -84,12 +84,20 @@ If `--prove-depth deep`:
 2. **Whole-file zero sorry** → update `Verified.lean`.
 3. **Remaining sorry** → structured comment + `sorry_backlog.yaml` registration.
 
+## Step 5.7: Knowledge Ingestion（自动）
+
+对 Step 5 中成功证明的定理，收集 agent 返回的 `new_knowledge` YAML 块并入库：
+```bash
+python3 scripts/ingest_knowledge.py --input <agent_new_knowledge>
+```
+汇总多 agent 结果时做全局去重。
+
 ## Step 6: Sync Backlog & Gate
 
 1. Run `python3 theme/scripts/sync_sorry_backlog.py` to reconcile code ↔ backlog
 2. Run `bash theme/scripts/gate.sh` for full project build + sorry count + PIPELINE_ID check
-3. Commit with structured message
-4. Report metrics (time, tokens, sorry count before/after)
+3. Report metrics (time, tokens, sorry count before/after, knowledge entries added)
+4. Commit with structured message
 
 ## Progress Reporting
 

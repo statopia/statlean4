@@ -267,7 +267,7 @@ Max 20x 的 opus 实际周预算，按重度 Claude Code prove-deep 使用估计
 ### Token 消耗构成分析（2026-03-04 实测更新）
 
 ```
-证明搜索（试错循环）    ≈ 40%   ← tactic_patterns.yaml 减少了 ~5%
+证明搜索（试错循环）    ≈ 40%   ← proof_knowledge.yaml 减少了 ~5%
 上下文重读（长文件反复读）≈ 15%   ← extract_signatures.py 减少了 ~5%
 Mathlib API 发现         ≈ 10%   ← full_type_index.tsv 减少了 ~5%
 类型错误调试              ≈ 12%
@@ -287,7 +287,7 @@ Agent 调度开销            ≈  7%
 | `theme/mathlib_full_type_index.tsv`（51K 条全量索引） | ✅ 已完成 | grep 毫秒级查询 |
 | `scripts/extract_signatures.py`（声明索引提取） | ✅ 已完成 | 大文件上下文节省 60-70% |
 | `scripts/check_snippet.sh`（单 decl 增量编译） | ✅ 已完成 | 编译反馈 ×3-5 加速 |
-| `theme/tactic_patterns.yaml`（58 条验证 pattern） | ✅ 已完成 | 减少 20-30% 试错循环 |
+| `theme/proof_knowledge.yaml`（58 条验证 pattern） | ✅ 已完成 | 减少 20-30% 试错循环 |
 | `MEMORY.md`（66+ 条 Lean/Mathlib pattern） | ✅ 持续积累 | 跨会话经验复用 |
 | 增量编译（`lake build Statlean.Module`） | ✅ 已成标准流程 | 避免全量 build |
 

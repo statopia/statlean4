@@ -1053,6 +1053,72 @@ private lemma entropy_subadditivity_fin1
   simp only [entropyPi]
   rw [integral_stdGaussianPi_one_eq, integral_stdGaussianPi_one_eq]
 
+-- Sub-lemma 1: Data processing inequality for integrated conditional entropy.
+-- E_j averaging can only decrease ∫ condEnt_i(g), i.e., averaging out coordinate j
+-- makes the conditional entropy at coordinate i (for i ≠ j) only smaller.
+-- Proof: pointwise Jensen for x·log(x) (convex on [0,∞)) applied to the
+-- inner integral over coord j.
+-- Uses: jensen_condExpect_mul_log (pointwise Jensen), condEntropyAt_nonneg_of_nonneg.
+private lemma integrated_condEntropyAt_condExpect_le {n : ℕ}
+    (g : (Fin n → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
+    (hg : Integrable g (stdGaussianPi n))
+    (hg_log : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi n))
+    (i j : Fin n) (hij : i ≠ j) :
+    ∫ x, condEntropyAt stdGaussian
+        (fun y => ∫ t, g (Function.update y j t) ∂stdGaussian) i x
+      ∂(stdGaussianPi n) ≤
+    ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
+  sorry
+
+-- Sub-lemma 2: When g·log(g) is not integrable but g ≥ 0 and g ∈ L¹,
+-- the sum of integrated conditional entropies is still ≥ entropyPi.
+-- In fact, entropyPi = 0 - (∫g)·log(∫g) and each condEntropyAt is nonneg (Jensen),
+-- so it suffices to show ∑_i ∫ condEnt_i(g) ≥ -(∫g)·log(∫g).
+-- For n ≥ 2, this follows from: even a single term ∫ condEnt_i(g) captures
+-- the full entropy via the chain rule, and the LHS has n ≥ 2 such terms.
+-- When g·log(g) is not integrable, ∫ g·log(g) = 0 (Lean convention),
+-- so entropyPi(g) = -(∫g)·log(∫g). We need ∑ ∫ condEnt ≥ this.
+-- Key insight: ∫ condEnt_i(g) ≥ -(∫g)·log(∫g) follows from
+-- ∫ condEnt_i(g) = ∫ g·log(g) - ∫ (E_i g)·log(E_i g) ≥ -(∫g)·log(∫g)
+-- where the last step uses Jensen on E_i g.
+-- But wait — the integrated_condEntropyAt_eq formula also needs g·log(g) integrable.
+-- Alternative: use that condEntropyAt(x) ≥ 0 pointwise (Jensen for nonneg functions).
+-- So ∑ ∫ condEnt ≥ 0. And entropyPi = -(∫g)·log(∫g) which can be positive or negative.
+-- When ∫g ≥ 1: entropyPi ≤ 0 ≤ ∑ ∫ condEnt. Done.
+-- When ∫g < 1: entropyPi > 0. This case needs the non-integrable g·log(g) to interact
+-- with the slice integrals somehow... Actually if g ∈ L¹(γⁿ) with g ≥ 0 and
+-- g·log(g) ∉ L¹, then ∫ g·log(g)⁺ = +∞ (since g·log(g)⁻ = max(0,-g·log(g))
+-- is bounded by 1/e a.e. hence always integrable). So the positive part diverges.
+-- This means: in any slice, ∫ (g·log g)⁺ is typically infinite too.
+-- And ∫ condEnt_i(g)(x) = ∫ slice(g·log(g)) - (E_i g)·log(E_i g) → each term
+-- has a non-integrable positive part so the Lean integral is not 0 but could be anything...
+-- Actually this case is subtle. Let's handle it more carefully.
+-- For now: mark as sorry, attack after sub-lemma 1.
+private lemma entropy_subadditivity_not_integrable_log {n : ℕ} (hn : 2 ≤ n)
+    (g : (Fin n → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
+    (hg : Integrable g (stdGaussianPi n))
+    (hg_log : ¬ Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi n)) :
+    entropyPi (stdGaussianPi n) g ≤
+    ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
+  sorry
+
+-- Sub-lemma 3: The core induction step for the integrable case.
+-- When g·log(g) IS integrable, use chain rule + data processing + strong induction.
+-- Strategy:
+--   1. Chain rule at coord 0: Ent(g) = ∫ condEnt_0(g) + Ent(E_0 g)
+--   2. E_0 g is nonneg, integrable, and (E_0 g)·log(E_0 g) is integrable
+--   3. Induction: Ent(E_0 g) ≤ ∑_{i≥1} ∫ condEnt_i(E_0 g)
+--   4. Data processing: ∫ condEnt_i(E_0 g) ≤ ∫ condEnt_i(g) for i ≥ 1
+--   5. Combine: Ent(g) ≤ ∫ condEnt_0(g) + ∑_{i≥1} ∫ condEnt_i(g) = ∑_i ∫ condEnt_i(g)
+-- Alternatively, directly prove for n ≥ 2 using the integrable assumptions.
+private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
+    (g : (Fin n → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
+    (hg : Integrable g (stdGaussianPi n))
+    (hg_log : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi n)) :
+    entropyPi (stdGaussianPi n) g ≤
+    ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
+  sorry
+
 private lemma entropy_subadditivity_of_nonneg {n : ℕ}
     (g : (Fin n → ℝ) → ℝ)
     (hg_nn : ∀ x, 0 ≤ g x)
@@ -1073,31 +1139,10 @@ private lemma entropy_subadditivity_of_nonneg {n : ℕ}
   rcases m with _ | m'
   · -- n = 1: equality case
     exact entropy_subadditivity_fin1 g hg_nn hg
-  -- n = m' + 2 ≥ 2.
-  -- The genuine subadditivity case. Requires telescoping + data processing.
-  -- Equivalently: ∑_i Ent(E_i g) ≤ (n-1) · Ent(g)
-  -- where Ent(E_i g) = ∫ (E_i g)·log(E_i g) - (∫g)·log(∫g)
-  --
-  -- Proof strategy: telescoping via iterated conditional expectations.
-  -- Define h_k = E_{k-1} ... E_0[g] (average out coords 0,...,k-1 in order).
-  -- Chain rule: Ent(h_k) = ∫ condEnt_k(h_k) + Ent(h_{k+1}).
-  -- Telescoping: Ent(g) = ∑_k ∫ condEnt_k(h_k) + Ent(h_n).
-  -- Since h_n = const = ∫g, Ent(h_n) = 0.
-  -- Data processing: ∫ condEnt_k(h_k) ≤ ∫ condEnt_k(g) for each k.
-  -- Conclusion: Ent(g) ≤ ∑_k ∫ condEnt_k(g).
-  --
-  -- Blockers (~80 lines):
-  -- (a) Chain rule needs g·log(g) ∈ L¹ + Fubini integrability; non-integrable case separate
-  -- (b) Data processing: the key inequality, needs Jensen + Fubini for iterated averages
-  -- (c) Iterating: h_k integrability + nonneg preservation
-  --
-  -- Zero-sorry infrastructure available:
-  -- - `jensen_condExpect_mul_log`: φ(E_i g(x)) ≤ E_i[φ(g)](x)
-  -- - `condEntropyAt_of_condExpect_self`: condEnt_i(E_i g) = 0
-  -- - `condExpect_nonneg_of_nonneg`: E_i g ≥ 0 when g ≥ 0
-  -- - `entropy_chain_rule_pi`: Ent = ∫ condEnt + Ent(E_i g)
-  -- - `integral_condExpect_eq_integral_pi`: ∫ E_i g = ∫ g (Fubini)
-  sorry
+  -- n = m' + 2 ≥ 2
+  by_cases hlog : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi (m' + 2))
+  · exact entropy_subadditivity_integrable (by omega) g hg_nn hg hlog
+  · exact entropy_subadditivity_not_integrable_log (by omega) g hg_nn hg hlog
 
 private lemma entropy_subadditivity_pi {n : ℕ}
     (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) :

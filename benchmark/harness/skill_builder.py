@@ -1,6 +1,6 @@
 """Build Skill context for benchmark problems.
 
-Filters tactic_patterns.yaml and mathlib_api_index.md by problem category,
+Filters proof_knowledge.yaml and mathlib_api_index.md by problem category,
 then combines with system_prompt.md into a uniform skill package.
 """
 
@@ -17,12 +17,22 @@ SKILL_PACKAGE_DIR = Path(__file__).resolve().parent.parent / "config" / "skill_p
 
 
 def load_tactic_patterns(path: Path | None = None) -> list[dict]:
-    """Load tactic patterns from YAML."""
+    """Load proof knowledge entries from YAML (all levels flattened)."""
     if path is None:
-        path = PROJECT_ROOT / "theme" / "tactic_patterns.yaml"
+        path = PROJECT_ROOT / "theme" / "proof_knowledge.yaml"
     with open(path) as f:
         data = yaml.safe_load(f)
-    return data.get("patterns", [])
+    # Flatten all levels into a single list for backward compat
+    entries = []
+    for section in ["L3_strategies", "L2_api_chains", "L1_tactic_tips"]:
+        for entry in data.get(section, []):
+            # Map to old-style fields for filter_patterns_for_problem compatibility
+            p = dict(entry)
+            p.setdefault("goal", entry.get("trigger", ""))
+            p.setdefault("category", "")
+            p.setdefault("notes", entry.get("strategy", entry.get("chain", entry.get("tip", ""))))
+            entries.append(p)
+    return entries
 
 
 def load_api_index(path: Path | None = None) -> dict[str, list[str]]:

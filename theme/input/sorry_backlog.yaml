@@ -1,24 +1,17 @@
-version: v106
-generated: 2026-03-08
-total_sorry: 6
+version: v108
+generated: 2026-03-11
+total_sorry: 8
 
 sorry_items:
 
 - id: berry_esseen.levy_cdf_diff_fourier_bound
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 586
+  line: 693
   theorem: levy_cdf_diff_fourier_bound
   type: stuck
   depth: 2
   priority: 1
-  blocker: |
-    Lévy inversion → CDF bound: |cdf μ y - cdf ν y| ≤ (1/π)∫_{-T}^T ‖Δ‖/|t| + 24/(πT).
-    Proof: (1) Fubini with abel_sinc_integral + charFun definition to get Abel-regularized
-    Lévy identity: ∫ arctan((x-y)/ε) d(μ-ν) = ∫₀^∞ e^{-εt} Im(Δ(t)e^{-ity})/t dt.
-    (2) ε→0 limit: LHS → π(G(y)-F(y)) by DCT (|arctan| ≤ π/2), RHS split at T.
-    (3) [0,T] part ≤ (1/π)∫_{-T}^T ‖Δ‖/|t|, tail ≤ 24/(πT) using density bound.
-    (4) Right-continuity extends from continuity points to all y.
-    ~100 lines. Requires abel_sinc_integral.
+  blocker: "Lévy inversion → CDF bound: |cdf μ y - cdf ν y| ≤ (1/π)∫_{-T}^T ‖Δ‖/|t| + 24/(πT). Proof: (1) Fubini with abel_sinc_integral + charFun definition to get Abel-regularized Lévy identity: ∫ arctan((x-y)/ε) d(μ-ν) = ∫₀^∞ e^{-εt} Im(Δ(t)e^{-ity})/t dt. (2) ε→0 limit: LHS → π(G(y)-F(y)) by DCT (|arctan| ≤ π/2), RHS split at T. (3) [0,T] part ≤ (1/π)∫_{-T}^T ‖Δ‖/|t|, tail ≤ 24/(πT) using density bound. (4) Right-continuity extends from continuity points to all y. ~100 lines. Requires abel_sinc_integral. "
   estimated_lines: 100
   dependencies: []
   unlocks: []
@@ -30,20 +23,7 @@ sorry_items:
   type: stuck
   depth: 3
   priority: 2
-  blocker: |
-    1D Gaussian LSI: Ent_γ(f²) ≤ 2∫f'² when f²·log(f²) integrable. DEEP RESULT.
-    Agent A3 (2026-03-07) research: 5 routes analyzed.
-    BEST ROUTES:
-    (e) Two-point LSI + CLT transfer (~200-250 lines, 95% feasible, all deps in Statlean)
-        - Two-point LSI on {-1,1}: pure algebra ~25 lines
-        - Tensorization via product entropy: Fubini ~45 lines
-        - CLT transfer using levy_continuity: ~120 lines
-    (a) Bakry-Emery Γ₂ + OU semigroup (~280-350 lines, 80% feasible)
-        - OU definition via Mehler: ~60 lines
-        - Entropy dissipation d/dt Ent = -I: ~80 lines (hardest)
-        - Fisher info decay I(P_t g) ≤ e^{-2t}I(g): ~90 lines
-        - Integration: ~60 lines
-    Stein identity gives Poincaré ONLY, not LSI. Mathlib has NO LSI/OU/Bakry-Emery.
+  blocker: "1D Gaussian LSI: Ent_γ(f²) ≤ 2∫f'² when f²·log(f²) integrable. DEEP RESULT. Agent A3 (2026-03-07) research: 5 routes analyzed. BEST ROUTES: (e) Two-point LSI + CLT transfer (~200-250 lines, 95% feasible, all deps in Statlean) - Two-point LSI on {-1,1}: pure algebra ~25 lines - Tensorization via product entropy: Fubini ~45 lines - CLT transfer using levy_continuity: ~120 lines (a) Bakry-Emery Γ₂ + OU semigroup (~280-350 lines, 80% feasible) - OU definition via Mehler: ~60 lines - Entropy dissipation d/dt Ent = -I: ~80 lines (hardest) - Fisher info decay I(P_t g) ≤ e^{-2t}I(g): ~90 lines - Integration: ~60 lines Stein identity gives Poincaré ONLY, not LSI. Mathlib has NO LSI/OU/Bakry-Emery. "
   estimated_lines: 250
   dependencies: []
   unlocks: [herbst.subgaussian_mgf, lsi.integrable_sq_log]
@@ -74,20 +54,12 @@ sorry_items:
 
 - id: lsi.entropy_subadditivity_of_nonneg
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1080
+  line: 1124
   theorem: entropy_subadditivity_of_nonneg
   type: honest
   depth: 3
   priority: 10
-  blocker: |
-    n+2 case sorry. Agent A1-retry (2026-03-07) improved proof sketch:
-    Telescoping approach: define h_k = E_{k-1}...E_0[g], chain rule + data processing.
-    Detailed comments in code. Key sub-steps:
-    (A) Chain rule at last coord: Ent(g) = ∫ condEnt_last(g) + Ent(E_last g) (~40 lines)
-    (B) Data processing: condEnt_k(E_j g) ≤ condEnt_k(g) for k≠j via Jensen (~30 lines)
-    (C) Dimension reduction via piFinSuccAbove: Ent(E_last g) on γ^{n+2} = Ent on γ^{n+1} (~50 lines)
-    (D) Integrability handling for chain rule Bochner convention (~20 lines)
-    Total ~120 lines. No Mathlib blockers — purely measure-theoretic.
+  blocker: "n+2 case sorry. Agent A1-retry (2026-03-07) improved proof sketch: Telescoping approach: define h_k = E_{k-1}...E_0[g], chain rule + data processing. Detailed comments in code. Key sub-steps: (A) Chain rule at last coord: Ent(g) = ∫ condEnt_last(g) + Ent(E_last g) (~40 lines) (B) Data processing: condEnt_k(E_j g) ≤ condEnt_k(g) for k≠j via Jensen (~30 lines) (C) Dimension reduction via piFinSuccAbove: Ent(E_last g) on γ^{n+2} = Ent on γ^{n+1} (~50 lines) (D) Integrability handling for chain rule Bochner convention (~20 lines) Total ~120 lines. No Mathlib blockers — purely measure-theoretic. "
   estimated_lines: 120
   dependencies: []
   unlocks: [herbst.subgaussian_mgf, lsi.integrable_condEntropy]
@@ -102,4 +74,28 @@ sorry_items:
   blocker: "Follows from entropy_subadditivity infrastructure."
   estimated_lines: 20
   dependencies: [lsi.entropy_subadditivity_of_nonneg]
+  unlocks: []
+
+- id: limittheorems.convergence.kolmogorov_maximal_inequality
+  file: Statlean/LimitTheorems/Convergence.lean
+  line: 689
+  theorem: kolmogorov_maximal_inequality
+  type: unknown
+  depth: 1
+  priority: 99
+  blocker: "showing IndepFun (S_k·1_{A_k}) R_k via iIndepFun.indepFun_finset"
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.convergence.uniform_of_pointwise_on_rationals
+  file: Statlean/LimitTheorems/Convergence.lean
+  line: 433
+  theorem: uniform_of_pointwise_on_rationals
+  type: unknown
+  depth: 1
+  priority: 99
+  blocker: "CDF right-continuity + limits at ±∞ + finite partition"
+  estimated_lines: 50
+  dependencies: []
   unlocks: []

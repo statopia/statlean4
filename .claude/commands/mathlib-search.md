@@ -9,32 +9,36 @@ argument-hint: [search-term or type signature]
 
 Search target: $ARGUMENTS
 
-## Search Strategy (run in parallel where possible)
+## Search Strategy (MUST follow level order — do not skip to grep source)
 
-### 1. Local Mathlib source search
-Search the `.lake/packages/mathlib/Mathlib/` directory:
-- Grep for the exact term
-- Grep for partial matches and synonyms
-- Search in relevant subdirectories:
+### 0. Check proof knowledge base
+- `grep -i '<term>' theme/proof_knowledge.yaml` — check if L2 chain or L3 strategy already covers this
+- If found: report the known chain/strategy and verify it's still valid
+
+### 1. Check StatLean self-built API
+- `grep -i '<term>' theme/statlean_api_index.tsv` (614 declarations)
+- Many APIs that seem like they should be in Mathlib are actually self-built in StatLean
+
+### 2. Check Mathlib indexes (fast, no full read needed)
+- `grep -i '<term>' theme/mathlib_full_type_index.tsv` (51K entries, name + type)
+- `grep -i '<term>' theme/mathlib_api_index.md` (650+ curated entries with annotations)
+- Try synonyms and alternative Mathlib naming conventions:
+  - `foo_bar` (snake_case), `Foo.bar` (namespace.method)
+  - `MeasureTheory.`, `ProbabilityTheory.` prefixes
+
+### 3. Local Mathlib source search (only if indexes miss)
+Search `.lake/packages/mathlib/Mathlib/` in relevant subdirectories:
   - `MeasureTheory/` for integrals, measures, L^p
   - `Probability/` for variance, conditional expectation, independence
   - `Analysis/` for norms, inner products, Sobolev
   - `Topology/` for continuity, compactness
   - `Order/` for lattice operations on sigma-algebras
 
-### 2. Name pattern search
-- Search for `theorem.*<term>`, `lemma.*<term>`, `def.*<term>`
-- Try common Mathlib naming conventions:
-  - `foo_bar` (snake_case)
-  - `Foo.bar` (namespace.method)
-  - `MeasureTheory.` prefix for measure theory
-  - `ProbabilityTheory.` prefix for probability
-
-### 3. Type-based search
+### 4. Type-based search
 - If a type signature is given, search for lemmas with matching types
-- Look for `→` patterns in theorem statements
+- `echo '#check @<name>' | lake env lean --stdin` to verify signatures
 
-### 4. Online fallback
+### 5. Online fallback
 - Search leanprover-community.github.io for documentation
 - Search Mathlib4 docs if local search is insufficient
 
