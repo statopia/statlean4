@@ -1205,6 +1205,20 @@ private lemma integrable_comp_tail_stdGaussianPi {n : ℕ} (h : (Fin n → ℝ) 
         simp [μ', stdGaussianPi]]
   exact hh.comp_snd stdGaussian
 
+-- Lower bound for x·log(x): x·log(x) ≥ -1/e for x ≥ 0.
+-- The minimum of t·log(t) on [0,∞) is at t = 1/e, giving value -1/e.
+private lemma mul_log_ge_neg_inv_exp (x : ℝ) (hx : 0 ≤ x) :
+    -(1 / Real.exp 1) ≤ x * Real.log x := by
+  rcases eq_or_lt_of_le hx with rfl | hx_pos
+  · simp; positivity
+  suffices h : -(x * Real.log x) ≤ 1 / Real.exp 1 by linarith
+  have key := Real.add_one_le_exp (-Real.log x - 1)
+  rw [show (-Real.log x - 1) + 1 = -Real.log x from by ring,
+      Real.exp_sub, Real.exp_neg, Real.exp_log hx_pos] at key
+  have := mul_le_mul_of_nonneg_left key (le_of_lt hx_pos)
+  rw [show x * (x⁻¹ / Real.exp 1) = 1 / Real.exp 1 from by field_simp] at this
+  linarith
+
 -- Sub-lemma 3: Entropy subadditivity for integrable case.
 -- Proof: strong induction on n via chain rule at coord 0 + dimension projection + data processing.
 private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)

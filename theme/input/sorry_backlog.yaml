@@ -1,6 +1,6 @@
-version: v108
+version: v109
 generated: 2026-03-11
-total_sorry: 8
+total_sorry: 12
 
 sorry_items:
 
@@ -90,13 +90,13 @@ sorry_items:
 
 - id: lsi.entropy_subadditivity_integrable
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1114
+  line: 1210
   theorem: entropy_subadditivity_integrable
   type: honest
   depth: 2
   priority: 10
-  blocker: "Core induction step with g·log(g) integrable. Chain rule at coord 0 + induction on n + data processing. Uses entropy_chain_rule_pi + integrated_condEntropyAt_condExpect_le. ~60 lines."
-  estimated_lines: 60
+  blocker: "Strong induction structure DONE (2026-03-11). 3 inner sorry remain: (1) hint2: Jensen integrability of E₀f·log(E₀f) — needs hh_log_int first. (2) hh_log_int: h·log(h) integrable via Jensen + neg part bound ≥ -1/e + Fubini. (3) condEnt integrability for integral_comp_tail. All provable from convexOn_mul_log + Fubini."
+  estimated_lines: 30
   dependencies: [lsi.integrated_condEntropyAt_condExpect_le]
   unlocks: [lsi.entropy_subadditivity_of_nonneg]
 
