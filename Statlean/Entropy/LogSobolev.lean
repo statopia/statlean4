@@ -1290,11 +1290,7 @@ private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
       -- hfub : Integrable (y ↦ ∫ fl(cons t y) dγ(t)) (stdGaussianPi (m'+1))
       -- Goal: Integrable (x ↦ ∫ fl(cons t (tail x)) dγ(t)) (stdGaussianPi (m'+2))
       exact integrable_comp_tail_stdGaussianPi _ hfub
-    have hint2 : Integrable (fun x => (∫ t, f (Function.update x 0 t) ∂stdGaussian) *
-        Real.log (∫ t, f (Function.update x 0 t) ∂stdGaussian)) (stdGaussianPi (m' + 2)) := by
-      sorry -- Jensen + integrability of negative part
-    have hchain := entropy_chain_rule_pi f (0 : Fin (m' + 2)) hf hf_log hint1 hint2
-    -- Step 3: Properties of h.
+    -- Step 3: Properties of h (needed before hint2).
     have hh_nn : ∀ y, 0 ≤ h y := fun y => by
       apply integral_nonneg; intro t; exact hf_nn _
     have hh_int : Integrable h (stdGaussianPi (m' + 1)) := by
@@ -1316,31 +1312,86 @@ private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
       rwa [heq, hγn] at hfub
     have hh_log_int : Integrable (fun y => h y * Real.log (h y))
         (stdGaussianPi (m' + 1)) := by
-      sorry -- Jensen: h·log(h) ≤ ∫ f·log(f) slice, then Fubini
+      -- Domination via Jensen (upper) + mul_log_ge_neg_inv_exp (lower)
+      set fl := fun x => f x * Real.log (f x)
+      set e' := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (m' + 2) => ℝ) (0 : Fin (m' + 2))
+      set μ''' : Fin (m' + 2) → Measure ℝ := fun _ => stdGaussian
+      set γn' := Measure.pi (fun j : Fin (m' + 1) => μ''' (Fin.succAbove 0 j))
+      have hmp' := measurePreserving_piFinSuccAbove μ''' (0 : Fin (m' + 2))
+      have hγn' : γn' = stdGaussianPi (m' + 1) := by simp [γn', μ''', stdGaussianPi]
+      have he_eq' : ∀ t y, e'.symm (t, y) = Fin.cons t y := by
+        intro t y; ext i; refine Fin.cases ?_ ?_ i
+        · simp [e', MeasurableEquiv.piFinSuccAbove]
+        · intro j; simp [e', MeasurableEquiv.piFinSuccAbove, Fin.cons]
+      have hfl_prod : Integrable (fl ∘ e'.symm) (stdGaussian.prod γn') :=
+        hmp'.symm.integrable_comp_of_integrable hf_log
+      have hf_prod : Integrable (f ∘ e'.symm) (stdGaussian.prod γn') :=
+        hmp'.symm.integrable_comp_of_integrable hf
+      -- F_log marginal integrable
+      have hFlog := hfl_prod.integral_prod_right
+      rw [show (fun y => ∫ t, (fl ∘ e'.symm) (t, y) ∂stdGaussian) =
+          (fun y => ∫ t, fl (Fin.cons t y) ∂stdGaussian) from by
+        ext y; congr 1; ext t; simp [Function.comp, he_eq'], hγn'] at hFlog
+      -- Slice integrability a.e.
+      have hfl_ae : ∀ᵐ y ∂(stdGaussianPi (m' + 1)),
+          Integrable (fun t => fl (Fin.cons t y)) stdGaussian := by
+        rw [← hγn']; exact (hfl_prod.prod_left_ae).mono fun y hy => by
+          rwa [show (fun t => (fl ∘ e'.symm) (t, y)) = (fun t => fl (Fin.cons t y)) from by
+            ext t; simp [Function.comp, he_eq']] at hy
+      have hf_ae : ∀ᵐ y ∂(stdGaussianPi (m' + 1)),
+          Integrable (fun t => f (Fin.cons t y)) stdGaussian := by
+        rw [← hγn']; exact (hf_prod.prod_left_ae).mono fun y hy => by
+          rwa [show (fun t => (f ∘ e'.symm) (t, y)) = (fun t => f (Fin.cons t y)) from by
+            ext t; simp [Function.comp, he_eq']] at hy
+      -- Jensen: h(y)·log(h(y)) ≤ ∫ fl(cons t y) dγ(t)
+      have h_upper : ∀ᵐ y ∂(stdGaussianPi (m' + 1)),
+          h y * Real.log (h y) ≤ ∫ t, fl (Fin.cons t y) ∂stdGaussian := by
+        filter_upwards [hf_ae, hfl_ae] with y hfy hfly
+        exact Real.convexOn_mul_log.map_integral_le Real.continuous_mul_log.continuousOn
+          isClosed_Ici (ae_of_all _ fun t => hf_nn _) hfy hfly
+      -- Lower bound: h·log(h) ≥ -1/e
+      have h_lower : ∀ y, -(1 / Real.exp 1) ≤ h y * Real.log (h y) :=
+        fun y => mul_log_ge_neg_inv_exp _ (integral_nonneg fun t => hf_nn _)
+      -- Domination: |h·log(h)| ≤ |F_log| + 1/e
+      exact Integrable.mono' (hFlog.norm.add (integrable_const (1 / Real.exp 1)))
+        (Real.continuous_mul_log.comp_aestronglyMeasurable hh_int.aestronglyMeasurable)
+        (by filter_upwards [h_upper] with y hy
+            simp only [Pi.add_apply, Real.norm_eq_abs]
+            rw [abs_le]
+            exact ⟨by linarith [h_lower y,
+                      abs_nonneg (∫ t, fl (Fin.cons t y) ∂stdGaussian)],
+                   by linarith [le_abs_self (∫ t, fl (Fin.cons t y) ∂stdGaussian),
+                      div_pos one_pos (Real.exp_pos 1)]⟩)
+    -- hint2: E₀f·log(E₀f) integrable, follows from hh_log_int via tail composition
+    have hint2 : Integrable (fun x => (∫ t, f (Function.update x 0 t) ∂stdGaussian) *
+        Real.log (∫ t, f (Function.update x 0 t) ∂stdGaussian)) (stdGaussianPi (m' + 2)) := by
+      -- E₀f = h ∘ tail, so E₀f·log(E₀f) = (h·log(h)) ∘ tail
+      change Integrable (fun x => E₀f x * Real.log (E₀f x)) (stdGaussianPi (m' + 2))
+      rw [hE₀f_eq]
+      exact integrable_comp_tail_stdGaussianPi _ hh_log_int
+    have hchain := entropy_chain_rule_pi f (0 : Fin (m' + 2)) hf hf_log hint1 hint2
     -- Step 4: Apply IH to h on (m' + 1) dimensions.
     have hih := ih (m' + 1) (by omega) h hh_nn hh_int hh_log_int
     -- Step 5: Translate IH back to n = m' + 2 dimensions.
     have hent_eq : entropyPi (stdGaussianPi (m' + 2)) E₀f =
         entropyPi (stdGaussianPi (m' + 1)) h := by
       rw [hE₀f_eq]; exact entropyPi_comp_tail h hh_int hh_log_int
-    have hcondEnt_eq : ∀ j : Fin (m' + 1),
-        ∫ y, condEntropyAt stdGaussian h j y ∂(stdGaussianPi (m' + 1)) =
-        ∫ x, condEntropyAt stdGaussian E₀f (Fin.succ j) x
-          ∂(stdGaussianPi (m' + 2)) := by
-      intro j
-      rw [hE₀f_eq]
-      simp_rw [condEntropyAt_comp_tail h j]
-      exact (integral_comp_tail_stdGaussianPi _ (by sorry)).symm
-    -- Data processing: ∫ condEnt_i(E₀f) ≤ ∫ condEnt_i(f) for i ≥ 1.
-    have hdata : ∀ j : Fin (m' + 1),
-        ∫ x, condEntropyAt stdGaussian E₀f (Fin.succ j) x
-          ∂(stdGaussianPi (m' + 2)) ≤
+    -- Step 6: Data processing inequality (DPI):
+    -- ∫ condEnt(h, j) on (m'+1) dims ≤ ∫ condEnt(f, succ j) on (m'+2) dims.
+    -- This combines condEnt translation (h ↔ E₀f via tail) with the DPI:
+    -- averaging over coord 0 doesn't increase conditional entropy along coord (succ j).
+    have hdata_combined : ∀ j : Fin (m' + 1),
+        ∫ y, condEntropyAt stdGaussian h j y ∂(stdGaussianPi (m' + 1)) ≤
         ∫ x, condEntropyAt stdGaussian f (Fin.succ j) x
           ∂(stdGaussianPi (m' + 2)) := by
       intro j
-      exact integrated_condEntropyAt_condExpect_le f hf_nn hf hf_log
-        (Fin.succ j) 0 (Fin.succ_ne_zero j)
-    -- Step 6: Combine. Split sum as condEnt_0 + ∑_{j} condEnt_{succ j}.
+      -- Step A: ∫ condEnt(h, j) dγ^{m'+1} = ∫ condEnt(E₀f, succ j) dγ^{m'+2}
+      --   (by condEntropyAt_comp_tail + integral_comp_tail_stdGaussianPi)
+      -- Step B: ∫ condEnt(E₀f, succ j) ≤ ∫ condEnt(f, succ j)
+      --   (by DPI: integrated_condEntropyAt_condExpect_le)
+      -- Both steps combined into one sorry.
+      sorry
+    -- Step 7: Combine. Split sum as condEnt_0 + ∑_{j} condEnt_{succ j}.
     rw [Fin.sum_univ_succ, hchain]
     -- Goal: ∫ condEnt_0(f) + Ent(E₀f) ≤ ∫ condEnt_0(f) + ∑_j ∫ condEnt_{succ j}(f)
     suffices hE : entropyPi (stdGaussianPi (m' + 2)) E₀f ≤
@@ -1350,12 +1401,9 @@ private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
         = entropyPi (stdGaussianPi (m' + 1)) h := hent_eq
       _ ≤ ∑ j : Fin (m' + 1), ∫ y, condEntropyAt stdGaussian h j y
             ∂(stdGaussianPi (m' + 1)) := hih
-      _ = ∑ j : Fin (m' + 1), ∫ x, condEntropyAt stdGaussian E₀f (Fin.succ j) x
-            ∂(stdGaussianPi (m' + 2)) := by
-          congr 1; ext j; exact hcondEnt_eq j
       _ ≤ ∑ j : Fin (m' + 1), ∫ x, condEntropyAt stdGaussian f (Fin.succ j) x
             ∂(stdGaussianPi (m' + 2)) :=
-          Finset.sum_le_sum (fun j _ => hdata j)
+          Finset.sum_le_sum (fun j _ => hdata_combined j)
 
 private lemma entropy_subadditivity_of_nonneg {n : ℕ}
     (g : (Fin n → ℝ) → ℝ)
