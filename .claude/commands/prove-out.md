@@ -57,7 +57,7 @@ EOF
 | `[grade]` | Grade assessment | `[grade]  A — 需组合 3 个 HasDerivAt API` |
 | `[search]` | Search action | `[search] Tier 1: mathlib_api_index → "Fisher" → miss` |
 | `[hit]` | Search hit | `[hit]    HasDerivAt.mul_const — sig matches` |
-| `[miss]` | Search miss | `[miss]   tactic_patterns.yaml → no match` |
+| `[miss]` | Search miss | `[miss]   proof_knowledge.yaml → no match` |
 | `[idea]` | Strategy decision | `[idea]   HasDerivAt chain → .deriv extract` |
 | `[write]` | Writing proof step | `[write]  score_eq: (id.mul_const).sub(hζ) \|>.deriv` |
 | `[build]` | Build action | `[build]  lake build Statlean.Information.Basic ...` |
@@ -98,7 +98,7 @@ Then immediately write it to the log file too.
 [search] Tier 2: #check hasDerivAt_id → hit
 [hit]    HasDerivAt.mul_const — (c·d)' = c'·d
 [hit]    HasDerivAt.sub — (f-g)' = f'-g'
-[miss]   tactic_patterns.yaml → no match
+[miss]   proof_knowledge.yaml → no match
                                                         ← (write to log)
 ━━━ STAGE 2/5: API SEARCH ━━━
   Search tier: 2 (#check)
@@ -177,8 +177,10 @@ Follow the exact same protocol as `/prove`:
 
 ### Phase 0: Toolchain Setup (MANDATORY)
 0. `python3 scripts/extract_signatures.py <file>` — read declaration index
-1. Read `theme/tactic_patterns.yaml` — match goal shape
-2. Use `bash scripts/check_snippet.sh` for tactic debugging
+1. Read `theme/proof_knowledge.yaml` — match goal shape (L3/L2/L1), note `anti: true` entries = dead ends to avoid
+2. If L3/L2 matched → grep `theme/statlean_api_index.tsv` + `theme/mathlib_full_type_index.tsv` for key_api signatures (skip mathlib_api_index full read)
+3. If not matched → read `theme/mathlib_api_index.md` + grep both indexes
+4. Use `bash scripts/check_snippet.sh` for tactic debugging
 
 ### Phase 1: Understand (do NOT edit yet)
 1. Read the file containing the sorry (targeted line range).
@@ -201,8 +203,10 @@ Follow the exact same protocol as `/prove`:
 ### Phase 4: Verify
 9. Run `lake build <module>` (or full build if needed).
 
-### Phase 5: Report
+### Phase 5: Knowledge Ingestion + Report
 10. Count sorries before/after. Summarize APIs used.
+11. Write any new L1/L2/L3 patterns (正面 or anti) directly into `theme/proof_knowledge.yaml`.
+    Report what was ingested in the「已入库 proof_knowledge.yaml」section.
 
 ---
 

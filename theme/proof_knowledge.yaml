@@ -1,0 +1,430 @@
+# theme/proof_knowledge.yaml — 四层证明知识库
+# 使用方法：按 trigger 字段匹配当前 goal，读对应 strategy/chain/tip
+# 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
+# API 签名查询：
+#   Mathlib API  → grep theme/mathlib_api_index.md 或 theme/mathlib_full_type_index.tsv
+#   StatLean API → grep theme/statlean_api_index.tsv (614 declarations, gen by scripts/gen_statlean_index.py)
+#
+# 负面 pattern 约定：
+#   anti: true 表示"不要走这条路"。agent 查到 anti 条目时应跳过该策略。
+#   可出现在 L3 (strategy), L2 (chain), L1 (tip) 任何层级。
+#   已有的 "FALSE LEMMA 警告" 也属于此类。
+version: v2
+entry_count: 75
+
+# ═══════════════════════════════════════════
+# L3 — 证明策略（按 goal 形状索引）
+# ═══════════════════════════════════════════
+L3_strategies:
+
+  # --- 不等式 / 界 ---
+  - trigger: "Var[X] ≥ ... or ∫ f ≤ ∫ g (variance/integral inequality)"
+    strategy: "正交分解 / completing-the-square / Cauchy-Schwarz → linarith [step1..stepN]"
+    key_api: [integral_nonneg, sq_nonneg, inner_mul_le_norm_mul_nnorm]
+    source: [ANOVA, RaoBlackwell, LehmannScheffe]
+    confidence: 5
+
+  - trigger: "‖a - b‖ ≤ C (norm inequality via intermediate steps)"
+    strategy: "calc chain: triangle ‖A-C‖+‖C-B‖ via norm_add_le, then gcongr/linarith"
+    key_api: [norm_add_le, norm_sub_le, gcongr]
+    source: [USLLN, Taylor]
+    confidence: 5
+
+  - trigger: "0 ≤ ∫ f dμ (nonnegativity of integral)"
+    strategy: "integral_nonneg + pointwise bound (sq_nonneg, mul_self_nonneg)"
+    key_api: [integral_nonneg, integral_nonneg_of_ae, sq_nonneg]
+    source: [RaoBlackwell, LehmannScheffe]
+    confidence: 5
+
+  # --- ae 等式 ---
+  - trigger: "f =ᵐ[μ] condExp m f (ae equality with condExp)"
+    strategy: "ae_eq_condExp_of_forall_setIntegral_eq: prove (1) IntegrableOn, (2) ∫_s h = ∫_s f for m-meas s, (3) AEStronglyMeasurable[m]"
+    key_api: [ae_eq_condExp_of_forall_setIntegral_eq, setIntegral_condExp, stronglyMeasurable_condExp]
+    source: [Factorization]
+    confidence: 5
+
+  - trigger: "P[P[f|M]|N] =ᵐ P[P[f|N]|M] (condExp commutativity)"
+    strategy: "Integrable.ae_eq_of_forall_setIntegral_eq → MeasurableSpace.induction_on_inter on π-system → independence + pullout + tower"
+    key_api: [induction_on_inter, iIndepFun, condExp_mul_of_aestronglyMeasurable_left]
+    source: [EfronStein]
+    confidence: 4
+
+  # --- 唯一性 ---
+  - trigger: "f =ᵐ g from unbiased + completeness"
+    strategy: "差 = 0 → 完备性/零测集: integral_sub + sub_self + completeness"
+    key_api: [integral_sub, condExp_of_stronglyMeasurable]
+    source: [LehmannScheffe]
+    confidence: 4
+
+  # --- 因子分解 ---
+  - trigger: "f = g ∘ T (factorization through statistic)"
+    strategy: "Doob-Dynkin: StronglyMeasurable[m_T].measurable.exists_eq_measurable_comp → obtain ⟨h, hh_meas, hψ_eq⟩"
+    key_api: [exists_eq_measurable_comp, comap_measurable, StandardBorelSpace]
+    source: [Factorization, Basu, LehmannScheffe]
+    confidence: 5
+
+  # --- 积分等式 ---
+  - trigger: "∫ f dμ = ∫ g dμ (integral equality)"
+    strategy: "integral_congr_ae for pointwise → tower/pullout for condExp chains"
+    key_api: [integral_congr_ae, integral_condExp, condExp_mul_of_aestronglyMeasurable_left]
+    source: [Factorization, ANOVA, Basu]
+    confidence: 5
+
+  # --- 可积性链 ---
+  - trigger: "Integrable f μ or MemLp f p μ (integrability)"
+    strategy: "L^p chain: MemLp q → MemLp p via mono_exponent (p≤q), or memLp_two_iff_integrable_sq for L²↔sq"
+    key_api: [MemLp.mono_exponent, memLp_two_iff_integrable_sq, Integrable.of_bound]
+    source: [Taylor, ANOVA, LehmannScheffe]
+    confidence: 5
+
+  # --- 测度相等 ---
+  - trigger: "μ = ν on σ-algebra (measure equality)"
+    strategy: "π-λ / 单调类: ext_of_generate_finite or induction_on_inter"
+    key_api: [ext_of_generate_finite, induction_on_inter]
+    source: [EfronStein]
+    confidence: 4
+
+  # --- 收敛 ---
+  - trigger: "∫ F_n → ∫ F (dominated convergence for integrals)"
+    strategy: "tendsto_integral_of_dominated_convergence: bound, F_n-measurability, bound-integrable, norm bound, pointwise limit"
+    key_api: [tendsto_integral_of_dominated_convergence]
+    source: [USLLN, Taylor]
+    confidence: 5
+
+  - trigger: "Continuous (θ ↦ ∫ f(x,θ) dμ) (continuity of parameter integral)"
+    strategy: "continuous_of_dominated: F measurable, bound ae, bound integrable, F continuous in param"
+    key_api: [continuous_of_dominated]
+    source: [USLLN]
+    confidence: 4
+
+  - trigger: "aₙ(g(Xₙ)-g(c)) →ᵈ d·Y (delta method)"
+    strategy: "Decompose aₙ(g(X)-g(c)) = d·W + R, W→ᵈY via continuous_comp, R→ᵖ0 via isLittleO + tightness"
+    key_api: [tendstoInDistribution_of_tendstoInMeasure_sub, hasDerivAt_iff_isLittleO]
+    source: [DeltaMethod]
+    confidence: 4
+
+  - trigger: "Wₙ →ᵈ Y implies tail P(|Wₙ|≥M)→0 (tightness)"
+    strategy: "ProbMeasure extraction → tail decay via tendsto_measure_iInter → Portmanteau limsup → eventually_lt"
+    key_api: [tendsto_measure_iInter_atTop, ProbabilityMeasure]
+    source: [DeltaMethod]
+    confidence: 4
+
+  # --- 乘积空间 ---
+  - trigger: "dimension reduction on product space (∀ i, X i) → ℝ"
+    strategy: "restrict map + comap_iSup + Doob-Dynkin factoring + measurePreserving_piEquivPiSubtypeProd → induction"
+    key_api: [comap_iSup, comap_comp, measurePreserving_piEquivPiSubtypeProd, integrable_map_measure]
+    source: [EfronStein]
+    confidence: 3
+
+  - trigger: "∫∫ f d(μ×ν) Fubini order swap"
+    strategy: "integral_integral_swap for iterated → integral_prod_symm for coord swap"
+    key_api: [integral_integral_swap, integral_prod_symm, Integrable.prod_right_ae]
+    source: [ANOVA]
+    confidence: 4
+
+  # --- 复分析 / charFun ---
+  - trigger: "charFun (μ.map Y) t = ∫ exp(itY) dμ (characteristic function)"
+    strategy: "charFun_apply_real + integral_map_of_stronglyMeasurable → push_cast; ring"
+    key_api: [charFun_apply_real, integral_map_of_stronglyMeasurable, integral_complex_ofReal]
+    source: [Taylor]
+    confidence: 5
+
+  # --- Entropy ---
+  - trigger: "Ent(g) ≤ ∑_i ∫ condEnt_i(g) (entropy subadditivity)"
+    strategy: "Telescoping: h_k = iterated E_k...E_0[g], chain rule + data processing (Jensen for x·log(x))"
+    key_api: [entropy_chain_rule_pi]
+    source: [LogSobolev]
+    confidence: 3
+
+  - trigger: "Ent_γ(f²) ≤ 2∫(f')² (Gaussian log-Sobolev inequality)"
+    anti: true
+    strategy: "DO NOT use Stein identity ∫xh dγ = ∫h' dγ. Stein gives Poincaré (Var ≤ ∫f'²) but NOT LSI, because entropy involves nonlinear x·log(x) which cannot be extracted from the linear Stein identity. Must use OU semigroup infrastructure (Bakry-Emery / hypercontractivity / two-point CLT)."
+    key_api: []
+    source: [LogSobolev, prove-deep-2026-03-11]
+    confidence: 5
+
+  # --- 有限覆盖 ---
+  - trigger: "finite subcover of compact space"
+    strategy: "isCompact_univ.elim_finite_subcover with open balls + covering proof"
+    key_api: [isCompact_univ.elim_finite_subcover, isOpen_ball]
+    source: [USLLN]
+    confidence: 4
+
+  # --- Variance 分解 ---
+  - trigger: "Var[Y] = ∫ Var[Y|G] + Var[E[Y|G]] (law of total variance)"
+    strategy: "Direct: integral_condVar_add_variance_condExp hG hY"
+    key_api: [integral_condVar_add_variance_condExp, setIntegral_condVar]
+    source: [RaoBlackwell]
+    confidence: 5
+
+  - trigger: "Var[X] = E[X²] - (E[X])² (variance expansion)"
+    strategy: "variance_eq_sub hX_memLp2 then simp only [Pi.pow_apply]"
+    key_api: [variance_eq_sub, Pi.pow_apply]
+    source: [ANOVA, RaoBlackwell]
+    confidence: 5
+
+# ═══════════════════════════════════════════
+# L2 — API 链路（Mathlib 引理串联方案）
+# ═══════════════════════════════════════════
+L2_api_chains:
+
+  # --- condExp 链路 ---
+  - trigger: "pullout m-measurable factor from condExp"
+    chain: "condExp_mul_of_aestronglyMeasurable_left (needs AEStronglyMeasurable[m] + both Integrable)"
+    source: [Factorization, LehmannScheffe]
+    confidence: 5
+
+  - trigger: "tower property ∫ E[f|m] = ∫ f"
+    chain: "integral_condExp hm_le (needs hm : m ≤ m₀, Integrable f)"
+    source: [Basu, LehmannScheffe, RaoBlackwell]
+    confidence: 5
+
+  - trigger: "setIntegral characterization of condExp"
+    chain: "setIntegral_condExp hm hf_int hs (needs MeasurableSet[m] s)"
+    source: [Factorization, Basu]
+    confidence: 5
+
+  - trigger: "condExp of m-measurable function = itself"
+    chain: "condExp_of_stronglyMeasurable hG hYm hYint → rw/simp"
+    source: [RaoBlackwell]
+    confidence: 5
+
+  - trigger: "E[f|m] ae-nonneg from f ae-nonneg"
+    chain: "condExp_nonneg (ae_of_all _ fun x => <bound>)"
+    source: [Factorization, RaoBlackwell]
+    confidence: 5
+
+  - trigger: "E[f|m] ≤ᵃᵉ E[g|m] from f ≤ᵃᵉ g"
+    chain: "condExp_mono hf_int hg_int (ae_of_all _ fun x => ...)"
+    source: [Factorization, Basu]
+    confidence: 5
+
+  - trigger: "AEStronglyMeasurable[m] for condExp"
+    chain: "stronglyMeasurable_condExp.aestronglyMeasurable (or .mono hle for coarser σ-alg)"
+    source: [Factorization, LehmannScheffe]
+    confidence: 5
+
+  - trigger: "MemLp condExp from MemLp f (L² contraction)"
+    chain: "hf.condExp (MemLp.condExp preserves Lp membership)"
+    source: [RaoBlackwell, LehmannScheffe]
+    confidence: 5
+
+  # --- 积分链路 ---
+  - trigger: "∫ f ≤ ∫ g with integrability"
+    chain: "integral_mono_ae h_f_int h_g_int (ae_of_all _ fun x => <bound>)"
+    source: [Taylor, ANOVA, RaoBlackwell]
+    confidence: 5
+
+  - trigger: "∫ c * f = c * ∫ f"
+    chain: "integral_const_mul (also integral_mul_const for f * c form)"
+    source: [Hermite, Basu, ANOVA]
+    confidence: 5
+
+  - trigger: "∫ (f+g) = ∫ f + ∫ g or ∫ (f-g) = ∫ f - ∫ g"
+    chain: "integral_add h1_int h2_int / integral_sub h1_int h2_int (explicit integrability!)"
+    source: [LehmannScheffe, ANOVA, Taylor]
+    confidence: 5
+
+  - trigger: "lintegral rnDeriv finiteness for trimmed measure"
+    chain: "lintegral_trim hle → Measure.lintegral_rnDeriv_le → trim_measurableSet_eq → ne_top_of_le_ne_top"
+    source: [Factorization]
+    confidence: 4
+
+  - trigger: "Integrable rnDeriv.toReal • f ↔ Integrable f (change of measure)"
+    chain: "integrable_rnDeriv_smul_iff hμ + setIntegral_rnDeriv_smul hμ hs"
+    source: [Factorization]
+    confidence: 4
+
+  # --- 可积性链路 ---
+  - trigger: "MemLp f p from MemLp f q where p ≤ q"
+    chain: "hLp.mono_exponent (by norm_num : (p : ENNReal) ≤ q)"
+    source: [Taylor]
+    confidence: 5
+
+  - trigger: "MemLp f 2 ↔ Integrable (f²)"
+    chain: "memLp_two_iff_integrable_sq hf_aesm"
+    source: [ANOVA, LehmannScheffe]
+    confidence: 5
+
+  - trigger: "Integrable f from uniform bound"
+    chain: "Integrable.of_bound h_aesm C h_bound_ae"
+    source: [Factorization]
+    confidence: 4
+
+  - trigger: "Integrable (f-g) or (f+g)"
+    chain: "hf.sub hg / hf.add hg / hf.sub (integrable_const c)"
+    source: [LehmannScheffe, ANOVA]
+    confidence: 5
+
+  - trigger: "Integrable gtil (P.map restrict) from Integrable (gtil∘restrict) P"
+    chain: "integrable_map_measure hgtil_sm.aestronglyMeasurable hrestrict_meas.aemeasurable"
+    source: [EfronStein]
+    confidence: 3
+
+  # --- 可测性链路 ---
+  - trigger: "Measurable[comap T m] for functions factoring through T"
+    chain: "comap_measurable T + .comp_measurable for g∘T; hT.comap_le for m_T ≤ mΩ"
+    source: [Factorization, Basu]
+    confidence: 5
+
+  - trigger: "MemLp (f∘π) on product from MemLp f (measure-preserving)"
+    chain: "hg_lp.comp_measurePreserving measurePreserving_snd/fst"
+    source: [ANOVA]
+    confidence: 4
+
+  # --- ENNReal 链路 ---
+  - trigger: "a.toReal = b.toReal ↔ a = b (ENNReal)"
+    chain: "ENNReal.toReal_eq_toReal_iff' h_ne_top h_ne_top"
+    source: [Factorization, Basu]
+    confidence: 4
+
+  - trigger: "μ s ≠ ⊤ for finite measure"
+    chain: "measure_ne_top μ s (from IsFiniteMeasure)"
+    source: [Factorization]
+    confidence: 5
+
+  # --- 收敛链路 ---
+  - trigger: "ae finite intersection from countable family"
+    chain: "ae_ball_iff (Finset.countable_toSet S) for ∀ᵐ ω, ∀ θ ∈ S, P ω θ"
+    source: [USLLN]
+    confidence: 4
+
+  - trigger: "⨆ k, f k ≤ C from pointwise bound"
+    chain: "ciSup_le (fun k => hf_le k) (needs BddAbove)"
+    source: [USLLN]
+    confidence: 4
+
+  # --- 复数链路 ---
+  - trigger: "‖exp(i·t·x)‖ = 1"
+    chain: "Complex.norm_exp_ofReal_mul_I"
+    source: [Taylor, Hermite]
+    confidence: 5
+
+  - trigger: "∫ (↑f : ℂ) dμ = ↑(∫ f dμ)"
+    chain: "integral_complex_ofReal"
+    source: [Taylor]
+    confidence: 5
+
+# ═══════════════════════════════════════════
+# L1 — Tactic 技巧（常见坑和惯用法）
+# ═══════════════════════════════════════════
+L1_tactic_tips:
+
+  # --- 高频 tactic ---
+  - trigger: "∀ᵐ x ∂μ, P x (ae goal)"
+    tip: "filter_upwards [h1, h2] with x hx1 hx2; <proof>. For pointwise: ae_of_all _ fun x => <proof>"
+    frequency: 20
+
+  - trigger: "assembling real inequality from named steps"
+    tip: "linarith [step1, step2, ..., stepN] — dominant closer for ℝ inequalities"
+    frequency: 20
+
+  - trigger: "pure ring identity a = b"
+    tip: "ring; or ext x; ring; or congr 1; ext x; ring"
+    frequency: 20
+
+  - trigger: "coercion goals ℕ→ℝ, ℤ→ℝ, ℝ→ℂ"
+    tip: "push_cast; ring (push_cast [Nat.factorial_succ] for factorial)"
+    frequency: 10
+
+  - trigger: "numeric fact (2:ENNReal)≤3 or 0<4"
+    tip: "by norm_num (inline as argument)"
+    frequency: 15
+
+  - trigger: "division / fractions / nonzero denom"
+    tip: "field_simp [h_ne_zero]; ring"
+    frequency: 8
+
+  - trigger: "monotone inequality f a ≤ f b"
+    tip: "gcongr (monotonicity tactic for norm, mul, pow etc.)"
+    frequency: 8
+
+  # --- Pi.apply 陷阱 ---
+  - trigger: "(f^2) x ≠ f x^2 for Pi-functions"
+    tip: "simp only [Pi.pow_apply] before ring/linarith. Same for Pi.sub_apply, Pi.mul_apply"
+    frequency: 5
+
+  # --- condExp 陷阱 ---
+  - trigger: "lambda vs Pi form mismatch with condExp"
+    tip: "Three fixes: (1) have h_eq : (fun ω => ...) = f - g := rfl; rw [h_eq] (2) change (3) filter_upwards + Pi.sub_apply"
+    frequency: 5
+
+  - trigger: "set m := MeasurableSpace.comap causes instance confusion"
+    tip: "DON'T set m. Use explicit condExp m ν f. Inline MeasurableSpace.comap T ‹MeasurableSpace α›"
+    frequency: 3
+
+  # --- 可测性 shortcuts ---
+  - trigger: "AEMeasurable f μ from Measurable f"
+    tip: ".aemeasurable coercion (also .aestronglyMeasurable)"
+    frequency: 15
+
+  - trigger: "need typeclass instance mid-proof"
+    tip: "haveI : IsProbabilityMeasure ... := ... (haveI not have, for instance synthesis)"
+    frequency: 10
+
+  - trigger: "failed to synthesize SigmaFinite for trimmed measure"
+    tip: "haveI : SigmaFinite (μ.trim hm) := inferInstance (from IsFiniteMeasure auto)"
+    frequency: 3
+
+  # --- 常见错误修复 ---
+  - trigger: "rewrite failed: pattern not found (lambda vs Pi)"
+    tip: "Add have h_eq : (fun ω => ...) = ... := rfl then rw [h_eq]; or use change/show"
+    frequency: 4
+
+  - trigger: "integral_add rewrite fails (Pi form mismatch)"
+    tip: "Use have h := integral_add ... then linarith, don't rw"
+    frequency: 3
+
+  - trigger: "simp made no progress"
+    tip: "Switch to simp only [specific_lemma] or use rw instead"
+    frequency: 5
+
+  - trigger: "linarith failed (missing premise)"
+    tip: "Extract needed inequalities with have first, then linarith [h1, h2, h3]"
+    frequency: 4
+
+  - trigger: "exact? found no match"
+    tip: "Upgrade to Level 3 Mathlib search, or build helper lemma"
+    frequency: 3
+
+  - trigger: "unknown identifier after Mathlib upgrade"
+    tip: "v4.28 renames: pow_le_pow_left₀, div_le_div_iff₀, exp_nat_mul. Use #check to verify"
+    frequency: 3
+
+  # --- ENNReal 陷阱 ---
+  - trigger: "ENNReal Summable"
+    tip: "ALWAYS true for ENNReal! Use ∑' ≠ ⊤ instead for Borel-Cantelli style arguments"
+    frequency: 3
+
+  # --- 杂项技巧 ---
+  - trigger: "∃ x, P x (extract witness)"
+    tip: "obtain ⟨g, hg, hgT⟩ := ... (standard destructuring)"
+    frequency: 15
+
+  - trigger: "strong induction on ℕ"
+    tip: "induction k using Nat.strongRecOn with | ind k ih =>"
+    frequency: 2
+
+  - trigger: "integral on Fin 0 → ℝ (singleton space)"
+    tip: "Subsingleton.elim x Fin.elim0 + integral_const + Measure.real + measure_univ"
+    frequency: 2
+
+  - trigger: "nlinarith for mul_comm in inequalities"
+    tip: "nlinarith handles commutativity that linarith cannot"
+    frequency: 3
+
+  - trigger: "linarith loses < in ≤+< chains"
+    tip: "Use add_lt_add_of_le_of_lt explicitly instead"
+    frequency: 2
+
+  # --- 除法 / 0÷0 ---
+  - trigger: "∫ (g')²/g dμ where g = f² (Fisher information of square)"
+    tip: "I(f²) = ∫(2ff')²/f² = 4∫(f')². Lean 0/0=0 makes f=0 case automatic — no need for hf_ne_zero hypothesis. Use div_self_sqrt or direct field_simp."
+    frequency: 1
+    source: [LogSobolev, prove-deep-2026-03-11]
+
+  # --- FALSE LEMMA 警告 ---
+  - trigger: "f ∈ L²(γ) implies f·poly ∈ L²(γ)?"
+    anti: true
+    tip: "FALSE! Counterexample exists. Use Hölder: L²·L² ⊆ L¹. Only claim L¹ for products."
+    frequency: 1

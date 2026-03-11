@@ -116,13 +116,19 @@
 
 搜索 Mathlib 或 StatLib API 时按以下顺序，**逐级升级**，不要跳级：
 
-### 第一级：查静态索引（0 token 成本）— 必须首先执行
-- **每次**搜索前先读 `theme/mathlib_api_index.md`（~650+ 条，按 namespace 分 section）
+### 第零级：查证明知识库（Phase 0 已完成）— 匹配到则跳过后续
+- `theme/proof_knowledge.yaml` 的 L3/L2 已包含常用 API 链路
+- **如果 Phase 0 已匹配到 L3 strategy 或 L2 chain → 按 key_api 列表定向查签名，跳过全文读取**
+- key_api 中的名字按来源查签名：
+  - **StatLean API** → `grep -i '<name>' theme/statlean_api_index.tsv`（614 条，毫秒级）
+  - **Mathlib API** → `grep -i '<name>' theme/mathlib_full_type_index.tsv`（51K 条，毫秒级）
+- 仅当知识库未覆盖当前 goal 时才进入第一级
+
+### 第一级：查静态索引（~8.5K token）— 知识库未匹配时执行
+- 读 `theme/mathlib_api_index.md`（~650+ 条，按 namespace 分 section）
+- `grep -i '<keyword>' theme/statlean_api_index.tsv`（614 条 StatLean 自建 API）
+- `grep -i '<keyword>' theme/mathlib_full_type_index.tsv`（51K 条全量 Mathlib 索引）
 - 同时读 `Statlean/Verified.lean` 获取已入库模块列表
-- 覆盖范围：variance、MGF/CGF、charFun、Independence、IdentDistrib、condExp、condVar、Gaussian、MemLp、integral、Measure.map、exp bounds、convexity/Jensen、polynomial derivatives、IBP、Grönwall、tilted measures、Lp density、Topology/Metric、Compactness、StrongLaw/SLLN、Filter/ae
-- **80% 的搜索在这一步就能解决**
-- 索引路径是 `theme/mathlib_api_index.md`（不是 `mathlib_stats_index.md`）
-- **给 subagent 的 prompt 必须包含**: "先读 `theme/mathlib_api_index.md` 查找相关 API，只有索引不够时才 grep Mathlib 源码"
 
 ### 第二级：`#check` / `exact?`（精确但慢）
 - 已知名字查签名：`echo '#check @ProbabilityTheory.foo' | lake env lean --stdin`
@@ -144,19 +150,18 @@
 
 ## Phase 0 工具链（强制）
 
-### 攻击 sorry 前必查 tactic pattern 库
-- **每次**攻击 sorry 前，先读 `theme/tactic_patterns.yaml` 匹配 goal 形态
-- 匹配到 → 优先使用已记录的 tactic 序列（一轮验证即可）
-- 没匹配到 → 正常进入探索式搜索
-- **给 subagent 的 prompt 必须包含**："先读 `theme/tactic_patterns.yaml` 查找与当前 goal 匹配的 pattern"
+### 攻击 sorry 前必查证明知识库
+- **每次**攻击 sorry 前，先读 `theme/proof_knowledge.yaml` 按 trigger 匹配 goal 形态
+- 四层知识：L3 策略（证明架构）、L2 API 链路、L1 tactic 技巧
+- **匹配到 L3/L2** → 优先使用已记录的 strategy/chain（一轮验证即可），**跳过 mathlib_api_index.md**
+- **未匹配** → 升级到 mathlib_api_index.md 搜索（三级法第一级）
+- **给 subagent 的 prompt 必须包含**："先读 `theme/proof_knowledge.yaml` 查找与当前 goal 匹配的 pattern，匹配到则跳过 mathlib_api_index"
 
-### tactic_patterns.yaml 维护规则
-- **只记录验证过的 pattern** — 必须来自 `lake build` 通过的证明
-- **频率 ≥2 才入库** — 只出现一次的可能是特例
-- **标注来源和版本** — 每条 pattern 必须标注 source 文件和 Mathlib 版本
-- **会话末尾手动更新** — 每次 sorry 被成功证明后，在经验报告环节追加新 pattern
+### proof_knowledge.yaml 维护规则
+- **自动入库**：证明成功后 agent 输出 `new_knowledge` YAML 块，由 `scripts/ingest_knowledge.py` 自动入库
+- **入库标准**：L1 frequency≥2（脚本累计）、L2 chain≥2 API、L3 confidence≥3
+- **去重**：trigger 关键词 Jaccard>0.8 视为同条目（更新 frequency/source）
 - **Mathlib 升级后验证** — 版本升级后抽查 pattern 是否仍有效，删除失效条目
-- **不自动提取**（当前阶段）— 项目 <500 个零 sorry 证明前，手动维护优于自动化
 
 ### 签名提取代替全文件读取
 - 读大文件（>200 行）前，**优先**用 `python3 scripts/extract_signatures.py <file>` 获取声明索引
@@ -237,7 +242,10 @@
 ```
 ## 本轮经验报告
 
-### 新发现的 Lean/Mathlib 模式
+### 已入库 proof_knowledge.yaml
+- [L1/L2/L3] <trigger 摘要> — <正面/anti> — <来源 sorry/定理>
+
+### 新发现的 Lean/Mathlib 模式（待用户确认入库）
 - <编号>. <模式描述> — <发现场景>
 
 ### Pipeline / 工具链改进建议
@@ -246,9 +254,6 @@
 ### 分类 / 路由规则建议
 - <规则描述> — <触发的误分类案例>
 
-### 证明策略新 pattern
-- <策略描述> — <适用场景>
-
 ### 踩坑记录（避免重复）
 - <坑描述> — <解决方案>
 ```
@@ -256,14 +261,16 @@
 ### 流程
 
 1. **Claude 输出报告** — 每次会话的实质性工作结束后，主动输出上述报告
-2. **用户审阅** — 用户决定哪些值得固化
-3. **用户指令固化** — 用户说「采纳 X」后，Claude 执行：
-   - Lean/Mathlib 模式 → 写入 memory（见下方 Memory 分层写入规则）
+2. **proof_knowledge 入库（强制，不等用户确认）**：
+   - 证明过程中发现的 L1/L2/L3 pattern（正面或 anti）→ **直接写入** `theme/proof_knowledge.yaml`
+   - 在报告的「已入库」section 列出本轮写入的条目，注明层级和 anti 标记
+   - `anti: true` 条目 = 负面经验（"不要走这条路"），与正面条目放在同一层级
+   - 原来的「证明策略新 pattern」和「踩坑记录中的证明相关部分」**统一进 proof_knowledge**
+3. **用户审阅** — 用户决定 Pipeline 改进、分类规则等是否值得固化
+4. **用户指令固化** — 用户说「采纳 X」后，Claude 执行：
    - Pipeline 改进 → 更新对应 `theme/scripts/` 代码或 pipeline skill
    - 分类规则 → 更新 `theme/scripts/classify.py` 的 `_THEOREM_RULES` 或 ontology
-   - 证明策略 → 更新 `theme/prove_playbook.md`
-   - 踩坑记录 → 写入 memory（见下方规则）
-4. **不自动写入** — 报告本身只是建议，**未经用户确认不修改任何文件**
+   - 非证明类踩坑 → 写入 `memory/pitfalls.md`
 
 ### Memory 分层写入规则（强制）
 

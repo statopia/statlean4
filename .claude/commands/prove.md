@@ -15,18 +15,19 @@ You are attacking a specific `sorry` in the StatLean project. Follow this exact 
 
 ### Phase 0: Phase 0 工具链（强制，在任何编辑之前）
 0. **签名索引**：`python3 scripts/extract_signatures.py <file>` 读声明索引，定位 sorry 行号后再 Read 指定范围（不盲读全文件 >200 行的）
-1. **Tactic pattern 匹配**：读 `theme/tactic_patterns.yaml`，匹配当前 goal 形态。匹配到 → 优先使用已记录的 tactic 序列
+1. **知识库匹配**：读 `theme/proof_knowledge.yaml`，按 trigger 匹配当前 goal 形态。匹配到 → 优先使用已记录的 strategy/chain/tip
 2. **增量编译**：tactic 试错阶段用 `bash scripts/check_snippet.sh <file> <start> <end>`
 
 ### Phase 1: Understand (do NOT edit yet)
 1. Read the file containing the sorry (use extract_signatures first, then Read specific line range).
 2. Read surrounding context (imports, helper lemmas, upstream definitions).
-3. **三级搜索（强制）**：
-   - **第一级**：先读 `theme/mathlib_api_index.md` 查找相关 API（80% 在这步解决）
-   - **补充**：`grep -i '<keyword>' theme/mathlib_full_type_index.tsv`（51K 条全量 Mathlib 索引）
+3. **条件搜索（省 token）**：
+   - **如果 Phase 0 的 L3/L2 已匹配** → 按 key_api 定向 grep 查签名，跳过全文读取：
+     - StatLean API: `grep -i '<name>' theme/statlean_api_index.tsv`
+     - Mathlib API: `grep -i '<name>' theme/mathlib_full_type_index.tsv`
+   - **未匹配时第一级**：读 `theme/mathlib_api_index.md` + grep 两个索引
    - **第二级**：索引没有 → `#check` / `exact?`
    - **第三级**：前两级都失败 → grep Mathlib 源码（必须注明升级理由）
-   - 给 subagent 的 prompt 必须包含："先读 `theme/tactic_patterns.yaml` 和 `theme/mathlib_api_index.md`"
 
 ### Phase 2: Strategy
 4. List 2-3 possible proof strategies with tradeoffs.
@@ -47,6 +48,36 @@ You are attacking a specific `sorry` in the StatLean project. Follow this exact 
 ### Phase 4: Verify
 9. Run `lake build` (full project) to ensure no regressions.
 10. Report: what was proved, which Mathlib lemmas were used, and any new insights for MEMORY.md.
+
+### Phase 5: Knowledge Ingestion（强制 — 无论成功或 stuck）
+
+发现任何 L1/L2/L3 pattern（正面或负面）→ **直接写入** `theme/proof_knowledge.yaml`，不等用户确认。
+
+正面 pattern（证明成功时）：
+```yaml
+new_knowledge:
+  - level: L3  # or L2, L1
+    trigger: "<goal 形状>"
+    strategy: "<证明架构>"  # L3
+    # chain: "<引理链>"     # L2
+    # tip: "<技巧>"         # L1
+    key_api: [...]
+    confidence: <3-5>
+```
+
+负面 pattern（发现死路时）：
+```yaml
+new_knowledge:
+  - level: L3  # or L2, L1
+    trigger: "<goal 形状>"
+    anti: true
+    strategy: "DO NOT <走这条路>. <原因>. Must use <正确路线>."
+    confidence: <3-5>
+```
+
+confidence 评分: 5=所有同类goal, 4=大部分, 3=特定子类, 2=仅本定理(不入库), 1=肯定特例(不入库)
+
+在报告的「已入库 proof_knowledge」section 列出本轮写入的条目。
 
 ## Diverging Proof Trees — Handling Strategy
 
@@ -173,6 +204,9 @@ PROVE REPORT: <theorem_name>
   Honest:         [list of genuinely blocked gaps]
   Hard:           [list of branches that need escalation]
   Critical path:  <the one sorry that blocks everything>
+
+  已入库 proof_knowledge.yaml:
+  - [L1/L2/L3] <trigger> — <正面/anti> — <来源>
 ```
 
 ## Key Mathlib patterns (from project memory)
