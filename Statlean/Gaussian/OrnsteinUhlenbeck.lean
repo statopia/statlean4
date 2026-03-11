@@ -1340,8 +1340,208 @@ private lemma integrable_one_add_log_ouSemigroup (g g' : ℝ → ℝ) (t : ℝ) 
         rw [Real.log_mul (ne_of_gt hc₁) (ne_of_gt (exp_pos _)), Real.log_exp]
       linarith [neg_abs_le (log c₁), le_of_lt hpos])
 
+/-- `1 + log(P_t g) ∈ L²(γ)` when g ≥ 0 ae, ∫g > 0, g' bounded.
+Bound: `|1+log P_t g x| ≤ D + c x²` (Gaussian lower bound + log≤id),
+so squared is ≤ C(1 + x⁴), integrable by Gaussian moments. -/
+private lemma memLp_two_one_add_log_ouSemigroup (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+    (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
+    (hg_int : Integrable g stdGaussian)
+    (hg_pos_int : 0 < ∫ x, g x ∂stdGaussian)
+    (hg'_bound : ∃ C, ∀ x, ‖g' x‖ ≤ C)
+    (hg_deriv : ∀ x, HasDerivAt g (g' x) x)
+    (hg_int_all : ∀ z, Integrable (fun y => g (exp (-t) * z +
+      sqrt (1 - exp (-2 * t)) * y)) stdGaussian) :
+    MemLp (fun x => 1 + log (ouSemigroup t g x)) 2 stdGaussian := by
+  -- Get the lower bound: P_t g x ≥ c₁ exp(-c₂ x²)
+  obtain ⟨c₁, c₂, hc₁, hc₂, hlow⟩ :=
+    ouSemigroup_lower_bound g g' t ht hg_nn hg_int hg_pos_int hg'_bound hg_deriv
+  have hPt_pos : ∀ x, 0 < ouSemigroup t g x := by
+    intro x; calc 0 < c₁ * exp (-c₂ * x ^ 2) := by positivity
+      _ ≤ ouSemigroup t g x := hlow x
+  -- Upper bound on P_t g via Lipschitz: |P_t g x| ≤ |P_t g 0| + exp(-t)*M*|x|
+  have hg'_bound_save := hg'_bound
+  obtain ⟨Mb, hMb⟩ := hg'_bound
+  have hMb_nn : 0 ≤ Mb := le_trans (norm_nonneg _) (hMb 0)
+  have hPt_g'_bound' : ∀ x, ‖ouSemigroup t g' x‖ ≤ Mb := by
+    intro z; simp only [ouSemigroup]
+    calc ‖∫ y, g' (exp (-t) * z + sqrt (1 - exp (-2 * t)) * y) ∂stdGaussian‖
+        ≤ ∫ y, ‖g' (exp (-t) * z + sqrt (1 - exp (-2 * t)) * y)‖ ∂stdGaussian :=
+          norm_integral_le_integral_norm _
+      _ ≤ ∫ _, Mb ∂stdGaussian := by
+          apply integral_mono_of_nonneg (ae_of_all _ fun _ => norm_nonneg _)
+            (integrable_const _) (ae_of_all _ fun y => hMb _)
+      _ = Mb := by simp [integral_const]
+  have hPt_lip : ∀ x, |ouSemigroup t g x - ouSemigroup t g 0| ≤ exp (-t) * Mb * |x - 0| := by
+    intro x
+    have hcomm := fun z => ouSemigroup_hasDerivAt t g g' hg_deriv hg'_bound_save hg_int_all z
+    have hPtg_diff : Differentiable ℝ (ouSemigroup t g) :=
+      fun z => (hcomm z).differentiableAt
+    set Mnn : NNReal := ⟨exp (-t) * Mb, mul_nonneg (le_of_lt (exp_pos _)) hMb_nn⟩
+    have hPt_lipschitz : LipschitzWith Mnn (ouSemigroup t g) := by
+      apply lipschitzWith_of_nnnorm_deriv_le hPtg_diff
+      intro z
+      show ‖deriv (ouSemigroup t g) z‖₊ ≤ Mnn
+      rw [← NNReal.coe_le_coe, coe_nnnorm, (hcomm z).deriv]
+      show ‖exp (-t) * ouSemigroup t g' z‖ ≤ exp (-t) * Mb
+      rw [norm_mul, Real.norm_eq_abs, abs_of_pos (exp_pos _)]
+      exact mul_le_mul_of_nonneg_left (hPt_g'_bound' z) (le_of_lt (exp_pos _))
+    have := hPt_lipschitz.dist_le_mul x 0
+    simp only [Real.dist_eq, NNReal.coe_mk] at this
+    exact this
+  -- Combined bound: |1 + log(P_t g x)| ≤ K₁ + K₂|x| + c₂ x²
+  -- (from upper: 1+log ≤ 1+P_t g ≤ 1+|P_t g 0|+exp(-t)*Mb*|x|)
+  -- (from lower: 1+log ≥ 1+log c₁ - c₂ x²)
+  -- Bound |x| ≤ 1 + x² (from AM-GM: (|x|-1)² ≥ 0)
+  have hx_le_sq : ∀ x : ℝ, |x| ≤ 1 + x ^ 2 := by
+    intro x; nlinarith [sq_abs x, sq_nonneg (|x| - 1)]
+  -- Set dominator constant: K + (c₂ + exp(-t)*Mb) x²
+  set K := 2 + |ouSemigroup t g 0| + |log c₁| + exp (-t) * Mb with hK_def
+  set B := c₂ + exp (-t) * Mb with hB_def
+  have hbd : ∀ x, |1 + log (ouSemigroup t g x)| ≤ K + B * x ^ 2 := by
+    intro x
+    have hpos := hPt_pos x
+    have habs_Pt : |ouSemigroup t g x| ≤ |ouSemigroup t g 0| + exp (-t) * Mb * |x| := by
+      have hlip := hPt_lip x; simp only [sub_zero] at hlip
+      have : ouSemigroup t g x = ouSemigroup t g 0 + (ouSemigroup t g x - ouSemigroup t g 0) := by ring
+      rw [this]
+      exact le_trans (abs_add_le _ _) (by linarith)
+    by_cases hlog : 0 ≤ log (ouSemigroup t g x)
+    · rw [abs_of_nonneg (by linarith)]
+      calc 1 + log (ouSemigroup t g x) ≤ 1 + ouSemigroup t g x :=
+              by linarith [Real.log_le_self (le_of_lt hpos)]
+        _ ≤ 1 + |ouSemigroup t g x| := by linarith [le_abs_self (ouSemigroup t g x)]
+        _ ≤ 1 + |ouSemigroup t g 0| + exp (-t) * Mb * |x| := by linarith [habs_Pt]
+        _ ≤ 1 + |ouSemigroup t g 0| + exp (-t) * Mb * (1 + x ^ 2) := by
+            gcongr; exact hx_le_sq x
+        _ ≤ K + B * x ^ 2 := by
+            rw [hK_def, hB_def]
+            nlinarith [abs_nonneg (log c₁), mul_nonneg (le_of_lt hc₂) (sq_nonneg x)]
+    · push_neg at hlog
+      have h1 : log (ouSemigroup t g x) ≥ log (c₁ * exp (-c₂ * x ^ 2)) :=
+        Real.log_le_log (by positivity) (hlow x)
+      have h2 : log (c₁ * exp (-c₂ * x ^ 2)) = log c₁ + (-c₂ * x ^ 2) := by
+        rw [Real.log_mul (ne_of_gt hc₁) (ne_of_gt (exp_pos _)), Real.log_exp]
+      -- |1+log| ≤ 1 + |log| ≤ 1 + |log c₁| + c₂ x² ≤ K + B x²
+      have hab : |1 + log (ouSemigroup t g x)| ≤ 1 + |log (ouSemigroup t g x)| :=
+        (abs_add_le 1 _).trans (by simp [abs_of_pos])
+      have hlog_bound : |log (ouSemigroup t g x)| ≤ |log c₁| + c₂ * x ^ 2 := by
+        rw [abs_of_neg hlog]; linarith [neg_abs_le (log c₁)]
+      calc |1 + log (ouSemigroup t g x)| ≤ 1 + |log (ouSemigroup t g x)| := hab
+        _ ≤ 1 + (|log c₁| + c₂ * x ^ 2) := by linarith [hlog_bound]
+        _ ≤ K + B * x ^ 2 := by
+            rw [hK_def, hB_def]
+            nlinarith [le_of_lt hpos, abs_nonneg (ouSemigroup t g 0),
+              mul_nonneg (le_of_lt (exp_pos (-t))) hMb_nn]
+  -- Dominator D(x) = K + B x² is in MemLp 2
+  -- D² ≤ 2K² + 2B²x⁴, and x⁴ is integrable (id ∈ MemLp 4)
+  have hid4 : MemLp (fun x : ℝ => x) 4 stdGaussian := by
+    have := memLp_id_gaussianReal (4 : NNReal) (μ := 0) (v := 1)
+    simp only [id] at this; exact this
+  have hH44 : ENNReal.HolderTriple 4 4 2 := ⟨by
+    show (4 : ENNReal)⁻¹ + 4⁻¹ = 2⁻¹
+    rw [show (4 : ENNReal) = 2 * 2 from by norm_num,
+        ENNReal.mul_inv (Or.inl (by norm_num : (2 : ENNReal) ≠ 0))
+          (Or.inl (by norm_num : (2 : ENNReal) ≠ ⊤)),
+        ← two_mul, mul_comm, mul_assoc,
+        ENNReal.inv_mul_cancel (by norm_num) (by norm_num), mul_one]⟩
+  have hx2_memLp2 : MemLp (fun x : ℝ => x ^ 2) 2 stdGaussian :=
+    (hid4.mul' hid4 (hpqr := hH44)).ae_eq (ae_of_all _ fun x => by simp [sq])
+  have hdom_memLp2 : MemLp (fun x => K + B * x ^ 2) 2 stdGaussian :=
+    (memLp_const K).add (hx2_memLp2.const_mul B)
+  -- Measurability of 1 + log(P_t g)
+  have hPtg_diff : Differentiable ℝ (ouSemigroup t g) :=
+    fun z => (ouSemigroup_hasDerivAt t g g' hg_deriv hg'_bound_save hg_int_all z).differentiableAt
+  have hasm : AEStronglyMeasurable (fun x => 1 + log (ouSemigroup t g x)) stdGaussian :=
+    ((measurable_const.add (measurable_log.comp hPtg_diff.continuous.measurable))).aestronglyMeasurable
+  -- Apply MemLp.of_le with the dominator
+  exact hdom_memLp2.of_le hasm (ae_of_all _ fun x => by
+    rw [Real.norm_eq_abs]
+    calc |1 + log (ouSemigroup t g x)| ≤ K + B * x ^ 2 := hbd x
+      _ ≤ |K + B * x ^ 2| := le_abs_self _
+      _ = ‖(K + B * x ^ 2 : ℝ)‖ := (Real.norm_eq_abs _).symm)
+
+/-! ## Pointwise Cauchy-Schwarz for OU semigroup (moved before entropy_dissipation)
+
+For `g > 0` a.e., `(P_t g')(x)² / P_t g(x) ≤ P_t(g'²/g)(x)`.
+
+This is Jensen's inequality for the convex function `u ↦ u²/a`:
+  `(∫ h dν)² / (∫ k dν) ≤ ∫ (h²/k) dν`
+when `k > 0` a.e. Equivalently, writing `h = √k · (h/√k)`,
+Cauchy-Schwarz gives `(∫ h)² ≤ (∫ k)(∫ h²/k)`. -/
+
+/-- Integral Cauchy-Schwarz in the form `(∫ h)² / (∫ k) ≤ ∫ (h²/k)`
+when `k > 0` a.e. under a probability measure.
+
+Proof: set `c = (∫ h)/(∫ k)` and expand `0 ≤ ∫ (h - c·k)²/k`. -/
+private lemma integral_sq_div_le' {μ : Measure ℝ} [IsProbabilityMeasure μ]
+    (h k : ℝ → ℝ) (hk_pos : ∀ᵐ x ∂μ, 0 < k x)
+    (hh_int : Integrable h μ) (hk_int : Integrable k μ)
+    (hhk_int : Integrable (fun x => h x ^ 2 / k x) μ) :
+    (∫ x, h x ∂μ) ^ 2 / (∫ x, k x ∂μ) ≤ ∫ x, h x ^ 2 / k x ∂μ := by
+  by_cases hk_int_pos : 0 < ∫ x, k x ∂μ
+  · rw [div_le_iff₀ hk_int_pos]
+    set c := (∫ x, h x ∂μ) / (∫ x, k x ∂μ) with hc_def
+    set A := ∫ x, h x ∂μ with hA_def
+    set B := ∫ x, h x ^ 2 / k x ∂μ with hB_def
+    set K := ∫ x, k x ∂μ with hK_def
+    have hnn : 0 ≤ ∫ x, (h x - c * k x) ^ 2 / k x ∂μ := by
+      apply integral_nonneg_of_ae
+      filter_upwards [hk_pos] with y hky
+      exact div_nonneg (sq_nonneg _) (le_of_lt hky)
+    have hint1 : Integrable (fun x => h x ^ 2 / k x - 2 * c * h x) μ :=
+      hhk_int.sub (hh_int.const_mul _)
+    have hint2 : Integrable (fun x => c ^ 2 * k x) μ := hk_int.const_mul _
+    have hexpand : ∫ x, (h x - c * k x) ^ 2 / k x ∂μ = B - 2 * c * A + c ^ 2 * K := by
+      have hae : ∀ᵐ x ∂μ, (h x - c * k x) ^ 2 / k x =
+          (h x ^ 2 / k x - 2 * c * h x) + c ^ 2 * k x := by
+        filter_upwards [hk_pos] with y hky
+        have hky_ne : k y ≠ 0 := ne_of_gt hky
+        field_simp
+        ring
+      rw [integral_congr_ae hae, integral_add hint1 hint2,
+        integral_sub hhk_int (hh_int.const_mul _),
+        integral_const_mul, integral_const_mul]
+    rw [hexpand] at hnn
+    have hcK : c * K = A := div_mul_cancel₀ A (ne_of_gt hk_int_pos)
+    nlinarith [sq_nonneg (c * K - A)]
+  · have hk_nn : 0 ≤ ∫ x, k x ∂μ := by
+      apply integral_nonneg_of_ae
+      filter_upwards [hk_pos] with y hky; exact le_of_lt hky
+    have hk_zero : ∫ x, k x ∂μ = 0 := le_antisymm (not_lt.mp hk_int_pos) hk_nn
+    rw [hk_zero, div_zero]
+    apply integral_nonneg_of_ae
+    filter_upwards [hk_pos] with y hky
+    exact div_nonneg (sq_nonneg _) (le_of_lt hky)
+
+private lemma ouSemigroup_sq_div_le' (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 ≤ t)
+    (hg_pos : ∀ᵐ x ∂stdGaussian, 0 < g x) (x : ℝ)
+    (hg'_slice : Integrable (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y))
+      stdGaussian)
+    (hg_slice : Integrable (fun y => g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y))
+      stdGaussian)
+    (hFisher_slice : Integrable (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) ^ 2 /
+      g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) stdGaussian) :
+    ouSemigroup t g' x ^ 2 / ouSemigroup t g x ≤
+      ouSemigroup t (fun y => g' y ^ 2 / g y) x := by
+  by_cases ht0 : t = 0
+  · subst ht0; simp [ouSemigroup]
+  · have ht_pos : 0 < t := lt_of_le_of_ne ht (Ne.symm ht0)
+    simp only [ouSemigroup]
+    have hg_comp_pos : ∀ᵐ y ∂stdGaussian,
+        0 < g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) := by
+      set φ := fun y : ℝ => exp (-t) * x + sqrt (1 - exp (-2 * t)) * y
+      have hφ_aem : AEMeasurable φ stdGaussian := by fun_prop
+      have hv := ouVar_ne_zero t ht_pos
+      have h_ac : (Measure.map φ stdGaussian) ≪ stdGaussian := by
+        rw [map_affine_stdGaussian]
+        exact (gaussianReal_absolutelyContinuous _ hv).trans
+          (gaussianReal_absolutelyContinuous' 0 one_ne_zero)
+      exact ae_of_ae_map hφ_aem (h_ac.ae_le hg_pos)
+    exact integral_sq_div_le' _ _ hg_comp_pos hg'_slice hg_slice hFisher_slice
+
 lemma entropy_dissipation (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
+    (hg_pos : ∀ᵐ x ∂stdGaussian, 0 < g x)
     (hg_int : Integrable g stdGaussian)
     (hg_pos_int : 0 < ∫ x, g x ∂stdGaussian)
     (hg'_int : MemLp g' 2 stdGaussian)
@@ -1352,6 +1552,12 @@ lemma entropy_dissipation (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     -- integrability of generator term times log (follows from regularity of P_t g)
     (hint_gen : Integrable (fun x => ouGeneratorAt t g x *
       (1 + log (ouSemigroup t g x))) stdGaussian)
+    -- Fisher information of g is finite
+    (hFisher : Integrable (fun x => g' x ^ 2 / g x) stdGaussian)
+    -- MemLp 2 of the Fisher integrand (P_t g')²/(P_t g) under the semigroup
+    -- This follows from hypercontractivity or Gaussian lower bounds on P_t g
+    (hFisher_memLp2 : MemLp (fun x => deriv (ouSemigroup t g) x *
+      (deriv (ouSemigroup t g) x / ouSemigroup t g x)) 2 stdGaussian)
     -- entropy integrable in a neighborhood of t
     (hent_int : ∀ᶠ s in nhds t, Integrable (fun x =>
       ouSemigroup s g x * log (ouSemigroup s g x)) stdGaussian) :
@@ -1542,14 +1748,132 @@ lemma entropy_dissipation (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
   -- Dirichlet form gives ∫ L(P_t g)(1+log(P_t g)) dγ = -Fisher
   have hdirich := dirichlet_form_entropy g g' t ht hg_nn hg_int hg'_int hg_deriv hPt_pos
     hg'_bound hg_int_all hg'_int_all hPt_pos_all hPt_g'_bound hPt_hasDerivAt2
-    (sorry : MemLp (fun x => deriv (ouSemigroup t g) x *
+    (by -- MemLp (deriv(P_t g) * (1+log P_t g)) 2: bounded × L² = L²
+      -- deriv(P_t g) = exp(-t) * P_t g' is bounded
+      obtain ⟨Md, hMd⟩ := hPt_g'_bound
+      have hMd_nn : 0 ≤ Md := le_trans (norm_nonneg _) (hMd 0)
+      -- deriv(P_t g) ∈ MemLp ∞ (bounded on prob measure)
+      have hderiv_bound : ∀ x, ‖deriv (ouSemigroup t g) x‖ ≤ exp (-t) * Md := by
+        intro x; rw [hderiv_eq, norm_mul, Real.norm_eq_abs, abs_of_pos (exp_pos _)]
+        exact mul_le_mul_of_nonneg_left (hMd x) (le_of_lt (exp_pos _))
+      have hderiv_asm : AEStronglyMeasurable (deriv (ouSemigroup t g)) stdGaussian := by
+        rw [hderiv_eq]
+        exact aestronglyMeasurable_const.mul
+          (integrable_ouSemigroup t (le_of_lt ht) g'
+            ((hg'_int.mono_exponent (by norm_num : (1 : ENNReal) ≤ 2)).integrable le_rfl)).aestronglyMeasurable
+      have hderiv_top : MemLp (deriv (ouSemigroup t g)) ⊤ stdGaussian :=
+        memLp_top_of_bound hderiv_asm _ (ae_of_all _ hderiv_bound)
+      -- 1+log(P_t g) ∈ MemLp 2
+      have hlog_memLp2 := memLp_two_one_add_log_ouSemigroup g g' t ht hg_nn hg_int hg_pos_int
+        hg'_bound hg_deriv hg_int_all
+      -- Combine: MemLp 2 × MemLp ∞ → MemLp 2 via Hölder
+      have hH : ENNReal.HolderTriple ⊤ 2 2 := ⟨by simp⟩
+      exact hlog_memLp2.mul' hderiv_top (hpqr := hH)
+      : MemLp (fun x => deriv (ouSemigroup t g) x *
       (1 + log (ouSemigroup t g x))) 2 stdGaussian)
-    (sorry : MemLp (fun x =>
+    (by -- MemLp (deriv²(P_t g) * (1+log P_t g) + deriv(P_t g) * (deriv(P_t g)/P_t g)) 2
+      -- = Term A + Term B, each in MemLp 2
+      -- Term A: bounded × L² via Hölder (same as sorry 1 pattern)
+      have hlog_memLp2 := memLp_two_one_add_log_ouSemigroup g g' t ht hg_nn
+        hg_int hg_pos_int hg'_bound hg_deriv hg_int_all
+      obtain ⟨C'', hC''⟩ := hPt_g''_bound
+      have hC''_nn : 0 ≤ C'' := le_trans (norm_nonneg _) (hC'' 0)
+      have hderiv2_bound : ∀ x,
+          ‖deriv (deriv (ouSemigroup t g)) x‖ ≤ exp (-t) * (exp (-t) * C'') := by
+        intro x; rw [hderiv2_eq]
+        simp only [norm_mul, Real.norm_eq_abs, abs_of_pos (exp_pos _)]
+        gcongr; exact hC'' x
+      have hderiv2_asm :
+          AEStronglyMeasurable (deriv (deriv (ouSemigroup t g))) stdGaussian := by
+        have heq : deriv (deriv (ouSemigroup t g)) =
+            fun x => exp (-t) * (exp (-t) * ouSemigroup t g'' x) :=
+          funext hderiv2_eq
+        rw [heq]
+        exact aestronglyMeasurable_const.mul (aestronglyMeasurable_const.mul
+          (integrable_ouSemigroup t (le_of_lt ht) g''
+            (by obtain ⟨Cg, hCg⟩ := hg''_bound
+                exact Integrable.of_bound
+                  ((measurable_deriv g').aestronglyMeasurable.congr
+                    (ae_of_all _ fun w => by rw [(hg'_deriv w).deriv]))
+                  Cg (ae_of_all _ fun x => hCg x))).aestronglyMeasurable)
+      have hderiv2_top : MemLp (deriv (deriv (ouSemigroup t g))) ⊤ stdGaussian :=
+        memLp_top_of_bound hderiv2_asm _ (ae_of_all _ hderiv2_bound)
+      have hH : ENNReal.HolderTriple ⊤ 2 2 := ⟨by simp⟩
+      have hTermA : MemLp (fun x => deriv (deriv (ouSemigroup t g)) x *
+          (1 + log (ouSemigroup t g x))) 2 stdGaussian :=
+        hlog_memLp2.mul' hderiv2_top (hpqr := hH)
+      exact hTermA.add hFisher_memLp2
+      : MemLp (fun x =>
       deriv (deriv (ouSemigroup t g)) x * (1 + log (ouSemigroup t g x)) +
       deriv (ouSemigroup t g) x * (deriv (ouSemigroup t g) x / ouSemigroup t g x))
       2 stdGaussian)
     hint_xφψ
-    (sorry : Integrable (fun x => deriv (ouSemigroup t g) x *
+    (by -- Integrable (fun x => deriv(P_t g) x * (deriv(P_t g) x / P_t g x))
+      -- = Integrable ((deriv P_t g)² / P_t g) = e^{-2t} * (P_t g')² / P_t g
+      -- Bounded by e^{-2t} * P_t(g'²/g) via Cauchy-Schwarz, which is integrable
+      have hg'_int_L1 : Integrable g' stdGaussian :=
+        (hg'_int.mono_exponent (by norm_num : (1 : ENNReal) ≤ 2)).integrable le_rfl
+      -- ae slice integrabilities
+      have hg'_ae : ∀ᵐ x ∂stdGaussian, Integrable
+          (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) stdGaussian :=
+        (integrable_mehler_prod t (le_of_lt ht) g' hg'_int_L1).prod_right_ae
+      have hg_ae : ∀ᵐ x ∂stdGaussian, Integrable
+          (fun y => g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) stdGaussian :=
+        (integrable_mehler_prod t (le_of_lt ht) g hg_int).prod_right_ae
+      have hF_ae : ∀ᵐ x ∂stdGaussian, Integrable
+          (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) ^ 2 /
+            g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) stdGaussian :=
+        (integrable_mehler_prod t (le_of_lt ht) (fun y => g' y ^ 2 / g y) hFisher).prod_right_ae
+      -- P_t(g'²/g) is integrable
+      have hRHS_int : Integrable (ouSemigroup t (fun y => g' y ^ 2 / g y)) stdGaussian :=
+        integrable_ouSemigroup t (le_of_lt ht) _ hFisher
+      -- Rewrite as e^{-2t} * (P_t g')² / P_t g
+      have hae_rw : (fun x => deriv (ouSemigroup t g) x *
+          (deriv (ouSemigroup t g) x / ouSemigroup t g x)) =ᵐ[stdGaussian]
+          (fun x => exp (-2 * t) * (ouSemigroup t g' x ^ 2 / ouSemigroup t g x)) := by
+        filter_upwards with x
+        simp only [hderiv_eq]
+        have hpos := hPt_pos_all x
+        have hne : ouSemigroup t g x ≠ 0 := ne_of_gt hpos
+        -- LHS: e^{-t} * P_t g' x * (e^{-t} * P_t g' x / P_t g x)
+        -- RHS: e^{-2t} * (P_t g' x ^ 2 / P_t g x)
+        have hne : (ouSemigroup t g x : ℝ) ≠ 0 := ne_of_gt (hPt_pos_all x)
+        -- After simp [hderiv_eq], goal is:
+        -- e^{-t} * P_t g' x * (e^{-t} * (P_t g' x / P_t g x)) = e^{-2t} * (P_t g' x^2 / P_t g x)
+        -- Goal: a * b * (a * b / c) = exp(-2t) * (b^2 / c)
+        -- where a = exp(-t), b = P_t g', c = P_t g
+        have key : ∀ (a b c : ℝ), c ≠ 0 →
+            a * b * (a * b / c) = a ^ 2 * (b ^ 2 / c) := by
+          intros a b c hc; rw [mul_div_assoc, ← mul_div_assoc]; ring
+        rw [key _ _ _ hne, show (exp (-t) : ℝ) ^ 2 = exp (-2 * t) from by
+          rw [← exp_nat_mul]; ring_nf]
+      -- ae bound: (P_t g')²/P_t g ≤ P_t(g'²/g) via Cauchy-Schwarz
+      have h_ae_bound : ∀ᵐ x ∂stdGaussian,
+          ouSemigroup t g' x ^ 2 / ouSemigroup t g x ≤
+            ouSemigroup t (fun y => g' y ^ 2 / g y) x := by
+        filter_upwards [hg'_ae, hg_ae, hF_ae] with x hg'x hgx hFx
+        exact ouSemigroup_sq_div_le' g g' t (le_of_lt ht) hg_pos x hg'x hgx hFx
+      -- Nonnegativity of the integrand
+      have hnn_ae : ∀ x, 0 ≤ ouSemigroup t g' x ^ 2 / ouSemigroup t g x :=
+        fun x => div_nonneg (sq_nonneg _) (le_of_lt (hPt_pos_all x))
+      -- AEStronglyMeasurable for (P_t g')²/(P_t g)
+      have hPtg'_aem : AEMeasurable (ouSemigroup t g') stdGaussian :=
+        (integrable_ouSemigroup t (le_of_lt ht) g' hg'_int_L1).aestronglyMeasurable.aemeasurable
+      have hPtg_aem : AEMeasurable (ouSemigroup t g) stdGaussian :=
+        (integrable_ouSemigroup t (le_of_lt ht) g hg_int).aestronglyMeasurable.aemeasurable
+      have hasm : AEStronglyMeasurable (fun x => ouSemigroup t g' x ^ 2 / ouSemigroup t g x)
+          stdGaussian :=
+        ((hPtg'_aem.pow_const 2).div hPtg_aem).aestronglyMeasurable
+      -- Integrability via domination by P_t(g'²/g)
+      have hint_sq_div : Integrable (fun x => ouSemigroup t g' x ^ 2 / ouSemigroup t g x)
+          stdGaussian := by
+        apply Integrable.mono hRHS_int hasm
+        filter_upwards [h_ae_bound] with x hbound
+        rw [Real.norm_eq_abs, abs_of_nonneg (hnn_ae x), Real.norm_eq_abs,
+            abs_of_nonneg (le_trans (hnn_ae x) hbound)]
+        exact hbound
+      exact (hint_sq_div.const_mul (exp (-2 * t))).congr hae_rw.symm
+      : Integrable (fun x => deriv (ouSemigroup t g) x *
       (deriv (ouSemigroup t g) x / ouSemigroup t g x)) stdGaussian)
     hint_φ''ψ
   -- Step 4: Combine
