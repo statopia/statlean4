@@ -1,6 +1,6 @@
-version: v116
+version: v120
 generated: 2026-03-11
-total_sorry: 24
+total_sorry: 19
 
 sorry_items:
 
@@ -18,8 +18,8 @@ sorry_items:
 
 - id: ou.entropy_dissipation
   file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 451
-  sorry_lines: [451, 453, 455, 456, 457, 459, 461, 465, 467, 469]
+  line: 1132
+  sorry_lines: [1132, 1134, 1138, 1140, 1142]
   theorem: entropy_dissipation
   type: honest
   depth: 2
@@ -31,8 +31,8 @@ sorry_items:
 
 - id: ou.fisher_contraction
   file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 577
-  sorry_lines: [577, 578]
+  line: 1259
+  sorry_lines: [1259, 1260]
   theorem: fisherInfo_ouSemigroup_le
   type: honest
   depth: 2
@@ -44,7 +44,7 @@ sorry_items:
 
 - id: ou.gaussian_lsi_wiring
   file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 610
+  line: 1292
   theorem: gaussian_lsi_normalized_from_ou
   type: blocked
   depth: 3
@@ -116,19 +116,9 @@ sorry_items:
 
 - id: gaussian.ornsteinuhlenbeck.entropy_hasDerivAt_of_time_deriv
   file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 327
+  line: 699
+  sorry_lines: [699, 701, 702, 709]
   theorem: entropy_hasDerivAt_of_time_deriv
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: gaussian.ornsteinuhlenbeck.ouSemigroup_pos_ae
-  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 422
-  theorem: ouSemigroup_pos_ae
   type: unknown
   depth: 1
   priority: 99
@@ -138,20 +128,8 @@ sorry_items:
 
 - id: gaussian.ornsteinuhlenbeck.ouSemigroup_sq_div_le
   file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 540
-  sorry_lines: [540, 541]
+  line: 1223
   theorem: ouSemigroup_sq_div_le
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: gaussian.ornsteinuhlenbeck.ouSemigroup_time_deriv
-  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 303
-  theorem: ouSemigroup_time_deriv
   type: unknown
   depth: 1
   priority: 99
