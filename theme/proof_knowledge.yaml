@@ -1,180 +1,166 @@
 # theme/proof_knowledge.yaml — 四层证明知识库
 # 使用方法：按 trigger 字段匹配当前 goal，读对应 strategy/chain/tip
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
-# API 签名查询：
-#   Mathlib API  → grep theme/mathlib_api_index.md 或 theme/mathlib_full_type_index.tsv
-#   StatLean API → grep theme/statlean_api_index.tsv (614 declarations, gen by scripts/gen_statlean_index.py)
-#
-# 负面 pattern 约定：
-#   anti: true 表示"不要走这条路"。agent 查到 anti 条目时应跳过该策略。
-#   可出现在 L3 (strategy), L2 (chain), L1 (tip) 任何层级。
-#   已有的 "FALSE LEMMA 警告" 也属于此类。
 version: v3
-entry_count: 82
+entry_count: 95
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
 # ═══════════════════════════════════════════
 L3_strategies:
 
-  # --- 不等式 / 界 ---
   - trigger: "Var[X] ≥ ... or ∫ f ≤ ∫ g (variance/integral inequality)"
     strategy: "正交分解 / completing-the-square / Cauchy-Schwarz → linarith [step1..stepN]"
-    key_api: [integral_nonneg, sq_nonneg, inner_mul_le_norm_mul_nnorm]
-    source: [ANOVA, RaoBlackwell, LehmannScheffe]
+    key_api: ['integral_nonneg', 'sq_nonneg', 'inner_mul_le_norm_mul_nnorm']
+    source: ['ANOVA', 'RaoBlackwell', 'LehmannScheffe']
     confidence: 5
 
   - trigger: "‖a - b‖ ≤ C (norm inequality via intermediate steps)"
     strategy: "calc chain: triangle ‖A-C‖+‖C-B‖ via norm_add_le, then gcongr/linarith"
-    key_api: [norm_add_le, norm_sub_le, gcongr]
-    source: [USLLN, Taylor]
+    key_api: ['norm_add_le', 'norm_sub_le', 'gcongr']
+    source: ['USLLN', 'Taylor']
     confidence: 5
 
   - trigger: "0 ≤ ∫ f dμ (nonnegativity of integral)"
     strategy: "integral_nonneg + pointwise bound (sq_nonneg, mul_self_nonneg)"
-    key_api: [integral_nonneg, integral_nonneg_of_ae, sq_nonneg]
-    source: [RaoBlackwell, LehmannScheffe]
+    key_api: ['integral_nonneg', 'integral_nonneg_of_ae', 'sq_nonneg']
+    source: ['RaoBlackwell', 'LehmannScheffe']
     confidence: 5
 
-  # --- ae 等式 ---
   - trigger: "f =ᵐ[μ] condExp m f (ae equality with condExp)"
     strategy: "ae_eq_condExp_of_forall_setIntegral_eq: prove (1) IntegrableOn, (2) ∫_s h = ∫_s f for m-meas s, (3) AEStronglyMeasurable[m]"
-    key_api: [ae_eq_condExp_of_forall_setIntegral_eq, setIntegral_condExp, stronglyMeasurable_condExp]
-    source: [Factorization]
+    key_api: ['ae_eq_condExp_of_forall_setIntegral_eq', 'setIntegral_condExp', 'stronglyMeasurable_condExp']
+    source: ['Factorization']
     confidence: 5
 
   - trigger: "P[P[f|M]|N] =ᵐ P[P[f|N]|M] (condExp commutativity)"
     strategy: "Integrable.ae_eq_of_forall_setIntegral_eq → MeasurableSpace.induction_on_inter on π-system → independence + pullout + tower"
-    key_api: [induction_on_inter, iIndepFun, condExp_mul_of_aestronglyMeasurable_left]
-    source: [EfronStein]
+    key_api: ['induction_on_inter', 'iIndepFun', 'condExp_mul_of_aestronglyMeasurable_left']
+    source: ['EfronStein']
     confidence: 4
 
-  # --- 唯一性 ---
   - trigger: "f =ᵐ g from unbiased + completeness"
     strategy: "差 = 0 → 完备性/零测集: integral_sub + sub_self + completeness"
-    key_api: [integral_sub, condExp_of_stronglyMeasurable]
-    source: [LehmannScheffe]
+    key_api: ['integral_sub', 'condExp_of_stronglyMeasurable']
+    source: ['LehmannScheffe']
     confidence: 4
 
-  # --- 因子分解 ---
   - trigger: "f = g ∘ T (factorization through statistic)"
     strategy: "Doob-Dynkin: StronglyMeasurable[m_T].measurable.exists_eq_measurable_comp → obtain ⟨h, hh_meas, hψ_eq⟩"
-    key_api: [exists_eq_measurable_comp, comap_measurable, StandardBorelSpace]
-    source: [Factorization, Basu, LehmannScheffe]
+    key_api: ['exists_eq_measurable_comp', 'comap_measurable', 'StandardBorelSpace']
+    source: ['Factorization', 'Basu', 'LehmannScheffe']
     confidence: 5
 
-  # --- 积分等式 ---
   - trigger: "∫ f dμ = ∫ g dμ (integral equality)"
     strategy: "integral_congr_ae for pointwise → tower/pullout for condExp chains"
-    key_api: [integral_congr_ae, integral_condExp, condExp_mul_of_aestronglyMeasurable_left]
-    source: [Factorization, ANOVA, Basu]
+    key_api: ['integral_congr_ae', 'integral_condExp', 'condExp_mul_of_aestronglyMeasurable_left']
+    source: ['Factorization', 'ANOVA', 'Basu']
     confidence: 5
 
-  # --- 可积性链 ---
   - trigger: "Integrable f μ or MemLp f p μ (integrability)"
     strategy: "L^p chain: MemLp q → MemLp p via mono_exponent (p≤q), or memLp_two_iff_integrable_sq for L²↔sq"
-    key_api: [MemLp.mono_exponent, memLp_two_iff_integrable_sq, Integrable.of_bound]
-    source: [Taylor, ANOVA, LehmannScheffe]
+    key_api: ['MemLp.mono_exponent', 'memLp_two_iff_integrable_sq', 'Integrable.of_bound']
+    source: ['Taylor', 'ANOVA', 'LehmannScheffe']
     confidence: 5
 
-  # --- Fubini at arbitrary coord (piFinSuccAbove) ---
   - trigger: "Integrable (fun y => ∫ t, φ(update y j t) dμ) (stdGaussianPi n)"
     strategy: "piFinSuccAbove decomposition: e := MeasurableEquiv.piFinSuccAbove j, hmp.symm.integrable_comp_of_integrable → hprod.integral_prod_right → .comp_snd → hmp.integrable_comp_of_integrable. Key identity: update y j t = e.symm (t, (e y).2) via Fin.update_insertNth."
-    key_api: [MeasurableEquiv.piFinSuccAbove, measurePreserving_piFinSuccAbove, Integrable.integral_prod_right, Integrable.comp_snd, MeasurePreserving.integrable_comp_of_integrable, Fin.update_insertNth]
-    source: [LogSobolev]
+    key_api: ['MeasurableEquiv.piFinSuccAbove', 'measurePreserving_piFinSuccAbove', 'Integrable.integral_prod_right', 'Integrable.comp_snd', 'MeasurePreserving.integrable_comp_of_integrable', 'Fin.update_insertNth']
+    source: ['LogSobolev']
     confidence: 5
 
-  # --- condEntropyAt integrability (Jensen domination) ---
   - trigger: "Integrable (fun x => condEntropyAt μ g j x) (stdGaussianPi n)"
     strategy: "Unfold condEntropyAt = A - B. A integrable by Fubini (integrable_condExpect_stdGaussianPi_gen). B = (E_j g)·log(E_j g) dominated by |A| + 1/e: Jensen upper (convexOn_mul_log.map_integral_le, needs ae slice integrability via prod_left_ae + ae_snd_of_ae_marginal + QuasiMeasurePreserving.ae), lower -1/e (mul_log_ge_neg_inv_exp). Then Integrable.mono'."
-    key_api: [convexOn_mul_log, continuous_mul_log, Integrable.mono', mul_log_ge_neg_inv_exp, ae_snd_of_ae_marginal]
-    source: [LogSobolev]
+    key_api: ['convexOn_mul_log', 'continuous_mul_log', "Integrable.mono'", 'mul_log_ge_neg_inv_exp', 'ae_snd_of_ae_marginal']
+    source: ['LogSobolev']
     confidence: 5
 
-  # --- 测度相等 ---
   - trigger: "μ = ν on σ-algebra (measure equality)"
     strategy: "π-λ / 单调类: ext_of_generate_finite or induction_on_inter"
-    key_api: [ext_of_generate_finite, induction_on_inter]
-    source: [EfronStein]
+    key_api: ['ext_of_generate_finite', 'induction_on_inter']
+    source: ['EfronStein']
     confidence: 4
 
-  # --- 收敛 ---
   - trigger: "∫ F_n → ∫ F (dominated convergence for integrals)"
     strategy: "tendsto_integral_of_dominated_convergence: bound, F_n-measurability, bound-integrable, norm bound, pointwise limit"
-    key_api: [tendsto_integral_of_dominated_convergence]
-    source: [USLLN, Taylor]
+    key_api: ['tendsto_integral_of_dominated_convergence']
+    source: ['USLLN', 'Taylor']
     confidence: 5
 
   - trigger: "Continuous (θ ↦ ∫ f(x,θ) dμ) (continuity of parameter integral)"
     strategy: "continuous_of_dominated: F measurable, bound ae, bound integrable, F continuous in param"
-    key_api: [continuous_of_dominated]
-    source: [USLLN]
+    key_api: ['continuous_of_dominated']
+    source: ['USLLN']
     confidence: 4
 
   - trigger: "aₙ(g(Xₙ)-g(c)) →ᵈ d·Y (delta method)"
     strategy: "Decompose aₙ(g(X)-g(c)) = d·W + R, W→ᵈY via continuous_comp, R→ᵖ0 via isLittleO + tightness"
-    key_api: [tendstoInDistribution_of_tendstoInMeasure_sub, hasDerivAt_iff_isLittleO]
-    source: [DeltaMethod]
+    key_api: ['tendstoInDistribution_of_tendstoInMeasure_sub', 'hasDerivAt_iff_isLittleO']
+    source: ['DeltaMethod']
     confidence: 4
 
   - trigger: "Wₙ →ᵈ Y implies tail P(|Wₙ|≥M)→0 (tightness)"
     strategy: "ProbMeasure extraction → tail decay via tendsto_measure_iInter → Portmanteau limsup → eventually_lt"
-    key_api: [tendsto_measure_iInter_atTop, ProbabilityMeasure]
-    source: [DeltaMethod]
+    key_api: ['tendsto_measure_iInter_atTop', 'ProbabilityMeasure']
+    source: ['DeltaMethod']
     confidence: 4
 
-  # --- 乘积空间 ---
   - trigger: "dimension reduction on product space (∀ i, X i) → ℝ"
     strategy: "restrict map + comap_iSup + Doob-Dynkin factoring + measurePreserving_piEquivPiSubtypeProd → induction"
-    key_api: [comap_iSup, comap_comp, measurePreserving_piEquivPiSubtypeProd, integrable_map_measure]
-    source: [EfronStein]
+    key_api: ['comap_iSup', 'comap_comp', 'measurePreserving_piEquivPiSubtypeProd', 'integrable_map_measure']
+    source: ['EfronStein']
     confidence: 3
 
   - trigger: "∫∫ f d(μ×ν) Fubini order swap"
     strategy: "integral_integral_swap for iterated → integral_prod_symm for coord swap"
-    key_api: [integral_integral_swap, integral_prod_symm, Integrable.prod_right_ae]
-    source: [ANOVA]
+    key_api: ['integral_integral_swap', 'integral_prod_symm', 'Integrable.prod_right_ae']
+    source: ['ANOVA']
     confidence: 4
 
-  # --- 复分析 / charFun ---
   - trigger: "charFun (μ.map Y) t = ∫ exp(itY) dμ (characteristic function)"
     strategy: "charFun_apply_real + integral_map_of_stronglyMeasurable → push_cast; ring"
-    key_api: [charFun_apply_real, integral_map_of_stronglyMeasurable, integral_complex_ofReal]
-    source: [Taylor]
+    key_api: ['charFun_apply_real', 'integral_map_of_stronglyMeasurable', 'integral_complex_ofReal']
+    source: ['Taylor']
     confidence: 5
 
-  # --- Entropy ---
   - trigger: "Ent(g) ≤ ∑_i ∫ condEnt_i(g) (entropy subadditivity)"
     strategy: "Telescoping: h_k = iterated E_k...E_0[g], chain rule + data processing (Jensen for x·log(x))"
-    key_api: [entropy_chain_rule_pi]
-    source: [LogSobolev]
+    key_api: ['entropy_chain_rule_pi']
+    source: ['LogSobolev']
     confidence: 3
 
   - trigger: "Ent_γ(f²) ≤ 2∫(f')² (Gaussian log-Sobolev inequality)"
-    anti: true
     strategy: "DO NOT use Stein identity ∫xh dγ = ∫h' dγ. Stein gives Poincaré (Var ≤ ∫f'²) but NOT LSI, because entropy involves nonlinear x·log(x) which cannot be extracted from the linear Stein identity. Must use OU semigroup infrastructure (Bakry-Emery / hypercontractivity / two-point CLT)."
     key_api: []
-    source: [LogSobolev, prove-deep-2026-03-11]
+    source: ['LogSobolev', 'prove-deep-2026-03-11']
     confidence: 5
 
-  # --- 有限覆盖 ---
   - trigger: "finite subcover of compact space"
     strategy: "isCompact_univ.elim_finite_subcover with open balls + covering proof"
-    key_api: [isCompact_univ.elim_finite_subcover, isOpen_ball]
-    source: [USLLN]
+    key_api: ['isCompact_univ.elim_finite_subcover', 'isOpen_ball']
+    source: ['USLLN']
     confidence: 4
 
-  # --- Variance 分解 ---
   - trigger: "Var[Y] = ∫ Var[Y|G] + Var[E[Y|G]] (law of total variance)"
     strategy: "Direct: integral_condVar_add_variance_condExp hG hY"
-    key_api: [integral_condVar_add_variance_condExp, setIntegral_condVar]
-    source: [RaoBlackwell]
+    key_api: ['integral_condVar_add_variance_condExp', 'setIntegral_condVar']
+    source: ['RaoBlackwell']
     confidence: 5
 
   - trigger: "Var[X] = E[X²] - (E[X])² (variance expansion)"
     strategy: "variance_eq_sub hX_memLp2 then simp only [Pi.pow_apply]"
-    key_api: [variance_eq_sub, Pi.pow_apply]
-    source: [ANOVA, RaoBlackwell]
+    key_api: ['variance_eq_sub', 'Pi.pow_apply']
+    source: ['ANOVA', 'RaoBlackwell']
+    confidence: 5
+
+  - trigger: "OU invariance integral_ouSemigroup Fubini Gaussian affine"
+    strategy: "Fubini swap + gaussianReal_add_gaussianReal_of_indepFun: show aX+bY ~ N(0,1) when a²+b²=1, X,Y iid. Use IndepFun from product measure, gaussianReal_map_const_mul for scalar, then integral_map."
+    key_api: ['gaussianReal_add_gaussianReal_of_indepFun', 'gaussianReal_map_const_mul', 'indepFun_iff_map_prod_eq_prod_map_map', 'integral_prod', 'integral_map']
+    confidence: 5
+
+  - trigger: "OU commutation hasDerivAt ouSemigroup differentiate under integral"
+    strategy: "Use hasDerivAt_integral_of_dominated_loc_of_deriv_le from Mathlib. Chain rule: d/dx f(ax+cy) = a·f'(ax+cy). Need: uniform bound on f', integrability of f∘φ, ae measurability of a·f'∘φ."
+    key_api: ['hasDerivAt_integral_of_dominated_loc_of_deriv_le']
     confidence: 5
 
 # ═══════════════════════════════════════════
@@ -182,157 +168,173 @@ L3_strategies:
 # ═══════════════════════════════════════════
 L2_api_chains:
 
-  # --- condExp 链路 ---
   - trigger: "pullout m-measurable factor from condExp"
     chain: "condExp_mul_of_aestronglyMeasurable_left (needs AEStronglyMeasurable[m] + both Integrable)"
-    source: [Factorization, LehmannScheffe]
+    source: ['Factorization', 'LehmannScheffe']
     confidence: 5
 
   - trigger: "tower property ∫ E[f|m] = ∫ f"
     chain: "integral_condExp hm_le (needs hm : m ≤ m₀, Integrable f)"
-    source: [Basu, LehmannScheffe, RaoBlackwell]
+    source: ['Basu', 'LehmannScheffe', 'RaoBlackwell']
     confidence: 5
 
   - trigger: "setIntegral characterization of condExp"
     chain: "setIntegral_condExp hm hf_int hs (needs MeasurableSet[m] s)"
-    source: [Factorization, Basu]
+    source: ['Factorization', 'Basu']
     confidence: 5
 
   - trigger: "condExp of m-measurable function = itself"
     chain: "condExp_of_stronglyMeasurable hG hYm hYint → rw/simp"
-    source: [RaoBlackwell]
+    source: ['RaoBlackwell']
     confidence: 5
 
   - trigger: "E[f|m] ae-nonneg from f ae-nonneg"
     chain: "condExp_nonneg (ae_of_all _ fun x => <bound>)"
-    source: [Factorization, RaoBlackwell]
+    source: ['Factorization', 'RaoBlackwell']
     confidence: 5
 
   - trigger: "E[f|m] ≤ᵃᵉ E[g|m] from f ≤ᵃᵉ g"
     chain: "condExp_mono hf_int hg_int (ae_of_all _ fun x => ...)"
-    source: [Factorization, Basu]
+    source: ['Factorization', 'Basu']
     confidence: 5
 
   - trigger: "AEStronglyMeasurable[m] for condExp"
     chain: "stronglyMeasurable_condExp.aestronglyMeasurable (or .mono hle for coarser σ-alg)"
-    source: [Factorization, LehmannScheffe]
+    source: ['Factorization', 'LehmannScheffe']
     confidence: 5
 
   - trigger: "MemLp condExp from MemLp f (L² contraction)"
     chain: "hf.condExp (MemLp.condExp preserves Lp membership)"
-    source: [RaoBlackwell, LehmannScheffe]
+    source: ['RaoBlackwell', 'LehmannScheffe']
     confidence: 5
 
-  # --- 积分链路 ---
   - trigger: "∫ f ≤ ∫ g with integrability"
     chain: "integral_mono_ae h_f_int h_g_int (ae_of_all _ fun x => <bound>)"
-    source: [Taylor, ANOVA, RaoBlackwell]
+    source: ['Taylor', 'ANOVA', 'RaoBlackwell']
     confidence: 5
 
   - trigger: "∫ c * f = c * ∫ f"
     chain: "integral_const_mul (also integral_mul_const for f * c form)"
-    source: [Hermite, Basu, ANOVA]
+    source: ['Hermite', 'Basu', 'ANOVA']
     confidence: 5
 
   - trigger: "∫ (f+g) = ∫ f + ∫ g or ∫ (f-g) = ∫ f - ∫ g"
     chain: "integral_add h1_int h2_int / integral_sub h1_int h2_int (explicit integrability!)"
-    source: [LehmannScheffe, ANOVA, Taylor]
+    source: ['LehmannScheffe', 'ANOVA', 'Taylor']
     confidence: 5
 
   - trigger: "lintegral rnDeriv finiteness for trimmed measure"
     chain: "lintegral_trim hle → Measure.lintegral_rnDeriv_le → trim_measurableSet_eq → ne_top_of_le_ne_top"
-    source: [Factorization]
+    source: ['Factorization']
     confidence: 4
 
   - trigger: "Integrable rnDeriv.toReal • f ↔ Integrable f (change of measure)"
     chain: "integrable_rnDeriv_smul_iff hμ + setIntegral_rnDeriv_smul hμ hs"
-    source: [Factorization]
+    source: ['Factorization']
     confidence: 4
 
-  # --- 可积性链路 ---
   - trigger: "MemLp f p from MemLp f q where p ≤ q"
     chain: "hLp.mono_exponent (by norm_num : (p : ENNReal) ≤ q)"
-    source: [Taylor]
+    source: ['Taylor']
     confidence: 5
 
   - trigger: "MemLp f 2 ↔ Integrable (f²)"
     chain: "memLp_two_iff_integrable_sq hf_aesm"
-    source: [ANOVA, LehmannScheffe]
+    source: ['ANOVA', 'LehmannScheffe']
     confidence: 5
 
   - trigger: "Integrable f from uniform bound"
     chain: "Integrable.of_bound h_aesm C h_bound_ae"
-    source: [Factorization]
+    source: ['Factorization']
     confidence: 4
 
   - trigger: "Integrable (f-g) or (f+g)"
     chain: "hf.sub hg / hf.add hg / hf.sub (integrable_const c)"
-    source: [LehmannScheffe, ANOVA]
+    source: ['LehmannScheffe', 'ANOVA']
     confidence: 5
 
   - trigger: "Integrable gtil (P.map restrict) from Integrable (gtil∘restrict) P"
     chain: "integrable_map_measure hgtil_sm.aestronglyMeasurable hrestrict_meas.aemeasurable"
-    source: [EfronStein]
+    source: ['EfronStein']
     confidence: 3
 
-  # --- 可测性链路 ---
   - trigger: "Measurable[comap T m] for functions factoring through T"
     chain: "comap_measurable T + .comp_measurable for g∘T; hT.comap_le for m_T ≤ mΩ"
-    source: [Factorization, Basu]
+    source: ['Factorization', 'Basu']
     confidence: 5
 
   - trigger: "MemLp (f∘π) on product from MemLp f (measure-preserving)"
     chain: "hg_lp.comp_measurePreserving measurePreserving_snd/fst"
-    source: [ANOVA]
+    source: ['ANOVA']
     confidence: 4
 
-  # --- ENNReal 链路 ---
   - trigger: "a.toReal = b.toReal ↔ a = b (ENNReal)"
     chain: "ENNReal.toReal_eq_toReal_iff' h_ne_top h_ne_top"
-    source: [Factorization, Basu]
+    source: ['Factorization', 'Basu']
     confidence: 4
 
   - trigger: "μ s ≠ ⊤ for finite measure"
     chain: "measure_ne_top μ s (from IsFiniteMeasure)"
-    source: [Factorization]
+    source: ['Factorization']
     confidence: 5
 
-  # --- 收敛链路 ---
   - trigger: "ae finite intersection from countable family"
     chain: "ae_ball_iff (Finset.countable_toSet S) for ∀ᵐ ω, ∀ θ ∈ S, P ω θ"
-    source: [USLLN]
+    source: ['USLLN']
     confidence: 4
 
   - trigger: "⨆ k, f k ≤ C from pointwise bound"
     chain: "ciSup_le (fun k => hf_le k) (needs BddAbove)"
-    source: [USLLN]
+    source: ['USLLN']
     confidence: 4
 
-  # --- 复数链路 ---
   - trigger: "‖exp(i·t·x)‖ = 1"
     chain: "Complex.norm_exp_ofReal_mul_I"
-    source: [Taylor, Hermite]
+    source: ['Taylor', 'Hermite']
     confidence: 5
 
   - trigger: "∫ (↑f : ℂ) dμ = ↑(∫ f dμ)"
     chain: "integral_complex_ofReal"
-    source: [Taylor]
+    source: ['Taylor']
     confidence: 5
 
-  # --- piFinSuccAbove Fubini 链路 ---
   - trigger: "Integrable (φ ∘ Prod.snd ∘ e) (stdGaussianPi n)"
     chain: "hmarg.comp_snd stdGaussian → hmp.integrable_comp_of_integrable. Where hmarg := hprod.integral_prod_right, hprod := hmp.symm.integrable_comp_of_integrable hφ."
-    source: [LogSobolev]
+    source: ['LogSobolev']
     confidence: 5
 
   - trigger: "Function.update y j t = e.symm (t, (e y).2) (piFinSuccAbove identity)"
     chain: "conv_lhs => rw [(e.symm_apply_apply y).symm]; simp only [e, MeasurableEquiv.piFinSuccAbove_symm_apply]; exact @Fin.update_insertNth n (fun _ => ℝ) j (e y).1 t (e y).2"
-    source: [LogSobolev]
+    source: ['LogSobolev']
     confidence: 5
 
   - trigger: "∀ᵐ y ∂γⁿ⁺¹, Integrable (fun t => g(update y j t)) γ (ae slice integrability)"
     chain: "hg_prod.prod_left_ae → ae_snd_of_ae_marginal γ₁ γn → hmp.quasiMeasurePreserving.ae → .mono (rewrite via Fin.update_insertNth)"
-    source: [LogSobolev]
+    source: ['LogSobolev']
+    confidence: 5
+
+  - trigger: "integral Cauchy-Schwarz (∫h)²/(∫k) ≤ ∫(h²/k)"
+    chain: "by_cases ∫k > 0: div_le_iff → set c = (∫h)/(∫k) → expand ∫(h-ck)²/k ≥ 0 → integral_congr_ae + field_simp + ring → nlinarith. Case ∫k = 0: div_zero + integral_nonneg_of_ae."
+    confidence: 5
+
+  - trigger: "Gaussian Dirichlet form ∫(Lφ)ψ dγ = -∫φ'ψ' dγ OU generator"
+    chain: "Apply stein_identity to h=φ'·ψ, h'=φ''·ψ+φ'·ψ'. Then integral_add + integral_sub → linarith."
+    confidence: 5
+
+  - trigger: "Integrable g∘affine stdGaussian bounded derivative linear growth"
+    chain: "lipschitzWith_of_nnnorm_deriv_le → LipschitzWith.norm_sub_le → linear growth |g(w)| ≤ |g(0)| + C*|w|. Decompose g = g(0) + (g - g(0)). Bound difference by Integrable.mono with C*|a| + C*|b|*‖y‖. Use IsGaussian.integrable_fun_id for ‖y‖ integrability."
+    confidence: 5
+
+  - trigger: "ae transfer g > 0 ae(γ) composition affine map absolutelyContinuous"
+    chain: "ae_of_ae_map + AbsolutelyContinuous.ae_le: (1) map_affine_stdGaussian to rewrite map, (2) gaussianReal_absolutelyContinuous for ≪ volume, (3) gaussianReal_absolutelyContinuous' for volume ≪ stdGaussian, (4) .trans to chain, (5) ae_of_ae_map converts ae(map φ γ) to ae(γ) about φ-preimage."
+    confidence: 5
+
+  - trigger: "pointwise positivity ouSemigroup Lipschitz all slices integrable"
+    chain: "bounded g' → Lipschitz → g∘affine integrable for ALL x (not just ae). Then ouSemigroup_pos argument works pointwise: by_contra → integral 0 → slice zero ae → ae_zero_of_comp_affine → g=0 ae → contradicts ∫g>0."
+    confidence: 5
+
+  - trigger: "Integrable.mono ae bound nonneg divisor Fubini slice"
+    chain: "integrable_mehler_prod + .prod_right_ae → ae slice integrability. Then ouSemigroup_sq_div_le gives ae pointwise bound. Use Integrable.mono with ae norm bound (abs_of_nonneg for both sides) to prove LHS integrable from RHS integrable."
     confidence: 5
 
 # ═══════════════════════════════════════════
@@ -340,7 +342,6 @@ L2_api_chains:
 # ═══════════════════════════════════════════
 L1_tactic_tips:
 
-  # --- 高频 tactic ---
   - trigger: "∀ᵐ x ∂μ, P x (ae goal)"
     tip: "filter_upwards [h1, h2] with x hx1 hx2; <proof>. For pointwise: ae_of_all _ fun x => <proof>"
     frequency: 20
@@ -369,12 +370,10 @@ L1_tactic_tips:
     tip: "gcongr (monotonicity tactic for norm, mul, pow etc.)"
     frequency: 8
 
-  # --- Pi.apply 陷阱 ---
   - trigger: "(f^2) x ≠ f x^2 for Pi-functions"
     tip: "simp only [Pi.pow_apply] before ring/linarith. Same for Pi.sub_apply, Pi.mul_apply"
     frequency: 5
 
-  # --- condExp 陷阱 ---
   - trigger: "lambda vs Pi form mismatch with condExp"
     tip: "Three fixes: (1) have h_eq : (fun ω => ...) = f - g := rfl; rw [h_eq] (2) change (3) filter_upwards + Pi.sub_apply"
     frequency: 5
@@ -383,7 +382,6 @@ L1_tactic_tips:
     tip: "DON'T set m. Use explicit condExp m ν f. Inline MeasurableSpace.comap T ‹MeasurableSpace α›"
     frequency: 3
 
-  # --- 可测性 shortcuts ---
   - trigger: "AEMeasurable f μ from Measurable f"
     tip: ".aemeasurable coercion (also .aestronglyMeasurable)"
     frequency: 15
@@ -396,7 +394,6 @@ L1_tactic_tips:
     tip: "haveI : SigmaFinite (μ.trim hm) := inferInstance (from IsFiniteMeasure auto)"
     frequency: 3
 
-  # --- 常见错误修复 ---
   - trigger: "rewrite failed: pattern not found (lambda vs Pi)"
     tip: "Add have h_eq : (fun ω => ...) = ... := rfl then rw [h_eq]; or use change/show"
     frequency: 4
@@ -421,12 +418,10 @@ L1_tactic_tips:
     tip: "v4.28 renames: pow_le_pow_left₀, div_le_div_iff₀, exp_nat_mul. Use #check to verify"
     frequency: 3
 
-  # --- ENNReal 陷阱 ---
   - trigger: "ENNReal Summable"
     tip: "ALWAYS true for ENNReal! Use ∑' ≠ ⊤ instead for Borel-Cantelli style arguments"
     frequency: 3
 
-  # --- 杂项技巧 ---
   - trigger: "∃ x, P x (extract witness)"
     tip: "obtain ⟨g, hg, hgT⟩ := ... (standard destructuring)"
     frequency: 15
@@ -447,31 +442,38 @@ L1_tactic_tips:
     tip: "Use add_lt_add_of_le_of_lt explicitly instead"
     frequency: 2
 
-  # --- 除法 / 0÷0 ---
   - trigger: "∫ (g')²/g dμ where g = f² (Fisher information of square)"
     tip: "I(f²) = ∫(2ff')²/f² = 4∫(f')². Lean 0/0=0 makes f=0 case automatic — no need for hf_ne_zero hypothesis. Use div_self_sqrt or direct field_simp."
     frequency: 1
-    source: [LogSobolev, prove-deep-2026-03-11]
 
-  # --- ae 传输 (product measure) ---
   - trigger: "∀ᵐ y ∂ν, P(y) → ∀ᵐ z ∂(μ.prod ν), P(z.2)"
     tip: "Use Measure.prod_prod_le: show {z | ¬P z.2} ⊆ univ ×ˢ {y | ¬P y}, bound (μ.prod ν)(univ ×ˢ S) ≤ μ(univ) * ν(S) = 0. No measurability needed. See ae_snd_of_ae_marginal in LogSobolev.lean."
     frequency: 3
-    source: [LogSobolev, prove-deep-2026-03-11]
 
   - trigger: "∀ᵐ z ∂γn, P(z) → ∀ᵐ y ∂γⁿ⁺¹, P((e y).2) via piFinSuccAbove"
     tip: "Chain: prod_left_ae → ae_snd_of_ae_marginal (transfer to product) → QuasiMeasurePreserving.ae (transfer via e). Then .mono to rewrite predicate using Fin.update_insertNth."
     frequency: 3
-    source: [LogSobolev, prove-deep-2026-03-11]
 
-  # --- FALSE LEMMA 警告 ---
   - trigger: "f ∈ L²(γ) implies f·poly ∈ L²(γ)?"
-    anti: true
     tip: "FALSE! Counterexample exists. Use Hölder: L²·L² ⊆ L¹. Only claim L¹ for products."
     frequency: 1
 
   - trigger: "entropy_subadditivity for g·log(g) NOT integrable (Lean Bochner convention)"
-    anti: true
     tip: "LIKELY FALSE under Lean's ∫=0 convention for non-integrable functions. When g·log(g) ∉ L¹, entropyPi = -(∫g)·log(∫g) can be positive, but ∑∫condEnt_i could be 0 (each condEntropyAt non-integrable → Lean ∫ = 0). Eliminate this case split; use Integrable(g·log g) as hypothesis instead."
     frequency: 1
-    source: [LogSobolev, prove-deep-2026-03-11]
+
+  - trigger: "Gaussian product independence IndepFun Prod.fst Prod.snd"
+    tip: "indepFun_iff_map_prod_eq_prod_map_map + Measure.map_fst_prod + Measure.map_snd_prod + measure_univ"
+    frequency: 1
+
+  - trigger: "NNReal coercion lipschitzWith_of_nnnorm_deriv_le"
+    tip: "Set Cnn : NNReal := ⟨C, hC_nn⟩ and prove (Cnn : ℝ) = C := rfl. Then in the nnnorm bound: rw [← NNReal.coe_le_coe, coe_nnnorm, hCnn_eq, (hg_deriv x).deriv]; exact hC x"
+    frequency: 1
+
+  - trigger: "ae_map_iff requires MeasurableSet use ae_of_ae_map instead"
+    tip: "ae_map_iff needs MeasurableSet {x | p x}. Use ae_of_ae_map instead — it takes AEMeasurable f μ and ∀ᵐ y ∂(map f μ), p y, returns ∀ᵐ x ∂μ, p (f x), with no measurability requirement on the predicate set."
+    frequency: 1
+
+  - trigger: "ouSemigroup nonnegativity t=0 only ae not pointwise"
+    tip: "ouSemigroup 0 g x = g x. If g ≥ 0 only ae(γ), cannot prove g x ≥ 0 for all x. Use ae statements: filter_upwards [hg_nn] with x hx; rw [ouSemigroup_zero]; exact hx."
+    frequency: 1
