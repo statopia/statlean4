@@ -2,6 +2,8 @@ import Statlean.Gaussian.Basic
 import Statlean.Gaussian.Stein
 import Statlean.Entropy.Basic
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
+import Mathlib.Analysis.Calculus.MeanValue
+import Mathlib.Probability.Distributions.Gaussian.Fernique
 
 /-! # Ornstein-Uhlenbeck Semigroup for 1D Gaussian LSI
 
@@ -569,7 +571,45 @@ private lemma ouSemigroup_time_deriv (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 
       sqrt (1 - exp (-2 * t)) * y) := fun z =>
     measurable_const.add (measurable_const.mul measurable_id)
   have hg_int_inner : ∀ z, Integrable (fun y => g (exp (-t) * z +
-      sqrt (1 - exp (-2 * t)) * y)) stdGaussian := sorry
+      sqrt (1 - exp (-2 * t)) * y)) stdGaussian := by
+    intro z'
+    obtain ⟨C, hC⟩ := hg'_bound
+    have hC_nn : (0 : ℝ) ≤ C := le_trans (norm_nonneg _) (hC 0)
+    have hg_diff : Differentiable ℝ g := fun w => (hg_deriv w).differentiableAt
+    set Cnn : NNReal := ⟨C, hC_nn⟩
+    have hCnn_eq : (Cnn : ℝ) = C := rfl
+    have hg_lip : LipschitzWith Cnn g :=
+      lipschitzWith_of_nnnorm_deriv_le hg_diff fun w => by
+        show ‖deriv g w‖₊ ≤ Cnn
+        rw [← NNReal.coe_le_coe, coe_nnnorm, hCnn_eq, (hg_deriv w).deriv]; exact hC w
+    set a' := exp (-t) * z'
+    set b' := sqrt (1 - exp (-2 * t))
+    have hg_meas' : Measurable g := hg_diff.continuous.measurable
+    have haffine_meas' : Measurable (fun y : ℝ => a' + b' * y) :=
+      measurable_const.add (measurable_const.mul measurable_id)
+    have h1 : Integrable (fun _ : ℝ => g 0) stdGaussian := integrable_const _
+    have h2 : Integrable (fun y => g (a' + b' * y) - g 0) stdGaussian := by
+      have hid_int := IsGaussian.integrable_fun_id (μ := stdGaussian)
+      set bound : ℝ → ℝ := fun y => C * |a'| + C * |b'| * ‖y‖
+      have hbound_int : Integrable bound stdGaussian :=
+        (integrable_const _).add (hid_int.norm.const_mul _)
+      have hbound_nn : ∀ y, 0 ≤ bound y := fun y =>
+        add_nonneg (mul_nonneg hC_nn (abs_nonneg _))
+          (mul_nonneg (mul_nonneg hC_nn (abs_nonneg _)) (norm_nonneg _))
+      exact Integrable.mono hbound_int
+        ((hg_meas'.comp haffine_meas').sub measurable_const).aestronglyMeasurable
+        (ae_of_all _ fun y => by
+          have h := hg_lip.norm_sub_le (a' + b' * y) 0
+          simp only [sub_zero, hCnn_eq] at h
+          rw [show ‖bound y‖ = bound y from Real.norm_of_nonneg (hbound_nn y)]
+          calc ‖g (a' + b' * y) - g 0‖ ≤ C * ‖a' + b' * y‖ := h
+            _ ≤ C * (|a'| + |b' * y|) := by
+                gcongr; rw [Real.norm_eq_abs]; exact abs_add_le _ _
+            _ = C * |a'| + C * |b'| * ‖y‖ := by
+                rw [abs_mul b' y, Real.norm_eq_abs]; ring)
+    have : (fun y => g (a' + b' * y)) = (fun y => g 0 + (g (a' + b' * y) - g 0)) := by
+      ext y; abel
+    rw [this]; exact h1.add h2
   have hg'_int_inner : ∀ z, Integrable (fun y => g' (exp (-t) * z +
       sqrt (1 - exp (-2 * t)) * y)) stdGaussian := by
     intro z; obtain ⟨C, hC⟩ := hg'_bound
@@ -635,7 +675,41 @@ private lemma entropy_hasDerivAt_of_time_deriv (g : ℝ → ℝ) (t : ℝ) (ht :
     HasDerivAt (fun s => ∫ x, ouSemigroup s g x * log (ouSemigroup s g x) ∂stdGaussian)
       (∫ x, ouGeneratorAt t g x * (1 + log (ouSemigroup t g x)) ∂stdGaussian)
       t := by
-  sorry
+  -- Strategy: apply hasDerivAt_integral_of_dominated_loc_of_deriv_le (parametric Leibniz rule)
+  -- with F(s,x) = ouSemigroup s g x * log(ouSemigroup s g x)
+  -- and  F'(s,x) = (d/ds ouSemigroup s g x) * (1 + log(ouSemigroup s g x))
+  -- The pointwise derivative d/ds [u·log u] = u'·(1 + log u) by chain rule.
+  -- Sub-goal 1: AEStronglyMeasurable of F(s,·) near t — from hent_int
+  have hF_meas : ∀ᶠ s in nhds t, AEStronglyMeasurable (fun x =>
+      ouSemigroup s g x * log (ouSemigroup s g x)) stdGaussian :=
+    hent_int.mono (fun s hs => hs.aestronglyMeasurable)
+  -- Sub-goal 2: Integrable F(t,·) — from hent_int
+  have hent_int_t : Integrable (fun x => ouSemigroup t g x * log (ouSemigroup t g x))
+      stdGaussian := hent_int.self_of_nhds
+  -- Sub-goal 3: AEStronglyMeasurable of F'(t,·) — from hint
+  have hF'_meas : AEStronglyMeasurable (fun x => ouGeneratorAt t g x *
+      (1 + log (ouSemigroup t g x))) stdGaussian := hint.aestronglyMeasurable
+  -- Sub-goal 4: neighborhood S ∈ nhds t
+  have hS : Set.Ioo (t / 2) (2 * t) ∈ nhds t := Ioo_mem_nhds (by linarith) (by linarith)
+  -- Sub-goal 5: uniform bound — needs OU regularity near t (sorry)
+  -- For s near t, ‖(d/ds P_s g)(x) * (1 + log(P_s g(x)))‖ ≤ bound(x) with integrable bound.
+  -- This requires uniform-in-s bounds on ouGeneratorAt and log(ouSemigroup), which follow from
+  -- smoothness of the Gaussian heat kernel but need substantial regularity theory.
+  -- The bound function: for each x, sup over s near t of |F'(s,x)|
+  let bound : ℝ → ℝ := sorry
+  have hbound : ∀ᵐ x ∂stdGaussian, ∀ s ∈ Set.Ioo (t / 2) (2 * t),
+      ‖ouGeneratorAt s g x * (1 + log (ouSemigroup s g x))‖ ≤ bound x := sorry
+  have hbound_int : Integrable bound stdGaussian := sorry
+  -- Sub-goal 6: pointwise HasDerivAt — chain rule d/ds[u·log u] = u'·(1+log u)
+  -- where u(s) = ouSemigroup s g x, u'(s) = ouGeneratorAt s g x.
+  -- This requires: (a) HasDerivAt for s ↦ ouSemigroup s g x at each s near t (not just at t),
+  -- (b) ouSemigroup s g x > 0 for s near t and ae x, (c) chain rule for log.
+  have hpointwise : ∀ᵐ x ∂stdGaussian, ∀ s ∈ Set.Ioo (t / 2) (2 * t),
+      HasDerivAt (fun s => ouSemigroup s g x * log (ouSemigroup s g x))
+        (ouGeneratorAt s g x * (1 + log (ouSemigroup s g x))) s := sorry
+  -- Apply the parametric Leibniz rule
+  exact (hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    hS hF_meas hent_int_t hF'_meas hbound hbound_int hpointwise).2
 
 /-- The OU generator integrated against (1 + log(P_t g)) gives the negative Fisher info.
 
