@@ -1,6 +1,6 @@
-version: v112
+version: v115
 generated: 2026-03-11
-total_sorry: 7
+total_sorry: 12
 
 sorry_items:
 
@@ -16,17 +16,84 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: lsi.normalized_of_integrable
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 415
-  theorem: gaussian_lsi_normalized_of_integrable
-  type: stuck
-  depth: 3
+# === 1D Gaussian LSI — decomposed into OU semigroup sub-lemmas ===
+# The original lsi.normalized_of_integrable now delegates to
+# gaussian_lsi_normalized_from_ou in OrnsteinUhlenbeck.lean,
+# which depends on 5 OU sub-lemmas + 1 wiring proof.
+
+- id: ou.integral_invariance
+  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
+  line: 53
+  theorem: integral_ouSemigroup
+  type: honest
+  depth: 1
   priority: 2
-  blocker: "1D Gaussian LSI: Ent_γ(f²) ≤ 2∫f'² when f²·log(f²) integrable. DEEP RESULT. Agent A3 (2026-03-07) research: 5 routes analyzed. BEST ROUTES: (e) Two-point LSI + CLT transfer (~200-250 lines, 95% feasible, all deps in Statlean) - Two-point LSI on {-1,1}: pure algebra ~25 lines - Tensorization via product entropy: Fubini ~45 lines - CLT transfer using levy_continuity: ~120 lines (a) Bakry-Emery Γ₂ + OU semigroup (~280-350 lines, 80% feasible) - OU definition via Mehler: ~60 lines - Entropy dissipation d/dt Ent = -I: ~80 lines (hardest) - Fisher info decay I(P_t g) ≤ e^{-2t}I(g): ~90 lines - Integration: ~60 lines Stein identity gives Poincaré ONLY, not LSI. Mathlib has NO LSI/OU/Bakry-Emery. "
-  estimated_lines: 250
+  blocker: "OU invariance: ∫ P_t f dγ = ∫ f dγ. Fubini + e^{-t}X + √(1-e^{-2t})Y ~ N(0,1) when X,Y iid N(0,1). Uses gaussianReal_add_gaussianReal_of_indepFun + gaussianReal_map_const_mul."
+  estimated_lines: 40
   dependencies: []
-  unlocks: [herbst.subgaussian_mgf, lsi.integrable_sq_log]
+  unlocks: [ou.fisher_contraction, ou.gaussian_lsi_wiring]
+
+- id: ou.spatial_commutation
+  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
+  line: 65
+  theorem: ouSemigroup_hasDerivAt
+  type: honest
+  depth: 1
+  priority: 3
+  blocker: "OU commutation: (P_t f)'(x) = e^{-t} · P_t(f')(x). Differentiate Mehler integral under ∫ by dominated convergence. Chain rule: d/dx f(e^{-t}x + ...) = e^{-t} f'(...)."
+  estimated_lines: 50
+  dependencies: []
+  unlocks: [ou.fisher_contraction]
+
+- id: ou.convergence
+  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
+  line: 77
+  theorem: ouSemigroup_tendsto
+  type: honest
+  depth: 1
+  priority: 4
+  blocker: "OU convergence: P_t f(x) → E_γ[f] as t→∞. DCT: e^{-t}→0, √(1-e^{-2t})→1, so integrand → f(y). Need dominating function."
+  estimated_lines: 40
+  dependencies: []
+  unlocks: [ou.gaussian_lsi_wiring]
+
+- id: ou.entropy_dissipation
+  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
+  line: 98
+  theorem: entropy_dissipation
+  type: honest
+  depth: 2
+  priority: 5
+  blocker: "Entropy dissipation: d/dt Ent_γ(P_t g) = -I_γ(P_t g). HARDEST sub-lemma. Requires: (1) OU equation ∂_t P_t g = L P_t g where L = ∂²/∂x² - x·∂/∂x, (2) differentiation under integral for entropy functional (parametric Leibniz), (3) Gaussian IBP ∫(Lφ)ψ dγ = -∫φ'ψ' dγ. Mathlib has no hasDerivAt_integral_of_dominated."
+  estimated_lines: 80
+  dependencies: []
+  unlocks: [ou.gaussian_lsi_wiring]
+
+- id: ou.fisher_contraction
+  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
+  line: 118
+  theorem: fisherInfo_ouSemigroup_le
+  type: honest
+  depth: 2
+  priority: 6
+  blocker: "Fisher info contraction: I(P_t g) ≤ e^{-2t}·I(g). Uses: (1) commutation (P_t g)' = e^{-t}·P_t(g'), (2) Cauchy-Schwarz (E[h])² ≤ E[g]·E[h²/g], (3) invariance ∫P_t φ = ∫φ."
+  estimated_lines: 50
+  dependencies: [ou.spatial_commutation, ou.integral_invariance]
+  unlocks: [ou.gaussian_lsi_wiring]
+
+- id: ou.gaussian_lsi_wiring
+  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
+  line: 144
+  theorem: gaussian_lsi_normalized_from_ou
+  type: honest
+  depth: 3
+  priority: 7
+  blocker: "Wiring: Ent(f²) = ∫₀^∞ I(P_t f²) dt ≤ I(f²)/2 = 2∫(f')². Combines all OU sub-lemmas + Fisher identity I(f²) = 4∫(f')² + improper integral ∫₀^∞ e^{-2t} dt = 1/2."
+  estimated_lines: 40
+  dependencies: [ou.integral_invariance, ou.spatial_commutation, ou.convergence, ou.entropy_dissipation, ou.fisher_contraction]
+  unlocks: [lsi.integrable_sq_log, herbst.subgaussian_mgf]
+
+# === Downstream sorry (unchanged) ===
 
 - id: lsi.integrable_sq_log
   file: Statlean/Entropy/LogSobolev.lean
@@ -34,10 +101,10 @@ sorry_items:
   theorem: integrable_sq_mul_log_sq_of_memLp
   type: blocked
   depth: 2
-  priority: 3
+  priority: 8
   blocker: "f²·log(f²) ∈ L¹(γ) for f ∈ W^{1,2}(γ). Blocked by LSI infrastructure."
   estimated_lines: 80
-  dependencies: [lsi.normalized_of_integrable]
+  dependencies: [ou.gaussian_lsi_wiring]
   unlocks: []
 
 - id: herbst.subgaussian_mgf
@@ -49,7 +116,7 @@ sorry_items:
   priority: 9
   blocker: "Blocked by Gaussian LSI + entropy subadditivity."
   estimated_lines: 60
-  dependencies: [lsi.normalized_of_integrable, lsi.entropy_subadditivity_of_nonneg]
+  dependencies: [ou.gaussian_lsi_wiring, lsi.entropy_subadditivity_of_nonneg]
   unlocks: []
 
 - id: lsi.integrated_condEntropyAt_condExpect_le

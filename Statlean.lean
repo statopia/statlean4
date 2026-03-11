@@ -5,6 +5,7 @@ import Statlean.Gaussian.Basic
 import Statlean.Gaussian.Stein
 import Statlean.Gaussian.Hermite
 import Statlean.Gaussian.Poincare
+import Statlean.Gaussian.OrnsteinUhlenbeck
 -- Variance inequalities
 import Statlean.Variance.ANOVA
 import Statlean.Variance.RaoBlackwell

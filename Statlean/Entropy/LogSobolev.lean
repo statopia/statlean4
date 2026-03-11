@@ -1,5 +1,6 @@
 import Statlean.Entropy.Basic
 import Statlean.Gaussian.Poincare
+import Statlean.Gaussian.OrnsteinUhlenbeck
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 
 /-! # Gaussian Log-Sobolev Inequality
@@ -403,16 +404,15 @@ Equivalently in Fisher information form: `Ent(g) <= 1/2 * I(g)` where
 (c) Two-point inequality + CLT transfer (~200 lines) -/
 private lemma gaussian_lsi_normalized_of_integrable
     (f f' : ℝ → ℝ)
-    (_hf : MemLp f 2 stdGaussian)
-    (_hf' : MemLp f' 2 stdGaussian)
-    (_hderiv : ∀ x, HasDerivAt f (f' x) x)
-    (_hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
-    (_hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
+    (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
-      2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  -- Blocker: Requires OU semigroup infrastructure (Bakry-Emery criterion).
-  -- See docstring above for proof architecture.
-  sorry
+      2 * ∫ x, f' x ^ 2 ∂stdGaussian :=
+  Statlean.Gaussian.gaussian_lsi_normalized_from_ou
+    f f' hf hf' hderiv hnorm hint
 
 lemma gaussian_lsi_normalized
     (f f' : ℝ → ℝ)
