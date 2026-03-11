@@ -409,9 +409,9 @@ functions on ℚ implies uniform convergence over ℝ, provided the limit G is
 continuous, monotone, bounded in [0,1], with G → 0 at -∞ and G → 1 at +∞.
 
 NOTE: This version requires `Continuous G`. For the general CDF case
-(right-continuous + monotone), a more involved proof using adaptive grid
-selection is needed. The Glivenko-Cantelli application sorrys the continuity
-hypothesis, which holds when the underlying distribution is atomless. -/
+(right-continuous + monotone), a more involved proof using an adaptive grid
+or greedy partition with compactness would be needed. The Glivenko-Cantelli
+theorem accordingly requires a continuous CDF hypothesis. -/
 private lemma uniform_of_pointwise_on_rationals
     (F : ℕ → ℝ → ℝ) (G : ℝ → ℝ)
     (hF_mono : ∀ n, Monotone (F n))
@@ -576,19 +576,25 @@ private lemma uniform_of_pointwise_on_rationals
                     hF_mono n (show t ≤ (q : ℝ) from hle_q')]
       linarith [max_lt (hN n hn q hq_mem) (hN n hn p hp_mem)]
 
-/-- **Glivenko-Cantelli theorem**: `sup_t |F̂ₙ(t) - F(t)| → 0` a.s.
-(Shao, Thm 1.3).
+/-- **Glivenko-Cantelli theorem** (continuous CDF version):
+`sup_t |F̂ₙ(t) - F(t)| → 0` a.s. (Shao, Thm 1.3).
+
+This version requires the population CDF to be continuous (i.e., the underlying
+distribution is atomless). The general version for arbitrary CDFs (right-continuous
+with jumps) requires an adaptive grid argument; see the TODO in
+`uniform_of_pointwise_on_rationals`.
 
 **Proof structure**:
 1. For each `t ∈ ℚ`, SLLN gives `F̂ₙ(t) → F(t)` a.s. (`slln_cdf_at_point`).
 2. Countable intersection (`ae_all_iff`): a.e. `ω`, for ALL `q ∈ ℚ`, `F̂ₙ(q) → F(q)`.
 3. Monotone CDF bootstrap (`uniform_of_pointwise_on_rationals`): pointwise on ℚ
-   + monotonicity → uniform convergence over all ℝ. -/
+   + monotonicity + continuity → uniform convergence over all ℝ. -/
 theorem glivenko_cantelli [IsProbabilityMeasure μ]
     (X : ℕ → Ω → ℝ) (hX : ∀ n, Measurable (X n))
     (h_iid : ProbabilityTheory.iIndepFun (m := fun _ => inferInstance) X μ)
     (h_ident : ∀ n, μ.map (X n) = μ.map (X 0))
-    (h_prob : IsProbabilityMeasure (μ.map (X 0))) :
+    (h_prob : IsProbabilityMeasure (μ.map (X 0)))
+    (h_cont : Continuous (populationCDF (μ.map (X 0)))) :
     ∀ᵐ ω ∂μ, Tendsto
       (fun n => ⨆ t : ℝ,
         |empiricalCDF X (n + 1) ω t -
@@ -606,11 +612,7 @@ theorem glivenko_cantelli [IsProbabilityMeasure μ]
     (populationCDF (μ.map (X 0)))
     (fun n => empiricalCDF_mono X (n + 1) ω)
     (populationCDF_mono _)
-    -- TODO: populationCDF is right-continuous but not necessarily continuous.
-    -- This sorry holds when the underlying distribution is atomless.
-    -- The proper fix is to prove uniform_of_pointwise_on_rationals with
-    -- right-continuity instead of continuity, using an adaptive grid.
-    (sorry)
+    h_cont
     hω
     (fun n t => ⟨by unfold empiricalCDF; positivity,
                  by unfold empiricalCDF
