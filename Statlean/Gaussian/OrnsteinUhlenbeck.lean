@@ -1127,14 +1127,23 @@ private lemma ouSemigroup_sq_div_le (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 ≤ t
     (hg_pos : ∀ᵐ x ∂stdGaussian, 0 < g x) (x : ℝ) :
     ouSemigroup t g' x ^ 2 / ouSemigroup t g x ≤
       ouSemigroup t (fun y => g' y ^ 2 / g y) x := by
-  simp only [ouSemigroup]
-  -- Transfer g > 0 a.e. to the composed version g(φ(y)) > 0 a.e.
-  -- This uses that φ(y) = e^{-t}x + √(1-e^{-2t})y pushes stdGaussian
-  -- to a measure absolutely continuous w.r.t. stdGaussian
-  have hg_comp_pos : ∀ᵐ y ∂stdGaussian,
-      0 < g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) := by
-    sorry -- ae transfer: g > 0 a.e.(γ) implies g∘φ > 0 a.e.(γ)
-  exact integral_sq_div_le _ _ hg_comp_pos (sorry) (sorry) (sorry)
+  by_cases ht0 : t = 0
+  · -- t = 0: P_0 = id, inequality is trivial
+    subst ht0; simp [ouSemigroup]
+  · -- t > 0: use ae transfer + Cauchy-Schwarz
+    have ht_pos : 0 < t := lt_of_le_of_ne ht (Ne.symm ht0)
+    simp only [ouSemigroup]
+    have hg_comp_pos : ∀ᵐ y ∂stdGaussian,
+        0 < g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) := by
+      set φ := fun y : ℝ => exp (-t) * x + sqrt (1 - exp (-2 * t)) * y
+      have hφ_aem : AEMeasurable φ stdGaussian := by fun_prop
+      have hv := ouVar_ne_zero t ht_pos
+      have h_ac : (Measure.map φ stdGaussian) ≪ stdGaussian := by
+        rw [map_affine_stdGaussian]
+        exact (gaussianReal_absolutelyContinuous _ hv).trans
+          (gaussianReal_absolutelyContinuous' 0 one_ne_zero)
+      exact ae_of_ae_map hφ_aem (h_ac.ae_le hg_pos)
+    exact integral_sq_div_le _ _ hg_comp_pos (sorry) (sorry) (sorry)
 
 /-! ## Sub-lemma 5: Fisher information contraction
 
