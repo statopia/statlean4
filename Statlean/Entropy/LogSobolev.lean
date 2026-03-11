@@ -1068,6 +1068,40 @@ private lemma integrated_condEntropyAt_condExpect_le {n : ℕ}
         (fun y => ∫ t, g (Function.update y j t) ∂stdGaussian) i x
       ∂(stdGaussianPi n) ≤
     ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
+  -- The proof uses the chain rule + DPI approach:
+  -- ∫ condEnt_i(E_j g) = entropyPi(E_j g) - entropyPi(E_i E_j g)  [chain rule for E_j g]
+  -- ∫ condEnt_i(g) = entropyPi(g) - entropyPi(E_i g)              [chain rule for g]
+  -- Need: entropyPi(E_j g) - entropyPi(E_i E_j g) ≤ entropyPi(g) - entropyPi(E_i g)
+  -- This is: ∫(E_j g)·log(E_j g) - ∫(E_i E_j g)·log(E_i E_j g)
+  --        ≤ ∫g·log(g) - ∫(E_i g)·log(E_i g)
+  -- (the (∫h)·log(∫h) terms cancel since all four functions have the same integral).
+  --
+  -- Equivalently: F(g) + F(E_i E_j g) ≥ F(E_i g) + F(E_j g) where F(h) = ∫h·log(h).
+  -- This is the supermodularity of F under conditional expectations,
+  -- equivalent to non-negativity of mutual information.
+  --
+  -- However, applying the chain rule requires integrability of slice integrals
+  -- which is non-trivial. We instead use a direct calculation.
+  --
+  -- Direct approach: split ∫ condEnt = ∫ A - ∫ B where
+  --   A(x) = ∫_t φ(upd x i t)·log(φ(upd x i t)) dγ(t)  (first term)
+  --   B(x) = (∫_t φ(upd x i t) dγ(t))·log(∫_t φ(upd x i t) dγ(t))  (second term)
+  -- for φ = E_j g (LHS) resp. φ = g (RHS).
+  --
+  -- By Fubini: ∫ A_{E_j g} = ∫ (E_j g)·log(E_j g) = F(E_j g)
+  --            ∫ A_g = ∫ g·log(g) = F(g)
+  -- By def:    ∫ B_{E_j g} = ∫ (E_i E_j g)·log(E_i E_j g)
+  --            ∫ B_g = ∫ (E_i g)·log(E_i g)
+  --
+  -- So the claim is F(E_j g) - ∫(E_i E_j g)·log(E_i E_j g)
+  --              ≤ F(g) - ∫(E_i g)·log(E_i g).
+  -- i.e., [F(g) - F(E_j g)] ≥ [∫(E_i g)·log(E_i g) - ∫(E_i E_j g)·log(E_i E_j g)]
+  -- i.e., [F(g) - F(E_j g)] ≥ [F(E_i g) - F(E_j(E_i g))]  (commutativity)
+  -- Both sides are ≥ 0 (Jensen). The inequality follows from:
+  --   ∫ g·log(g·c/(r·q)) ≥ 0  (mutual information ≥ 0)
+  -- where c = E_i E_j g, r = E_i g, q = E_j g.
+  -- This equals c·∫ p·log(p/(p₁·p₂)) where p = g/c is a "density" and p₁, p₂ marginals.
+  -- By KL divergence ≥ 0 (Jensen for -log): ∫ p·log(p/(p₁·p₂)) ≥ 0.
   sorry
 
 -- Sub-lemma 2: When g·log(g) is not integrable but g ≥ 0 and g ∈ L¹,
