@@ -1480,17 +1480,29 @@ private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
     -- ∫ condEnt(h, j) on (m'+1) dims ≤ ∫ condEnt(f, succ j) on (m'+2) dims.
     -- This combines condEnt translation (h ↔ E₀f via tail) with the DPI:
     -- averaging over coord 0 doesn't increase conditional entropy along coord (succ j).
+    -- condEntropyAt h j integrable on γ^{m'+1}
+    have hcondEnt_int : ∀ j : Fin (m' + 1),
+        Integrable (fun y => condEntropyAt stdGaussian h j y)
+          (stdGaussianPi (m' + 1)) := by
+      intro j; exact integrable_condEntropyAt_of_nonneg h hh_nn hh_int hh_log_int j
+    -- Step A: ∫ condEnt(h, j) = ∫ condEnt(E₀f, succ j) (dimension lift via tail)
+    have hstepA : ∀ j : Fin (m' + 1),
+        ∫ y, condEntropyAt stdGaussian h j y ∂(stdGaussianPi (m' + 1)) =
+        ∫ x, condEntropyAt stdGaussian E₀f (Fin.succ j) x
+          ∂(stdGaussianPi (m' + 2)) := by
+      intro j
+      rw [hE₀f_eq]
+      simp_rw [condEntropyAt_comp_tail h j]
+      exact (integral_comp_tail_stdGaussianPi _ (hcondEnt_int j)).symm
     have hdata_combined : ∀ j : Fin (m' + 1),
         ∫ y, condEntropyAt stdGaussian h j y ∂(stdGaussianPi (m' + 1)) ≤
         ∫ x, condEntropyAt stdGaussian f (Fin.succ j) x
           ∂(stdGaussianPi (m' + 2)) := by
       intro j
-      -- Step A: ∫ condEnt(h, j) dγ^{m'+1} = ∫ condEnt(E₀f, succ j) dγ^{m'+2}
-      --   (by condEntropyAt_comp_tail + integral_comp_tail_stdGaussianPi)
-      -- Step B: ∫ condEnt(E₀f, succ j) ≤ ∫ condEnt(f, succ j)
-      --   (by DPI: integrated_condEntropyAt_condExpect_le)
-      -- Both steps combined into one sorry.
-      sorry
+      rw [hstepA j]
+      -- DPI: ∫ condEnt(E₀f, succ j) ≤ ∫ condEnt(f, succ j)
+      exact integrated_condEntropyAt_condExpect_le f hf_nn hf hf_log
+        (Fin.succ j) 0 (Fin.succ_ne_zero j)
     -- Step 7: Combine. Split sum as condEnt_0 + ∑_{j} condEnt_{succ j}.
     rw [Fin.sum_univ_succ, hchain]
     -- Goal: ∫ condEnt_0(f) + Ent(E₀f) ≤ ∫ condEnt_0(f) + ∑_j ∫ condEnt_{succ j}(f)
