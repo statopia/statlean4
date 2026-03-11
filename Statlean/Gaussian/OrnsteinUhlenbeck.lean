@@ -1146,6 +1146,91 @@ lemma entropy_dissipation (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     have h := (ouSemigroup_hasDerivAt t g' g'' hg'_deriv hg''_bound hg'_int_all x).const_mul
       (exp (-t))
     rw [h.deriv]; exact h
+  -- Log integrability from helper lemma
+  have hlog_int := integrable_one_add_log_ouSemigroup g g' t ht hg_nn hg_int hg_pos_int
+    hg'_bound hg_deriv
+  -- Derivative identity: deriv(P_t g) = exp(-t) * P_t g'
+  have hcomm : ∀ x, HasDerivAt (ouSemigroup t g) (exp (-t) * ouSemigroup t g' x) x :=
+    fun x => ouSemigroup_hasDerivAt t g g' hg_deriv hg'_bound hg_int_all x
+  have hderiv_eq : deriv (ouSemigroup t g) = fun x => exp (-t) * ouSemigroup t g' x :=
+    funext fun x => (hcomm x).deriv
+  -- g''∘affine integrable for all x (bounded)
+  have hg''_int_all : ∀ z, Integrable (fun y => g'' (exp (-t) * z +
+      sqrt (1 - exp (-2 * t)) * y)) stdGaussian := by
+    intro z; obtain ⟨C, hC⟩ := hg''_bound
+    have hg'_diff : Differentiable ℝ g' := fun w => (hg'_deriv w).differentiableAt
+    exact Integrable.of_bound
+      (((measurable_deriv g').comp (measurable_const.add
+        (measurable_const.mul measurable_id))).aestronglyMeasurable.congr
+        (ae_of_all _ fun y => by
+          change deriv g' _ = g'' _; exact (hg'_deriv _).deriv)) C
+      (ae_of_all _ fun y => hC _)
+  -- Second derivative: deriv(deriv(P_t g)) x = exp(-t) * (exp(-t) * P_t g'' x)
+  have hcomm2 : ∀ x, HasDerivAt (ouSemigroup t g') (exp (-t) * ouSemigroup t g'' x) x :=
+    fun x => ouSemigroup_hasDerivAt t g' g'' hg'_deriv hg''_bound hg'_int_all x
+  have hderiv2_eq : ∀ x, deriv (deriv (ouSemigroup t g)) x =
+      exp (-t) * (exp (-t) * ouSemigroup t g'' x) := by
+    intro x; rw [hderiv_eq]; exact ((hcomm2 x).const_mul (exp (-t))).deriv
+  -- Boundedness of P_t g''
+  have hPt_g''_bound : ∃ C, ∀ x, ‖ouSemigroup t g'' x‖ ≤ C := by
+    obtain ⟨C, hC⟩ := hg''_bound
+    exact ⟨C, fun z => by
+      simp only [ouSemigroup]
+      calc ‖∫ y, g'' (exp (-t) * z + sqrt (1 - exp (-2 * t)) * y) ∂stdGaussian‖
+          ≤ ∫ y, ‖g'' (exp (-t) * z + sqrt (1 - exp (-2 * t)) * y)‖ ∂stdGaussian :=
+            norm_integral_le_integral_norm _
+        _ ≤ ∫ _, C ∂stdGaussian := by
+            apply integral_mono_of_nonneg (ae_of_all _ fun _ => norm_nonneg _)
+              (integrable_const _) (ae_of_all _ fun y => hC _)
+        _ = C := by simp [integral_const]⟩
+  -- Prove hint_φ''ψ: Integrable (deriv²(P_t g) * (1+log P_t g))
+  -- |deriv²(P_t g) x| ≤ exp(-2t)*C'', so bounded * integrable = integrable
+  have hint_φ''ψ : Integrable (fun x => deriv (deriv (ouSemigroup t g)) x *
+      (1 + log (ouSemigroup t g x))) stdGaussian := by
+    obtain ⟨C'', hC''⟩ := hPt_g''_bound
+    have hC''_nn : 0 ≤ C'' := le_trans (norm_nonneg _) (hC'' 0)
+    have hae_rw : (fun x => exp (-t) * (exp (-t) * ouSemigroup t g'' x) *
+        (1 + log (ouSemigroup t g x))) =ᵐ[stdGaussian]
+        (fun x => deriv (deriv (ouSemigroup t g)) x *
+          (1 + log (ouSemigroup t g x))) :=
+      ae_of_all _ fun x => by simp only [hderiv2_eq]
+    suffices h : Integrable (fun x => exp (-t) * (exp (-t) * ouSemigroup t g'' x) *
+        (1 + log (ouSemigroup t g x))) stdGaussian from h.congr hae_rw
+    set M := exp (-t) * (exp (-t) * C'')
+    have hM_nn : 0 ≤ M := mul_nonneg (le_of_lt (exp_pos _))
+      (mul_nonneg (le_of_lt (exp_pos _)) hC''_nn)
+    have hg''_int : Integrable g'' stdGaussian := by
+      obtain ⟨Cg, hCg⟩ := hg''_bound
+      have hg''_asm : AEStronglyMeasurable g'' stdGaussian := by
+        have heq : g'' = deriv g' := funext fun w => (hg'_deriv w).deriv.symm
+        rw [heq]; exact (measurable_deriv g').aestronglyMeasurable
+      exact Integrable.of_bound hg''_asm Cg (ae_of_all _ fun x => hCg x)
+    apply (hlog_int.const_mul M).mono
+    · exact (aestronglyMeasurable_const.mul (aestronglyMeasurable_const.mul
+        (integrable_ouSemigroup t (le_of_lt ht) g'' hg''_int).aestronglyMeasurable)).mul
+        hlog_int.aestronglyMeasurable
+    · filter_upwards with x
+      have h1 : |exp (-t) * (exp (-t) * ouSemigroup t g'' x)| ≤ M := by
+        rw [abs_mul, abs_of_pos (exp_pos _), abs_mul, abs_of_pos (exp_pos _)]
+        exact mul_le_mul_of_nonneg_left
+          (mul_le_mul_of_nonneg_left ((Real.norm_eq_abs _).symm ▸ hC'' x)
+            (le_of_lt (exp_pos _))) (le_of_lt (exp_pos _))
+      calc ‖exp (-t) * (exp (-t) * ouSemigroup t g'' x) * (1 + log (ouSemigroup t g x))‖
+          = |exp (-t) * (exp (-t) * ouSemigroup t g'' x)| *
+            |1 + log (ouSemigroup t g x)| := by
+              rw [Real.norm_eq_abs, abs_mul]
+        _ ≤ M * |1 + log (ouSemigroup t g x)| := by gcongr
+        _ = ‖M * (1 + log (ouSemigroup t g x))‖ := by
+              rw [Real.norm_eq_abs, abs_mul, abs_of_nonneg hM_nn]
+  -- Prove hint_xφψ: Integrable (x * deriv(P_t g) * (1+log P_t g))
+  -- ouGeneratorAt = deriv² - x*deriv, so x*deriv*ψ = deriv²*ψ - ouGen*ψ
+  have hint_xφψ : Integrable (fun x => x * (deriv (ouSemigroup t g) x *
+      (1 + log (ouSemigroup t g x)))) stdGaussian := by
+    have hae_eq : (fun x => deriv (deriv (ouSemigroup t g)) x * (1 + log (ouSemigroup t g x)) -
+        ouGeneratorAt t g x * (1 + log (ouSemigroup t g x))) =ᵐ[stdGaussian]
+        (fun x => x * (deriv (ouSemigroup t g) x * (1 + log (ouSemigroup t g x)))) := by
+      filter_upwards with x; simp only [ouGeneratorAt]; ring
+    exact (hint_φ''ψ.sub hint_gen).congr hae_eq
   -- Dirichlet form gives ∫ L(P_t g)(1+log(P_t g)) dγ = -Fisher
   have hdirich := dirichlet_form_entropy g g' t ht hg_nn hg_int hg'_int hg_deriv hPt_pos
     hg'_bound hg_int_all hg'_int_all hPt_pos_all hPt_g'_bound hPt_hasDerivAt2
@@ -1155,12 +1240,10 @@ lemma entropy_dissipation (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
       deriv (deriv (ouSemigroup t g)) x * (1 + log (ouSemigroup t g x)) +
       deriv (ouSemigroup t g) x * (deriv (ouSemigroup t g) x / ouSemigroup t g x))
       2 stdGaussian)
-    (sorry : Integrable (fun x => x * (deriv (ouSemigroup t g) x *
-      (1 + log (ouSemigroup t g x)))) stdGaussian)
+    hint_xφψ
     (sorry : Integrable (fun x => deriv (ouSemigroup t g) x *
       (deriv (ouSemigroup t g) x / ouSemigroup t g x)) stdGaussian)
-    (sorry : Integrable (fun x => deriv (deriv (ouSemigroup t g)) x *
-      (1 + log (ouSemigroup t g x))) stdGaussian)
+    hint_φ''ψ
   -- Step 4: Combine
   rwa [hdirich] at hleib
 
