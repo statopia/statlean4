@@ -1136,22 +1136,155 @@ private lemma entropy_subadditivity_not_integrable_log {n : ℕ} (hn : 2 ≤ n)
     ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
   sorry
 
--- Sub-lemma 3: The core induction step for the integrable case.
--- When g·log(g) IS integrable, use chain rule + data processing + strong induction.
--- Strategy:
---   1. Chain rule at coord 0: Ent(g) = ∫ condEnt_0(g) + Ent(E_0 g)
---   2. E_0 g is nonneg, integrable, and (E_0 g)·log(E_0 g) is integrable
---   3. Induction: Ent(E_0 g) ≤ ∑_{i≥1} ∫ condEnt_i(E_0 g)
---   4. Data processing: ∫ condEnt_i(E_0 g) ≤ ∫ condEnt_i(g) for i ≥ 1
---   5. Combine: Ent(g) ≤ ∫ condEnt_0(g) + ∑_{i≥1} ∫ condEnt_i(g) = ∑_i ∫ condEnt_i(g)
--- Alternatively, directly prove for n ≥ 2 using the integrable assumptions.
+-- Infrastructure for dimension projection (coord 0 removal via Fin.tail/Fin.cons).
+-- Key identity: update x 0 t = Fin.cons t (Fin.tail x).
+private lemma update_zero_eq_cons {n : ℕ} (x : Fin (n + 1) → ℝ) (t : ℝ) :
+    Function.update x 0 t = Fin.cons t (Fin.tail x) := by
+  conv_lhs => rw [← Fin.cons_self_tail x]
+  rw [Fin.update_cons_zero]
+
+-- Integration of tail-composed functions on product Gaussian.
+-- For h : (Fin n → ℝ) → ℝ, ∫ h(tail x) dγ^{n+1} = ∫ h dγ^n.
+private lemma integral_comp_tail_stdGaussianPi {n : ℕ} (h : (Fin n → ℝ) → ℝ)
+    (_hh : Integrable h (stdGaussianPi n)) :
+    ∫ x, h (Fin.tail x) ∂(stdGaussianPi (n + 1)) = ∫ y, h y ∂(stdGaussianPi n) := by
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) (0 : Fin (n + 1))
+  set μ' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+  set γn := Measure.pi (fun j : Fin n => μ' ((0 : Fin (n + 1)).succAbove j))
+  have hmp := measurePreserving_piFinSuccAbove μ' (0 : Fin (n + 1))
+  have hpi : stdGaussianPi (n + 1) = Measure.pi μ' := rfl
+  have hγn : γn = stdGaussianPi n := by simp only [γn, μ', stdGaussianPi]
+  rw [hpi, ← hmp.symm.integral_comp' (g := fun x => h (Fin.tail x))]
+  have htail : (fun p : ℝ × (Fin n → ℝ) => h (Fin.tail (e.symm p))) = fun p => h p.2 := by
+    ext ⟨a, y⟩; congr 1
+  change ∫ p, h (Fin.tail (e.symm p)) ∂(stdGaussian.prod γn) = _
+  rw [htail, integral_fun_snd, hγn]
+  simp [Measure.real, measure_univ]
+
+-- Conditional entropy of a tail-composed function = lower-dim conditional entropy.
+private lemma condEntropyAt_comp_tail {n : ℕ} (h : (Fin n → ℝ) → ℝ)
+    (j : Fin n) (x : Fin (n + 1) → ℝ) :
+    condEntropyAt stdGaussian (fun y => h (Fin.tail y)) (Fin.succ j) x =
+    condEntropyAt stdGaussian h j (Fin.tail x) := by
+  simp only [condEntropyAt]
+  congr 1; ext t
+  show h (Fin.tail (Function.update x (Fin.succ j) t)) =
+    h (Function.update (Fin.tail x) j t)
+  rw [Fin.tail_update_succ]
+
+-- Entropy of a tail-composed function = lower-dim entropy.
+private lemma entropyPi_comp_tail {n : ℕ} (h : (Fin n → ℝ) → ℝ)
+    (hh : Integrable h (stdGaussianPi n))
+    (hh_log : Integrable (fun y => h y * Real.log (h y)) (stdGaussianPi n)) :
+    entropyPi (stdGaussianPi (n + 1)) (fun x => h (Fin.tail x)) =
+    entropyPi (stdGaussianPi n) h := by
+  simp only [entropyPi]
+  rw [integral_comp_tail_stdGaussianPi _ hh_log,
+      integral_comp_tail_stdGaussianPi _ hh]
+
+-- E_0 g expressed via tail: ∫ g(upd x 0 t) dγ(t) = ∫ g(cons t (tail x)) dγ(t).
+private lemma condExpect_zero_eq_comp_tail {n : ℕ}
+    (g : (Fin (n + 1) → ℝ) → ℝ) (x : Fin (n + 1) → ℝ) :
+    (∫ t, g (Function.update x 0 t) ∂stdGaussian) =
+    (∫ t, g (Fin.cons t (Fin.tail x)) ∂stdGaussian) := by
+  congr 1; ext t; congr 1; exact update_zero_eq_cons x t
+
+-- Sub-lemma 3: Entropy subadditivity for integrable case.
+-- Proof: strong induction on n via chain rule at coord 0 + dimension projection + data processing.
 private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
     (g : (Fin n → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
     (hg : Integrable g (stdGaussianPi n))
     (hg_log : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi n)) :
     entropyPi (stdGaussianPi n) g ≤
     ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
-  sorry
+  -- Prove a stronger statement for all n by strong induction, then specialize.
+  suffices key : ∀ (m : ℕ),
+      ∀ (f : (Fin m → ℝ) → ℝ), (∀ x, 0 ≤ f x) →
+      Integrable f (stdGaussianPi m) →
+      Integrable (fun x => f x * Real.log (f x)) (stdGaussianPi m) →
+      entropyPi (stdGaussianPi m) f ≤
+      ∑ i : Fin m, ∫ x, condEntropyAt stdGaussian f i x ∂(stdGaussianPi m) from
+    key n g hg_nn hg hg_log
+  intro m
+  induction m using Nat.strongRecOn with
+  | ind m ih =>
+  intro f hf_nn hf hf_log
+  match m with
+  | 0 =>
+    simp only [Finset.univ_eq_empty, Finset.sum_empty]
+    have heval : ∀ (φ : (Fin 0 → ℝ) → ℝ),
+        ∫ x, φ x ∂(stdGaussianPi 0) = φ Fin.elim0 := by
+      intro φ; have : ∀ x : Fin 0 → ℝ, φ x = φ Fin.elim0 := fun x => by
+        congr 1; exact Subsingleton.elim x Fin.elim0
+      simp_rw [this]; simp [integral_const, Measure.real, measure_univ]
+    simp only [entropyPi, heval]; linarith
+  | 1 =>
+    exact entropy_subadditivity_fin1 f hf_nn hf
+  | (m' + 2) =>
+    -- n = m' + 2 ≥ 2.
+    -- Step 1: Define E_0 f and its lower-dimensional version h.
+    set E₀f : (Fin (m' + 2) → ℝ) → ℝ := fun x =>
+      ∫ t, f (Function.update x 0 t) ∂stdGaussian with hE₀f_def
+    set h : (Fin (m' + 1) → ℝ) → ℝ := fun y =>
+      ∫ t, f (Fin.cons t y) ∂stdGaussian with hh_def
+    -- E₀f = h ∘ Fin.tail
+    have hE₀f_eq : E₀f = fun x => h (Fin.tail x) := by
+      ext x; simp only [E₀f, h]; exact condExpect_zero_eq_comp_tail f x
+    -- Step 2: Chain rule at coord 0.
+    have hint1 : Integrable (fun x => ∫ t, f (Function.update x 0 t) *
+        Real.log (f (Function.update x 0 t)) ∂stdGaussian) (stdGaussianPi (m' + 2)) := by
+      sorry -- Fubini: follows from hf_log
+    have hint2 : Integrable (fun x => (∫ t, f (Function.update x 0 t) ∂stdGaussian) *
+        Real.log (∫ t, f (Function.update x 0 t) ∂stdGaussian)) (stdGaussianPi (m' + 2)) := by
+      sorry -- Jensen + integrability of negative part
+    have hchain := entropy_chain_rule_pi f (0 : Fin (m' + 2)) hf hf_log hint1 hint2
+    -- Step 3: Properties of h.
+    have hh_nn : ∀ y, 0 ≤ h y := fun y => by
+      apply integral_nonneg; intro t; exact hf_nn _
+    have hh_int : Integrable h (stdGaussianPi (m' + 1)) := by
+      sorry -- Fubini from hf
+    have hh_log_int : Integrable (fun y => h y * Real.log (h y))
+        (stdGaussianPi (m' + 1)) := by
+      sorry -- Jensen: h·log(h) ≤ ∫ f·log(f) slice, then Fubini
+    -- Step 4: Apply IH to h on (m' + 1) dimensions.
+    have hih := ih (m' + 1) (by omega) h hh_nn hh_int hh_log_int
+    -- Step 5: Translate IH back to n = m' + 2 dimensions.
+    have hent_eq : entropyPi (stdGaussianPi (m' + 2)) E₀f =
+        entropyPi (stdGaussianPi (m' + 1)) h := by
+      rw [hE₀f_eq]; exact entropyPi_comp_tail h hh_int hh_log_int
+    have hcondEnt_eq : ∀ j : Fin (m' + 1),
+        ∫ y, condEntropyAt stdGaussian h j y ∂(stdGaussianPi (m' + 1)) =
+        ∫ x, condEntropyAt stdGaussian E₀f (Fin.succ j) x
+          ∂(stdGaussianPi (m' + 2)) := by
+      intro j
+      rw [hE₀f_eq]
+      simp_rw [condEntropyAt_comp_tail h j]
+      exact (integral_comp_tail_stdGaussianPi _ (by sorry)).symm
+    -- Data processing: ∫ condEnt_i(E₀f) ≤ ∫ condEnt_i(f) for i ≥ 1.
+    have hdata : ∀ j : Fin (m' + 1),
+        ∫ x, condEntropyAt stdGaussian E₀f (Fin.succ j) x
+          ∂(stdGaussianPi (m' + 2)) ≤
+        ∫ x, condEntropyAt stdGaussian f (Fin.succ j) x
+          ∂(stdGaussianPi (m' + 2)) := by
+      intro j
+      exact integrated_condEntropyAt_condExpect_le f hf_nn hf hf_log
+        (Fin.succ j) 0 (Fin.succ_ne_zero j)
+    -- Step 6: Combine. Split sum as condEnt_0 + ∑_{j} condEnt_{succ j}.
+    rw [Fin.sum_univ_succ, hchain]
+    -- Goal: ∫ condEnt_0(f) + Ent(E₀f) ≤ ∫ condEnt_0(f) + ∑_j ∫ condEnt_{succ j}(f)
+    suffices hE : entropyPi (stdGaussianPi (m' + 2)) E₀f ≤
+        ∑ j : Fin (m' + 1), ∫ x, condEntropyAt stdGaussian f (Fin.succ j) x
+          ∂(stdGaussianPi (m' + 2)) by linarith
+    calc entropyPi (stdGaussianPi (m' + 2)) E₀f
+        = entropyPi (stdGaussianPi (m' + 1)) h := hent_eq
+      _ ≤ ∑ j : Fin (m' + 1), ∫ y, condEntropyAt stdGaussian h j y
+            ∂(stdGaussianPi (m' + 1)) := hih
+      _ = ∑ j : Fin (m' + 1), ∫ x, condEntropyAt stdGaussian E₀f (Fin.succ j) x
+            ∂(stdGaussianPi (m' + 2)) := by
+          congr 1; ext j; exact hcondEnt_eq j
+      _ ≤ ∑ j : Fin (m' + 1), ∫ x, condEntropyAt stdGaussian f (Fin.succ j) x
+            ∂(stdGaussianPi (m' + 2)) :=
+          Finset.sum_le_sum (fun j _ => hdata j)
 
 private lemma entropy_subadditivity_of_nonneg {n : ℕ}
     (g : (Fin n → ℝ) → ℝ)
