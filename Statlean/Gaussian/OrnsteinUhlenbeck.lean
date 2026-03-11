@@ -280,15 +280,111 @@ Proof:
 
 This is the deepest sub-lemma: requires OU equation +
 differentiation under integral + Gaussian IBP. -/
-lemma entropy_dissipation (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+/-- The OU generator L applied to P_t g, defined pointwise as
+    L(P_t g)(x) = (P_t g)''(x) - x · (P_t g)'(x). -/
+private noncomputable def ouGeneratorAt (t : ℝ) (g : ℝ → ℝ) (x : ℝ) : ℝ :=
+  deriv (deriv (ouSemigroup t g)) x - x * deriv (ouSemigroup t g) x
+
+/-- OU equation: the time derivative of P_t g equals L(P_t g) pointwise.
+    ∂_t P_t g(x) = (P_t g)''(x) - x · (P_t g)'(x)
+
+Proof sketch: Differentiate the Mehler integral ∫ g(e^{-s}x + √(1-e^{-2s})y) dγ(y)
+w.r.t. s. The chain rule gives -e^{-s}·x·g'(arg) + (e^{-2s}/√(1-e^{-2s}))·y·g'(arg).
+Then show this equals L(P_s g)(x) using the spatial derivatives of P_s g.
+
+Blocker: requires second-order Leibniz rule (differentiating ∫ under two derivatives).
+Estimated effort: A-grade (~150-200 lines). -/
+private lemma ouSemigroup_time_deriv (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+    (hg_deriv : ∀ x, HasDerivAt g (g' x) x)
+    (hg'_bound : ∃ C, ∀ x, ‖g' x‖ ≤ C)
+    (hg_int : Integrable g stdGaussian)
+    (x : ℝ) :
+    HasDerivAt (fun s => ouSemigroup s g x) (ouGeneratorAt t g x) t := by
+  sorry
+
+/-- Leibniz rule for entropy functional: if F(s) = ∫ P_s g · log(P_s g) dγ, then
+    F'(t) = ∫ (∂_t P_t g)(x) · (1 + log(P_t g(x))) dγ(x).
+
+Uses `hasDerivAt_integral_of_dominated_loc_of_deriv_le` with the
+pointwise derivative d/ds [u·log u] = (1 + log u)·u'.
+
+Blocker: needs dominated convergence with a uniform bound on
+|(∂_s P_s g)(1 + log(P_s g))| near s = t.
+Estimated effort: B-grade (~80 lines). -/
+private lemma entropy_hasDerivAt_of_time_deriv (g : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+    (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
+    (hg_int : Integrable g stdGaussian)
+    (hPt_pos : ∀ᵐ x ∂stdGaussian, 0 < ouSemigroup t g x)
+    (htime_deriv : ∀ x, HasDerivAt (fun s => ouSemigroup s g x)
+      (ouGeneratorAt t g x) t)
+    (hint : Integrable (fun x => ouGeneratorAt t g x *
+      (1 + log (ouSemigroup t g x))) stdGaussian)
+    (hent_int : ∀ᶠ s in nhds t, Integrable (fun x =>
+      ouSemigroup s g x * log (ouSemigroup s g x)) stdGaussian) :
+    HasDerivAt (fun s => ∫ x, ouSemigroup s g x * log (ouSemigroup s g x) ∂stdGaussian)
+      (∫ x, ouGeneratorAt t g x * (1 + log (ouSemigroup t g x)) ∂stdGaussian)
+      t := by
+  sorry
+
+/-- The OU generator integrated against (1 + log(P_t g)) gives the negative Fisher info.
+
+    ∫ L(P_t g) · (1 + log(P_t g)) dγ
+    = -∫ (P_t g)' · (1 + log(P_t g))' dγ     [gaussian_dirichlet_form]
+    = -∫ (P_t g)' · (P_t g)'/(P_t g) dγ       [chain rule: (log h)' = h'/h]
+    = -∫ (e^{-t} P_t g')² / (P_t g) dγ        [OU commutation: (P_t g)' = e^{-t} P_t g']
+
+Blocker: integrability hypotheses for gaussian_dirichlet_form application.
+Estimated effort: B-grade (~60-80 lines). -/
+private lemma dirichlet_form_entropy (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
     (hg_int : Integrable g stdGaussian)
     (hg'_int : MemLp g' 2 stdGaussian)
-    (hg_deriv : ∀ x, HasDerivAt g (g' x) x) :
+    (hg_deriv : ∀ x, HasDerivAt g (g' x) x)
+    (hPt_pos : ∀ᵐ x ∂stdGaussian, 0 < ouSemigroup t g x) :
+    ∫ x, ouGeneratorAt t g x * (1 + log (ouSemigroup t g x)) ∂stdGaussian =
+    -(∫ x, (exp (-t) * ouSemigroup t g' x) ^ 2 / ouSemigroup t g x ∂stdGaussian) := by
+  sorry
+
+/-- Positivity of the OU semigroup: P_t g > 0 a.e. when g ≥ 0 a.e. and ∫ g > 0.
+    This follows from P_t g(x) = ∫ g(e^{-t}x + √(1-e^{-2t})y) dγ(y) > 0
+    since g ≥ 0 with positive integral implies g > 0 on a set of positive measure,
+    and the Gaussian kernel spreads this positivity everywhere.
+
+Estimated effort: B-grade (~40-60 lines). -/
+private lemma ouSemigroup_pos_ae (g : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+    (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
+    (hg_int : Integrable g stdGaussian)
+    (hg_pos_int : 0 < ∫ x, g x ∂stdGaussian) :
+    ∀ᵐ x ∂stdGaussian, 0 < ouSemigroup t g x := by
+  sorry
+
+lemma entropy_dissipation (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+    (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
+    (hg_int : Integrable g stdGaussian)
+    (hg_pos_int : 0 < ∫ x, g x ∂stdGaussian)
+    (hg'_int : MemLp g' 2 stdGaussian)
+    (hg'_bound : ∃ C, ∀ x, ‖g' x‖ ≤ C)
+    (hg_deriv : ∀ x, HasDerivAt g (g' x) x)
+    -- integrability of generator term times log (follows from regularity of P_t g)
+    (hint_gen : Integrable (fun x => ouGeneratorAt t g x *
+      (1 + log (ouSemigroup t g x))) stdGaussian)
+    -- entropy integrable in a neighborhood of t
+    (hent_int : ∀ᶠ s in nhds t, Integrable (fun x =>
+      ouSemigroup s g x * log (ouSemigroup s g x)) stdGaussian) :
     HasDerivAt (fun s => ∫ x, ouSemigroup s g x * log (ouSemigroup s g x) ∂stdGaussian)
       (-(∫ x, (exp (-t) * ouSemigroup t g' x) ^ 2 / ouSemigroup t g x ∂stdGaussian))
       t := by
-  sorry
+  -- Step 0: P_t g > 0 a.e. for t > 0
+  have hPt_pos := ouSemigroup_pos_ae g t ht hg_nn hg_int hg_pos_int
+  -- Step 1: The OU equation holds pointwise
+  have htime := fun x => ouSemigroup_time_deriv g g' t ht hg_deriv hg'_bound hg_int x
+  -- Step 2: Leibniz rule gives F'(t) = ∫ L(P_t g) · (1 + log(P_t g)) dγ
+  have hleib := entropy_hasDerivAt_of_time_deriv g t ht hg_nn hg_int hPt_pos htime
+    hint_gen hent_int
+  -- Step 3: Dirichlet form gives ∫ L(P_t g)(1+log(P_t g)) dγ = -Fisher
+  have hdirich := dirichlet_form_entropy g g' t ht hg_nn hg_int hg'_int hg_deriv hPt_pos
+  -- Step 4: Combine
+  rwa [hdirich] at hleib
 
 /-! ## Pointwise Cauchy-Schwarz for OU semigroup
 
@@ -301,11 +397,66 @@ Cauchy-Schwarz gives `(∫ h)² ≤ (∫ k)(∫ h²/k)`.
 
 Blocker: needs integral Cauchy-Schwarz for conditional expectations.
 Estimated effort: B-grade (~60 lines). -/
+
+/-- Integral Cauchy-Schwarz in the form `(∫ h)² / (∫ k) ≤ ∫ (h²/k)`
+when `k > 0` a.e. under a probability measure.
+
+Proof: set `c = (∫ h)/(∫ k)` and expand `0 ≤ ∫ (h - c·k)²/k`. -/
+private lemma integral_sq_div_le {μ : Measure ℝ} [IsProbabilityMeasure μ]
+    (h k : ℝ → ℝ) (hk_pos : ∀ᵐ x ∂μ, 0 < k x)
+    (hh_int : Integrable h μ) (hk_int : Integrable k μ)
+    (hhk_int : Integrable (fun x => h x ^ 2 / k x) μ) :
+    (∫ x, h x ∂μ) ^ 2 / (∫ x, k x ∂μ) ≤ ∫ x, h x ^ 2 / k x ∂μ := by
+  by_cases hk_int_pos : 0 < ∫ x, k x ∂μ
+  · rw [div_le_iff₀ hk_int_pos]
+    set c := (∫ x, h x ∂μ) / (∫ x, k x ∂μ) with hc_def
+    set A := ∫ x, h x ∂μ with hA_def
+    set B := ∫ x, h x ^ 2 / k x ∂μ with hB_def
+    set K := ∫ x, k x ∂μ with hK_def
+    have hnn : 0 ≤ ∫ x, (h x - c * k x) ^ 2 / k x ∂μ := by
+      apply integral_nonneg_of_ae
+      filter_upwards [hk_pos] with y hky
+      exact div_nonneg (sq_nonneg _) (le_of_lt hky)
+    have hint1 : Integrable (fun x => h x ^ 2 / k x - 2 * c * h x) μ :=
+      hhk_int.sub (hh_int.const_mul _)
+    have hint2 : Integrable (fun x => c ^ 2 * k x) μ := hk_int.const_mul _
+    have hexpand : ∫ x, (h x - c * k x) ^ 2 / k x ∂μ = B - 2 * c * A + c ^ 2 * K := by
+      have hae : ∀ᵐ x ∂μ, (h x - c * k x) ^ 2 / k x =
+          (h x ^ 2 / k x - 2 * c * h x) + c ^ 2 * k x := by
+        filter_upwards [hk_pos] with y hky
+        have hky_ne : k y ≠ 0 := ne_of_gt hky
+        field_simp
+        ring
+      rw [integral_congr_ae hae, integral_add hint1 hint2,
+        integral_sub hhk_int (hh_int.const_mul _),
+        integral_const_mul, integral_const_mul]
+    rw [hexpand] at hnn
+    have hcK : c * K = A := div_mul_cancel₀ A (ne_of_gt hk_int_pos)
+    nlinarith [sq_nonneg (c * K - A)]
+  · have hk_nn : 0 ≤ ∫ x, k x ∂μ := by
+      apply integral_nonneg_of_ae
+      filter_upwards [hk_pos] with y hky; exact le_of_lt hky
+    have hk_zero : ∫ x, k x ∂μ = 0 := le_antisymm (not_lt.mp hk_int_pos) hk_nn
+    rw [hk_zero, div_zero]
+    apply integral_nonneg_of_ae
+    filter_upwards [hk_pos] with y hky
+    exact div_nonneg (sq_nonneg _) (le_of_lt hky)
+
 private lemma ouSemigroup_sq_div_le (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 ≤ t)
-    (hg_pos : ∀ᵐ x ∂stdGaussian, 0 < g x) (x : ℝ) :
+    (hg_pos : ∀ᵐ x ∂stdGaussian, 0 < g x) (x : ℝ)
+    (hg'_comp_int : Integrable (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y))
+      stdGaussian)
+    (hg_comp_int : Integrable (fun y => g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y))
+      stdGaussian)
+    (hgq_comp_int : Integrable (fun y =>
+      g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) ^ 2 /
+      g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) stdGaussian)
+    (hg_comp_pos : ∀ᵐ y ∂stdGaussian,
+      0 < g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) :
     ouSemigroup t g' x ^ 2 / ouSemigroup t g x ≤
       ouSemigroup t (fun y => g' y ^ 2 / g y) x := by
-  sorry
+  simp only [ouSemigroup]
+  exact integral_sq_div_le _ _ hg_comp_pos hg'_comp_int hg_comp_int hgq_comp_int
 
 /-! ## Sub-lemma 5: Fisher information contraction
 
@@ -343,7 +494,8 @@ lemma fisherInfo_ouSemigroup_le (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 ≤ t)
         apply integral_mono_ae
         · sorry -- integrability of (P_t g')²/(P_t g)
         · sorry -- integrability of P_t(g'²/g)
-        · exact ae_of_all _ (fun x => ouSemigroup_sq_div_le g g' t ht hg_pos x)
+        · exact ae_of_all _ (fun x => ouSemigroup_sq_div_le g g' t ht hg_pos x
+            (sorry) (sorry) (sorry) (sorry))
     -- Step 3: ∫ P_t(g'²/g) dγ = ∫ g'²/g dγ by OU invariance
     _ = ∫ x, g' x ^ 2 / g x ∂stdGaussian := by
         exact integral_ouSemigroup t ht _ hFisher
