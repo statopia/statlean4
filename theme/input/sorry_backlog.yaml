@@ -54,15 +54,51 @@ sorry_items:
 
 - id: lsi.entropy_subadditivity_of_nonneg
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1124
+  line: 1138
   theorem: entropy_subadditivity_of_nonneg
-  type: honest
+  type: decomposed
   depth: 3
   priority: 10
-  blocker: "n+2 case sorry. Agent A1-retry (2026-03-07) improved proof sketch: Telescoping approach: define h_k = E_{k-1}...E_0[g], chain rule + data processing. Detailed comments in code. Key sub-steps: (A) Chain rule at last coord: Ent(g) = ∫ condEnt_last(g) + Ent(E_last g) (~40 lines) (B) Data processing: condEnt_k(E_j g) ≤ condEnt_k(g) for k≠j via Jensen (~30 lines) (C) Dimension reduction via piFinSuccAbove: Ent(E_last g) on γ^{n+2} = Ent on γ^{n+1} (~50 lines) (D) Integrability handling for chain rule Bochner convention (~20 lines) Total ~120 lines. No Mathlib blockers — purely measure-theoretic. "
-  estimated_lines: 120
-  dependencies: []
+  blocker: "Decomposed into 3 sub-lemmas (2026-03-11). Main lemma is now zero-sorry, dispatches to sub-lemmas by case split."
+  estimated_lines: 0
+  dependencies: [lsi.integrated_condEntropyAt_condExpect_le, lsi.entropy_subadditivity_not_integrable_log, lsi.entropy_subadditivity_integrable]
   unlocks: [herbst.subgaussian_mgf, lsi.integrable_condEntropy]
+
+- id: lsi.integrated_condEntropyAt_condExpect_le
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 1062
+  theorem: integrated_condEntropyAt_condExpect_le
+  type: honest
+  depth: 2
+  priority: 10
+  blocker: "Data processing: ∫ condEnt_i(E_j g) ≤ ∫ condEnt_i(g) for i≠j. Pointwise Jensen for x·log(x) applied to inner integral. Uses jensen_condExpect_mul_log + Fubini swap. ~40 lines."
+  estimated_lines: 40
+  dependencies: []
+  unlocks: [lsi.entropy_subadditivity_integrable]
+
+- id: lsi.entropy_subadditivity_not_integrable_log
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 1097
+  theorem: entropy_subadditivity_not_integrable_log
+  type: honest
+  depth: 2
+  priority: 11
+  blocker: "Non-integrable g·log(g) case. When g·log(g) ∉ L¹, entropyPi = -(∫g)·log(∫g). Need ∑ ∫ condEnt ≥ this. Two sub-cases: ∫g ≥ 1 → entropyPi ≤ 0 ≤ RHS; ∫g < 1 → more subtle. ~30 lines."
+  estimated_lines: 30
+  dependencies: []
+  unlocks: [lsi.entropy_subadditivity_of_nonneg]
+
+- id: lsi.entropy_subadditivity_integrable
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 1114
+  theorem: entropy_subadditivity_integrable
+  type: honest
+  depth: 2
+  priority: 10
+  blocker: "Core induction step with g·log(g) integrable. Chain rule at coord 0 + induction on n + data processing. Uses entropy_chain_rule_pi + integrated_condEntropyAt_condExpect_le. ~60 lines."
+  estimated_lines: 60
+  dependencies: [lsi.integrated_condEntropyAt_condExpect_le]
+  unlocks: [lsi.entropy_subadditivity_of_nonneg]
 
 - id: lsi.integrable_condEntropy
   file: Statlean/Entropy/LogSobolev.lean
