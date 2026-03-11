@@ -408,18 +408,224 @@ private lemma dirichlet_form_entropy (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
   congr 1; congr 1; ext x
   rw [hderiv_eq]; ring
 
-/-- Positivity of the OU semigroup: P_t g > 0 a.e. when g ≥ 0 a.e. and ∫ g > 0.
-    This follows from P_t g(x) = ∫ g(e^{-t}x + √(1-e^{-2t})y) dγ(y) > 0
-    since g ≥ 0 with positive integral implies g > 0 on a set of positive measure,
-    and the Gaussian kernel spreads this positivity everywhere.
+/-- Pushforward of the standard Gaussian under an affine map. -/
+private lemma map_affine_stdGaussian (a b : ℝ) :
+    Measure.map (fun y => a + b * y) stdGaussian =
+    gaussianReal a ⟨b ^ 2, sq_nonneg b⟩ := by
+  simp only [stdGaussian]
+  have : (fun y : ℝ => a + b * y) = ((a + ·) ∘ (b * ·)) := by funext _; simp [Function.comp]
+  rw [this, ← Measure.map_map (measurable_const_add a) (measurable_const_mul b),
+      gaussianReal_map_const_mul, gaussianReal_map_const_add]; simp [mul_zero, mul_one]
 
-Estimated effort: B-grade (~40-60 lines). -/
+/-- The variance parameter of the OU kernel is nonzero for t > 0. -/
+private lemma ouVar_ne_zero (t : ℝ) (ht : 0 < t) :
+    (⟨(sqrt (1 - exp (-2 * t))) ^ 2, sq_nonneg _⟩ : NNReal) ≠ 0 := by
+  intro h; have h1 := congr_arg (fun x : NNReal => (x : ℝ)) h; simp at h1
+  linarith [sqrt_eq_zero'.mp h1, exp_lt_one_iff.mpr (show -(2 * t) < 0 by linarith)]
+
+/-- If f(a + b·y) = 0 a.e.(γ) and f is measurable with b² > 0, then f = 0 a.e.(γ).
+    Uses mutual absolute continuity of non-degenerate Gaussians. -/
+private lemma ae_zero_of_comp_affine (f : ℝ → ℝ) (hf_meas : Measurable f) (a b : ℝ)
+    (hv : (⟨b ^ 2, sq_nonneg b⟩ : NNReal) ≠ 0)
+    (h : ∀ᵐ y ∂stdGaussian, f (a + b * y) = 0) :
+    ∀ᵐ z ∂stdGaussian, f z = 0 := by
+  have hφ : AEMeasurable (fun y : ℝ => a + b * y) stdGaussian := by fun_prop
+  have h1 : ∀ᵐ z ∂(Measure.map (fun y => a + b * y) stdGaussian), f z = 0 := by
+    rw [show (∀ᵐ z ∂(Measure.map (fun y => a + b * y) stdGaussian), f z = 0) ↔
+        (∀ᵐ y ∂stdGaussian, f ((fun y => a + b * y) y) = 0) from
+      ae_map_iff hφ (hf_meas (measurableSet_singleton 0))]
+    exact h
+  rw [map_affine_stdGaussian] at h1
+  exact ((gaussianReal_absolutelyContinuous 0 one_ne_zero).trans
+    (gaussianReal_absolutelyContinuous' a hv)).ae_le h1
+
+/-- The OU semigroup of an integrable function is integrable.
+    This follows from Fubini: the Mehler map preserves the Gaussian on the product. -/
+private lemma integrable_ouSemigroup (t : ℝ) (ht : 0 ≤ t) (f : ℝ → ℝ)
+    (hf : Integrable f stdGaussian) :
+    Integrable (ouSemigroup t f) stdGaussian := by
+  simp only [stdGaussian] at *
+  set a := exp (-t) with ha_def
+  set b := sqrt (1 - exp (-2 * t)) with hb_def
+  have hb_nn : 0 ≤ 1 - exp (-2 * t) :=
+    sub_nonneg.mpr (Real.exp_le_one_iff.mpr (by linarith))
+  have hab : a ^ 2 + b ^ 2 = 1 := by
+    simp only [ha_def, hb_def, sq_sqrt hb_nn]
+    rw [show (2 : ℕ) = 1 + 1 from rfl, pow_succ, pow_one, ← exp_add]; ring_nf
+  have hφ_meas : Measurable (fun p : ℝ × ℝ => a * p.1 + b * p.2) :=
+    (measurable_const.mul measurable_fst).add (measurable_const.mul measurable_snd)
+  have hmap : Measure.map (fun p : ℝ × ℝ => a * p.1 + b * p.2)
+      ((gaussianReal 0 1).prod (gaussianReal 0 1)) = gaussianReal 0 1 := by
+    have hind : IndepFun (Prod.fst : ℝ × ℝ → ℝ) (Prod.snd : ℝ × ℝ → ℝ)
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) := by
+      rw [indepFun_iff_map_prod_eq_prod_map_map
+        measurable_fst.aemeasurable measurable_snd.aemeasurable]
+      simp [Measure.map_fst_prod, Measure.map_snd_prod, measure_univ]
+    have hind2 : IndepFun (fun p : ℝ × ℝ => a * p.1) (fun p : ℝ × ℝ => b * p.2)
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) :=
+      hind.comp (measurable_const.mul measurable_id : Measurable (fun x : ℝ => a * x))
+                (measurable_const.mul measurable_id : Measurable (fun y : ℝ => b * y))
+    have hmap_a : Measure.map (fun p : ℝ × ℝ => a * p.1)
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) = gaussianReal 0 ⟨a ^ 2, sq_nonneg a⟩ := by
+      rw [show Measure.map (fun p : ℝ × ℝ => a * p.1) ((gaussianReal 0 1).prod (gaussianReal 0 1)) =
+              Measure.map (fun x => a * x) (Measure.map (Prod.fst : ℝ × ℝ → ℝ)
+                ((gaussianReal 0 1).prod (gaussianReal 0 1))) from
+            (Measure.map_map (measurable_const.mul measurable_id) measurable_fst).symm,
+           Measure.map_fst_prod, measure_univ, one_smul, gaussianReal_map_const_mul]
+      simp [mul_comm]
+    have hmap_b : Measure.map (fun p : ℝ × ℝ => b * p.2)
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) = gaussianReal 0 ⟨b ^ 2, sq_nonneg b⟩ := by
+      rw [show Measure.map (fun p : ℝ × ℝ => b * p.2) ((gaussianReal 0 1).prod (gaussianReal 0 1)) =
+              Measure.map (fun y => b * y) (Measure.map (Prod.snd : ℝ × ℝ → ℝ)
+                ((gaussianReal 0 1).prod (gaussianReal 0 1))) from
+            (Measure.map_map (measurable_const.mul measurable_id) measurable_snd).symm,
+           Measure.map_snd_prod, measure_univ, one_smul, gaussianReal_map_const_mul]
+      simp [mul_comm]
+    have hmap_sum : Measure.map ((fun p : ℝ × ℝ => a * p.1) + (fun p : ℝ × ℝ => b * p.2))
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) =
+        gaussianReal (0 + 0) (⟨a ^ 2, sq_nonneg a⟩ + ⟨b ^ 2, sq_nonneg b⟩) :=
+      gaussianReal_add_gaussianReal_of_indepFun hind2 hmap_a hmap_b
+    rw [show (fun p : ℝ × ℝ => a * p.1 + b * p.2) =
+            (fun p : ℝ × ℝ => a * p.1) + (fun p : ℝ × ℝ => b * p.2) by funext p; rfl,
+        hmap_sum]
+    simp only [add_zero]; congr 1; ext; simp [NNReal.coe_add, hab]
+  have hfγ : Integrable f (gaussianReal 0 1) := hf
+  have hfφ_int : Integrable (fun p : ℝ × ℝ => f (a * p.1 + b * p.2))
+      ((gaussianReal 0 1).prod (gaussianReal 0 1)) := by
+    rw [show (fun p : ℝ × ℝ => f (a * p.1 + b * p.2)) =
+        f ∘ (fun p : ℝ × ℝ => a * p.1 + b * p.2) from rfl]
+    rw [← hmap] at hfγ; exact hfγ.comp_measurable hφ_meas
+  exact hfφ_int.integral_prod_left
+
+/-- The composition f(ax+by) is integrable on γ⊗γ when f is integrable on γ and a²+b²=1. -/
+private lemma integrable_mehler_prod (t : ℝ) (ht : 0 ≤ t) (f : ℝ → ℝ)
+    (hf : Integrable f stdGaussian) :
+    Integrable (fun p : ℝ × ℝ => f (exp (-t) * p.1 + sqrt (1 - exp (-2 * t)) * p.2))
+      (stdGaussian.prod stdGaussian) := by
+  simp only [stdGaussian] at *
+  set a := exp (-t) with ha_def
+  set b := sqrt (1 - exp (-2 * t)) with hb_def
+  have hb_nn : 0 ≤ 1 - exp (-2 * t) :=
+    sub_nonneg.mpr (Real.exp_le_one_iff.mpr (by linarith))
+  have hab : a ^ 2 + b ^ 2 = 1 := by
+    simp only [ha_def, hb_def, sq_sqrt hb_nn]
+    rw [show (2 : ℕ) = 1 + 1 from rfl, pow_succ, pow_one, ← exp_add]; ring_nf
+  have hφ_meas : Measurable (fun p : ℝ × ℝ => a * p.1 + b * p.2) :=
+    (measurable_const.mul measurable_fst).add (measurable_const.mul measurable_snd)
+  have hmap : Measure.map (fun p : ℝ × ℝ => a * p.1 + b * p.2)
+      ((gaussianReal 0 1).prod (gaussianReal 0 1)) = gaussianReal 0 1 := by
+    have hind : IndepFun (Prod.fst : ℝ × ℝ → ℝ) (Prod.snd : ℝ × ℝ → ℝ)
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) := by
+      rw [indepFun_iff_map_prod_eq_prod_map_map
+        measurable_fst.aemeasurable measurable_snd.aemeasurable]
+      simp [Measure.map_fst_prod, Measure.map_snd_prod, measure_univ]
+    have hind2 : IndepFun (fun p : ℝ × ℝ => a * p.1) (fun p : ℝ × ℝ => b * p.2)
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) :=
+      hind.comp (measurable_const.mul measurable_id) (measurable_const.mul measurable_id)
+    have hmap_a : Measure.map (fun p : ℝ × ℝ => a * p.1)
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) = gaussianReal 0 ⟨a ^ 2, sq_nonneg a⟩ := by
+      rw [show Measure.map (fun p : ℝ × ℝ => a * p.1) ((gaussianReal 0 1).prod (gaussianReal 0 1)) =
+              Measure.map (fun x => a * x) (Measure.map (Prod.fst : ℝ × ℝ → ℝ)
+                ((gaussianReal 0 1).prod (gaussianReal 0 1))) from
+            (Measure.map_map (measurable_const.mul measurable_id) measurable_fst).symm,
+           Measure.map_fst_prod, measure_univ, one_smul, gaussianReal_map_const_mul]
+      simp [mul_comm]
+    have hmap_b : Measure.map (fun p : ℝ × ℝ => b * p.2)
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) = gaussianReal 0 ⟨b ^ 2, sq_nonneg b⟩ := by
+      rw [show Measure.map (fun p : ℝ × ℝ => b * p.2) ((gaussianReal 0 1).prod (gaussianReal 0 1)) =
+              Measure.map (fun y => b * y) (Measure.map (Prod.snd : ℝ × ℝ → ℝ)
+                ((gaussianReal 0 1).prod (gaussianReal 0 1))) from
+            (Measure.map_map (measurable_const.mul measurable_id) measurable_snd).symm,
+           Measure.map_snd_prod, measure_univ, one_smul, gaussianReal_map_const_mul]
+      simp [mul_comm]
+    have hmap_sum : Measure.map ((fun p : ℝ × ℝ => a * p.1) + (fun p : ℝ × ℝ => b * p.2))
+        ((gaussianReal 0 1).prod (gaussianReal 0 1)) =
+        gaussianReal (0 + 0) (⟨a ^ 2, sq_nonneg a⟩ + ⟨b ^ 2, sq_nonneg b⟩) :=
+      gaussianReal_add_gaussianReal_of_indepFun hind2 hmap_a hmap_b
+    rw [show (fun p : ℝ × ℝ => a * p.1 + b * p.2) =
+            (fun p : ℝ × ℝ => a * p.1) + (fun p : ℝ × ℝ => b * p.2) by funext p; rfl,
+        hmap_sum]
+    simp only [add_zero]; congr 1; ext; simp [NNReal.coe_add, hab]
+  rw [show (fun p : ℝ × ℝ => f (a * p.1 + b * p.2)) =
+      f ∘ (fun p : ℝ × ℝ => a * p.1 + b * p.2) from rfl]
+  rw [← hmap] at hf; exact hf.comp_measurable hφ_meas
+
+/-- Positivity of the OU semigroup: P_t g > 0 a.e. when g ≥ 0 a.e. and ∫ g > 0.
+
+    Proof strategy: Decompose g = g⁺ - g⁻. Since g ≥ 0 a.e., g⁻ = 0 a.e., so P_t(g⁻) = 0 a.e.
+    Hence P_t g = P_t(g⁺) a.e. ≥ 0. By contradiction, if P_t(g⁺)(x₀) = 0 at some point where
+    g⁺∘φ_{x₀} is integrable, then g⁺(e^{-t}x₀ + √(1-e^{-2t})y) = 0 a.e.(γ), and the Gaussian
+    full support property (mutual absolute continuity of non-degenerate Gaussians) gives g⁺ = 0
+    a.e.(γ), contradicting ∫g > 0. -/
 private lemma ouSemigroup_pos_ae (g : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
     (hg_int : Integrable g stdGaussian)
     (hg_pos_int : 0 < ∫ x, g x ∂stdGaussian) :
     ∀ᵐ x ∂stdGaussian, 0 < ouSemigroup t g x := by
-  sorry
+  -- Step 1: Get a measurable nonneg version gmp of g with g =ae gmp
+  set gm := hg_int.aestronglyMeasurable.mk g with hgm_def
+  have hgm_sm := hg_int.aestronglyMeasurable.stronglyMeasurable_mk
+  have hgm_ae : g =ᵐ[stdGaussian] gm := hg_int.aestronglyMeasurable.ae_eq_mk
+  set gmp := fun x => max (gm x) 0 with hgmp_def
+  have hgmp_meas : Measurable gmp := hgm_sm.measurable.sup measurable_const
+  have hgmp_nn : ∀ x, 0 ≤ gmp x := fun x => le_max_right _ _
+  have hg_gmp_ae : g =ᵐ[stdGaussian] gmp := by
+    filter_upwards [hg_nn, hgm_ae] with x hx_nn hx_eq
+    show g x = max (gm x) 0
+    rw [← hx_eq]; exact (max_eq_left hx_nn).symm
+  have hgmp_int : Integrable gmp stdGaussian := hg_int.congr hg_gmp_ae
+  -- Step 2: OU parameters
+  set a := exp (-t)
+  set b := sqrt (1 - exp (-2 * t))
+  have hb_nn : 0 ≤ 1 - exp (-2 * t) := sub_nonneg.mpr (exp_le_one_iff.mpr (by linarith))
+  have hv : (⟨b ^ 2, sq_nonneg b⟩ : NNReal) ≠ 0 := ouVar_ne_zero t ht
+  -- Step 3: gmp = 0 ae(γ) is impossible (would contradict ∫g > 0)
+  have hgmp_not_zero : ¬ (∀ᵐ x ∂stdGaussian, gmp x = 0) := by
+    intro h_zero
+    have : ∫ x, g x ∂stdGaussian = 0 := by
+      rw [integral_congr_ae hg_gmp_ae, integral_eq_zero_of_ae h_zero]
+    linarith
+  -- Step 4: Get product integrability and slice integrability from Fubini
+  have hfφ_int : Integrable (fun p : ℝ × ℝ => gmp (a * p.1 + b * p.2))
+      (stdGaussian.prod stdGaussian) := integrable_mehler_prod t (le_of_lt ht) gmp hgmp_int
+  -- By Fubini: for ae x, the slice y → gmp(ax+by) is integrable under γ
+  have hslice_int_ae : ∀ᵐ x ∂stdGaussian, Integrable (fun y => gmp (a * x + b * y)) stdGaussian :=
+    hfφ_int.prod_right_ae
+  -- Step 5: P_t(gmp) > 0 ae(γ) via full support argument
+  -- For ae x (where slice integrable): if P_t(gmp)(x) = 0, then gmp(ax+by) = 0 ae(y),
+  -- then by ae_zero_of_comp_affine, gmp = 0 ae(γ), contradicting ∫g > 0
+  have hPgmp_pos : ∀ᵐ x ∂stdGaussian, 0 < ouSemigroup t gmp x := by
+    filter_upwards [hslice_int_ae] with x₀ hslice_int
+    by_contra h_le
+    push_neg at h_le
+    have h_eq : ouSemigroup t gmp x₀ = 0 :=
+      le_antisymm h_le (integral_nonneg (fun y => hgmp_nn _))
+    -- gmp(ax₀+by) = 0 ae(γ) (nonneg integrable function with zero integral)
+    have hslice_ae : ∀ᵐ y ∂stdGaussian, gmp (a * x₀ + b * y) = 0 := by
+      have := (integral_eq_zero_iff_of_nonneg_ae
+        (Eventually.of_forall (fun y => hgmp_nn _)) hslice_int).mp h_eq
+      filter_upwards [this] with y hy; exact hy
+    exact hgmp_not_zero (ae_zero_of_comp_affine gmp hgmp_meas (a * x₀) b hv hslice_ae)
+  -- Step 6: P_t g =ae P_t(gmp) by Fubini (g =ae gmp → slices agree ae)
+  -- For ae x (where slice integrable), g(ax+by) =ae gmp(ax+by) in y, so P_t g(x) = P_t(gmp)(x)
+  have hPg_eq : ∀ᵐ x ∂stdGaussian, ouSemigroup t g x = ouSemigroup t gmp x := by
+    have hfg_int : Integrable (fun p : ℝ × ℝ => g (a * p.1 + b * p.2))
+        (stdGaussian.prod stdGaussian) := integrable_mehler_prod t (le_of_lt ht) g hg_int
+    have hslice_g_ae : ∀ᵐ x ∂stdGaussian,
+        Integrable (fun y => g (a * x + b * y)) stdGaussian := hfg_int.prod_right_ae
+    filter_upwards [hslice_int_ae, hslice_g_ae] with x₀ hgmp_slice hg_slice
+    simp only [ouSemigroup]
+    -- g(ax₀+by) =ae gmp(ax₀+by) under γ via ae_eq_comp'
+    have hφ_aem : AEMeasurable (fun y : ℝ => a * x₀ + b * y) stdGaussian := by fun_prop
+    have h_ac : (Measure.map (fun y => a * x₀ + b * y) stdGaussian).AbsolutelyContinuous
+        stdGaussian := by
+      rw [map_affine_stdGaussian]
+      exact (gaussianReal_absolutelyContinuous (a * x₀) hv).trans
+        (gaussianReal_absolutelyContinuous' 0 one_ne_zero)
+    exact integral_congr_ae (ae_eq_comp' hφ_aem hg_gmp_ae h_ac)
+  -- Step 7: Combine: P_t g =ae P_t(gmp) > 0 ae
+  filter_upwards [hPg_eq, hPgmp_pos] with x hx_eq hx_pos
+  rw [hx_eq]; exact hx_pos
 
 lemma entropy_dissipation (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
