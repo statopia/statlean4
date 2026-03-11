@@ -1021,7 +1021,32 @@ Proof sketch: `γ(Icc) = ∫ gaussianPDFReal ≥ 2δ · inf_{y∈[m-δ,m+δ]} de
 private lemma stdGaussian_Icc_lower_bound (m δ : ℝ) (hδ : 0 < δ) :
     2 * δ * (sqrt (2 * π))⁻¹ * exp (-((|m| + δ) ^ 2 / 2)) ≤
       stdGaussian.real (Set.Icc (m - δ) (m + δ)) := by
-  sorry
+  show _ ≤ (stdGaussian (Set.Icc (m - δ) (m + δ))).toReal
+  rw [show (stdGaussian : Measure ℝ) = gaussianReal 0 1 from rfl]
+  rw [gaussianReal_apply_eq_integral 0 (by norm_num : (1 : NNReal) ≠ 0)]
+  rw [ENNReal.toReal_ofReal (setIntegral_nonneg measurableSet_Icc
+    (fun x _ => gaussianPDFReal_nonneg _ _ x))]
+  set c := (sqrt (2 * π))⁻¹ * exp (-((|m| + δ) ^ 2 / 2)) with hc_def
+  have hc_lb : ∀ x ∈ Set.Icc (m - δ) (m + δ), c ≤ gaussianPDFReal 0 1 x := by
+    intro y hy
+    rw [gaussianPDFReal_def]
+    simp only [NNReal.coe_one, sub_zero, mul_one]
+    apply mul_le_mul_of_nonneg_left _ (inv_nonneg.mpr (sqrt_nonneg _))
+    apply exp_le_exp.mpr
+    linarith [sq_le_sq' (by linarith [neg_abs_le m, hy.1] : -(|m| + δ) ≤ y)
+      (by linarith [le_abs_self m, hy.2] : y ≤ |m| + δ)]
+  have key : volume.real (Set.Icc (m - δ) (m + δ)) • c ≤
+      ∫ x in Set.Icc (m - δ) (m + δ), gaussianPDFReal 0 1 x :=
+    setIntegral_ge_of_const_le measurableSet_Icc
+      (measure_Icc_lt_top.ne) hc_lb
+      (integrable_gaussianPDFReal _ _).integrableOn
+  simp only [smul_eq_mul] at key
+  have hvol : (volume : Measure ℝ).real (Set.Icc (m - δ) (m + δ)) = 2 * δ := by
+    simp [Measure.real, Real.volume_Icc]
+    rw [ENNReal.toReal_ofReal (by linarith)]
+    ring
+  rw [hvol] at key
+  linarith
 
 /-- Gaussian kernel lower bound: for Lipschitz nonneg g with strictly positive integral,
 the OU semigroup satisfies P_t g(x) ≥ c₁ · exp(-c₂ · x²) for explicit positive constants.
