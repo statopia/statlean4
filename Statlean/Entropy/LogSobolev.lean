@@ -829,6 +829,120 @@ private lemma integral_condExpect_eq_integral_pi : ∀ {n : ℕ}
       _ = ∫ x, h x ∂(stdGaussianPi (n + 1)) := by
           rw [hpi, ← hmp.symm.integral_comp' (g := h)]
 
+-- Lower bound for x·log(x): x·log(x) ≥ -1/e for x ≥ 0.
+-- The minimum of t·log(t) on [0,∞) is at t = 1/e, giving value -1/e.
+lemma mul_log_ge_neg_inv_exp (x : ℝ) (hx : 0 ≤ x) :
+    -(1 / Real.exp 1) ≤ x * Real.log x := by
+  rcases eq_or_lt_of_le hx with rfl | hx_pos
+  · simp; positivity
+  suffices h : -(x * Real.log x) ≤ 1 / Real.exp 1 by linarith
+  have key := Real.add_one_le_exp (-Real.log x - 1)
+  rw [show (-Real.log x - 1) + 1 = -Real.log x from by ring,
+      Real.exp_sub, Real.exp_neg, Real.exp_log hx_pos] at key
+  have := mul_le_mul_of_nonneg_left key (le_of_lt hx_pos)
+  rw [show x * (x⁻¹ / Real.exp 1) = 1 / Real.exp 1 from by field_simp] at this
+  linarith
+
+-- ae on second marginal → ae on product measure (no measurability required)
+private lemma ae_snd_of_ae_marginal {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
+    (μ : Measure α) (ν : Measure β)
+    {p : β → Prop} (h : ∀ᵐ y ∂ν, p y) :
+    ∀ᵐ z ∂(μ.prod ν), p z.2 := by
+  have hν : ν {y | ¬ p y} = 0 := by rwa [ae_iff] at h
+  rw [ae_iff]
+  have h1 : {z : α × β | ¬ p z.2} ⊆ Set.univ ×ˢ {y | ¬ p y} :=
+    fun ⟨_, _⟩ hb => ⟨Set.mem_univ _, hb⟩
+  exact le_antisymm (le_trans (measure_mono h1) (le_trans (Measure.prod_prod_le _ _)
+    (le_of_eq (by rw [hν, mul_zero])))) (zero_le _)
+
+-- Conditional expectation of an integrable function at arbitrary coordinate is integrable.
+private lemma integrable_condExpect_stdGaussianPi_gen {n : ℕ}
+    (φ : (Fin (n + 1) → ℝ) → ℝ) (hφ : Integrable φ (stdGaussianPi (n + 1)))
+    (j : Fin (n + 1)) :
+    Integrable (fun y => ∫ t, φ (Function.update y j t) ∂stdGaussian)
+      (stdGaussianPi (n + 1)) := by
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) j
+  set μ' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+  set γn := Measure.pi (fun k : Fin n => μ' (j.succAbove k))
+  have hmp := measurePreserving_piFinSuccAbove μ' j
+  have hprod : Integrable (φ ∘ e.symm) (stdGaussian.prod γn) :=
+    hmp.symm.integrable_comp_of_integrable hφ
+  have hmarg := hprod.integral_prod_right
+  have heq : (fun y => ∫ t, φ (Function.update y j t) ∂stdGaussian) =
+      ((fun p : ℝ × (Fin n → ℝ) =>
+          ∫ t, (φ ∘ e.symm) (t, p.2) ∂stdGaussian) ∘ e) := by
+    ext y; simp only [Function.comp]
+    congr 1; ext t; congr 1
+    conv_lhs => rw [(e.symm_apply_apply y).symm]
+    simp only [e, MeasurableEquiv.piFinSuccAbove_symm_apply]
+    exact @Fin.update_insertNth n (fun _ => ℝ) j (e y).1 t (e y).2
+  rw [heq]
+  exact hmp.integrable_comp_of_integrable (hmarg.comp_snd stdGaussian)
+
+-- Integrability of condEntropyAt for nonneg functions with integrable g·log(g).
+-- Uses Jensen domination (upper: convexOn_mul_log, lower: mul_log_ge_neg_inv_exp).
+private lemma integrable_condEntropyAt_of_nonneg {n : ℕ}
+    (g : (Fin (n + 1) → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
+    (hg : Integrable g (stdGaussianPi (n + 1)))
+    (hg_log : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi (n + 1)))
+    (j : Fin (n + 1)) :
+    Integrable (fun x => condEntropyAt stdGaussian g j x) (stdGaussianPi (n + 1)) := by
+  simp only [condEntropyAt, entropy]
+  apply Integrable.sub
+  · exact integrable_condExpect_stdGaussianPi_gen _ hg_log j
+  · set Ej := fun y => ∫ t, g (Function.update y j t) ∂stdGaussian
+    have hEj_int := integrable_condExpect_stdGaussianPi_gen g hg j
+    have hA_int := integrable_condExpect_stdGaussianPi_gen _ hg_log j
+    set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) j
+    set μ' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+    set γn := Measure.pi (fun k : Fin n => μ' (j.succAbove k))
+    have hmp := measurePreserving_piFinSuccAbove μ' j
+    have hupd : ∀ y t, Function.update y j t = e.symm (t, (e y).2) := by
+      intro y t
+      conv_lhs => rw [(e.symm_apply_apply y).symm]
+      simp only [e, MeasurableEquiv.piFinSuccAbove_symm_apply]
+      exact @Fin.update_insertNth n (fun _ => ℝ) j (e y).1 t (e y).2
+    have hg_prod : Integrable (g ∘ e.symm) (stdGaussian.prod γn) :=
+      hmp.symm.integrable_comp_of_integrable hg
+    have hgl_prod : Integrable ((fun x => g x * log (g x)) ∘ e.symm) (stdGaussian.prod γn) :=
+      hmp.symm.integrable_comp_of_integrable hg_log
+    have hg_ae : ∀ᵐ y ∂(stdGaussianPi (n + 1)),
+        Integrable (fun t => g (Function.update y j t)) stdGaussian := by
+      have hae_γn := hg_prod.prod_left_ae
+      have hae_prod := ae_snd_of_ae_marginal stdGaussian γn hae_γn
+      exact (hmp.quasiMeasurePreserving.ae hae_prod).mono fun y hy => by
+        rwa [show (fun t => (g ∘ e.symm) (t, (e y).2)) =
+            (fun t => g (Function.update y j t)) from by
+          ext t; simp only [Function.comp]; rw [hupd y t]] at hy
+    have hgl_ae : ∀ᵐ y ∂(stdGaussianPi (n + 1)),
+        Integrable (fun t => g (Function.update y j t) *
+          log (g (Function.update y j t))) stdGaussian := by
+      have hae_γn := hgl_prod.prod_left_ae
+      have hae_prod := ae_snd_of_ae_marginal stdGaussian γn hae_γn
+      exact (hmp.quasiMeasurePreserving.ae hae_prod).mono fun y hy => by
+        rwa [show (fun t => ((fun x => g x * log (g x)) ∘ e.symm) (t, (e y).2)) =
+            (fun t => g (Function.update y j t) * log (g (Function.update y j t))) from by
+          ext t; simp only [Function.comp]; rw [hupd y t]] at hy
+    have h_upper : ∀ᵐ y ∂(stdGaussianPi (n + 1)),
+        Ej y * log (Ej y) ≤ ∫ t, g (Function.update y j t) *
+          log (g (Function.update y j t)) ∂stdGaussian := by
+      filter_upwards [hg_ae, hgl_ae] with y hgy hgly
+      exact convexOn_mul_log.map_integral_le continuous_mul_log.continuousOn
+        isClosed_Ici (ae_of_all _ fun t => hg_nn _) hgy hgly
+    have h_lower : ∀ y, -(1 / exp 1) ≤ Ej y * log (Ej y) :=
+      fun y => mul_log_ge_neg_inv_exp _ (integral_nonneg fun t => hg_nn _)
+    exact Integrable.mono' (hA_int.norm.add (integrable_const (1 / exp 1)))
+      (continuous_mul_log.comp_aestronglyMeasurable hEj_int.aestronglyMeasurable)
+      (by filter_upwards [h_upper] with y hy
+          simp only [Pi.add_apply, norm_eq_abs]
+          rw [abs_le]
+          exact ⟨by linarith [h_lower y,
+                    abs_nonneg (∫ t, g (Function.update y j t) *
+                      log (g (Function.update y j t)) ∂stdGaussian)],
+                 by linarith [le_abs_self (∫ t, g (Function.update y j t) *
+                      log (g (Function.update y j t)) ∂stdGaussian),
+                    div_pos one_pos (exp_pos 1)]⟩)
+
 /-- Integrability of conditional entropy (sorry).
 Follows from entropy subadditivity infrastructure. -/
 private lemma integrable_condEntropyAt {n : ℕ}
@@ -1204,20 +1318,6 @@ private lemma integrable_comp_tail_stdGaussianPi {n : ℕ} (h : (Fin n → ℝ) 
       show (Measure.pi fun j : Fin n => μ' (Fin.succAbove 0 j)) = stdGaussianPi n from by
         simp [μ', stdGaussianPi]]
   exact hh.comp_snd stdGaussian
-
--- Lower bound for x·log(x): x·log(x) ≥ -1/e for x ≥ 0.
--- The minimum of t·log(t) on [0,∞) is at t = 1/e, giving value -1/e.
-private lemma mul_log_ge_neg_inv_exp (x : ℝ) (hx : 0 ≤ x) :
-    -(1 / Real.exp 1) ≤ x * Real.log x := by
-  rcases eq_or_lt_of_le hx with rfl | hx_pos
-  · simp; positivity
-  suffices h : -(x * Real.log x) ≤ 1 / Real.exp 1 by linarith
-  have key := Real.add_one_le_exp (-Real.log x - 1)
-  rw [show (-Real.log x - 1) + 1 = -Real.log x from by ring,
-      Real.exp_sub, Real.exp_neg, Real.exp_log hx_pos] at key
-  have := mul_le_mul_of_nonneg_left key (le_of_lt hx_pos)
-  rw [show x * (x⁻¹ / Real.exp 1) = 1 / Real.exp 1 from by field_simp] at this
-  linarith
 
 -- Sub-lemma 3: Entropy subadditivity for integrable case.
 -- Proof: strong induction on n via chain rule at coord 0 + dimension projection + data processing.

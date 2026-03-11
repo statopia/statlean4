@@ -1,6 +1,6 @@
-version: v109
+version: v110
 generated: 2026-03-11
-total_sorry: 12
+total_sorry: 8
 
 sorry_items:
 
@@ -18,7 +18,7 @@ sorry_items:
 
 - id: lsi.normalized_of_integrable
   file: Statlean/Entropy/LogSobolev.lean
-  line: 439
+  line: 415
   theorem: gaussian_lsi_normalized_of_integrable
   type: stuck
   depth: 3
@@ -52,57 +52,45 @@ sorry_items:
   dependencies: [lsi.normalized_of_integrable, lsi.entropy_subadditivity_of_nonneg]
   unlocks: []
 
-- id: lsi.entropy_subadditivity_of_nonneg
+- id: lsi.entropy_subadditivity_integrable
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1138
-  theorem: entropy_subadditivity_of_nonneg
-  type: decomposed
-  depth: 3
+  line: 1393
+  theorem: entropy_subadditivity_integrable
+  type: blocked
+  depth: 2
   priority: 10
-  blocker: "Decomposed into 3 sub-lemmas (2026-03-11). Main lemma is now zero-sorry, dispatches to sub-lemmas by case split."
-  estimated_lines: 0
-  dependencies: [lsi.integrated_condEntropyAt_condExpect_le, lsi.entropy_subadditivity_not_integrable_log, lsi.entropy_subadditivity_integrable]
-  unlocks: [herbst.subgaussian_mgf, lsi.integrable_condEntropy]
+  blocker: "hdata_combined sorry: combines condEnt translation (Step A: equality via condEntropyAt_comp_tail) with DPI (Step B: integrated_condEntropyAt_condExpect_le). hint2 and hh_log_int are PROVED (2026-03-11)."
+  estimated_lines: 20
+  dependencies: [lsi.integrated_condEntropyAt_condExpect_le]
+  unlocks: []
 
 - id: lsi.integrated_condEntropyAt_condExpect_le
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1062
+  line: 1105
   theorem: integrated_condEntropyAt_condExpect_le
   type: honest
   depth: 2
   priority: 10
-  blocker: "Data processing: ∫ condEnt_i(E_j g) ≤ ∫ condEnt_i(g) for i≠j. Pointwise Jensen for x·log(x) applied to inner integral. Uses jensen_condExpect_mul_log + Fubini swap. ~40 lines."
-  estimated_lines: 40
+  blocker: "Data processing inequality: ∫ condEnt_i(E_j g) ≤ ∫ condEnt_i(g) for i≠j. Deep result: equivalent to supermodularity of F(h)=∫h·log(h) under conditional expectations, or KL divergence ≥ 0. Direct proof circular (reduces to same inequality with i,j swapped). Need mutual-information approach: F(g)-F(E_j g) = ∫g·log(g/(E_j g)) ≥ 0 (Gibbs). ~100-150 lines."
+  estimated_lines: 120
   dependencies: []
   unlocks: [lsi.entropy_subadditivity_integrable]
 
 - id: lsi.entropy_subadditivity_not_integrable_log
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1097
+  line: 1137
   theorem: entropy_subadditivity_not_integrable_log
   type: honest
   depth: 2
-  priority: 11
-  blocker: "Non-integrable g·log(g) case. When g·log(g) ∉ L¹, entropyPi = -(∫g)·log(∫g). Need ∑ ∫ condEnt ≥ this. Two sub-cases: ∫g ≥ 1 → entropyPi ≤ 0 ≤ RHS; ∫g < 1 → more subtle. ~30 lines."
-  estimated_lines: 30
+  priority: 15
+  blocker: "Non-integrable g·log(g) case. In Lean convention (∫ non-integrable = 0): entropyPi = -(∫g)·log(∫g). For a.e. x, slice g·log(g) not integrable (since global positive part diverges), so condEntropyAt = -(E_i g)·log(E_i g). Need ∑∫-(E_i g)·log(E_i g) ≥ -(∫g)·log(∫g). By Jensen on convex x·log(x): each ∫(E_i g)·log(E_i g) ≥ (∫g)·log(∫g). But this gives ∑ ≥ n·(∫g)·log(∫g) which is wrong direction when (∫g)·log(∫g) > 0. Mathematically both sides = +∞. May need Lean convention workaround. ~50 lines."
+  estimated_lines: 50
   dependencies: []
-  unlocks: [lsi.entropy_subadditivity_of_nonneg]
-
-- id: lsi.entropy_subadditivity_integrable
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 1210
-  theorem: entropy_subadditivity_integrable
-  type: honest
-  depth: 2
-  priority: 10
-  blocker: "Strong induction structure DONE (2026-03-11). 3 inner sorry remain: (1) hint2: Jensen integrability of E₀f·log(E₀f) — needs hh_log_int first. (2) hh_log_int: h·log(h) integrable via Jensen + neg part bound ≥ -1/e + Fubini. (3) condEnt integrability for integral_comp_tail. All provable from convexOn_mul_log + Fubini."
-  estimated_lines: 30
-  dependencies: [lsi.integrated_condEntropyAt_condExpect_le]
-  unlocks: [lsi.entropy_subadditivity_of_nonneg]
+  unlocks: []
 
 - id: lsi.integrable_condEntropy
   file: Statlean/Entropy/LogSobolev.lean
-  line: 862
+  line: 838
   theorem: integrable_condEntropyAt
   type: blocked
   depth: 2
@@ -110,28 +98,4 @@ sorry_items:
   blocker: "Follows from entropy_subadditivity infrastructure."
   estimated_lines: 20
   dependencies: [lsi.entropy_subadditivity_of_nonneg]
-  unlocks: []
-
-- id: limittheorems.convergence.kolmogorov_maximal_inequality
-  file: Statlean/LimitTheorems/Convergence.lean
-  line: 689
-  theorem: kolmogorov_maximal_inequality
-  type: unknown
-  depth: 1
-  priority: 99
-  blocker: "showing IndepFun (S_k·1_{A_k}) R_k via iIndepFun.indepFun_finset"
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.convergence.uniform_of_pointwise_on_rationals
-  file: Statlean/LimitTheorems/Convergence.lean
-  line: 433
-  theorem: uniform_of_pointwise_on_rationals
-  type: unknown
-  depth: 1
-  priority: 99
-  blocker: "CDF right-continuity + limits at ±∞ + finite partition"
-  estimated_lines: 50
-  dependencies: []
   unlocks: []
