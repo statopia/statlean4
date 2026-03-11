@@ -662,51 +662,96 @@ pointwise derivative d/ds [u·log u] = (1 + log u)·u'.
 Blocker: needs dominated convergence with a uniform bound on
 |(∂_s P_s g)(1 + log(P_s g))| near s = t.
 Estimated effort: B-grade (~80 lines). -/
-private lemma entropy_hasDerivAt_of_time_deriv (g : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+private lemma entropy_hasDerivAt_of_time_deriv (g g' g'' : ℝ → ℝ)
+    (t : ℝ) (ht : 0 < t)
     (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
     (hg_int : Integrable g stdGaussian)
-    (hPt_pos : ∀ᵐ x ∂stdGaussian, 0 < ouSemigroup t g x)
-    (htime_deriv : ∀ x, HasDerivAt (fun s => ouSemigroup s g x)
-      (ouGeneratorAt t g x) t)
+    (hg_pos_int : 0 < ∫ x, g x ∂stdGaussian)
+    (hg_deriv : ∀ x, HasDerivAt g (g' x) x)
+    (hg'_deriv : ∀ x, HasDerivAt g' (g'' x) x)
+    (hg'_bound : ∃ C, ∀ x, ‖g' x‖ ≤ C)
+    (hg''_bound : ∃ C, ∀ x, ‖g'' x‖ ≤ C)
+    -- Pointwise positivity of P_s g for all s > 0 (from lower bound)
+    (hPt_pos_all : ∀ s, 0 < s → ∀ x,
+      0 < ouSemigroup s g x)
     (hint : Integrable (fun x => ouGeneratorAt t g x *
       (1 + log (ouSemigroup t g x))) stdGaussian)
     (hent_int : ∀ᶠ s in nhds t, Integrable (fun x =>
-      ouSemigroup s g x * log (ouSemigroup s g x)) stdGaussian) :
-    HasDerivAt (fun s => ∫ x, ouSemigroup s g x * log (ouSemigroup s g x) ∂stdGaussian)
-      (∫ x, ouGeneratorAt t g x * (1 + log (ouSemigroup t g x)) ∂stdGaussian)
+      ouSemigroup s g x *
+        log (ouSemigroup s g x)) stdGaussian)
+    -- Domination: ∃ integrable bound for |F'(s,x)| near t
+    (hdom : ∃ bound : ℝ → ℝ,
+      Integrable bound stdGaussian ∧
+      ∀ᵐ x ∂stdGaussian,
+        ∀ s ∈ Set.Ioo (t / 2) (2 * t),
+          ‖ouGeneratorAt s g x *
+            (1 + log (ouSemigroup s g x))‖ ≤
+              bound x) :
+    HasDerivAt (fun s => ∫ x, ouSemigroup s g x *
+        log (ouSemigroup s g x) ∂stdGaussian)
+      (∫ x, ouGeneratorAt t g x *
+        (1 + log (ouSemigroup t g x)) ∂stdGaussian)
       t := by
-  -- Strategy: apply hasDerivAt_integral_of_dominated_loc_of_deriv_le (parametric Leibniz rule)
-  -- with F(s,x) = ouSemigroup s g x * log(ouSemigroup s g x)
-  -- and  F'(s,x) = (d/ds ouSemigroup s g x) * (1 + log(ouSemigroup s g x))
-  -- The pointwise derivative d/ds [u·log u] = u'·(1 + log u) by chain rule.
-  -- Sub-goal 1: AEStronglyMeasurable of F(s,·) near t — from hent_int
+  -- Strategy: apply hasDerivAt_integral_of_dominated_loc_of_deriv_le
+  -- Sub-goal 1: AEStronglyMeasurable of F(s,·) near t
   have hF_meas : ∀ᶠ s in nhds t, AEStronglyMeasurable (fun x =>
       ouSemigroup s g x * log (ouSemigroup s g x)) stdGaussian :=
     hent_int.mono (fun s hs => hs.aestronglyMeasurable)
-  -- Sub-goal 2: Integrable F(t,·) — from hent_int
-  have hent_int_t : Integrable (fun x => ouSemigroup t g x * log (ouSemigroup t g x))
+  -- Sub-goal 2: Integrable F(t,·)
+  have hent_int_t : Integrable (fun x =>
+      ouSemigroup t g x * log (ouSemigroup t g x))
       stdGaussian := hent_int.self_of_nhds
-  -- Sub-goal 3: AEStronglyMeasurable of F'(t,·) — from hint
-  have hF'_meas : AEStronglyMeasurable (fun x => ouGeneratorAt t g x *
-      (1 + log (ouSemigroup t g x))) stdGaussian := hint.aestronglyMeasurable
-  -- Sub-goal 4: neighborhood S ∈ nhds t
-  have hS : Set.Ioo (t / 2) (2 * t) ∈ nhds t := Ioo_mem_nhds (by linarith) (by linarith)
-  -- Sub-goal 5: uniform bound — needs OU regularity near t (sorry)
-  -- For s near t, ‖(d/ds P_s g)(x) * (1 + log(P_s g(x)))‖ ≤ bound(x) with integrable bound.
-  -- This requires uniform-in-s bounds on ouGeneratorAt and log(ouSemigroup), which follow from
-  -- smoothness of the Gaussian heat kernel but need substantial regularity theory.
-  -- The bound function: for each x, sup over s near t of |F'(s,x)|
-  let bound : ℝ → ℝ := sorry
-  have hbound : ∀ᵐ x ∂stdGaussian, ∀ s ∈ Set.Ioo (t / 2) (2 * t),
-      ‖ouGeneratorAt s g x * (1 + log (ouSemigroup s g x))‖ ≤ bound x := sorry
-  have hbound_int : Integrable bound stdGaussian := sorry
+  -- Sub-goal 3: AEStronglyMeasurable of F'(t,·)
+  have hF'_meas : AEStronglyMeasurable (fun x =>
+      ouGeneratorAt t g x *
+      (1 + log (ouSemigroup t g x))) stdGaussian :=
+    hint.aestronglyMeasurable
+  -- Sub-goal 4: neighborhood
+  have hS : Set.Ioo (t / 2) (2 * t) ∈ nhds t :=
+    Ioo_mem_nhds (by linarith) (by linarith)
+  -- Sub-goal 5: uniform bound from hdom
+  obtain ⟨bound, hbound_int, hbound⟩ := hdom
   -- Sub-goal 6: pointwise HasDerivAt — chain rule d/ds[u·log u] = u'·(1+log u)
-  -- where u(s) = ouSemigroup s g x, u'(s) = ouGeneratorAt s g x.
-  -- This requires: (a) HasDerivAt for s ↦ ouSemigroup s g x at each s near t (not just at t),
-  -- (b) ouSemigroup s g x > 0 for s near t and ae x, (c) chain rule for log.
   have hpointwise : ∀ᵐ x ∂stdGaussian, ∀ s ∈ Set.Ioo (t / 2) (2 * t),
       HasDerivAt (fun s => ouSemigroup s g x * log (ouSemigroup s g x))
-        (ouGeneratorAt s g x * (1 + log (ouSemigroup s g x))) s := sorry
+        (ouGeneratorAt s g x * (1 + log (ouSemigroup s g x))) s := by
+    -- For ae x (those where P_s g x > 0 for all s > 0), use chain rule.
+    -- For each s ∈ Ioo(t/2, 2t): s > 0, so ouSemigroup_time_deriv gives
+    --   HasDerivAt (s ↦ P_s g x) (ouGeneratorAt s g x) s
+    -- and ouSemigroup_pos_ae gives P_s g x > 0 ae.
+    -- Then d/ds[u·log u] = u'·log u + u·(u'/u) = u'·(1 + log u).
+    -- We need: for ae x, P_s g x > 0 for ALL s ∈ Ioo(t/2, 2t).
+    -- Since g is Lipschitz with positive integral, ouSemigroup_lower_bound gives
+    -- P_s g x > 0 for ALL x when s > 0. So this is pointwise, not just ae.
+    -- Actually, ouSemigroup_lower_bound gives ∀ x, c₁ exp(-c₂ x²) ≤ P_s g x,
+    -- so P_s g x > 0 for ALL x, not just ae.
+    apply ae_of_all
+    intro x s hs
+    have hs_pos : 0 < s := by
+      have := hs.1; linarith
+    -- Step (a): HasDerivAt for the time parameter at s
+    have hU : HasDerivAt (fun s => ouSemigroup s g x) (ouGeneratorAt s g x) s :=
+      ouSemigroup_time_deriv g g' g'' s hs_pos hg_deriv hg'_deriv hg'_bound hg''_bound hg_int x
+    -- Step (b): P_s g x > 0 (from hPt_pos_all)
+    have hPsx_pos : 0 < ouSemigroup s g x :=
+      hPt_pos_all s hs_pos x
+    have hPsx_ne : ouSemigroup s g x ≠ 0 := ne_of_gt hPsx_pos
+    -- Step (c): Chain rule: d/ds[u * log u] = u' * (1 + log u)
+    -- Decompose: d/ds[u * log u] = u' * log u + u * (u'/u) = u' * log u + u'
+    have hlog : HasDerivAt (fun s => Real.log (ouSemigroup s g x))
+        (ouGeneratorAt s g x / ouSemigroup s g x) s := hU.log hPsx_ne
+    have hmul : HasDerivAt (fun s => ouSemigroup s g x * Real.log (ouSemigroup s g x))
+        (ouGeneratorAt s g x * Real.log (ouSemigroup s g x) +
+         ouSemigroup s g x * (ouGeneratorAt s g x / ouSemigroup s g x)) s :=
+      hU.mul hlog
+    -- Simplify: u * (u'/u) = u' (since u ≠ 0)
+    have hsimpl : ouSemigroup s g x * (ouGeneratorAt s g x / ouSemigroup s g x) =
+        ouGeneratorAt s g x := by
+      field_simp
+    -- Combine: u' * log u + u' = u' * (1 + log u)
+    convert hmul using 1
+    rw [hsimpl]
+    ring
   -- Apply the parametric Leibniz rule
   exact (hasDerivAt_integral_of_dominated_loc_of_deriv_le
     hS hF_meas hent_int_t hF'_meas hbound hbound_int hpointwise).2
@@ -1570,8 +1615,26 @@ lemma entropy_dissipation (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
   have htime := fun x => ouSemigroup_time_deriv g g' g'' t ht hg_deriv hg'_deriv
     hg'_bound hg''_bound hg_int x
   -- Step 2: Leibniz rule gives F'(t) = ∫ L(P_t g) · (1 + log(P_t g)) dγ
-  have hleib := entropy_hasDerivAt_of_time_deriv g t ht hg_nn hg_int hPt_pos htime
-    hint_gen hent_int
+  -- Domination hypothesis for parametric Leibniz rule:
+  -- |ouGeneratorAt s g x * (1 + log(P_s g x))| ≤ bound(x) for s near t.
+  -- This follows from: |ouGeneratorAt| ≤ C'' + C'|x| (bounded g', g'')
+  -- and |1 + log(P_s g x)| ≤ polynomial(|x|) (Lipschitz upper + Gaussian lower bounds).
+  -- Product is a polynomial of degree ≤ 3 in |x|, Gaussian-integrable.
+  have hdom : ∃ bound : ℝ → ℝ, Integrable bound stdGaussian ∧
+      ∀ᵐ x ∂stdGaussian, ∀ s ∈ Set.Ioo (t / 2) (2 * t),
+        ‖ouGeneratorAt s g x *
+          (1 + log (ouSemigroup s g x))‖ ≤ bound x := by
+    sorry
+  -- Pointwise positivity: for any s > 0, P_s g x > 0 for all x
+  have hPt_pos_all : ∀ s, 0 < s → ∀ x, 0 < ouSemigroup s g x := by
+    intro s hs x
+    obtain ⟨c₁, c₂, hc₁, _, hlower⟩ :=
+      ouSemigroup_lower_bound g g' s hs hg_nn hg_int hg_pos_int
+        hg'_bound hg_deriv
+    exact lt_of_lt_of_le (by positivity) (hlower x)
+  have hleib := entropy_hasDerivAt_of_time_deriv g g' g'' t ht
+    hg_nn hg_int hg_pos_int hg_deriv hg'_deriv hg'_bound
+    hg''_bound hPt_pos_all hint_gen hent_int hdom
   -- Step 3: Extract regularity sub-results for dirichlet_form_entropy
   have hg_diff : Differentiable ℝ g := fun w => (hg_deriv w).differentiableAt
   have hg_meas : Measurable g := hg_diff.continuous.measurable
