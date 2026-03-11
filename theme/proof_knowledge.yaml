@@ -9,8 +9,8 @@
 #   anti: true 表示"不要走这条路"。agent 查到 anti 条目时应跳过该策略。
 #   可出现在 L3 (strategy), L2 (chain), L1 (tip) 任何层级。
 #   已有的 "FALSE LEMMA 警告" 也属于此类。
-version: v2
-entry_count: 75
+version: v3
+entry_count: 82
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -75,6 +75,20 @@ L3_strategies:
     strategy: "L^p chain: MemLp q → MemLp p via mono_exponent (p≤q), or memLp_two_iff_integrable_sq for L²↔sq"
     key_api: [MemLp.mono_exponent, memLp_two_iff_integrable_sq, Integrable.of_bound]
     source: [Taylor, ANOVA, LehmannScheffe]
+    confidence: 5
+
+  # --- Fubini at arbitrary coord (piFinSuccAbove) ---
+  - trigger: "Integrable (fun y => ∫ t, φ(update y j t) dμ) (stdGaussianPi n)"
+    strategy: "piFinSuccAbove decomposition: e := MeasurableEquiv.piFinSuccAbove j, hmp.symm.integrable_comp_of_integrable → hprod.integral_prod_right → .comp_snd → hmp.integrable_comp_of_integrable. Key identity: update y j t = e.symm (t, (e y).2) via Fin.update_insertNth."
+    key_api: [MeasurableEquiv.piFinSuccAbove, measurePreserving_piFinSuccAbove, Integrable.integral_prod_right, Integrable.comp_snd, MeasurePreserving.integrable_comp_of_integrable, Fin.update_insertNth]
+    source: [LogSobolev]
+    confidence: 5
+
+  # --- condEntropyAt integrability (Jensen domination) ---
+  - trigger: "Integrable (fun x => condEntropyAt μ g j x) (stdGaussianPi n)"
+    strategy: "Unfold condEntropyAt = A - B. A integrable by Fubini (integrable_condExpect_stdGaussianPi_gen). B = (E_j g)·log(E_j g) dominated by |A| + 1/e: Jensen upper (convexOn_mul_log.map_integral_le, needs ae slice integrability via prod_left_ae + ae_snd_of_ae_marginal + QuasiMeasurePreserving.ae), lower -1/e (mul_log_ge_neg_inv_exp). Then Integrable.mono'."
+    key_api: [convexOn_mul_log, continuous_mul_log, Integrable.mono', mul_log_ge_neg_inv_exp, ae_snd_of_ae_marginal]
+    source: [LogSobolev]
     confidence: 5
 
   # --- 测度相等 ---
@@ -305,6 +319,22 @@ L2_api_chains:
     source: [Taylor]
     confidence: 5
 
+  # --- piFinSuccAbove Fubini 链路 ---
+  - trigger: "Integrable (φ ∘ Prod.snd ∘ e) (stdGaussianPi n)"
+    chain: "hmarg.comp_snd stdGaussian → hmp.integrable_comp_of_integrable. Where hmarg := hprod.integral_prod_right, hprod := hmp.symm.integrable_comp_of_integrable hφ."
+    source: [LogSobolev]
+    confidence: 5
+
+  - trigger: "Function.update y j t = e.symm (t, (e y).2) (piFinSuccAbove identity)"
+    chain: "conv_lhs => rw [(e.symm_apply_apply y).symm]; simp only [e, MeasurableEquiv.piFinSuccAbove_symm_apply]; exact @Fin.update_insertNth n (fun _ => ℝ) j (e y).1 t (e y).2"
+    source: [LogSobolev]
+    confidence: 5
+
+  - trigger: "∀ᵐ y ∂γⁿ⁺¹, Integrable (fun t => g(update y j t)) γ (ae slice integrability)"
+    chain: "hg_prod.prod_left_ae → ae_snd_of_ae_marginal γ₁ γn → hmp.quasiMeasurePreserving.ae → .mono (rewrite via Fin.update_insertNth)"
+    source: [LogSobolev]
+    confidence: 5
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -423,8 +453,25 @@ L1_tactic_tips:
     frequency: 1
     source: [LogSobolev, prove-deep-2026-03-11]
 
+  # --- ae 传输 (product measure) ---
+  - trigger: "∀ᵐ y ∂ν, P(y) → ∀ᵐ z ∂(μ.prod ν), P(z.2)"
+    tip: "Use Measure.prod_prod_le: show {z | ¬P z.2} ⊆ univ ×ˢ {y | ¬P y}, bound (μ.prod ν)(univ ×ˢ S) ≤ μ(univ) * ν(S) = 0. No measurability needed. See ae_snd_of_ae_marginal in LogSobolev.lean."
+    frequency: 3
+    source: [LogSobolev, prove-deep-2026-03-11]
+
+  - trigger: "∀ᵐ z ∂γn, P(z) → ∀ᵐ y ∂γⁿ⁺¹, P((e y).2) via piFinSuccAbove"
+    tip: "Chain: prod_left_ae → ae_snd_of_ae_marginal (transfer to product) → QuasiMeasurePreserving.ae (transfer via e). Then .mono to rewrite predicate using Fin.update_insertNth."
+    frequency: 3
+    source: [LogSobolev, prove-deep-2026-03-11]
+
   # --- FALSE LEMMA 警告 ---
   - trigger: "f ∈ L²(γ) implies f·poly ∈ L²(γ)?"
     anti: true
     tip: "FALSE! Counterexample exists. Use Hölder: L²·L² ⊆ L¹. Only claim L¹ for products."
     frequency: 1
+
+  - trigger: "entropy_subadditivity for g·log(g) NOT integrable (Lean Bochner convention)"
+    anti: true
+    tip: "LIKELY FALSE under Lean's ∫=0 convention for non-integrable functions. When g·log(g) ∉ L¹, entropyPi = -(∫g)·log(∫g) can be positive, but ∑∫condEnt_i could be 0 (each condEntropyAt non-integrable → Lean ∫ = 0). Eliminate this case split; use Integrable(g·log g) as hypothesis instead."
+    frequency: 1
+    source: [LogSobolev, prove-deep-2026-03-11]
