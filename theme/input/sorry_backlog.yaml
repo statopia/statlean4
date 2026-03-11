@@ -1,6 +1,6 @@
-version: v120
+version: v121
 generated: 2026-03-11
-total_sorry: 19
+total_sorry: 17
 
 sorry_items:
 
@@ -18,8 +18,8 @@ sorry_items:
 
 - id: ou.entropy_dissipation
   file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 1132
-  sorry_lines: [1132, 1134, 1138, 1140, 1142]
+  line: 1152
+  sorry_lines: [1152, 1154, 1158, 1160, 1162]
   theorem: entropy_dissipation
   type: honest
   depth: 2
@@ -29,22 +29,9 @@ sorry_items:
   dependencies: []
   unlocks: [ou.gaussian_lsi_wiring]
 
-- id: ou.fisher_contraction
-  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 1259
-  sorry_lines: [1259, 1260]
-  theorem: fisherInfo_ouSemigroup_le
-  type: honest
-  depth: 2
-  priority: 6
-  blocker: "Fisher info contraction: I(P_t g) ≤ e^{-2t}·I(g). Uses: (1) commutation (P_t g)' = e^{-t}·P_t(g'), (2) Cauchy-Schwarz (E[h])² ≤ E[g]·E[h²/g], (3) invariance ∫P_t φ = ∫φ."
-  estimated_lines: 50
-  dependencies: [ou.spatial_commutation, ou.integral_invariance]
-  unlocks: [ou.gaussian_lsi_wiring]
-
 - id: ou.gaussian_lsi_wiring
   file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 1292
+  line: 1390
   theorem: gaussian_lsi_normalized_from_ou
   type: blocked
   depth: 3
@@ -126,10 +113,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: gaussian.ornsteinuhlenbeck.ouSemigroup_sq_div_le
+- id: gaussian.ornsteinuhlenbeck.integrable_one_add_log_ouSemigroup
   file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 1223
-  theorem: ouSemigroup_sq_div_le
+  line: 1033
+  theorem: integrable_one_add_log_ouSemigroup
   type: unknown
   depth: 1
   priority: 99
