@@ -1,8 +1,9 @@
 # theme/proof_knowledge.yaml — 四层证明知识库
 # 使用方法：按 trigger 字段匹配当前 goal，读对应 strategy/chain/tip
+# 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 95
+entry_count: 104
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -337,6 +338,38 @@ L2_api_chains:
     chain: "integrable_mehler_prod + .prod_right_ae → ae slice integrability. Then ouSemigroup_sq_div_le gives ae pointwise bound. Use Integrable.mono with ae norm bound (abs_of_nonneg for both sides) to prove LHS integrable from RHS integrable."
     confidence: 5
 
+  - trigger: "stdGaussian.real set Gaussian measure lower bound interval"
+    chain: "gaussianReal_apply_eq_integral 0 (1≠0) gives stdGaussian(S) as integral of gaussianPDFReal over S. Then setIntegral_ge_of_const_le with inf density on S + volume_Icc for interval length."
+    confidence: 5
+
+  - trigger: "MemLp bounded times L² product Hölder"
+    chain: "bounded f → memLp_top_of_bound → MemLp ∞. Then MemLp.mul' with HolderTriple ∞ 2 2 (or HolderTriple 2 ∞ 2). Caution: argument order in mul' matters."
+    confidence: 5
+
+  - trigger: "MemLp f 2 from integrable square norm"
+    chain: "memLp_two_iff_integrable_sq_norm (needs AEStronglyMeasurable): MemLp f 2 ↔ Integrable (‖f‖²). For log-growth: |1+log(P_t g x)| ≤ A + B|x| → squared ≤ 2A²+2B²x² → integrable since ∫x²dγ<∞."
+    confidence: 5
+
+  - trigger: "chain rule derivative u*log(u) HasDerivAt mul log"
+    chain: "d/ds[u·log u] = u'·log u + u·(u'/u) = u'·(1+log u). Use HasDerivAt.mul + HasDerivAt.log (needs u(s)>0). Works pointwise for P_s g when ouSemigroup_lower_bound gives P_s g > 0."
+    confidence: 5
+
+  - trigger: "∫ (f+g) = ∫ f + ∫ g or ∫ (f-g) multiple integral_add integral_sub rewrite chain"
+    chain: "integral_add h1_int h2_int / integral_sub h1_int h2_int → integral_const_mul → integral_congr_ae"
+    workflow: "BEFORE writing any integral rewrite chain: (1) list ALL sub-terms that appear inside integrals, (2) prove Integrable for EACH sub-term as named have statements, (3) THEN assemble the rw/calc chain referencing those have names. Never write integral_add/sub inline without pre-built Integrable proofs."
+    source: ['OrnsteinUhlenbeck']
+    confidence: 5
+
+  - trigger: "hasDerivAt_integral_of_dominated_loc_of_deriv_le domination bound ∃ bound Integrable uniform"
+    chain: "Split into 3 independent sub-lemmas: (1) integrand_bound: ‖F(s,x)‖ ≤ B₁(x), (2) parameter_bound: ‖∂F/∂s(s,x)‖ ≤ B₂(x), (3) product_integrability: Integrable (B₁·B₂). Prove (1)(2) in parallel, then (3)."
+    workflow: "For domination bounds >100 lines: MUST decompose into ≤50-line independent sub-lemmas BEFORE attempting proof. Typical split for parametric Leibniz: generator_bound (polynomial in x), log_bound (polynomial in x from lower+upper), product_integrability (Gaussian moments). Each sub-lemma is independently compilable and parallelizable."
+    source: ['OrnsteinUhlenbeck']
+    confidence: 5
+
+  - trigger: "E[(ax+by)²] Gaussian moment computation ouSemigroup upper bound"
+    chain: "Expand (ax+by)² = a²x² + 2abxy + b²y². Integrate: E[y]=0 (integral_id_gaussianReal), E[y²]=1 (variance_eq_sub + variance_fun_id_gaussianReal). Result: a²x² + b². Cleaner than Cauchy-Schwarz for integral bounds."
+    confidence: 5
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -476,4 +509,12 @@ L1_tactic_tips:
 
   - trigger: "ouSemigroup nonnegativity t=0 only ae not pointwise"
     tip: "ouSemigroup 0 g x = g x. If g ≥ 0 only ae(γ), cannot prove g x ≥ 0 for all x. Use ae statements: filter_upwards [hg_nn] with x hx; rw [ouSemigroup_zero]; exact hx."
+    frequency: 1
+
+  - trigger: "nlinarith abs |z| ≤ 1 + z²"
+    tip: "nlinarith can't handle abs directly. Use: have h := sq_nonneg (|z| - 1); have := sq_abs z; have := abs_nonneg z. Then nlinarith closes |z| ≤ 1 + z²."
+    frequency: 1
+
+  - trigger: "exp(-s)^2 = exp(-2s) in Lean"
+    tip: "rw [sq, ← Real.exp_add]; congr 1; ring"
     frequency: 1
