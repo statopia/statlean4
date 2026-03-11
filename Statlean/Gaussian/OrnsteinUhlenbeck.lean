@@ -1012,13 +1012,19 @@ private lemma ouSemigroup_pos_ae (g : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
   filter_upwards [hPg_eq, hPgmp_pos] with x hx_eq hx_pos
   rw [hx_eq]; exact hx_pos
 
-/-- The function `1 + log(P_t g)` is integrable against the standard Gaussian.
-Follows from polynomial growth bounds: |log(P_t g(x))| ≤ D₁ + D₂·x² (integrable vs Gaussian).
-- Upper: P_t g(x) ≤ A + B|x| (Lipschitz → linear growth), so log⁺ ≤ log(A+B|x|+1).
-- Lower: P_t g(x) ≥ c₁·exp(-c₂·x²) (Gaussian kernel + g>0 somewhere), so -log ≤ c₂x²+C.
+/-- Gaussian kernel lower bound: for Lipschitz nonneg g with strictly positive integral,
+the OU semigroup satisfies P_t g(x) ≥ c₁ · exp(-c₂ · x²) for explicit positive constants.
+This follows from: g ≥ ε on some ball (continuity + positivity), the Gaussian kernel
+puts positive mass on any ball, and that mass decays at most like exp(-x²). -/
+private lemma ouSemigroup_lower_bound (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+    (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
+    (hg_int : Integrable g stdGaussian)
+    (hg_pos_int : 0 < ∫ x, g x ∂stdGaussian)
+    (hg'_bound : ∃ C, ∀ x, ‖g' x‖ ≤ C)
+    (hg_deriv : ∀ x, HasDerivAt g (g' x) x) :
+    ∃ c₁ c₂ : ℝ, 0 < c₁ ∧ 0 < c₂ ∧ ∀ x, c₁ * exp (-c₂ * x ^ 2) ≤ ouSemigroup t g x := by
+  sorry
 
-Blocker: formalizing the Gaussian kernel lower bound (~40 lines).
-Estimated effort: B-grade. -/
 private lemma integrable_one_add_log_ouSemigroup (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
     (hg_int : Integrable g stdGaussian)
@@ -1026,11 +1032,96 @@ private lemma integrable_one_add_log_ouSemigroup (g g' : ℝ → ℝ) (t : ℝ) 
     (hg'_bound : ∃ C, ∀ x, ‖g' x‖ ≤ C)
     (hg_deriv : ∀ x, HasDerivAt g (g' x) x) :
     Integrable (fun x => 1 + log (ouSemigroup t g x)) stdGaussian := by
-  -- Proof sketch: |1 + log(P_t g(x))| ≤ D₁ + D₂·x² for constants D₁, D₂ > 0.
-  -- Upper bound: P_t g is Lipschitz image under Gaussian convolution → linear growth.
-  -- Lower bound: Gaussian kernel ensures P_t g(x) ≥ c·exp(-c'·x²) for constants c, c' > 0.
-  -- Both bounds give polynomial growth, integrable against Gaussian.
-  sorry
+  -- Strategy: split into integrable constant + integrable log part.
+  -- For log: bound |log(P_t g(x))| ≤ P_t g(x) + |log c₁| + c₂ x²
+  -- using upper bound log y ≤ y and lower bound P_t g(x) ≥ c₁ exp(-c₂ x²).
+  -- Step 0: Get the Gaussian lower bound
+  obtain ⟨c₁, c₂, hc₁, hc₂, hlow⟩ :=
+    ouSemigroup_lower_bound g g' t ht hg_nn hg_int hg_pos_int hg'_bound hg_deriv
+  -- Step 1: P_t g > 0 pointwise (from the lower bound)
+  have hPt_pos : ∀ x, 0 < ouSemigroup t g x := by
+    intro x; calc 0 < c₁ * exp (-c₂ * x ^ 2) := by positivity
+      _ ≤ ouSemigroup t g x := hlow x
+  -- Step 2: It suffices to show log ∘ (P_t g) is integrable (then add constant 1)
+  suffices h : Integrable (fun x => log (ouSemigroup t g x)) stdGaussian by
+    exact (integrable_const 1).add h
+  -- Step 3: Bound |log(P_t g(x))| pointwise
+  -- Upper: log(P_t g(x)) ≤ P_t g(x) (since log y ≤ y for y > 0)
+  -- Lower: log(P_t g(x)) ≥ log(c₁) - c₂ x² (from lower bound)
+  -- So |log(P_t g(x))| ≤ P_t g(x) + |log c₁| + c₂ x²
+  have hPt_int := integrable_ouSemigroup t (le_of_lt ht) g hg_int
+  -- Step 4: x² is integrable against Gaussian
+  have hx2_int : Integrable (fun x : ℝ => x ^ 2) stdGaussian := by
+    have hmem : MemLp (fun x : ℝ => x) 2 stdGaussian := by
+      have := memLp_id_gaussianReal (2 : NNReal) (μ := 0) (v := 1)
+      simp only [stdGaussian, id] at this ⊢; exact this
+    exact hmem.integrable_sq
+  -- Step 5: The dominating function D(x) = P_t g(x) + |log c₁| + c₂ x² is integrable
+  have hdom_int : Integrable (fun x => ouSemigroup t g x + |log c₁| + c₂ * x ^ 2)
+      stdGaussian :=
+    (hPt_int.add (integrable_const _)).add (hx2_int.const_mul c₂)
+  -- Step 6: Measurability of log ∘ P_t g
+  have hg_diff : Differentiable ℝ g := fun w => (hg_deriv w).differentiableAt
+  have hg_cont : Continuous g := hg_diff.continuous
+  have hPt_cont : Continuous (ouSemigroup t g) := by
+    have := ouSemigroup_hasDerivAt t g g' hg_deriv hg'_bound
+      (fun z => by
+        obtain ⟨C, hC⟩ := hg'_bound
+        have hC_nn : (0 : ℝ) ≤ C := le_trans (norm_nonneg _) (hC 0)
+        set Cnn : NNReal := ⟨C, hC_nn⟩
+        have hg_lip := lipschitzWith_of_nnnorm_deriv_le hg_diff fun w => by
+          show ‖deriv g w‖₊ ≤ Cnn
+          rw [← NNReal.coe_le_coe, coe_nnnorm, (hg_deriv w).deriv]; exact hC w
+        set a := exp (-t) * z; set b := sqrt (1 - exp (-2 * t))
+        have h1 : Integrable (fun _ : ℝ => g 0) stdGaussian := integrable_const _
+        have h2 : Integrable (fun y => g (a + b * y) - g 0) stdGaussian :=
+          Integrable.mono
+            ((integrable_const (C * |a|)).add
+              ((IsGaussian.integrable_fun_id (μ := stdGaussian)).norm.const_mul (C * |b|)))
+            ((hg_cont.measurable.comp (measurable_const.add
+              (measurable_const.mul measurable_id))).sub measurable_const).aestronglyMeasurable
+            (ae_of_all _ fun y => by
+              have h := hg_lip.norm_sub_le (a + b * y) 0
+              simp only [sub_zero, show (Cnn : ℝ) = C from rfl] at h
+              have hnn : 0 ≤ C * |a| + C * |b| * ‖y‖ :=
+                add_nonneg (mul_nonneg hC_nn (abs_nonneg _))
+                  (mul_nonneg (mul_nonneg hC_nn (abs_nonneg _)) (norm_nonneg _))
+              calc ‖g (a + b * y) - g 0‖ ≤ C * ‖a + b * y‖ := h
+                _ ≤ C * (|a| + |b * y|) := by
+                    gcongr; rw [Real.norm_eq_abs]; exact abs_add_le _ _
+                _ = C * |a| + C * |b| * ‖y‖ := by rw [abs_mul b y, Real.norm_eq_abs]; ring
+                _ ≤ ‖(C * |a| + C * |b| * ‖y‖ : ℝ)‖ :=
+                    le_of_eq (Real.norm_of_nonneg hnn).symm)
+        rw [show (fun y => g (a + b * y)) = (fun y => g 0 + (g (a + b * y) - g 0)) from by
+          ext y; abel]
+        exact h1.add h2)
+    exact Differentiable.continuous fun x => (this x).differentiableAt
+  have hPt_meas : Measurable (ouSemigroup t g) := hPt_cont.measurable
+  have hlog_meas : AEStronglyMeasurable (fun x => log (ouSemigroup t g x)) stdGaussian :=
+    (measurable_log.comp hPt_meas).aestronglyMeasurable
+  -- Step 7: Apply Integrable.mono with the dominating function
+  exact Integrable.mono hdom_int hlog_meas (ae_of_all _ fun x => by
+    have hpos := hPt_pos x
+    have hlow_x := hlow x
+    -- The dominating function is nonneg, so its norm = itself
+    have hdom_nn : 0 ≤ ouSemigroup t g x + |log c₁| + c₂ * x ^ 2 :=
+      add_nonneg (add_nonneg (le_of_lt hpos) (abs_nonneg _))
+        (mul_nonneg (le_of_lt hc₂) (sq_nonneg x))
+    rw [Real.norm_eq_abs, Real.norm_eq_abs, abs_of_nonneg hdom_nn]
+    -- Case split: log(P_t g(x)) ≥ 0 or < 0
+    by_cases hlog : 0 ≤ log (ouSemigroup t g x)
+    · -- log ≥ 0: |log y| = log y ≤ y ≤ y + |log c₁| + c₂ x²
+      rw [abs_of_nonneg hlog]
+      have := Real.log_le_self (le_of_lt hpos)
+      linarith [abs_nonneg (log c₁), mul_nonneg (le_of_lt hc₂) (sq_nonneg x)]
+    · -- log < 0: |log y| = -log y ≤ |log c₁| + c₂ x²
+      push_neg at hlog
+      rw [abs_of_neg hlog]
+      have h1 : log (ouSemigroup t g x) ≥ log (c₁ * exp (-c₂ * x ^ 2)) :=
+        Real.log_le_log (by positivity) hlow_x
+      have h2 : log (c₁ * exp (-c₂ * x ^ 2)) = log c₁ + (-c₂ * x ^ 2) := by
+        rw [Real.log_mul (ne_of_gt hc₁) (ne_of_gt (exp_pos _)), Real.log_exp]
+      linarith [neg_abs_le (log c₁), le_of_lt hpos])
 
 lemma entropy_dissipation (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
