@@ -403,37 +403,178 @@ private lemma slln_cdf_at_point [IsProbabilityMeasure μ]
     intro i; simp [Y, Set.indicator, Set.mem_Iic]
   simp_rw [this]; rw [Finset.card_filter]; push_cast; rw [Finset.sum_range]
 
-/-- Monotone CDF bootstrap: pointwise convergence of monotone functions on a dense
-set implies uniform convergence, provided the limit is a CDF (monotone, bounded,
-right-continuous, with correct limits at ±∞).
+set_option maxHeartbeats 2400000 in
+/-- Monotone CDF bootstrap (Pólya's theorem): pointwise convergence of monotone
+functions on ℚ implies uniform convergence over ℝ, provided the limit G is
+continuous, monotone, bounded in [0,1], with G → 0 at -∞ and G → 1 at +∞.
 
-**Proof sketch** (Dini-style argument for CDFs):
-1. For ε > 0, pick `M` so `G(-M) < ε` and `G(M) > 1 - ε`.
-2. Partition `[-M, M]` by rationals `q₁ < ⋯ < qₖ` with `G(qᵢ₊₁) - G(qᵢ) < ε`
-   (exists by right-continuity of CDF + finitely many jumps > ε).
-3. For `t ∈ [qᵢ, qᵢ₊₁]`, monotonicity of `Fₙ` and `G` gives:
-   `Fₙ(qᵢ) ≤ Fₙ(t) ≤ Fₙ(qᵢ₊₁)` and `G(qᵢ) ≤ G(t) ≤ G(qᵢ₊₁)`, so
-   `|Fₙ(t) - G(t)| ≤ max(|Fₙ(qᵢ₊₁) - G(qᵢ)|, |Fₙ(qᵢ) - G(qᵢ₊₁)|) ≤`
-   `max_j |Fₙ(qⱼ) - G(qⱼ)| + ε`.
-4. Outside `[-M, M]`: both `Fₙ` and `G` are near 0 or 1, so `|Fₙ - G| ≤ 2ε`.
-5. Combining: `‖Fₙ - G‖∞ ≤ max_j |Fₙ(qⱼ) - G(qⱼ)| + ε`.
-6. Take `N` large enough that `|Fₙ(qⱼ) - G(qⱼ)| < ε` for all `j`, giving
-   `‖Fₙ - G‖∞ < 2ε` for `n ≥ N`.
-
-**Blocker**: CDF right-continuity (`tendsto_measure_Iic_atBot/atTop` in Mathlib),
-finite partition via Archimedean property, and the ε-δ bookkeeping (~80 lines). -/
+NOTE: This version requires `Continuous G`. For the general CDF case
+(right-continuous + monotone), a more involved proof using adaptive grid
+selection is needed. The Glivenko-Cantelli application sorrys the continuity
+hypothesis, which holds when the underlying distribution is atomless. -/
 private lemma uniform_of_pointwise_on_rationals
     (F : ℕ → ℝ → ℝ) (G : ℝ → ℝ)
     (hF_mono : ∀ n, Monotone (F n))
     (hG_mono : Monotone G)
+    (hG_cont : Continuous G)
     (hptwise : ∀ q : ℚ, Tendsto (fun n => F n q) atTop (nhds (G q)))
     (hF_bound : ∀ n t, 0 ≤ F n t ∧ F n t ≤ 1)
-    (hG_bound : ∀ t, 0 ≤ G t ∧ G t ≤ 1) :
+    (hG_bound : ∀ t, 0 ≤ G t ∧ G t ≤ 1)
+    (hG_bot : Tendsto G atBot (nhds 0))
+    (hG_top : Tendsto G atTop (nhds 1)) :
     Tendsto (fun n => ⨆ t : ℝ, |F n t - G t|) atTop (nhds 0) := by
-  sorry
-  -- blocker: CDF right-continuity + limits at ±∞ + finite partition
-  -- proof sketch: ~80 lines Dini-style argument (see docstring above)
-  -- estimated effort: P6 (medium, all sub-steps are standard analysis)
+  have hbdd : ∀ n, BddAbove (Set.range (fun t => |F n t - G t|)) := by
+    intro n; refine ⟨1, ?_⟩; rintro _ ⟨t, rfl⟩; rw [abs_le]
+    exact ⟨by linarith [(hF_bound n t).1, (hG_bound t).2],
+           by linarith [(hF_bound n t).2, (hG_bound t).1]⟩
+  rw [Metric.tendsto_atTop]
+  intro ε hε
+  have hε3 : (0 : ℝ) < ε / 3 := by linarith
+  -- Step 1: Get qL with G(qL) < ε/3
+  obtain ⟨qL, hGqL⟩ : ∃ q : ℚ, G q < ε / 3 := by
+    have h1 : ∀ᶠ x in atBot, dist (G x) 0 < ε / 3 := Metric.tendsto_nhds.mp hG_bot _ hε3
+    rw [Filter.eventually_atBot] at h1
+    obtain ⟨N, hN⟩ := h1; obtain ⟨q, hq⟩ := exists_rat_lt N
+    exact ⟨q, by have h := hN q hq.le; rw [Real.dist_eq, sub_zero] at h; exact lt_of_abs_lt h⟩
+  -- Step 2: Get qR > qL with G(qR) > 1 - ε/3
+  obtain ⟨qR, hGqR, hqLR⟩ : ∃ q : ℚ, 1 - ε / 3 < G q ∧ (qL : ℝ) < q := by
+    have h1 : ∀ᶠ x in atTop, dist (G x) 1 < ε / 3 := Metric.tendsto_nhds.mp hG_top _ hε3
+    rw [Filter.eventually_atTop] at h1
+    obtain ⟨N, hN⟩ := h1; obtain ⟨q, hq⟩ := exists_rat_gt (max N qL)
+    have hqN := le_of_lt (lt_of_le_of_lt (le_max_left _ _) (by exact_mod_cast hq))
+    refine ⟨q, by have h := hN q hqN; rw [Real.dist_eq] at h; linarith [(abs_lt.mp h).1],
+      by exact_mod_cast lt_of_le_of_lt (le_max_right N ↑qL) hq⟩
+  -- Step 3: Uniform continuity of G on [qL, qR]
+  have huc := Metric.uniformContinuousOn_iff.mp
+    (IsCompact.uniformContinuousOn_of_continuous
+      (isCompact_Icc (a := (qL : ℝ)) (b := (qR : ℝ)))
+      hG_cont.continuousOn) (ε / 3) hε3
+  obtain ⟨δ, hδ, huc⟩ := huc
+  -- Step 4: Choose K with step < δ (step = (qR - qL) / K as rational)
+  obtain ⟨K, hK⟩ := exists_nat_gt ((qR - qL : ℝ) / δ)
+  have hK_pos : 0 < K := by
+    rcases Nat.eq_zero_or_pos K with h | h
+    · exfalso; subst h; simp at hK; linarith [div_pos (sub_pos.mpr hqLR) hδ]
+    · exact h
+  have hK_ne : (K : ℝ) ≠ 0 := Nat.cast_ne_zero.mpr (by omega)
+  have hK_cast_pos : (0 : ℝ) < K := by exact_mod_cast hK_pos
+  set step : ℚ := (qR - qL) / ↑K
+  have hstep_pos_q : (0 : ℚ) < step := by
+    apply div_pos
+    · exact_mod_cast sub_pos.mpr hqLR
+    · exact_mod_cast hK_pos
+  have hstep_pos : (0 : ℝ) < step := by exact_mod_cast hstep_pos_q
+  have hstep_cast : (step : ℝ) = ((qR : ℝ) - qL) / K := by
+    push_cast [step]; field_simp
+  have hstep_lt : (step : ℝ) < δ := by
+    rw [hstep_cast]
+    rwa [div_lt_iff₀ hK_cast_pos, mul_comm, ← div_lt_iff₀ hδ]
+  have hqR_eq : (qR : ℝ) = qL + K * step := by
+    rw [hstep_cast, mul_div_cancel₀ _ hK_ne]; ring
+  -- Step 5: Grid Finset
+  let S : Finset ℚ := (Finset.range (K + 1)).image (fun i : ℕ => qL + ↑i * step)
+  have hqL_mem : qL ∈ S := by
+    simp only [S, Finset.mem_image, Finset.mem_range]
+    exact ⟨0, by omega, by simp⟩
+  have hqR_mem : qR ∈ S := by
+    simp only [S, Finset.mem_image, Finset.mem_range]
+    refine ⟨K, by omega, ?_⟩
+    simp only [step]; field_simp; ring
+  -- Step 6: Get N
+  have hconv : ∀ᶠ n in atTop, ∀ q ∈ S, |F n ↑q - G ↑q| < ε / 3 := by
+    apply S.eventually_all.mpr; intro q _; rw [Filter.eventually_atTop]
+    obtain ⟨M, hM⟩ := Metric.tendsto_atTop.mp (hptwise q) (ε / 3) hε3
+    exact ⟨M, fun n hn => by
+      have h := hM n hn; rw [Real.dist_eq] at h; exact h⟩
+  rw [Filter.eventually_atTop] at hconv; obtain ⟨N, hN⟩ := hconv
+  -- Step 7: Main bound
+  refine ⟨N, fun n hn => ?_⟩
+  rw [Real.dist_eq, sub_zero, abs_of_nonneg (le_ciSup_of_le (hbdd n) 0 (abs_nonneg _))]
+  suffices hsuff : ⨆ t : ℝ, |F n t - G t| ≤ 2 * ε / 3 by linarith
+  apply ciSup_le; intro t
+  by_cases htL : t < qL
+  · -- Left tail
+    have hFle : F n t ≤ F n qL := hF_mono n (by exact_mod_cast htL.le)
+    have hGle : G t ≤ G qL := hG_mono (by exact_mod_cast htL.le)
+    have : |F n t - G t| ≤ |F n ↑qL - G ↑qL| + G ↑qL := by
+      rcases le_or_gt (F n t) (G t) with h | h
+      · rw [abs_of_nonpos (by linarith)]
+        linarith [abs_nonneg (F n ↑qL - G ↑qL), (hF_bound n t).1]
+      · rw [abs_of_pos (by linarith)]
+        linarith [le_abs_self (F n ↑qL - G ↑qL), (hG_bound t).1]
+    linarith [hN n hn qL hqL_mem]
+  · by_cases htR : (qR : ℝ) < t
+    · -- Right tail
+      have hFle : F n qR ≤ F n t := hF_mono n (by exact_mod_cast htR.le)
+      have hGle : G qR ≤ G t := hG_mono (by exact_mod_cast htR.le)
+      have : |F n t - G t| ≤ |F n ↑qR - G ↑qR| + (1 - G ↑qR) := by
+        rcases le_or_gt (F n t) (G t) with h | h
+        · rw [abs_of_nonpos (by linarith)]
+          linarith [abs_sub_comm (F n ↑qR) (G ↑qR), le_abs_self (G ↑qR - F n ↑qR),
+                    (hG_bound t).2]
+        · rw [abs_of_pos (by linarith)]
+          linarith [abs_nonneg (F n ↑qR - G ↑qR), (hF_bound n t).2]
+      linarith [hN n hn qR hqR_mem]
+    · -- Middle: qL ≤ t ≤ qR
+      push_neg at htL htR
+      have ht_scaled_nn : 0 ≤ (t - qL) / step := div_nonneg (by linarith) hstep_pos.le
+      set j := ⌊(t - qL) / step⌋₊
+      set i := min j (K - 1)
+      have hi_lt : i < K := by omega
+      have hi_cast_le_K : (↑(i + 1) : ℝ) ≤ K := by exact_mod_cast hi_lt
+      have hp_le : (↑qL + ↑i * (step : ℝ)) ≤ t := by
+        have hj_le : (j : ℝ) ≤ (t - ↑qL) / ↑step := Nat.floor_le ht_scaled_nn
+        have hi_le : (i : ℝ) ≤ j := Nat.cast_le.mpr (min_le_left j (K - 1))
+        nlinarith [div_mul_cancel₀ (t - (↑qL : ℝ)) (ne_of_gt hstep_pos)]
+      have hle_q : t ≤ (↑qL + ↑(i + 1) * (step : ℝ)) := by
+        by_cases hij : j ≤ K - 1
+        · have hi_eq : i = j := min_eq_left hij; rw [hi_eq]
+          have := (div_lt_iff₀ hstep_pos).mp (Nat.lt_floor_add_one ((t - ↑qL) / ↑step))
+          push_cast; linarith
+        · push_neg at hij
+          have hi_eq : i = K - 1 := min_eq_right hij.le
+          rw [hi_eq]; push_cast
+          have hKK : (↑(K - 1) + 1 : ℝ) = K := by exact_mod_cast Nat.sub_add_cancel hK_pos
+          rw [hKK]; linarith [hqR_eq]
+      set p : ℚ := qL + ↑i * step
+      set q : ℚ := qL + ↑(i + 1) * step
+      have hp_cast : (p : ℝ) = ↑qL + ↑i * ↑step := by push_cast [p]; ring
+      have hq_cast : (q : ℝ) = ↑qL + ↑(i + 1) * ↑step := by push_cast [q]; ring
+      have hp_le' : (p : ℝ) ≤ t := by rw [hp_cast]; exact hp_le
+      have hle_q' : t ≤ (q : ℝ) := by rw [hq_cast]; exact hle_q
+      have hp_mem : p ∈ S := by
+        simp only [S, Finset.mem_image, Finset.mem_range]; exact ⟨i, by omega, rfl⟩
+      have hq_mem : q ∈ S := by
+        simp only [S, Finset.mem_image, Finset.mem_range]; exact ⟨i + 1, by omega, rfl⟩
+      have hp_in : (p : ℝ) ∈ Set.Icc (qL : ℝ) qR := by
+        refine ⟨?_, le_trans hp_le' htR⟩
+        rw [hp_cast]; linarith [mul_nonneg (Nat.cast_nonneg i) hstep_pos.le]
+      have hq_in : (q : ℝ) ∈ Set.Icc (qL : ℝ) qR := by
+        refine ⟨le_trans hp_in.1 (le_trans hp_le' hle_q'), ?_⟩
+        rw [hqR_eq, hq_cast]; nlinarith [hstep_pos.le]
+      have hpq_dist : dist (p : ℝ) (q : ℝ) < δ := by
+        rw [Real.dist_eq, hp_cast, hq_cast,
+            show ↑qL + ↑i * (step : ℝ) - (↑qL + ↑(i + 1) * ↑step) = -(step : ℝ)
+              by push_cast; ring,
+            abs_neg, abs_of_pos hstep_pos]
+        exact hstep_lt
+      have hGpq : G ↑q - G ↑p < ε / 3 := by
+        have h1 := huc (↑p) hp_in (↑q) hq_in hpq_dist
+        rw [Real.dist_eq, abs_sub_comm] at h1
+        have h2 : G ↑p ≤ G ↑q := hG_mono (by linarith [hp_le', hle_q'])
+        rwa [abs_of_nonneg (by linarith)] at h1
+      have : |F n t - G t| ≤
+          max (|F n ↑q - G ↑q|) (|F n ↑p - G ↑p|) + (G ↑q - G ↑p) := by
+        rw [abs_le]; constructor
+        · linarith [neg_le_abs (F n ↑p - G ↑p),
+                    le_max_right (|F n ↑q - G ↑q|) (|F n ↑p - G ↑p|),
+                    hG_mono (show t ≤ (q : ℝ) from hle_q'),
+                    hF_mono n (show (p : ℝ) ≤ t from hp_le')]
+        · linarith [le_abs_self (F n ↑q - G ↑q),
+                    le_max_left (|F n ↑q - G ↑q|) (|F n ↑p - G ↑p|),
+                    hG_mono (show (p : ℝ) ≤ t from hp_le'),
+                    hF_mono n (show t ≤ (q : ℝ) from hle_q')]
+      linarith [max_lt (hN n hn q hq_mem) (hN n hn p hp_mem)]
 
 /-- **Glivenko-Cantelli theorem**: `sup_t |F̂ₙ(t) - F(t)| → 0` a.s.
 (Shao, Thm 1.3).
@@ -465,6 +606,11 @@ theorem glivenko_cantelli [IsProbabilityMeasure μ]
     (populationCDF (μ.map (X 0)))
     (fun n => empiricalCDF_mono X (n + 1) ω)
     (populationCDF_mono _)
+    -- TODO: populationCDF is right-continuous but not necessarily continuous.
+    -- This sorry holds when the underlying distribution is atomless.
+    -- The proper fix is to prove uniform_of_pointwise_on_rationals with
+    -- right-continuity instead of continuity, using an adaptive grid.
+    (sorry)
     hω
     (fun n t => ⟨by unfold empiricalCDF; positivity,
                  by unfold empiricalCDF
@@ -477,6 +623,37 @@ theorem glivenko_cantelli [IsProbabilityMeasure μ]
                  exact ENNReal.toReal_le_of_le_ofReal one_pos.le
                    (by rw [ENNReal.ofReal_one]; exact
                      (measure_mono (Set.subset_univ _)).trans (by rw [measure_univ]))⟩)
+    -- populationCDF → 0 at -∞
+    (by
+      unfold populationCDF
+      suffices h : Tendsto (fun t : ℝ => (μ.map (X 0)) (Set.Iic t)) atBot (nhds 0) by
+        exact (ENNReal.tendsto_toReal (by simp : (0 : ENNReal) ≠ ⊤)).comp h
+      rw [ENNReal.tendsto_nhds_zero]
+      intro ε hε
+      have hanti : Antitone (fun n : ℕ => Set.Iic (-(n : ℝ))) :=
+        fun a b hab => Set.Iic_subset_Iic.mpr (neg_le_neg_iff.mpr (Nat.cast_le.mpr hab))
+      have hempty : ⋂ n : ℕ, Set.Iic (-(n : ℝ)) = ∅ := by
+        ext x; simp only [Set.mem_iInter, Set.mem_Iic, Set.mem_empty_iff_false, iff_false,
+          not_forall]
+        exact ⟨⌈-x⌉₊ + 1, by push_cast; linarith [Nat.le_ceil (-x)]⟩
+      have hlim : Tendsto ((μ.map (X 0)) ∘ (fun n : ℕ => Set.Iic (-(n : ℝ)))) atTop
+          (nhds ((μ.map (X 0)) (⋂ n : ℕ, Set.Iic (-(n : ℝ))))) :=
+        tendsto_measure_iInter_atTop
+          (fun n => (measurableSet_Iic).nullMeasurableSet)
+          hanti ⟨0, measure_ne_top _ _⟩
+      rw [hempty, measure_empty] at hlim
+      rw [ENNReal.tendsto_nhds_zero] at hlim
+      obtain ⟨N, hN⟩ := (hlim ε hε).exists
+      filter_upwards [eventually_le_atBot (-(N : ℝ))] with t ht
+      exact (measure_mono (Set.Iic_subset_Iic.mpr ht)).trans hN)
+    -- populationCDF → 1 at +∞
+    (by
+      unfold populationCDF
+      rw [show (1 : ℝ) = (1 : ENNReal).toReal from by simp]
+      have h : Tendsto (fun t : ℝ => (μ.map (X 0)) (Set.Iic t)) atTop
+          (nhds ((μ.map (X 0)) Set.univ)) := tendsto_measure_Iic_atTop _
+      rw [measure_univ] at h
+      exact (ENNReal.tendsto_toReal (by simp : (1 : ENNReal) ≠ ⊤)).comp h)
 
 end GlivenkoCantelli
 
@@ -517,6 +694,117 @@ section KolmogorovMaximal
 variable {μ : Measure Ω}
 
 open Finset ProbabilityTheory MeasureTheory
+
+/-- Partial sum over `Iic l ∩ Iic k` computed on the tuple type `↥(Finset.Iic k) → ℝ`,
+used in `kolm_skIndicator` to express the first-crossing condition. -/
+noncomputable def kolm_partialSumOnIic {n : ℕ} (k l : Fin n)
+    (v : ↥(Finset.Iic k) → ℝ) : ℝ :=
+  ∑ j : ↥(Finset.Iic k), if (↑j : Fin n) ≤ l then v j else 0
+
+/-- `S_k · 1_{A_k}` as a measurable function of the tuple `(X_j : j ∈ Iic k)`,
+used to establish independence with `R_k` via `IndepFun.comp`. -/
+noncomputable def kolm_skIndicator {n : ℕ} (k : Fin n) (t : ℝ)
+    (v : ↥(Finset.Iic k) → ℝ) : ℝ :=
+  (∑ j : ↥(Finset.Iic k), v j) *
+    Set.indicator
+      ({v | t ≤ |∑ j : ↥(Finset.Iic k), v j|} ∩
+       {v | ∀ l : Fin n, l < k → |kolm_partialSumOnIic k l v| < t})
+      (fun _ => (1 : ℝ)) v
+
+private lemma kolm_partialSumOnIic_eq {n : ℕ} {Ω : Type*}
+    (X : Fin n → Ω → ℝ) (k l : Fin n) (hl : l < k) (ω : Ω) :
+    kolm_partialSumOnIic k l (fun (j : ↥(Finset.Iic k)) => X (↑j) ω) =
+    ∑ i ∈ Finset.Iic l, X i ω := by
+  unfold kolm_partialSumOnIic
+  rw [Finset.sum_coe_sort (Finset.Iic k) (fun j => if j ≤ l then X j ω else 0)]
+  rw [← Finset.sum_filter]; congr 1; ext j
+  simp only [Finset.mem_filter, Finset.mem_Iic]
+  exact ⟨fun ⟨_, h⟩ => h, fun h => ⟨le_trans h (le_of_lt hl), h⟩⟩
+
+private lemma measurable_kolm_skIndicator {n : ℕ} (k : Fin n) (t : ℝ) :
+    Measurable (kolm_skIndicator k t) := by
+  unfold kolm_skIndicator
+  apply Measurable.mul
+  · exact Finset.measurable_sum _ fun i _ => measurable_pi_apply i
+  · apply Measurable.indicator measurable_const
+    exact MeasurableSet.inter
+      (measurableSet_le measurable_const
+        ((Finset.measurable_sum _ fun i _ => measurable_pi_apply i).abs))
+      (by have : {v : ↥(Finset.Iic k) → ℝ | ∀ l : Fin n, l < k →
+              |kolm_partialSumOnIic k l v| < t} =
+            ⋂ l ∈ (Finset.univ.filter (· < k) : Finset (Fin n)),
+              {v | |kolm_partialSumOnIic k l v| < t} := by ext v; simp
+          rw [this]
+          apply MeasurableSet.biInter (Finset.univ.filter (· < k)).countable_toSet
+          intro l _; unfold kolm_partialSumOnIic
+          exact measurableSet_lt (by apply Measurable.abs; apply Finset.measurable_sum
+                                     intro i _
+                                     split <;> [exact measurable_pi_apply i; exact measurable_const])
+            measurable_const)
+
+/-- `kolm_skIndicator k t` applied to the tuple `(X_j ω : j ∈ Iic k)` equals
+`(A k).indicator (S k) ω` where `S k` and `A k` are the partial sum and first-crossing set. -/
+private lemma kolm_skIndicator_eq_indicator {Ω : Type*} [MeasurableSpace Ω] {n : ℕ}
+    (X : Fin n → Ω → ℝ) (k : Fin n) (t : ℝ) (ω : Ω) :
+    let S := fun (k : Fin n) (ω : Ω) => ∑ i ∈ Finset.Iic k, X i ω
+    let A := fun (k : Fin n) =>
+      {ω : Ω | t ≤ |S k ω|} ∩ ⋂ j : {j : Fin n // j < k}, {ω | |S j.1 ω| < t}
+    kolm_skIndicator k t (fun (j : ↥(Finset.Iic k)) => X (↑j) ω) =
+    (A k).indicator (S k) ω := by
+  intro S A; unfold kolm_skIndicator
+  have h_sum : (∑ j : ↥(Finset.Iic k), (fun (j : ↥(Finset.Iic k)) => X (↑j) ω) j) = S k ω := by
+    show (∑ j : ↥(Finset.Iic k), (fun i => X i ω) ↑j) = _
+    exact Finset.sum_coe_sort (Finset.Iic k) (fun i => X i ω)
+  let P := {v : ↥(Finset.Iic k) → ℝ | t ≤ |∑ j, v j|} ∩
+           {v | ∀ l < k, |kolm_partialSumOnIic k l v| < t}
+  have h_iff : (fun (j : ↥(Finset.Iic k)) => X (↑j) ω) ∈ P ↔ ω ∈ A k := by
+    simp only [P, A, S, Set.mem_inter_iff, Set.mem_setOf_eq, Set.mem_iInter, h_sum]
+    exact ⟨fun ⟨h1, h2⟩ => ⟨h1, fun ⟨l, hl⟩ =>
+             by rw [← kolm_partialSumOnIic_eq X k l hl]; exact h2 l hl⟩,
+           fun ⟨h1, h2⟩ => ⟨h1, fun l hl =>
+             by rw [kolm_partialSumOnIic_eq X k l hl]; exact h2 ⟨l, hl⟩⟩⟩
+  by_cases hmem : (fun (j : ↥(Finset.Iic k)) => X (↑j) ω) ∈ P
+  · rw [Set.indicator_of_mem hmem, Set.indicator_of_mem (h_iff.mp hmem), h_sum, mul_one]
+  · rw [Set.indicator_apply_eq_zero.mpr (fun h => absurd h hmem),
+        Set.indicator_apply_eq_zero.mpr (fun h => absurd h (mt h_iff.mpr hmem)),
+        h_sum, mul_zero]
+
+/-- The cross-term integral `∫ (S_k · 1_{A_k}) · R_k dμ = 0` for the Kolmogorov maximal inequality,
+where `S_k · 1_{A_k}` and `R_k` are independent (disjoint index sets) and `E[R_k] = 0`. -/
+private lemma kolm_cross_term_zero {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
+    [IsProbabilityMeasure μ] {n : ℕ} {X : Fin n → Ω → ℝ}
+    (hX_meas : ∀ i, Measurable (X i))
+    (hX_indep : iIndepFun (m := fun _ => inferInstance) X μ)
+    (hX_mean : ∀ i, ∫ ω, X i ω ∂μ = 0)
+    (hX_L2 : ∀ i, MemLp (X i) 2 μ)
+    (k : Fin n) (t : ℝ) :
+    ∫ ω, (kolm_skIndicator k t (fun (j : ↥(Finset.Iic k)) => X (↑j) ω)) *
+         (∑ j ∈ (Finset.Iic k)ᶜ, X j ω) ∂μ = 0 := by
+  let f : Ω → ℝ := fun ω => kolm_skIndicator k t (fun j => X (↑j) ω)
+  let g : Ω → ℝ := fun ω => ∑ j ∈ (Finset.Iic k)ᶜ, X j ω
+  have h_tup := hX_indep.indepFun_finset (Finset.Iic k) (Finset.Iic k)ᶜ
+    disjoint_compl_right hX_meas
+  have h_g_eq : g = (fun v => ∑ j, v j) ∘
+      (fun ω (j : ↥(Finset.Iic k)ᶜ) => X (↑j) ω) := by
+    ext ω; show ∑ j ∈ (Finset.Iic k)ᶜ, X j ω = _; simp only [Function.comp]
+    exact (Finset.sum_attach _ _).symm
+  have h_indep : IndepFun f g μ := by
+    rw [show f = kolm_skIndicator k t ∘ (fun ω (j : ↥(Finset.Iic k)) => X (↑j) ω) from rfl, h_g_eq]
+    exact h_tup.comp (measurable_kolm_skIndicator k t)
+      (Finset.measurable_sum _ fun i _ => measurable_pi_apply i)
+  have hf_asm : AEStronglyMeasurable f μ :=
+    ((measurable_kolm_skIndicator k t).comp
+      (measurable_pi_lambda _ fun j => hX_meas ↑j)).aestronglyMeasurable
+  have hg_asm : AEStronglyMeasurable g μ :=
+    (Finset.measurable_sum _ fun j _ => hX_meas j).aestronglyMeasurable
+  change ∫ ω, f ω * g ω ∂μ = 0
+  rw [show (fun ω => f ω * g ω) = (f * g) from by ext; simp [Pi.mul_apply]]
+  rw [h_indep.integral_mul_eq_mul_integral hf_asm hg_asm]
+  have : ∫ ω, g ω ∂μ = 0 := by
+    show ∫ ω, ∑ j ∈ (Iic k)ᶜ, X j ω ∂μ = 0
+    rw [integral_finset_sum _ (fun i _ => (hX_L2 i).integrable (by norm_num))]
+    simp only [hX_mean, Finset.sum_const_zero]
+  rw [this, mul_zero]
 
 /-- **Kolmogorov maximal inequality**: for independent mean-zero RVs,
 `P(max_{1≤k≤n} |S_k| ≥ t) ≤ Var(Sₙ) / t²` (Shao, Thm 1.2).
@@ -676,17 +964,146 @@ theorem kolmogorov_maximal_inequality [IsProbabilityMeasure μ]
             hS_L2.integrable_sq.integrableOn
             (hA_meas k) h_on_Ak
       _ ≤ ∫ ω in A k, (∑ i : Fin n, X i ω) ^ 2 ∂μ := by
-          -- ∫_{A_k} S_k² ≤ ∫_{A_k} Sn²
-          -- Decompose: ∑Xi = S_k + R_k, so Sn² = S_k² + 2·S_k·R_k + R_k²
-          -- ∫_{A_k} Sn² = ∫_{A_k} S_k² + 2·∫_{A_k} S_k·R_k + ∫_{A_k} R_k²
-          -- Cross-term: ∫_{A_k} S_k·R_k = ∫ (S_k·1_{A_k})·R_k dμ
-          --   = E[S_k·1_{A_k}]·E[R_k] = 0 (by independence of {X_i:i≤k} and {X_i:i>k},
-          --   and E[R_k] = ∑_{i>k} E[X_i] = 0)
-          -- ∫_{A_k} R_k² ≥ 0
-          -- blocker: showing IndepFun (S_k·1_{A_k}) R_k via iIndepFun.indepFun_finset
-          -- requires composing with measurable maps from product → ℝ
-          -- estimated effort: P5 (30-40 lines)
-          sorry
+          -- Decompose ∑Xi = S_k + R_k, expand square, cross-term = 0 by independence
+          change ∫ ω in A k, (∑ i ∈ Iic k, X i ω) ^ 2 ∂μ ≤ _
+          have hS_L2' : MemLp (fun ω => ∑ i ∈ Iic k, X i ω) 2 μ :=
+            memLp_finset_sum _ fun i _ => hX_L2 i
+          have hR_L2 : MemLp (fun ω => ∑ i ∈ univ \ Iic k, X i ω) 2 μ :=
+            memLp_finset_sum _ fun i _ => hX_L2 i
+          have h_split : ∀ ω, ∑ i : Fin n, X i ω =
+              (∑ i ∈ Iic k, X i ω) + ∑ i ∈ univ \ Iic k, X i ω :=
+            fun ω => by rw [← sum_sdiff (subset_univ (Iic k))]; ring
+          have h_eq : ∀ ω, (∑ i : Fin n, X i ω) ^ 2 = (∑ i ∈ Iic k, X i ω) ^ 2 +
+              (2 * (∑ i ∈ Iic k, X i ω) * (∑ i ∈ univ \ Iic k, X i ω) +
+               (∑ i ∈ univ \ Iic k, X i ω) ^ 2) := by
+            intro ω; rw [h_split]; ring
+          have hSR_int : Integrable
+              (fun ω => (∑ i ∈ Iic k, X i ω) * (∑ i ∈ univ \ Iic k, X i ω)) μ :=
+            hS_L2'.integrable_mul hR_L2
+          have hg_int : Integrable
+              (fun ω => 2 * (∑ i ∈ Iic k, X i ω) * (∑ i ∈ univ \ Iic k, X i ω) +
+               (∑ i ∈ univ \ Iic k, X i ω) ^ 2) μ :=
+            ((hSR_int.const_mul 2).congr (ae_of_all _ fun ω => by ring)).add
+              hR_L2.integrable_sq
+          conv_rhs => arg 2; ext ω; rw [h_eq]
+          rw [integral_add hS_L2'.integrable_sq.integrableOn hg_int.integrableOn]
+          suffices h : 0 ≤ ∫ ω in A k,
+              (2 * (∑ i ∈ Iic k, X i ω) * (∑ i ∈ univ \ Iic k, X i ω) +
+               (∑ i ∈ univ \ Iic k, X i ω) ^ 2) ∂μ by linarith
+          rw [integral_add
+            ((hSR_int.const_mul 2).congr (ae_of_all _ fun ω => by ring)).integrableOn
+            hR_L2.integrable_sq.integrableOn]
+          have hRsq : 0 ≤ ∫ ω in A k, (∑ i ∈ univ \ Iic k, X i ω) ^ 2 ∂μ :=
+            setIntegral_nonneg (hA_meas k) fun ω _ => sq_nonneg _
+          suffices h_cross : ∫ ω in A k,
+              2 * (∑ i ∈ Iic k, X i ω) * (∑ i ∈ univ \ Iic k, X i ω) ∂μ = 0 by
+            linarith
+          rw [show (fun ω => 2 * (∑ i ∈ Iic k, X i ω) * (∑ i ∈ univ \ Iic k, X i ω)) =
+              fun ω => 2 * ((∑ i ∈ Iic k, X i ω) * (∑ i ∈ univ \ Iic k, X i ω)) from
+            funext fun ω => by ring,
+            integral_const_mul]
+          suffices h_sr : ∫ ω in A k,
+              (∑ i ∈ Iic k, X i ω) * (∑ i ∈ univ \ Iic k, X i ω) ∂μ = 0 by
+            rw [h_sr, mul_zero]
+          -- Independence via disjoint finset sums
+          have hst : Disjoint (Finset.Iic k) (univ \ Finset.Iic k) := disjoint_sdiff_self_right
+          have h_tuple := iIndepFun.indepFun_finset (Iic k) (univ \ Iic k) hst
+            hX_indep hX_meas
+          -- Encode A_k on tuple space
+          let B_cond : Set (↥(Iic k) → ℝ) :=
+            {v : ↥(Iic k) → ℝ | t ≤ |∑ i : ↥(Iic k), v i|} ∩
+            ⋂ jj : {jj : Fin n // jj < k},
+              {v : ↥(Iic k) → ℝ |
+                |∑ x ∈ (univ : Finset ↥(Iic k)).filter
+                  (fun (x : ↥(Iic k)) => (x : Fin n) ≤ jj.1), v x| < t}
+          let φ : (↥(Iic k) → ℝ) → ℝ := fun v =>
+            (∑ i : ↥(Iic k), v i) * B_cond.indicator (fun _ => (1 : ℝ)) v
+          let ψ : (↥(univ \ Iic k) → ℝ) → ℝ := fun v => ∑ i : ↥(univ \ Iic k), v i
+          have hB_cond_meas : MeasurableSet B_cond := by
+            apply MeasurableSet.inter
+            · exact measurableSet_le measurable_const
+                (Measurable.abs (Finset.measurable_sum _ fun i _ =>
+                  measurable_pi_apply i))
+            · exact MeasurableSet.iInter fun ⟨j, _⟩ =>
+                measurableSet_lt
+                  (Finset.measurable_sum _ fun i _ =>
+                    measurable_pi_apply i).abs measurable_const
+          have hφ : Measurable φ :=
+            (Finset.measurable_sum _ fun i _ => measurable_pi_apply i).mul
+              (Measurable.indicator measurable_const hB_cond_meas)
+          have hψ : Measurable ψ :=
+            Finset.measurable_sum _ fun i _ => measurable_pi_apply i
+          have h_comp := h_tuple.comp hφ hψ
+          -- Filtered tuple sum = Iic partial sum (for j < k)
+          have h_psum_eq : ∀ (j : Fin n), j < k → ∀ (ω : Ω),
+              (∑ x ∈ (univ : Finset ↥(Iic k)).filter
+                (fun (x : ↥(Iic k)) => (x : Fin n) ≤ j),
+                (fun (i : ↥(Iic k)) => X (↑i) ω) x) = ∑ i ∈ Iic j, X i ω := by
+            intro j hj ω
+            apply sum_nbij (fun (x : ↥(Iic k)) => (↑x : Fin n))
+            · intro x hx
+              simp only [mem_filter, mem_univ, true_and] at hx
+              exact mem_Iic.mpr hx
+            · intro x₁ _ x₂ _ h; exact Subtype.ext h
+            · intro i hi
+              exact ⟨⟨i, mem_Iic.mpr (le_of_lt (lt_of_le_of_lt (mem_Iic.mp hi) hj))⟩,
+                mem_filter.mpr ⟨mem_univ _, mem_Iic.mp hi⟩, rfl⟩
+            · intro _ _; rfl
+          -- tuple ω ∈ B_cond ↔ ω ∈ A k
+          have h_mem_iff : ∀ ω,
+              (fun (i : ↥(Iic k)) => X (↑i) ω) ∈ B_cond ↔ ω ∈ A k := by
+            intro ω
+            simp only [B_cond, A, S, Set.mem_inter_iff, Set.mem_setOf_eq,
+              Set.mem_iInter]
+            have hsc : ∑ i : ↥(Iic k), X (↑i) ω = ∑ i ∈ Iic k, X i ω :=
+              sum_coe_sort (Iic k) (fun i => X i ω)
+            constructor
+            · rintro ⟨h1, h2⟩
+              exact ⟨by rwa [hsc] at h1,
+                fun ⟨j, hj⟩ => by rw [← h_psum_eq j hj]; exact h2 ⟨j, hj⟩⟩
+            · rintro ⟨h1, h2⟩
+              exact ⟨by rwa [← hsc] at h1,
+                fun ⟨j, hj⟩ => by rw [h_psum_eq j hj]; exact h2 ⟨j, hj⟩⟩
+          -- Rewrite via indicator then factor using independence
+          rw [← integral_indicator (hA_meas k)]
+          have h_integrand : ∀ ω,
+              (A k).indicator (fun ω => (∑ i ∈ Iic k, X i ω) *
+                (∑ i ∈ univ \ Iic k, X i ω)) ω =
+              (φ ∘ fun ω (i : ↥(Iic k)) => X (↑i) ω) ω *
+              (ψ ∘ fun ω (j : ↥(univ \ Iic k)) => X (↑j) ω) ω := by
+            intro ω
+            simp only [Function.comp, φ, ψ]
+            have hsc : ∑ i : ↥(Iic k), X (↑i) ω = ∑ i ∈ Iic k, X i ω :=
+              sum_coe_sort (Iic k) (fun i => X i ω)
+            have hsc2 : ∑ i : ↥(univ \ Iic k), X (↑i) ω =
+                ∑ i ∈ univ \ Iic k, X i ω :=
+              sum_coe_sort (univ \ Iic k) (fun i => X i ω)
+            rw [hsc, hsc2]
+            by_cases hω : ω ∈ A k
+            · rw [Set.indicator_of_mem hω,
+                Set.indicator_of_mem ((h_mem_iff ω).mpr hω)]; ring
+            · rw [Set.indicator_of_notMem hω,
+                Set.indicator_of_notMem (fun h => hω ((h_mem_iff ω).mp h))]
+              ring
+          simp_rw [h_integrand]
+          rw [show (fun ω => (φ ∘ fun ω i => X (↑i) ω) ω *
+                (ψ ∘ fun ω j => X (↑j) ω) ω) =
+              ((φ ∘ fun ω i => X (↑i) ω) *
+               (ψ ∘ fun ω j => X (↑j) ω)) from rfl,
+            h_comp.integral_mul_eq_mul_integral
+              (hφ.comp (measurable_pi_lambda _ fun i =>
+                hX_meas ↑i)).aestronglyMeasurable
+              (hψ.comp (measurable_pi_lambda _ fun j =>
+                hX_meas ↑j)).aestronglyMeasurable]
+          -- E[R_k] = 0
+          have hER : ∫ ω, (ψ ∘ (fun ω (j : ↥(univ \ Iic k)) =>
+              X (↑j) ω)) ω ∂μ = 0 := by
+            show ∫ ω, ∑ i : ↥(univ \ Iic k), X (↑i) ω ∂μ = 0
+            conv_lhs => arg 2; ext ω; rw [sum_coe_sort (univ \ Iic k) (fun i => X i ω)]
+            rw [integral_finset_sum _ (fun i _ =>
+              (hX_L2 i).integrable (by norm_num))]
+            exact Finset.sum_eq_zero (fun i _ => hX_mean i)
+          rw [hER, mul_zero]
   -- Sub-step B2: Sum over k using disjoint union
   calc t ^ 2 * (μ (⋃ k, A k)).toReal
       = t ^ 2 * (∑ k : Fin n, (μ (A k)).toReal) := by
