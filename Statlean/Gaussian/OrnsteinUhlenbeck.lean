@@ -285,22 +285,333 @@ differentiation under integral + Gaussian IBP. -/
 private noncomputable def ouGeneratorAt (t : ℝ) (g : ℝ → ℝ) (x : ℝ) : ℝ :=
   deriv (deriv (ouSemigroup t g)) x - x * deriv (ouSemigroup t g) x
 
-/-- OU equation: the time derivative of P_t g equals L(P_t g) pointwise.
-    ∂_t P_t g(x) = (P_t g)''(x) - x · (P_t g)'(x)
+/-! ### OU equation: time derivative = generator
+
+The time derivative of P_t g equals L(P_t g) pointwise:
+  ∂_t P_t g(x) = (P_t g)''(x) - x · (P_t g)'(x)
 
 Proof sketch: Differentiate the Mehler integral ∫ g(e^{-s}x + √(1-e^{-2s})y) dγ(y)
 w.r.t. s. The chain rule gives -e^{-s}·x·g'(arg) + (e^{-2s}/√(1-e^{-2s}))·y·g'(arg).
 Then show this equals L(P_s g)(x) using the spatial derivatives of P_s g.
 
-Blocker: requires second-order Leibniz rule (differentiating ∫ under two derivatives).
 Estimated effort: A-grade (~150-200 lines). -/
-private lemma ouSemigroup_time_deriv (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+
+/-- The Leibniz rule part of the OU time derivative:
+    d/dt P_t g(x) = exp(-2t)*P_t(g'')(x) - x*exp(-t)*P_t(g')(x).
+
+    Proof: Apply `hasDerivAt_integral_of_dominated_loc_of_deriv_le` to
+    F(s,y) = g(exp(-s)*x + sqrt(1-exp(-2s))*y) with respect to s.
+    The chain rule gives F'(s,y) = g'(arg) * (-exp(-s)*x + exp(-2s)/sqrt(...)*y).
+    Then split the integral and apply Stein identity to the y-weighted part.
+
+    Blocker: Leibniz dominated convergence + Stein identity composition.
+    Estimated effort: B-grade (~100 lines). -/
+private lemma ouSemigroup_time_deriv_leibniz (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     (hg_deriv : ∀ x, HasDerivAt g (g' x) x)
+    (hg'_deriv : ∀ x, HasDerivAt g' (g'' x) x)
     (hg'_bound : ∃ C, ∀ x, ‖g' x‖ ≤ C)
+    (hg''_bound : ∃ C, ∀ x, ‖g'' x‖ ≤ C)
+    (hg_int : Integrable g stdGaussian)
+    (x : ℝ) :
+    HasDerivAt (fun s => ouSemigroup s g x)
+      (exp (-2 * t) * ouSemigroup t g'' x - x * (exp (-t) * ouSemigroup t g' x)) t := by
+  simp only [ouSemigroup]
+  obtain ⟨C, hC⟩ := hg'_bound
+  obtain ⟨C'', hC''⟩ := hg''_bound
+  have hC_nn : (0 : ℝ) ≤ C := le_trans (norm_nonneg _) (hC 0)
+  have hg_cont : Continuous g := Differentiable.continuous
+    (fun z => (hg_deriv z).differentiableAt)
+  have hg'_cont : Continuous g' := Differentiable.continuous
+    (fun z => (hg'_deriv z).differentiableAt)
+  -- Key positivity facts
+  have h1me2t_pos : 0 < 1 - exp (-2 * t) := by
+    linarith [exp_lt_one_iff.mpr (show -2 * t < 0 by linarith)]
+  have hbt_pos : 0 < sqrt (1 - exp (-2 * t)) := sqrt_pos.mpr h1me2t_pos
+  have hbt_ne : sqrt (1 - exp (-2 * t)) ≠ 0 := ne_of_gt hbt_pos
+  -- Abbreviations for the Mehler argument at time t
+  set at_ := exp (-t) * x
+  set bt := sqrt (1 - exp (-2 * t))
+  -- Step 1: Apply Leibniz differentiation under the integral
+  -- The derivative of F(s,y) = g(exp(-s)*x + sqrt(1-exp(-2s))*y) w.r.t. s is
+  -- F'(s,y) = g'(arg) * d/ds(arg) where d/ds(arg) = -exp(-s)*x + exp(-2s)/sqrt(1-exp(-2s))*y
+  -- We get HasDerivAt (fun s => ∫ F(s,y) dγ(y)) (∫ F'(t,y) dγ(y)) t
+  have hLeibniz : HasDerivAt (fun s => ∫ y, g (exp (-s) * x + sqrt (1 - exp (-2 * s)) * y)
+      ∂stdGaussian)
+    (∫ y, g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) *
+      (-exp (-t) * x + exp (-2 * t) / sqrt (1 - exp (-2 * t)) * y) ∂stdGaussian) t := by
+    -- Neighborhood
+    set s_set := Set.Ioo (t / 2) (3 * t / 2)
+    have hs_nhds : s_set ∈ nhds t := Ioo_mem_nhds (by linarith) (by linarith)
+    have h1me2s_pos : ∀ s ∈ s_set, 0 < 1 - exp (-2 * s) := by
+      intro s hs; linarith [exp_lt_one_iff.mpr (show -2 * s < 0 by linarith [hs.1])]
+    have hb_lower_pos : 0 < sqrt (1 - exp (-t)) :=
+      sqrt_pos.mpr (by linarith [exp_lt_one_iff.mpr (show -t < 0 by linarith)])
+    set M := 1 / sqrt (1 - exp (-t))
+    -- Integrability of F(t, ·): g composed with affine
+    -- g has linear growth since g' is bounded: |g(z)| ≤ |g(0)| + C*|z|
+    have hg_growth : ∀ z, ‖g z‖ ≤ ‖g 0‖ + C * ‖z‖ := by
+      intro z
+      have hmvt := Convex.norm_image_sub_le_of_norm_hasDerivWithin_le
+        (f := g) (f' := g') (s := Set.univ) (x := 0) (y := z) (C := C)
+        (fun w _ => (hg_deriv w).hasDerivWithinAt) (fun w _ => hC w)
+        convex_univ (Set.mem_univ _) (Set.mem_univ _)
+      simp only [sub_zero] at hmvt
+      calc ‖g z‖ = ‖(g z - g 0) + g 0‖ := by ring_nf
+        _ ≤ ‖g z - g 0‖ + ‖g 0‖ := norm_add_le _ _
+        _ ≤ C * ‖z‖ + ‖g 0‖ := by linarith
+        _ = ‖g 0‖ + C * ‖z‖ := by ring
+    have hF_int : Integrable (fun y => g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y))
+        stdGaussian := by
+      set a := exp (-t) * x
+      set b := sqrt (1 - exp (-2 * t))
+      have hmeas : AEStronglyMeasurable (fun y => g (a + b * y)) stdGaussian :=
+        (hg_cont.measurable.comp (measurable_const.add
+          (measurable_const.mul measurable_id))).aestronglyMeasurable
+      have hid_int : Integrable (fun y : ℝ => ‖y‖) stdGaussian :=
+        ((memLp_congr_ae (ae_of_all _ (fun y => by simp [pow_one]))).mp
+          (memLp_pow_id_gaussianReal 1 2 (by simp))).integrable one_le_two |>.norm
+      -- Dominator: |g(0)| + C*(|a| + |b|*|y|) is integrable
+      have hdom_int : Integrable (fun y => ‖g 0‖ + C * (‖a‖ + ‖b‖ * ‖y‖)) stdGaussian :=
+        (integrable_const _).add (((integrable_const (‖a‖)).add
+          (hid_int.const_mul ‖b‖)).const_mul C)
+      exact hdom_int.mono hmeas (ae_of_all _ fun y => by
+        have hnn : 0 ≤ ‖g 0‖ + C * (‖a‖ + ‖b‖ * ‖y‖) := by positivity
+        simp only [Real.norm_eq_abs] at *
+        rw [abs_of_nonneg hnn]
+        calc |g (a + b * y)| ≤ ‖g 0‖ + C * ‖a + b * y‖ := hg_growth _
+          _ ≤ ‖g 0‖ + C * (‖a‖ + ‖b * y‖) := by
+              gcongr; exact norm_add_le _ _
+          _ = ‖g 0‖ + C * (‖a‖ + ‖b‖ * ‖y‖) := by rw [norm_mul b y])
+    -- F' measurability helpers
+    have hF'_meas : AEStronglyMeasurable
+        (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) *
+          (-exp (-t) * x + exp (-2 * t) / sqrt (1 - exp (-2 * t)) * y)) stdGaussian := by
+      apply AEStronglyMeasurable.mul
+      · exact (hg'_cont.measurable.comp (measurable_const.add
+          (measurable_const.mul measurable_id))).aestronglyMeasurable
+      · exact (measurable_const.add (measurable_const.mul measurable_id)).aestronglyMeasurable
+    -- Uniform bound
+    have hbound : ∀ᵐ y ∂stdGaussian, ∀ s ∈ s_set,
+        ‖g' (exp (-s) * x + sqrt (1 - exp (-2 * s)) * y) *
+          (-exp (-s) * x + exp (-2 * s) / sqrt (1 - exp (-2 * s)) * y)‖
+        ≤ C * (‖x‖ + M * ‖y‖) := by
+      filter_upwards with y; intro s hs
+      have hs_pos : 0 < s := by linarith [hs.1]
+      set arg' := exp (-s) * x + sqrt (1 - exp (-2 * s)) * y
+      set darg' := -exp (-s) * x + exp (-2 * s) / sqrt (1 - exp (-2 * s)) * y
+      show ‖g' arg' * darg'‖ ≤ C * (‖x‖ + M * ‖y‖)
+      rw [norm_mul]
+      have h1 : ‖g' arg'‖ ≤ C := hC _
+      have hexp_s_le : exp (-s) ≤ 1 := exp_le_one_iff.mpr (by linarith)
+      have hcoeff_le : exp (-2 * s) / sqrt (1 - exp (-2 * s)) ≤ M := by
+        rw [div_le_div_iff₀ (sqrt_pos.mpr (h1me2s_pos s hs)) hb_lower_pos]
+        calc exp (-2 * s) * sqrt (1 - exp (-t))
+            ≤ 1 * sqrt (1 - exp (-t)) :=
+              mul_le_mul_of_nonneg_right (exp_le_one_iff.mpr (by linarith)) (sqrt_nonneg _)
+          _ ≤ 1 * sqrt (1 - exp (-2 * s)) :=
+              mul_le_mul_of_nonneg_left (sqrt_le_sqrt (by
+                linarith [exp_le_exp.mpr (show -2 * s ≤ -t by linarith [hs.1])]))
+                zero_le_one
+      have h2 : ‖darg'‖ ≤ ‖x‖ + M * ‖y‖ := by
+        calc ‖darg'‖
+            ≤ ‖-exp (-s) * x‖ + ‖exp (-2 * s) / sqrt (1 - exp (-2 * s)) * y‖ :=
+              norm_add_le _ _
+          _ = exp (-s) * ‖x‖ + (exp (-2 * s) / sqrt (1 - exp (-2 * s))) * ‖y‖ := by
+              simp only [show -exp (-s) * x = -(exp (-s) * x) from by ring,
+                norm_neg, norm_mul, Real.norm_eq_abs,
+                abs_of_pos (exp_pos (-s)),
+                abs_of_pos (div_pos (exp_pos _) (sqrt_pos.mpr (h1me2s_pos s hs)))]
+          _ ≤ 1 * ‖x‖ + M * ‖y‖ := by
+              apply add_le_add
+              · exact mul_le_mul_of_nonneg_right hexp_s_le (norm_nonneg _)
+              · exact mul_le_mul_of_nonneg_right hcoeff_le (norm_nonneg _)
+          _ = ‖x‖ + M * ‖y‖ := by ring
+      exact mul_le_mul h1 h2 (by positivity) hC_nn
+    -- Bound integrable
+    have hbound_int : Integrable (fun y => C * (‖x‖ + M * ‖y‖)) stdGaussian := by
+      have hid_int : Integrable (fun y : ℝ => ‖y‖) stdGaussian :=
+        ((memLp_congr_ae (ae_of_all _ (fun y => by simp [pow_one]))).mp
+          (memLp_pow_id_gaussianReal 1 2 (by simp))).integrable one_le_two |>.norm
+      exact ((integrable_const (‖x‖)).add (hid_int.const_mul M)).const_mul C
+    -- Pointwise HasDerivAt
+    have hpointwise : ∀ᵐ y ∂stdGaussian, ∀ s ∈ s_set,
+        HasDerivAt (fun s => g (exp (-s) * x + sqrt (1 - exp (-2 * s)) * y))
+          (g' (exp (-s) * x + sqrt (1 - exp (-2 * s)) * y) *
+            (-exp (-s) * x + exp (-2 * s) / sqrt (1 - exp (-2 * s)) * y)) s := by
+      filter_upwards with y; intro s hs
+      have h1me := h1me2s_pos s hs
+      have hd_exp : HasDerivAt (fun s => exp (-s)) (-exp (-s)) s := by
+        have := (hasDerivAt_neg s).exp
+        simp only [mul_neg, mul_one] at this; exact this
+      have hd_u : HasDerivAt (fun s => 1 - exp (-2 * s)) (2 * exp (-2 * s)) s := by
+        have hd2 := (hasDerivAt_id s).const_mul (-2 : ℝ)
+        simp only [mul_one, id] at hd2
+        have hde := hd2.exp
+        simp only [mul_neg, mul_one, id] at hde
+        convert (hasDerivAt_const s (1 : ℝ)).sub hde using 1; ring
+      have hd_sqrt : HasDerivAt (fun s => sqrt (1 - exp (-2 * s)))
+          (exp (-2 * s) / sqrt (1 - exp (-2 * s))) s := by
+        have hsq := (Real.hasDerivAt_sqrt (ne_of_gt h1me)).comp s hd_u
+        simp only [Function.comp] at hsq
+        convert hsq using 1; field_simp
+      exact (hg_deriv _).comp s
+        ((hd_exp.mul_const x).add (hd_sqrt.mul_const y))
+    -- Apply Leibniz
+    exact (hasDerivAt_integral_of_dominated_loc_of_deriv_le
+      (F := fun s y => g (exp (-s) * x + sqrt (1 - exp (-2 * s)) * y))
+      (F' := fun s y => g' (exp (-s) * x + sqrt (1 - exp (-2 * s)) * y) *
+        (-exp (-s) * x + exp (-2 * s) / sqrt (1 - exp (-2 * s)) * y))
+      hs_nhds
+      (Eventually.of_forall fun s =>
+        (hg_cont.measurable.comp (measurable_const.add
+          (measurable_const.mul measurable_id))).aestronglyMeasurable)
+      hF_int hF'_meas hbound hbound_int hpointwise).2
+  -- Step 2: Simplify ∫ F'(t,y) dγ(y) = target
+  -- Split: g'(arg)*(-at_ + coeff*y) = -at_*g'(arg) + coeff*(y*g'(arg))
+  set coeff := exp (-2 * t) / bt
+  -- Integrability of g' composed with affine (bounded g' → integrable)
+  have hg'_int : Integrable (fun y => g' (at_ + bt * y)) stdGaussian :=
+    MemLp.of_bound ((hg'_cont.measurable.comp
+      ((measurable_const.add (measurable_const.mul measurable_id)) :
+        Measurable fun y : ℝ => at_ + bt * y)).aestronglyMeasurable)
+      C (ae_of_all _ (fun y => hC _)) |>.integrable one_le_two
+  have hyg'_int : Integrable (fun y => y * g' (at_ + bt * y)) stdGaussian := by
+    -- Since g' is bounded by C, y ↦ y*g'(arg) is in MemLp 1
+    -- because y is in MemLp 2 and g'(arg) is in MemLp 2, and 1/2+1/2=1
+    have hid_memLp : MemLp (fun y : ℝ => y) 2 stdGaussian :=
+      (memLp_congr_ae (ae_of_all _ (fun y => by simp [pow_one]))).mp
+        (memLp_pow_id_gaussianReal 1 2 (by simp))
+    have hg'comp_memLp : MemLp (fun y => g' (at_ + bt * y)) 2 stdGaussian :=
+      MemLp.of_bound ((hg'_cont.measurable.comp
+        ((measurable_const.add (measurable_const.mul measurable_id)) :
+          Measurable fun y : ℝ => at_ + bt * y)).aestronglyMeasurable)
+        C (ae_of_all _ (fun y => hC _))
+    have hmul : MemLp ((fun y : ℝ => y) * (fun y => g' (at_ + bt * y))) 1 stdGaussian :=
+      hg'comp_memLp.mul hid_memLp
+    exact (memLp_congr_ae (ae_of_all _ (fun y => by simp [Pi.mul_apply]))).mp
+      hmul |>.integrable le_rfl
+  -- Split the integral
+  have hsplit : ∫ y, g' (at_ + bt * y) * (-at_ + coeff * y) ∂stdGaussian =
+      -at_ * ∫ y, g' (at_ + bt * y) ∂stdGaussian +
+      coeff * ∫ y, y * g' (at_ + bt * y) ∂stdGaussian := by
+    have : ∀ y, g' (at_ + bt * y) * (-at_ + coeff * y) =
+        -at_ * g' (at_ + bt * y) + coeff * (y * g' (at_ + bt * y)) := fun y => by ring
+    simp_rw [this]
+    rw [integral_add (hg'_int.const_mul _) (hyg'_int.const_mul _),
+        integral_const_mul, integral_const_mul]
+  -- Apply Stein identity: ∫ y*h(y) dγ = ∫ h'(y) dγ where h(y) = g'(at_ + bt*y)
+  have hstein : ∫ y, y * g' (at_ + bt * y) ∂stdGaussian =
+      ∫ y, g'' (at_ + bt * y) * bt ∂stdGaussian := by
+    exact stein_identity (fun y => g' (at_ + bt * y)) (fun y => g'' (at_ + bt * y) * bt)
+      (MemLp.of_bound ((hg'_cont.measurable.comp
+        ((measurable_const.add (measurable_const.mul measurable_id)) :
+          Measurable fun y : ℝ => at_ + bt * y)).aestronglyMeasurable)
+        C (ae_of_all _ (fun y => hC _)))
+      (MemLp.of_bound (by
+        have hg''_eq : g'' = deriv g' := funext (fun z => (hg'_deriv z).deriv.symm)
+        rw [show (fun y => g'' (at_ + bt * y) * bt) = (fun y => deriv g' (at_ + bt * y) * bt) from
+          by ext y; rw [hg''_eq]]
+        exact ((measurable_deriv g' |>.comp
+          ((measurable_const.add (measurable_const.mul measurable_id)) :
+            Measurable fun y : ℝ => at_ + bt * y)).mul measurable_const).aestronglyMeasurable)
+        (C'' * ‖bt‖) (ae_of_all _ (fun y => by
+          simp only [norm_mul]
+          exact mul_le_mul_of_nonneg_right (hC'' _) (norm_nonneg _))))
+      (fun y => by
+        have hchain := (hg'_deriv (at_ + bt * y)).comp y
+          ((hasDerivAt_const y at_).add ((hasDerivAt_id y).const_mul bt))
+        simp only [mul_one] at hchain
+        convert hchain using 1; ring)
+  -- Combine: simplify the Stein-rewritten integral to match the target
+  have hcoeff_bt : coeff * bt = exp (-2 * t) := by
+    simp only [coeff]; exact div_mul_cancel₀ _ hbt_ne
+  have hint_g''_bt : ∫ y, g'' (at_ + bt * y) * bt ∂stdGaussian =
+      (∫ y, g'' (at_ + bt * y) ∂stdGaussian) * bt := integral_mul_const bt _
+  -- The full integral after splitting and Stein:
+  have hfull : ∫ y, g' (at_ + bt * y) * (-at_ + coeff * y) ∂stdGaussian =
+      exp (-2 * t) * ∫ y, g'' (at_ + bt * y) ∂stdGaussian -
+      x * (exp (-t) * ∫ y, g' (at_ + bt * y) ∂stdGaussian) := by
+    rw [hsplit, hstein, hint_g''_bt]
+    rw [show coeff * ((∫ y, g'' (at_ + bt * y) ∂stdGaussian) * bt) =
+        (coeff * bt) * ∫ y, g'' (at_ + bt * y) ∂stdGaussian from by ring, hcoeff_bt]
+    simp only [at_]; ring
+  exact hLeibniz.congr_deriv (by convert hfull using 2 <;> simp [at_, bt, coeff])
+
+private lemma ouSemigroup_time_deriv (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+    (hg_deriv : ∀ x, HasDerivAt g (g' x) x)
+    (hg'_deriv : ∀ x, HasDerivAt g' (g'' x) x)
+    (hg'_bound : ∃ C, ∀ x, ‖g' x‖ ≤ C)
+    (hg''_bound : ∃ C, ∀ x, ‖g'' x‖ ≤ C)
     (hg_int : Integrable g stdGaussian)
     (x : ℝ) :
     HasDerivAt (fun s => ouSemigroup s g x) (ouGeneratorAt t g x) t := by
-  sorry
+  -- The target value exp(-2t)*P_t(g'')(x) - x*exp(-t)*P_t(g')(x)
+  set target := exp (-2 * t) * ouSemigroup t g'' x - x * (exp (-t) * ouSemigroup t g' x)
+  -- Step 1: Show ouGeneratorAt t g x = target
+  suffices hgen : ouGeneratorAt t g x = target by
+    rw [hgen]
+    -- Step 2: Show HasDerivAt (fun s => ouSemigroup s g x) target t
+    -- via Leibniz rule + Stein identity
+    exact ouSemigroup_time_deriv_leibniz g g' g'' t ht hg_deriv hg'_deriv
+      hg'_bound hg''_bound hg_int x
+  -- Prove ouGeneratorAt = target by unfolding via ouSemigroup_hasDerivAt
+  unfold ouGeneratorAt
+  -- deriv(P_t g)(x) = exp(-t) * P_t(g')(x)
+  -- Integrability of g/g'/g'' composed with affine maps against Gaussian
+  -- g' and g'' are bounded, so integrable against any finite measure
+  have hg'_meas : Measurable g' := by
+    have : g' = deriv g := funext fun z => (hg_deriv z).deriv.symm
+    rw [this]; exact measurable_deriv g
+  have hg''_meas : Measurable g'' := by
+    have : g'' = deriv g' := funext fun z => (hg'_deriv z).deriv.symm
+    rw [this]; exact measurable_deriv g'
+  have haffine_meas : ∀ z, Measurable (fun y : ℝ => exp (-t) * z +
+      sqrt (1 - exp (-2 * t)) * y) := fun z =>
+    measurable_const.add (measurable_const.mul measurable_id)
+  have hg_int_inner : ∀ z, Integrable (fun y => g (exp (-t) * z +
+      sqrt (1 - exp (-2 * t)) * y)) stdGaussian := sorry
+  have hg'_int_inner : ∀ z, Integrable (fun y => g' (exp (-t) * z +
+      sqrt (1 - exp (-2 * t)) * y)) stdGaussian := by
+    intro z; obtain ⟨C, hC⟩ := hg'_bound
+    exact Integrable.of_bound
+      ((hg'_meas.comp (haffine_meas z)).aestronglyMeasurable) C
+      (ae_of_all _ fun y => hC _)
+  have hg''_int_inner : ∀ z, Integrable (fun y => g'' (exp (-t) * z +
+      sqrt (1 - exp (-2 * t)) * y)) stdGaussian := by
+    intro z; obtain ⟨C, hC⟩ := hg''_bound
+    exact Integrable.of_bound
+      ((hg''_meas.comp (haffine_meas z)).aestronglyMeasurable) C
+      (ae_of_all _ fun y => hC _)
+  have hderiv1 := ouSemigroup_hasDerivAt t g g' hg_deriv hg'_bound hg_int_inner x
+  -- So deriv (ouSemigroup t g) x = exp(-t) * ouSemigroup t g' x
+  have hd1 : deriv (ouSemigroup t g) x = exp (-t) * ouSemigroup t g' x :=
+    hderiv1.deriv
+  -- Apply ouSemigroup_hasDerivAt to g' with g''
+  have hderiv2 := ouSemigroup_hasDerivAt t g' g'' hg'_deriv hg''_bound hg'_int_inner x
+  -- deriv (ouSemigroup t g') x = exp(-t) * ouSemigroup t g'' x
+  have hd2 : deriv (ouSemigroup t g') x = exp (-t) * ouSemigroup t g'' x :=
+    hderiv2.deriv
+  -- Now: deriv(ouSemigroup t g) = fun z => exp(-t) * ouSemigroup t g' z
+  -- So deriv(deriv(ouSemigroup t g)) x = deriv(fun z => exp(-t) * ouSemigroup t g' z) x
+  --    = exp(-t) * deriv(ouSemigroup t g') x = exp(-t) * exp(-t) * ouSemigroup t g'' x
+  --    = exp(-2t) * ouSemigroup t g'' x
+  have hd1_eq : deriv (ouSemigroup t g) = fun z => exp (-t) * ouSemigroup t g' z := by
+    ext z
+    exact (ouSemigroup_hasDerivAt t g g' hg_deriv hg'_bound hg_int_inner z).deriv
+  have hdd : deriv (deriv (ouSemigroup t g)) x =
+      exp (-t) * (exp (-t) * ouSemigroup t g'' x) := by
+    rw [hd1_eq]
+    have : HasDerivAt (fun z => exp (-t) * ouSemigroup t g' z)
+        (exp (-t) * (exp (-t) * ouSemigroup t g'' x)) x := by
+      exact hderiv2.const_mul _
+    exact this.deriv
+  -- Assemble: ouGeneratorAt = deriv(deriv(P_t g)) x - x * deriv(P_t g) x
+  rw [hdd, hd1]
+  -- Goal: exp(-t) * (exp(-t) * P_t(g'')(x)) - x * (exp(-t) * P_t(g')(x))
+  --     = exp(-2*t) * P_t(g'')(x) - x * (exp(-t) * P_t(g')(x))
+  congr 1
+  rw [← mul_assoc, ← exp_add]
+  ring_nf
 
 /-- Leibniz rule for entropy functional: if F(s) = ∫ P_s g · log(P_s g) dγ, then
     F'(t) = ∫ (∂_t P_t g)(x) · (1 + log(P_t g(x))) dγ(x).
@@ -646,7 +957,12 @@ lemma entropy_dissipation (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
   -- Step 0: P_t g > 0 a.e. for t > 0
   have hPt_pos := ouSemigroup_pos_ae g t ht hg_nn hg_int hg_pos_int
   -- Step 1: The OU equation holds pointwise
-  have htime := fun x => ouSemigroup_time_deriv g g' t ht hg_deriv hg'_bound hg_int x
+  -- g'' = second derivative of g (needed for ouSemigroup_time_deriv)
+  let g'' : ℝ → ℝ := deriv g'
+  have hg'_deriv : ∀ x, HasDerivAt g' (g'' x) x := sorry
+  have hg''_bound : ∃ C, ∀ x, ‖g'' x‖ ≤ C := sorry
+  have htime := fun x => ouSemigroup_time_deriv g g' g'' t ht hg_deriv hg'_deriv
+    hg'_bound hg''_bound hg_int x
   -- Step 2: Leibniz rule gives F'(t) = ∫ L(P_t g) · (1 + log(P_t g)) dγ
   have hleib := entropy_hasDerivAt_of_time_deriv g t ht hg_nn hg_int hPt_pos htime
     hint_gen hent_int
