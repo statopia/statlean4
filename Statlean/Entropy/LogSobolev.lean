@@ -1189,6 +1189,22 @@ private lemma condExpect_zero_eq_comp_tail {n : ℕ}
     (∫ t, g (Fin.cons t (Fin.tail x)) ∂stdGaussian) := by
   congr 1; ext t; congr 1; exact update_zero_eq_cons x t
 
+-- Integrability of tail-composed functions: if h is integrable on γ^n, then h ∘ tail is on γ^{n+1}.
+private lemma integrable_comp_tail_stdGaussianPi {n : ℕ} (h : (Fin n → ℝ) → ℝ)
+    (hh : Integrable h (stdGaussianPi n)) :
+    Integrable (fun x => h (Fin.tail x)) (stdGaussianPi (n + 1)) := by
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) (0 : Fin (n + 1))
+  set μ' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+  have hmp := measurePreserving_piFinSuccAbove μ' (0 : Fin (n + 1))
+  have heq : (fun x : Fin (n + 1) → ℝ => h (Fin.tail x)) = (h ∘ Prod.snd) ∘ e := by
+    ext x; simp [Function.comp, e, MeasurableEquiv.piFinSuccAbove]
+  rw [heq]
+  apply MeasurePreserving.integrable_comp_of_integrable hmp
+  rw [show (μ' 0) = stdGaussian from rfl,
+      show (Measure.pi fun j : Fin n => μ' (Fin.succAbove 0 j)) = stdGaussianPi n from by
+        simp [μ', stdGaussianPi]]
+  exact hh.comp_snd stdGaussian
+
 -- Sub-lemma 3: Entropy subadditivity for integrable case.
 -- Proof: strong induction on n via chain rule at coord 0 + dimension projection + data processing.
 private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
@@ -1233,7 +1249,33 @@ private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
     -- Step 2: Chain rule at coord 0.
     have hint1 : Integrable (fun x => ∫ t, f (Function.update x 0 t) *
         Real.log (f (Function.update x 0 t)) ∂stdGaussian) (stdGaussianPi (m' + 2)) := by
-      sorry -- Fubini: follows from hf_log
+      -- Rewrite update → cons ∘ tail, then Fubini decomposition
+      set fl := fun x => f x * Real.log (f x)
+      have hupd : (fun x => ∫ t, fl (Function.update x 0 t) ∂stdGaussian) =
+          (fun x => ∫ t, fl (Fin.cons t (Fin.tail x)) ∂stdGaussian) := by
+        ext x; congr 1; ext t; congr 1; exact update_zero_eq_cons x t
+      rw [hupd]
+      -- Fubini: fl_marginal(y) = ∫ fl(cons t y) dγ(t) is integrable on γ^{m'+1}
+      set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (m' + 2) => ℝ) (0 : Fin (m' + 2))
+      set μ'' : Fin (m' + 2) → Measure ℝ := fun _ => stdGaussian
+      set γn := Measure.pi (fun j : Fin (m' + 1) => μ'' (Fin.succAbove 0 j))
+      have hmp := measurePreserving_piFinSuccAbove μ'' (0 : Fin (m' + 2))
+      have hγn : γn = stdGaussianPi (m' + 1) := by simp [γn, μ'', stdGaussianPi]
+      have hfl_prod : Integrable (fl ∘ e.symm) (stdGaussian.prod γn) :=
+        hmp.symm.integrable_comp_of_integrable hf_log
+      have hfub := hfl_prod.integral_prod_right
+      have heq_fl : (fun y => ∫ t, (fl ∘ e.symm) (t, y) ∂stdGaussian) =
+          (fun y => ∫ t, fl (Fin.cons t y) ∂stdGaussian) := by
+        ext y; simp only [Function.comp]
+        congr 1; ext t; congr 1
+        change e.symm (t, y) = Fin.cons t y
+        ext i; refine Fin.cases ?_ ?_ i
+        · simp [e, MeasurableEquiv.piFinSuccAbove]
+        · intro j; simp [e, MeasurableEquiv.piFinSuccAbove, Fin.cons]
+      rw [heq_fl, hγn] at hfub
+      -- hfub : Integrable (y ↦ ∫ fl(cons t y) dγ(t)) (stdGaussianPi (m'+1))
+      -- Goal: Integrable (x ↦ ∫ fl(cons t (tail x)) dγ(t)) (stdGaussianPi (m'+2))
+      exact integrable_comp_tail_stdGaussianPi _ hfub
     have hint2 : Integrable (fun x => (∫ t, f (Function.update x 0 t) ∂stdGaussian) *
         Real.log (∫ t, f (Function.update x 0 t) ∂stdGaussian)) (stdGaussianPi (m' + 2)) := by
       sorry -- Jensen + integrability of negative part
@@ -1242,7 +1284,22 @@ private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
     have hh_nn : ∀ y, 0 ≤ h y := fun y => by
       apply integral_nonneg; intro t; exact hf_nn _
     have hh_int : Integrable h (stdGaussianPi (m' + 1)) := by
-      sorry -- Fubini from hf
+      set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (m' + 2) => ℝ) (0 : Fin (m' + 2))
+      set μ'' : Fin (m' + 2) → Measure ℝ := fun _ => stdGaussian
+      set γn := Measure.pi (fun j : Fin (m' + 1) => μ'' (Fin.succAbove 0 j))
+      have hmp := measurePreserving_piFinSuccAbove μ'' (0 : Fin (m' + 2))
+      have hγn : γn = stdGaussianPi (m' + 1) := by simp [γn, μ'', stdGaussianPi]
+      have hf_prod : Integrable (f ∘ e.symm) (stdGaussian.prod γn) :=
+        hmp.symm.integrable_comp_of_integrable hf
+      have hfub := hf_prod.integral_prod_right
+      have heq : (fun y => ∫ t, (f ∘ e.symm) (t, y) ∂stdGaussian) = h := by
+        ext y; simp only [Function.comp, h]
+        congr 1; ext t; congr 1
+        change e.symm (t, y) = Fin.cons t y
+        ext i; refine Fin.cases ?_ ?_ i
+        · simp [e, MeasurableEquiv.piFinSuccAbove]
+        · intro j; simp [e, MeasurableEquiv.piFinSuccAbove, Fin.cons]
+      rwa [heq, hγn] at hfub
     have hh_log_int : Integrable (fun y => h y * Real.log (h y))
         (stdGaussianPi (m' + 1)) := by
       sorry -- Jensen: h·log(h) ≤ ∫ f·log(f) slice, then Fubini
