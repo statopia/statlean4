@@ -1044,12 +1044,61 @@ lemma entropy_dissipation (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
   -- Additional regularity hypotheses for dirichlet_form_entropy (sorry'd for now)
   have hdirich := dirichlet_form_entropy g g' t ht hg_nn hg_int hg'_int hg_deriv hPt_pos
     hg'_bound
-    (sorry : ∀ x, Integrable (fun y => g (exp (-t) * x +
-      sqrt (1 - exp (-2 * t)) * y)) stdGaussian)
-    (sorry : ∀ x, Integrable (fun y => g' (exp (-t) * x +
-      sqrt (1 - exp (-2 * t)) * y)) stdGaussian)
+    (by -- g∘affine integrable (Lipschitz + Gaussian moments)
+      intro z; obtain ⟨C, hC⟩ := hg'_bound
+      have hC_nn : (0 : ℝ) ≤ C := le_trans (norm_nonneg _) (hC 0)
+      have hg_diff : Differentiable ℝ g := fun w => (hg_deriv w).differentiableAt
+      set Cnn : NNReal := ⟨C, hC_nn⟩
+      have hCnn_eq : (Cnn : ℝ) = C := rfl
+      have hg_lip := lipschitzWith_of_nnnorm_deriv_le hg_diff fun w => by
+        show ‖deriv g w‖₊ ≤ Cnn
+        rw [← NNReal.coe_le_coe, coe_nnnorm, hCnn_eq, (hg_deriv w).deriv]; exact hC w
+      set a := exp (-t) * z; set b := sqrt (1 - exp (-2 * t))
+      have hg_meas : Measurable g := hg_diff.continuous.measurable
+      have haffine_meas : Measurable (fun y : ℝ => a + b * y) :=
+        measurable_const.add (measurable_const.mul measurable_id)
+      have h1 : Integrable (fun _ : ℝ => g 0) stdGaussian := integrable_const _
+      have h2 : Integrable (fun y => g (a + b * y) - g 0) stdGaussian := by
+        exact Integrable.mono
+          ((integrable_const (C * |a|)).add
+            ((IsGaussian.integrable_fun_id (μ := stdGaussian)).norm.const_mul (C * |b|)))
+          ((hg_meas.comp haffine_meas).sub measurable_const).aestronglyMeasurable
+          (ae_of_all _ fun y => by
+            have h := hg_lip.norm_sub_le (a + b * y) 0
+            simp only [sub_zero, hCnn_eq] at h
+            have hnn : 0 ≤ C * |a| + C * |b| * ‖y‖ :=
+              add_nonneg (mul_nonneg hC_nn (abs_nonneg _))
+                (mul_nonneg (mul_nonneg hC_nn (abs_nonneg _)) (norm_nonneg _))
+            calc ‖g (a + b * y) - g 0‖ ≤ C * ‖a + b * y‖ := h
+              _ ≤ C * (|a| + |b * y|) := by
+                  gcongr; rw [Real.norm_eq_abs]; exact abs_add_le _ _
+              _ = C * |a| + C * |b| * ‖y‖ := by rw [abs_mul b y, Real.norm_eq_abs]; ring
+              _ ≤ ‖(C * |a| + C * |b| * ‖y‖ : ℝ)‖ :=
+                  le_of_eq (Real.norm_of_nonneg hnn).symm)
+      rw [show (fun y => g (a + b * y)) = (fun y => g 0 + (g (a + b * y) - g 0)) from by
+        ext y; abel]
+      exact h1.add h2)
+    (by -- g'∘affine integrable (bounded derivative)
+      intro z; obtain ⟨C, hC⟩ := hg'_bound
+      have hg'_meas : Measurable g' := by
+        have : g' = deriv g := funext fun w => (hg_deriv w).deriv.symm
+        rw [this]; exact measurable_deriv g
+      exact Integrable.of_bound
+        ((hg'_meas.comp (measurable_const.add
+          (measurable_const.mul measurable_id))).aestronglyMeasurable) C
+        (ae_of_all _ fun y => hC _))
     (sorry : ∀ x, 0 < ouSemigroup t g x)
-    (sorry : ∃ C, ∀ x, ‖ouSemigroup t g' x‖ ≤ C)
+    (by -- boundedness of ouSemigroup applied to bounded g'
+      obtain ⟨C, hC⟩ := hg'_bound
+      exact ⟨C, fun z => by
+        simp only [ouSemigroup]
+        calc ‖∫ y, g' (exp (-t) * z + sqrt (1 - exp (-2 * t)) * y) ∂stdGaussian‖
+            ≤ ∫ y, ‖g' (exp (-t) * z + sqrt (1 - exp (-2 * t)) * y)‖ ∂stdGaussian :=
+              norm_integral_le_integral_norm _
+          _ ≤ ∫ _, C ∂stdGaussian := by
+              apply integral_mono_of_nonneg (ae_of_all _ fun _ => norm_nonneg _)
+                (integrable_const _) (ae_of_all _ fun y => hC _)
+          _ = C := by simp [integral_const, measure_univ]⟩)
     (sorry : ∀ x, HasDerivAt (fun z => exp (-t) * ouSemigroup t g' z)
       (deriv (fun z => exp (-t) * ouSemigroup t g' z) x) x)
     (sorry : MemLp (fun x => deriv (ouSemigroup t g) x *
