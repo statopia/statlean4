@@ -1,6 +1,6 @@
-version: v110
+version: v111
 generated: 2026-03-11
-total_sorry: 8
+total_sorry: 7
 
 sorry_items:
 
@@ -52,21 +52,9 @@ sorry_items:
   dependencies: [lsi.normalized_of_integrable, lsi.entropy_subadditivity_of_nonneg]
   unlocks: []
 
-- id: lsi.entropy_subadditivity_integrable
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 1393
-  theorem: entropy_subadditivity_integrable
-  type: blocked
-  depth: 2
-  priority: 10
-  blocker: "hdata_combined sorry: combines condEnt translation (Step A: equality via condEntropyAt_comp_tail) with DPI (Step B: integrated_condEntropyAt_condExpect_le). hint2 and hh_log_int are PROVED (2026-03-11)."
-  estimated_lines: 20
-  dependencies: [lsi.integrated_condEntropyAt_condExpect_le]
-  unlocks: []
-
 - id: lsi.integrated_condEntropyAt_condExpect_le
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1105
+  line: 1219
   theorem: integrated_condEntropyAt_condExpect_le
   type: honest
   depth: 2
@@ -74,23 +62,11 @@ sorry_items:
   blocker: "Data processing inequality: ∫ condEnt_i(E_j g) ≤ ∫ condEnt_i(g) for i≠j. Deep result: equivalent to supermodularity of F(h)=∫h·log(h) under conditional expectations, or KL divergence ≥ 0. Direct proof circular (reduces to same inequality with i,j swapped). Need mutual-information approach: F(g)-F(E_j g) = ∫g·log(g/(E_j g)) ≥ 0 (Gibbs). ~100-150 lines."
   estimated_lines: 120
   dependencies: []
-  unlocks: [lsi.entropy_subadditivity_integrable]
-
-- id: lsi.entropy_subadditivity_not_integrable_log
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 1137
-  theorem: entropy_subadditivity_not_integrable_log
-  type: honest
-  depth: 2
-  priority: 15
-  blocker: "Non-integrable g·log(g) case. In Lean convention (∫ non-integrable = 0): entropyPi = -(∫g)·log(∫g). For a.e. x, slice g·log(g) not integrable (since global positive part diverges), so condEntropyAt = -(E_i g)·log(E_i g). Need ∑∫-(E_i g)·log(E_i g) ≥ -(∫g)·log(∫g). By Jensen on convex x·log(x): each ∫(E_i g)·log(E_i g) ≥ (∫g)·log(∫g). But this gives ∑ ≥ n·(∫g)·log(∫g) which is wrong direction when (∫g)·log(∫g) > 0. Mathematically both sides = +∞. May need Lean convention workaround. ~50 lines."
-  estimated_lines: 50
-  dependencies: []
   unlocks: []
 
 - id: lsi.integrable_condEntropy
   file: Statlean/Entropy/LogSobolev.lean
-  line: 838
+  line: 952
   theorem: integrable_condEntropyAt
   type: blocked
   depth: 2
@@ -98,4 +74,16 @@ sorry_items:
   blocker: "Follows from entropy_subadditivity infrastructure."
   estimated_lines: 20
   dependencies: [lsi.entropy_subadditivity_of_nonneg]
+  unlocks: []
+
+- id: lsi.entropy_subadditivity_not_integrable_log
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 1251
+  theorem: entropy_subadditivity_not_integrable_log
+  type: honest
+  depth: 2
+  priority: 15
+  blocker: "Non-integrable g·log(g) case. In Lean convention (∫ non-integrable = 0): entropyPi = -(∫g)·log(∫g). For a.e. x, slice g·log(g) not integrable (since global positive part diverges), so condEntropyAt = -(E_i g)·log(E_i g). Need ∑∫-(E_i g)·log(E_i g) ≥ -(∫g)·log(∫g). By Jensen on convex x·log(x): each ∫(E_i g)·log(E_i g) ≥ (∫g)·log(∫g). But this gives ∑ ≥ n·(∫g)·log(∫g) which is wrong direction when (∫g)·log(∫g) > 0. Mathematically both sides = +∞. May need Lean convention workaround. ~50 lines."
+  estimated_lines: 50
+  dependencies: []
   unlocks: []
