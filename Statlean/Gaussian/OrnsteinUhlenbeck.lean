@@ -1012,6 +1012,26 @@ private lemma ouSemigroup_pos_ae (g : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
   filter_upwards [hPg_eq, hPgmp_pos] with x hx_eq hx_pos
   rw [hx_eq]; exact hx_pos
 
+/-- The function `1 + log(P_t g)` is integrable against the standard Gaussian.
+Follows from polynomial growth bounds: |log(P_t g(x))| ≤ D₁ + D₂·x² (integrable vs Gaussian).
+- Upper: P_t g(x) ≤ A + B|x| (Lipschitz → linear growth), so log⁺ ≤ log(A+B|x|+1).
+- Lower: P_t g(x) ≥ c₁·exp(-c₂·x²) (Gaussian kernel + g>0 somewhere), so -log ≤ c₂x²+C.
+
+Blocker: formalizing the Gaussian kernel lower bound (~40 lines).
+Estimated effort: B-grade. -/
+private lemma integrable_one_add_log_ouSemigroup (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
+    (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
+    (hg_int : Integrable g stdGaussian)
+    (hg_pos_int : 0 < ∫ x, g x ∂stdGaussian)
+    (hg'_bound : ∃ C, ∀ x, ‖g' x‖ ≤ C)
+    (hg_deriv : ∀ x, HasDerivAt g (g' x) x) :
+    Integrable (fun x => 1 + log (ouSemigroup t g x)) stdGaussian := by
+  -- Proof sketch: |1 + log(P_t g(x))| ≤ D₁ + D₂·x² for constants D₁, D₂ > 0.
+  -- Upper bound: P_t g is Lipschitz image under Gaussian convolution → linear growth.
+  -- Lower bound: Gaussian kernel ensures P_t g(x) ≥ c·exp(-c'·x²) for constants c, c' > 0.
+  -- Both bounds give polynomial growth, integrable against Gaussian.
+  sorry
+
 lemma entropy_dissipation (g g' g'' : ℝ → ℝ) (t : ℝ) (ht : 0 < t)
     (hg_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ g x)
     (hg_int : Integrable g stdGaussian)
@@ -1201,7 +1221,13 @@ private lemma integral_sq_div_le {μ : Measure ℝ} [IsProbabilityMeasure μ]
     exact div_nonneg (sq_nonneg _) (le_of_lt hky)
 
 private lemma ouSemigroup_sq_div_le (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 ≤ t)
-    (hg_pos : ∀ᵐ x ∂stdGaussian, 0 < g x) (x : ℝ) :
+    (hg_pos : ∀ᵐ x ∂stdGaussian, 0 < g x) (x : ℝ)
+    (hg'_slice : Integrable (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y))
+      stdGaussian)
+    (hg_slice : Integrable (fun y => g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y))
+      stdGaussian)
+    (hFisher_slice : Integrable (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) ^ 2 /
+      g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) stdGaussian) :
     ouSemigroup t g' x ^ 2 / ouSemigroup t g x ≤
       ouSemigroup t (fun y => g' y ^ 2 / g y) x := by
   by_cases ht0 : t = 0
@@ -1220,7 +1246,7 @@ private lemma ouSemigroup_sq_div_le (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 ≤ t
         exact (gaussianReal_absolutelyContinuous _ hv).trans
           (gaussianReal_absolutelyContinuous' 0 one_ne_zero)
       exact ae_of_ae_map hφ_aem (h_ac.ae_le hg_pos)
-    exact integral_sq_div_le _ _ hg_comp_pos (sorry) (sorry) (sorry)
+    exact integral_sq_div_le _ _ hg_comp_pos hg'_slice hg_slice hFisher_slice
 
 /-! ## Sub-lemma 5: Fisher information contraction
 
@@ -1252,13 +1278,85 @@ lemma fisherInfo_ouSemigroup_le (g g' : ℝ → ℝ) (t : ℝ) (ht : 0 ≤ t)
   rw [integral_const_mul]
   -- Step 2: Suffices to show ∫ (P_t g')²/(P_t g) ≤ ∫ g'²/g
   apply mul_le_mul_of_nonneg_left _ (exp_nonneg _)
+  -- Obtain slice integrabilities from Fubini
+  have hg'_int_L1 : Integrable g' stdGaussian :=
+    (hg'_int.mono_exponent (by norm_num : (1 : ENNReal) ≤ 2)).integrable le_rfl
+  have hg'_ae : ∀ᵐ x ∂stdGaussian, Integrable
+      (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) stdGaussian :=
+    (integrable_mehler_prod t ht g' hg'_int_L1).prod_right_ae
+  have hg_ae : ∀ᵐ x ∂stdGaussian, Integrable
+      (fun y => g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) stdGaussian :=
+    (integrable_mehler_prod t ht g hg_int).prod_right_ae
+  have hF_ae : ∀ᵐ x ∂stdGaussian, Integrable
+      (fun y => g' (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) ^ 2 /
+        g (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)) stdGaussian :=
+    (integrable_mehler_prod t ht (fun y => g' y ^ 2 / g y) hFisher).prod_right_ae
+  -- Integrability of RHS: P_t(g'²/g)
+  have hRHS_int : Integrable (ouSemigroup t (fun y => g' y ^ 2 / g y)) stdGaussian :=
+    integrable_ouSemigroup t ht _ hFisher
+  -- AEStronglyMeasurable for LHS components
+  have hPtg'_int := integrable_ouSemigroup t ht g' hg'_int_L1
+  have hPtg_int := integrable_ouSemigroup t ht g hg_int
+  -- ae pointwise bound via Cauchy-Schwarz
+  have h_ae_bound : ∀ᵐ x ∂stdGaussian,
+      ouSemigroup t g' x ^ 2 / ouSemigroup t g x ≤
+        ouSemigroup t (fun y => g' y ^ 2 / g y) x := by
+    filter_upwards [hg'_ae, hg_ae, hF_ae] with x hg'x hgx hFx
+    exact ouSemigroup_sq_div_le g g' t ht hg_pos x hg'x hgx hFx
+  -- Nonnegativity of LHS ae
+  have hLHS_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ ouSemigroup t g' x ^ 2 / ouSemigroup t g x := by
+    by_cases ht0 : t = 0
+    · subst ht0
+      filter_upwards [hg_pos] with x hx
+      simp only [ouSemigroup_zero]
+      exact div_nonneg (sq_nonneg _) (le_of_lt hx)
+    · apply Filter.Eventually.of_forall; intro x
+      apply div_nonneg (sq_nonneg _)
+      simp only [ouSemigroup]; apply integral_nonneg_of_ae
+      have ht_pos : 0 < t := lt_of_le_of_ne ht (Ne.symm ht0)
+      set φ := fun y : ℝ => exp (-t) * x + sqrt (1 - exp (-2 * t)) * y
+      have hφ_aem : AEMeasurable φ stdGaussian := by fun_prop
+      have hv := ouVar_ne_zero t ht_pos
+      have h_ac : (Measure.map φ stdGaussian) ≪ stdGaussian := by
+        rw [map_affine_stdGaussian]
+        exact (gaussianReal_absolutelyContinuous _ hv).trans
+          (gaussianReal_absolutelyContinuous' 0 one_ne_zero)
+      exact ae_of_ae_map hφ_aem (h_ac.ae_le (Filter.Eventually.mono hg_pos (fun _ h => le_of_lt h)))
+  -- Nonnegativity of RHS ae
+  have hRHS_nn : ∀ᵐ x ∂stdGaussian, 0 ≤ ouSemigroup t (fun y => g' y ^ 2 / g y) x := by
+    by_cases ht0 : t = 0
+    · subst ht0
+      filter_upwards [hg_pos] with x hx
+      simp only [ouSemigroup_zero]
+      exact div_nonneg (sq_nonneg _) (le_of_lt hx)
+    · apply Filter.Eventually.of_forall; intro x; simp only [ouSemigroup]
+      apply integral_nonneg_of_ae
+      have ht_pos : 0 < t := lt_of_le_of_ne ht (Ne.symm ht0)
+      set φ := fun y : ℝ => exp (-t) * x + sqrt (1 - exp (-2 * t)) * y
+      have hφ_aem : AEMeasurable φ stdGaussian := by fun_prop
+      have hv := ouVar_ne_zero t ht_pos
+      have h_ac : (Measure.map φ stdGaussian) ≪ stdGaussian := by
+        rw [map_affine_stdGaussian]
+        exact (gaussianReal_absolutelyContinuous _ hv).trans
+          (gaussianReal_absolutelyContinuous' 0 one_ne_zero)
+      exact ae_of_ae_map hφ_aem (h_ac.ae_le (Filter.Eventually.mono hg_pos (fun _ h =>
+        div_nonneg (sq_nonneg _) (le_of_lt h))))
+  -- AEStronglyMeasurable for LHS
+  have hLHS_aesm : AEStronglyMeasurable
+      (fun x => ouSemigroup t g' x ^ 2 / ouSemigroup t g x) stdGaussian :=
+    ((hPtg'_int.aestronglyMeasurable.pow 2).aemeasurable.div
+      hPtg_int.aestronglyMeasurable.aemeasurable).aestronglyMeasurable
+  -- Integrability of LHS from ae bound + RHS integrability
+  have hLHS_int : Integrable (fun x => ouSemigroup t g' x ^ 2 / ouSemigroup t g x)
+      stdGaussian := by
+    apply Integrable.mono hRHS_int hLHS_aesm
+    filter_upwards [h_ae_bound, hLHS_nn, hRHS_nn] with x hle hnn hrnn
+    rw [Real.norm_eq_abs, Real.norm_eq_abs, abs_of_nonneg hnn, abs_of_nonneg hrnn]
+    exact hle
   -- Step 2a: Pointwise bound via Cauchy-Schwarz
   calc ∫ x, ouSemigroup t g' x ^ 2 / ouSemigroup t g x ∂stdGaussian
       ≤ ∫ x, ouSemigroup t (fun y => g' y ^ 2 / g y) x ∂stdGaussian := by
-        apply integral_mono_ae
-        · sorry -- integrability of (P_t g')²/(P_t g)
-        · sorry -- integrability of P_t(g'²/g)
-        · exact ae_of_all _ (fun x => ouSemigroup_sq_div_le g g' t ht hg_pos x)
+        exact integral_mono_ae hLHS_int hRHS_int h_ae_bound
     -- Step 3: ∫ P_t(g'²/g) dγ = ∫ g'²/g dγ by OU invariance
     _ = ∫ x, g' x ^ 2 / g x ∂stdGaussian := by
         exact integral_ouSemigroup t ht _ hFisher
