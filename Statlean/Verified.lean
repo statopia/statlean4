@@ -5,6 +5,7 @@ import Statlean.Basic
 import Statlean.Gaussian.Basic
 import Statlean.Gaussian.Stein
 import Statlean.Gaussian.Hermite
+import Statlean.Gaussian.OrnsteinUhlenbeck
 
 -- Variance (verified)
 import Statlean.Variance.ANOVA
