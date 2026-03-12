@@ -62,11 +62,48 @@
 
 ---
 
-## 3. API 搜索（条件跳过 + 三级法）
+## 3. 路线搜索 + API 搜索（五级 Fallback + 三级法）
 
-### Level 0：proof_knowledge.yaml（Phase 0 已完成）
-- 如果 Phase 0 的 L3/L2 已匹配到当前 goal → **跳过 Level 1，直接用**
-- 仅当知识库未覆盖时才进入 Level 1
+### 路线搜索（Phase 0.5，在 API 搜索之前执行）
+
+按成本递增依次执行，获得完整路线后跳过后续级别：
+
+```
+R1: 人类显式输入（0-5K token）
+    检查 $ARGUMENTS --roadmap + 用户消息中的证明描述
+    → parse_proof_roadmap.py 解析
+    → completeness: full → 直接 Phase 3
+    → completeness: partial → 对 gap 步骤继续 R2-R5
+    → completeness: hint → 关键词注入搜索
+
+R2: 输入上下文证明体（2-10K token）
+    检查 PDF/LaTeX 输入中的 proof 块、theorems.yaml 的 proof_body
+    → parse_proof_roadmap.py 解析
+    → 与 R1 部分路线合并
+
+R3: 本地知识库（0-2K token）— 已有 proof_knowledge.yaml 流程
+    L3 匹配 + confidence ≥ 4 → 按策略执行（跳过 R4）
+    L2 匹配 → 部分路线
+    未匹配 → 继续 R4
+
+R4: Web 搜索（3-50K token）— 仅当 R1-R3 无路线 + 等级 ≥ C + 已知定理
+    Stage 1: WebSearch "<theorem> proof Lean 4 Mathlib"（快速探测）
+    → 无结果 → 立刻停，转 R5
+    Stage 2a: 有 Lean 形式化 → WebFetch → 提取 API（confidence: 5）
+    Stage 2b: 有 ProofWiki/教材 → WebFetch → 解析骨架（confidence: 3-4）
+
+R5: LLM 自主探索（50-300K token）— 当前流程，可能携带 R1-R4 部分成果
+```
+
+**S-B 级 sorry → 跳过 R4，直接 R5**（简单 sorry 不值得 Web 搜索）
+**路线解析脚本**：`python3 scripts/parse_proof_roadmap.py`
+
+### API 搜索三级法（在路线搜索之后执行）
+
+### Level 0：路线 key_api + proof_knowledge.yaml（Phase 0.5 已完成）
+- 如果路线搜索获得了 key_api → **定向 grep 查签名，跳过 Level 1**
+- 如果 proof_knowledge.yaml L3/L2 已匹配 → **同上**
+- 仅当均未覆盖时才进入 Level 1
 
 ### Level 1：静态索引（~8.5K token，知识库未匹配时用）
 ```bash
@@ -109,9 +146,16 @@ Grep "setIntegral_condExp" --path .lake/packages/mathlib/Mathlib/
 
 ### 4.2 标识符/实例错误
 
+**首先查 gotchas 表**：遇到 `unknown identifier` 或 `unknown constant` 时，先执行：
+```bash
+grep -i '<name>' theme/api_gotchas.tsv
+```
+命中 → 按 `correct_api` 列替换。未命中 → 继续查 `theme/mathlib_full_type_index.tsv`。
+**不要猜第二个名字直接写代码。**
+
 | 错误信息 | 原因 | 修复 |
 |----------|------|------|
-| `unknown identifier 'X'` | API 改名或不存在 | `#check @X` 查真名；`div_le_iff` → `div_le_iff₀` |
+| `unknown identifier 'X'` | API 改名或不存在 | 先 `grep -i 'X' theme/api_gotchas.tsv`，再 `#check @X` 查真名 |
 | `failed to synthesize instance SigmaFinite` | 需要 trim 的 SigmaFinite | `haveI : SigmaFinite (μ.trim hm) := inferInstance`（IsFiniteMeasure 自动推导） |
 | `failed to synthesize instance IsProbabilityMeasure` | parametric family 需要显式声明 | `haveI : IsProbabilityMeasure (P.measure θ) := P.isProbability θ` |
 | `failed to synthesize instance StandardBorelSpace` | Doob-Dynkin 需要 | `import Mathlib.MeasureTheory.Function.FactorsThrough` |
@@ -171,6 +215,22 @@ repeat (最多 5 轮):
   → 记录已完成的部分（sub-lemma 留在文件中）
   → 记录失败原因和已尝试策略到 sorry_backlog.yaml
   → 退出，不无限重试
+
+效率反思规则（build 循环 ≥ 5 轮时强制）:
+  如果 build 循环达到 5 轮（无论最终成功或失败），必须执行效率反思：
+  1. 回顾哪些轮次是"重复劳动"（同类错误反复出现）
+  2. 提取 workflow pattern：不是"用了什么 API"，而是"证明应该怎么组织"
+     - 例："先用 have 块建立所有子项的 Integrable，再组装 rewrite 链"
+     - 例："将 150 行 domination bound 拆为 3 个 ≤50 行的独立 sub-lemma"
+  3. 将 workflow pattern 作为 new_knowledge 入库（L2/L3 的 workflow 字段）：
+     ```yaml
+     new_knowledge:
+       - level: L2
+         trigger: "<触发条件>"
+         chain: "<API 链>"
+         workflow: "<证明组织方式：做 X 之前先做 Y>"
+     ```
+  4. workflow 字段描述的是方法论，不是 API — 告诉未来 agent"怎么避免重复劳动"
 
 早期终止规则（/prove-deep agent 强制）:
   - 如果 agent 连续 3 轮无文件修改 → 立即 TaskStop
@@ -235,6 +295,12 @@ linarith [h_int, h_ae, h_eq]
 ## 8. 退出条件与失败记录
 
 **成功退出**：sorry 消除 + `lake build` 通过
+
+**报告分流（强制）**：无论成功或失败，退出时：
+- 完整 PROVE REPORT → 写入 `reports/prove_report_<theorem>.md`（用 Write 工具）
+- 屏幕只输出 1-3 行摘要：`PROVE: <name> — sorry N→M | closed: [names]`
+- 经验报告 → 写入 `reports/session_report.md`，屏幕 1 行摘要
+- knowledge 入库通过 Bash 工具执行 `ingest_knowledge.py`，不在屏幕输出详情
 
 **失败退出**（5 轮无进展）：
 1. 保留所有已完成的 sub-lemma（它们是有价值的进展）

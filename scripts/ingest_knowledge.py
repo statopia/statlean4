@@ -85,6 +85,9 @@ REQUIRED_FIELDS = {
     "L3": {"trigger", "strategy"},
 }
 
+# Optional fields (accepted but not required)
+OPTIONAL_FIELDS = {"workflow", "key_api", "source", "confidence", "frequency", "anti"}
+
 
 def validate_entry(entry: dict) -> tuple[bool, str]:
     """Validate a new_knowledge entry. Returns (ok, error_msg)."""
@@ -139,6 +142,7 @@ def save_knowledge(data: dict):
     lines = []
     lines.append("# theme/proof_knowledge.yaml — 四层证明知识库")
     lines.append("# 使用方法：按 trigger 字段匹配当前 goal，读对应 strategy/chain/tip")
+    lines.append("# 可选 workflow 字段：描述证明组织方式（\"做 X 之前先做 Y\"），避免 agent 重复试错")
     lines.append("# 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库")
     lines.append(f"version: {data.get('version', 'v1')}")
     lines.append(f"entry_count: {total}")
@@ -153,6 +157,8 @@ def save_knowledge(data: dict):
         lines.append("")
         lines.append(f'  - trigger: "{entry["trigger"]}"')
         lines.append(f'    strategy: "{entry["strategy"]}"')
+        if "workflow" in entry:
+            lines.append(f'    workflow: "{entry["workflow"]}"')
         if "key_api" in entry:
             lines.append(f'    key_api: {entry["key_api"]}')
         if "source" in entry:
@@ -169,6 +175,8 @@ def save_knowledge(data: dict):
         lines.append("")
         lines.append(f'  - trigger: "{entry["trigger"]}"')
         lines.append(f'    chain: "{entry["chain"]}"')
+        if "workflow" in entry:
+            lines.append(f'    workflow: "{entry["workflow"]}"')
         if "source" in entry:
             lines.append(f'    source: {entry["source"]}')
         if "confidence" in entry:
@@ -230,6 +238,8 @@ def ingest_entries(new_entries: list[dict], dry_run: bool = False) -> dict:
         new_entry = {"trigger": trigger}
         if level == "L3":
             new_entry["strategy"] = entry["strategy"]
+            if "workflow" in entry:
+                new_entry["workflow"] = entry["workflow"]
             if "key_api" in entry:
                 new_entry["key_api"] = entry["key_api"]
             if "source" in entry:
@@ -240,6 +250,8 @@ def ingest_entries(new_entries: list[dict], dry_run: bool = False) -> dict:
                 new_entry["strategy"] = f"# REVIEW: similar to existing. " + new_entry["strategy"]
         elif level == "L2":
             new_entry["chain"] = entry["chain"]
+            if "workflow" in entry:
+                new_entry["workflow"] = entry["workflow"]
             if "source" in entry:
                 new_entry["source"] = entry["source"]
             if "confidence" in entry:

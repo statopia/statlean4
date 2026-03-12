@@ -48,6 +48,15 @@ Report: number of theorem entries in YAML.
 
 Iterate until clean compilation (max 5 cycles).
 
+## Step 4.5: Extract Proof Bodies for R2 Route Search
+
+Before proving, extract proof bodies from the input for use as route hints:
+1. Read `theme/input/theorems.yaml` — check each theorem's `proof_body` field
+2. For each theorem with a non-empty `proof_body`:
+   - Run `python3 scripts/parse_proof_roadmap.py --format latex --inline "<proof_body>" --theorem <name>`
+   - Store the parsed roadmap for injection into prove agents
+3. These roadmaps will be passed to prove agents as R2 route hints (see Phase 0.5 in `/prove`)
+
 ## Step 5: Prove (subagent dispatch — uses Max plan quota, zero API credit)
 
 Parse `--prove-depth` from arguments (default: deep).
@@ -63,10 +72,16 @@ If `--prove-depth deep`:
      - `subagent_type: "general-purpose"`
      - The `prompt` field from prove_targets.json
      - `model: "sonnet"` (good balance of speed and capability)
-     - **prompt 必须包含 Phase 0 工具链指令**：
-       "先用 python3 scripts/extract_signatures.py 读声明索引，
-        先读 theme/proof_knowledge.yaml 匹配 goal，
-        L3/L2 匹配到 → 按 key_api grep statlean_api_index.tsv 和 mathlib_full_type_index.tsv 查签名，跳过 mathlib_api_index 全文,
+     - **prompt 必须包含 Phase 0.5 路线搜索 + Phase 0 工具链指令**：
+       "Phase 0.5 路线搜索（在 API 搜索之前执行）:
+        R1: 检查是否有 --roadmap 参数或用户提供的证明描述
+        R2: {如果 Step 4.5 已解析出 roadmap → 直接注入: roadmap_yaml}
+        R3: 读 theme/proof_knowledge.yaml 匹配 goal
+        R4: 如果 R1-R3 无路线且等级 ≥ C → WebSearch '<theorem> proof Lean 4 Mathlib'
+        R5: 自主探索（当前流程）
+        Phase 0 工具链:
+        先用 python3 scripts/extract_signatures.py 读声明索引，
+        如果已有路线 → 按 key_api grep statlean_api_index.tsv 和 mathlib_full_type_index.tsv 查签名，跳过 mathlib_api_index 全文,
         未匹配 → 读 theme/mathlib_api_index.md + grep 两个索引，
         tactic 试错阶段用 bash scripts/check_snippet.sh 增量编译，
         每证完一个子引理立即写入 .lean 文件并 lake build 验证"

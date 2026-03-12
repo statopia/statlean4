@@ -49,6 +49,7 @@ def extract_blocks(tex: str) -> List[Dict[str, Any]]:
                 "title": title or f"{env.title()} {len(blocks) + 1}",
                 "statement": stmt_raw,
                 "proof": proof_raw,
+                "proof_body": proof_raw,  # preserved for R2 route search
             }
         )
     return blocks
@@ -518,6 +519,7 @@ def build_theorems(
             "kind": kind,
             "latex_statement": b["statement"],
             "latex_proof_hint": b["proof"],
+            "proof_body": b.get("proof_body", ""),
             "lean_name": lean_name,
             "lean_namespace": item_namespace,
             "layer": layer,

@@ -13,6 +13,9 @@ __pycache__/
 # Pipeline outputs (regenerable)
 theme/out/
 
+# Prove session reports (per-session, regenerable)
+reports/
+
 # Windows zone identifiers
 *:Zone.Identifier
 

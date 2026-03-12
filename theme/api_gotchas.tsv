@@ -1,0 +1,13 @@
+wrong_guess	correct_api	note
+pow_le_pow_left	pow_le_pow_left₀	v4.28 renamed with subscript zero
+div_le_div_iff	div_le_div_iff₀	v4.28 renamed
+exp_nat_mul	Real.exp_nat_mul	needs Real. prefix
+AEStronglyMeasurable.div	.mul + .inv	div not in Mathlib, compose mul+inv
+integral_nonneg_ae	integral_nonneg_of_ae	note the _of_ infix
+ae_map_iff	ae_of_ae_map	ae_map_iff needs MeasurableSet, ae_of_ae_map doesn't
+tendsto_measure_of_null_frontier_of_tendsto	tendsto_measure_of_null_frontier_of_tendsto'	primed = ENNReal version
+Eventually.of_forall	ae_of_all	renamed
+integral_mul_left	integral_const_mul	integral_mul_left is ∫ c*f, integral_const_mul is c * ∫ f
+pow_le_pow_right	pow_le_pow_right₀	v4.28 renamed with subscript zero
+MeasureTheory.integral_mul_eq_lp_inner	MeasureTheory.L2.inner_def	use L2 inner product API
+AEStronglyMeasurable.mono	AEStronglyMeasurable.mono'	primed version for sub-sigma-algebra

@@ -177,10 +177,23 @@ Follow the exact same protocol as `/prove`:
 
 ### Phase 0: Toolchain Setup (MANDATORY)
 0. `python3 scripts/extract_signatures.py <file>` — read declaration index
-1. Read `theme/proof_knowledge.yaml` — match goal shape (L3/L2/L1), note `anti: true` entries = dead ends to avoid
-2. If L3/L2 matched → grep `theme/statlean_api_index.tsv` + `theme/mathlib_full_type_index.tsv` for key_api signatures (skip mathlib_api_index full read)
-3. If not matched → read `theme/mathlib_api_index.md` + grep both indexes
-4. Use `bash scripts/check_snippet.sh` for tactic debugging
+1. Use `bash scripts/check_snippet.sh` for tactic debugging
+
+### Phase 0.5: Route Search (5-level fallback, before API search)
+
+Execute route search R1→R2→R3→R4→R5 as defined in `/prove`:
+
+- **R1**: Check `$ARGUMENTS` for `--roadmap` + user message for proof descriptions
+- **R2**: Check session context for PDF/LaTeX proof bodies
+- **R3**: Read `theme/proof_knowledge.yaml` — match goal shape (L3/L2/L1), note `anti: true` entries = dead ends
+  - If L3/L2 matched → grep `theme/statlean_api_index.tsv` + `theme/mathlib_full_type_index.tsv` for key_api signatures (skip mathlib_api_index full read)
+  - If not matched → read `theme/mathlib_api_index.md` + grep both indexes
+- **R4**: Web search (only if grade ≥ C, known theorem, R1-R3 no match)
+  - Stage 1: `WebSearch "<theorem_name> proof Lean 4 Mathlib"` (摘要判断)
+  - Stage 2a/2b: WebFetch if Stage 1 has results
+- **R5**: LLM autonomous exploration (current flow)
+
+Log each route search step with `[search]` tags.
 
 ### Phase 1: Understand (do NOT edit yet)
 1. Read the file containing the sorry (targeted line range).
@@ -199,14 +212,25 @@ Follow the exact same protocol as `/prove`:
 6. Write the proof replacement.
 7. Build with `lake build <module>`.
 8. Max 5 build-fix cycles.
+   - **API 名称错误快速修复**：如果 build 报 `unknown identifier` 或 `unknown constant`:
+     1. 先查 `grep -i '<name>' theme/api_gotchas.tsv`（秒级，~12 条高频坑）
+     2. 命中 → 按 correct_api 替换
+     3. 未命中 → `grep -i '<name>' theme/mathlib_full_type_index.tsv`（51K 条）
+     4. 仍未命中 → API 可能真不存在，考虑替代路线
 
 ### Phase 4: Verify
 9. Run `lake build <module>` (or full build if needed).
 
-### Phase 5: Knowledge Ingestion + Report
+### Phase 5: Knowledge Ingestion + Report（分流）
 10. Count sorries before/after. Summarize APIs used.
-11. Write any new L1/L2/L3 patterns (正面 or anti) directly into `theme/proof_knowledge.yaml`.
-    Report what was ingested in the「已入库 proof_knowledge.yaml」section.
+11. Write any new L1/L2/L3 patterns (正面 or anti) to `/tmp/new_knowledge.yaml`，
+    then run `python3 scripts/ingest_knowledge.py --input /tmp/new_knowledge.yaml` 标准入库。
+    **效率反思（build 循环 ≥ 5 轮时强制）**：回顾重复劳动轮次，提取 workflow pattern
+    （"怎么组织证明以避免试错"），写入 new_knowledge 的 `workflow` 字段。
+12. **Stage 5 之后的详细报告采用分流模式**：
+    - 完整 PROVE REPORT 写入 `reports/prove_report_<theorem>.md`（同 `/prove` 格式）
+    - 经验报告写入 `reports/session_report.md`
+    - 屏幕上 Stage 5/5 RESULT block 保持高详细度（演示模式），但后续报告不再重复输出
 
 ---
 

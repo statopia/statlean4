@@ -113,17 +113,26 @@ For each sorry, launch a background Agent with `subagent_type: "general-purpose"
 ```
 目标: 证明 {sorry.theorem} (文件 {sorry.file}:{sorry.line})
 Goal type: [read from file]
+{如有路线: "路线已获取（来自 R1/R2/R3/R4），按路线执行：\n" + roadmap_yaml}
+
+Phase 0.5 路线搜索 (在 API 搜索之前执行):
+  0. 如果主会话已提供路线（见上方 roadmap）→ 直接按路线 key_api 查签名，跳过后续搜索
+  1. 否则：先读 theme/proof_knowledge.yaml 查找与当前 goal 匹配的 L3 strategy / L2 chain / L1 tip
+     - 注意 anti: true 条目 = 不要走这条路（如 Stein identity 不给 LSI）
+  2. 如果 R3 仍无路线，且 sorry 等级 ≥ C，且定理是已知数学结果：
+     - WebSearch "<theorem_name> proof Lean 4 Mathlib"（快速探测，~3-5K token）
+     - 有 Lean 形式化 → WebFetch 提取 API 名称
+     - 有 ProofWiki/教材证明 → WebFetch 获取骨架
+     - 无结果 → 停止 Web 搜索，进入自主探索
 
 Phase 0 工具链 (强制):
   0. 用 python3 scripts/extract_signatures.py {sorry.file} 读声明索引，定位目标行号后再 Read 指定范围（不盲读全文件）
-  1. 先读 theme/proof_knowledge.yaml 查找与当前 goal 匹配的 L3 strategy / L2 chain / L1 tip
-     - 注意 anti: true 条目 = 不要走这条路（如 Stein identity 不给 LSI）
-  2. 如果 L3/L2 已匹配 → 按 key_api 定向 grep 查签名（省 8.5K token）:
+  1. 如果 Phase 0.5 已获得路线 → 按 key_api 定向 grep 查签名（省 8.5K token）:
      - StatLean API: grep -i '<name>' theme/statlean_api_index.tsv
      - Mathlib API: grep -i '<name>' theme/mathlib_full_type_index.tsv
-  3. 如果未匹配 → 读 theme/mathlib_api_index.md + grep 两个索引
-  4. 仍未找到 → #check / exact?
-  5. 最后手段: grep Mathlib 源码 (必须注明升级理由)
+  2. 如果未匹配 → 读 theme/mathlib_api_index.md + grep 两个索引
+  3. 仍未找到 → #check / exact?
+  4. 最后手段: grep Mathlib 源码 (必须注明升级理由)
 
 增量编译:
   - tactic 试错阶段: bash scripts/check_snippet.sh {sorry.file} <start> <end>
@@ -134,17 +143,30 @@ Phase 0 工具链 (强制):
   - 最多 5 轮 build 循环
   - 每轮: 尝试证明 → build → 分析错误 → 修复
   - 每证完一个子引理立即写入 .lean 文件并 lake build 验证，不要攒到最后一起写
+  - **API 名称错误快速修复**: 如果 build 报 `unknown identifier` 或 `unknown constant`:
+    1. 先查 `grep -i '<name>' theme/api_gotchas.tsv`（秒级，~12 条高频坑）
+    2. 命中 → 按 correct_api 替换
+    3. 未命中 → `grep -i '<name>' theme/mathlib_full_type_index.tsv`（51K 条）
+    4. 仍未命中 → API 可能真不存在，考虑替代路线
+    不要猜第二个名字直接写代码。
 完成后报告:
   - status: proved | stuck | need_sub_lemma
   - 如果 stuck: 说明卡在哪里 (缺 API / 类型不匹配 / 策略不对)
   - 如果 need_sub_lemma: 列出需要的 sub-lemma 签名
   - 如果有新 pattern（正面或负面）: 输出 new_knowledge YAML 块供主会话入库
+    （主会话收到后用 `python3 scripts/ingest_knowledge.py --input <file>` 标准流程入库）
     new_knowledge:
       - level: L3/L2/L1
         trigger: "<goal 形状>"
         strategy/chain/tip: "<内容>"
+        workflow: "<证明组织方式（可选，见下）>"
         anti: true/false    # true = 不要走这条路
         confidence: <3-5>
+  - **效率反思（build 循环 ≥ 5 轮时强制）**:
+    回顾哪些轮次是重复劳动（同类错误反复出现），提取 workflow pattern：
+    不是"用了什么 API"，而是"证明应该怎么组织以避免试错"。
+    将 workflow pattern 写入 new_knowledge 的 workflow 字段。
+    例: workflow: "先用 have 块建立所有子项的 Integrable/MemLp，再组装 integral_add/sub rewrite 链"
 ```
 
 ### `process_result(sorry_id, result)` — Result Handler
@@ -163,7 +185,9 @@ if result.status == "proved":
      - Log error, mark sorry as pending, priority += 3
 
 if result.new_knowledge:
-  - run("python3 scripts/ingest_knowledge.py --input", result.new_knowledge)
+  - 将 new_knowledge YAML 块写入临时文件（如 /tmp/new_knowledge_{sorry_id}.yaml）
+  - run("python3 scripts/ingest_knowledge.py --input /tmp/new_knowledge_{sorry_id}.yaml")
+  - 脚本自动：验证 level/trigger/confidence → 去重 → 追加到 proof_knowledge.yaml → 输出摘要
 
 elif result.status == "stuck":
   - Mark sorry as pending
@@ -186,8 +210,20 @@ After the scheduling loop exits (all done, or time budget reached):
 2. **Commit**: Any uncommitted proved work.
 3. **Update MEMORY.md**: New Mathlib patterns learned during this session.
 4. **proof_knowledge 入库（强制）**：把本轮发现的 L1/L2/L3 pattern（正面和 anti）
-   直接写入 `theme/proof_knowledge.yaml`，不等用户确认。
-5. **Report**:
+   通过标准入库流程写入，不等用户确认：
+   - 收集所有 agent 返回的 `new_knowledge` YAML 块，合并写入 `/tmp/new_knowledge.yaml`
+   - 运行 `python3 scripts/ingest_knowledge.py --input /tmp/new_knowledge.yaml`
+   - 脚本自动验证、去重、追加到 `theme/proof_knowledge.yaml`
+5. **Report — 输出分流（强制）**:
+
+**屏幕输出**（紧凑摘要，≤5 行）：
+```
+DAG PROVE: Xmin | sorry N→M (proved K, stuck J) | 入库 P 条
+  Next: [highest priority item]
+详情: reports/prove_deep_<target>.md
+```
+
+**文件存档**（完整详情，写入 `reports/prove_deep_<target>.md`）：
 ```
 DAG PROVE REPORT
   Duration: X min
@@ -202,6 +238,17 @@ DAG PROVE REPORT
   已入库 proof_knowledge.yaml:
   - [L1/L2/L3] <trigger> — <正面/anti> — <来源>
 ```
+
+用 Write 工具写入报告文件，屏幕只输出摘要行。
+
+**`<target>` 命名规则**：单目标 → 定理名（如 `gaussian_lsi`）；`all-leaves` → `all_leaves`。
+
+**Agent launch/result 屏幕输出也精简**：
+```
+[agent] 启动: <sorry_name> (file:line)
+[agent] 完成: <sorry_name> — proved/stuck
+```
+不在屏幕输出 agent prompt 全文或详细结果分析。
 
 ---
 
@@ -237,7 +284,7 @@ This follows the original `/prove-deep` flow but with:
 4. **No redundant search**: Trust subagent results.
 5. **Parallel research**: Use haiku agents for API search.
 6. **入库不等待**: 证完子引理立即 commit，不等主定理。
-7. **Knowledge 入库**: 成功证明后，new_knowledge 自动入库 → proof_knowledge.yaml
+7. **Knowledge 入库**: 成功证明后，new_knowledge 通过 `python3 scripts/ingest_knowledge.py --input <file>` 自动入库
 8. **上下文满处理**:
    - 等待 active agents 返回
    - sync backlog + commit
@@ -257,3 +304,14 @@ This follows the original `/prove-deep` flow but with:
 - Signature extractor: `python3 scripts/extract_signatures.py` (replaces blind file reads)
 - Snippet checker: `bash scripts/check_snippet.sh` (incremental single-decl compile)
 - Classifier: `theme/scripts/classify.py`
+
+## 输出预算规则（强制）
+
+- 屏幕文本输出（非工具调用）总预算 ≤ 5K token（多 sorry DAG 模式）
+- 超预算时自动切换为"极简模式"：只输出 sorry 计数变化 + 文件路径
+- Agent launch → 1 行 `[agent] 启动: <name> (file:line)`
+- Agent result → 1 行 `[agent] 完成: <name> — proved/stuck`
+- DAG 报告 → 3-5 行屏幕摘要 + 完整报告写 `reports/prove_deep_<target>.md`
+- 知识入库 → "入库 N 条 pattern"（YAML 和脚本输出在 Bash 工具内）
+- 经验报告 → "经验报告已写入 reports/session_report.md"
+- 工具调用输出（Bash、Read、Grep 等）不计入此预算

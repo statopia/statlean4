@@ -109,6 +109,28 @@
 
 ---
 
+## 证明路线搜索 — 五级 Fallback 协议（强制）
+
+**本节是硬性规则，所有证明流程（`/prove`、`/prove-deep`、`/prove-out`、`/pipeline` prove 阶段）必须遵循。**
+
+攻击 sorry 前，按成本递增依次执行路线搜索。获得完整路线后跳过后续级别：
+
+```
+R1: 人类显式输入（0-5K token）→ parse_proof_roadmap.py 解析
+R2: 输入上下文证明体（2-10K token）→ PDF/LaTeX proof 块解析
+R3: 本地知识库（0-2K token）→ proof_knowledge.yaml L3/L2/L1 匹配
+R4: Web 快速探测 + 深入获取（3-50K token）→ WebSearch + WebFetch
+R5: LLM 自主探索（50-300K token）→ 当前流程
+```
+
+**关键原则**：R1-R4 都是为了避免 R5（最贵且最不可靠的阶段）。
+**S-B 级 sorry → 跳过 R4，直接 R5**（简单 sorry 不值得 Web 搜索 token）。
+**路线解析脚本**：`python3 scripts/parse_proof_roadmap.py`（多格式：纯文字/LaTeX/PDF/YAML）。
+
+详细执行/升级条件见各 prove 命令的 Phase 0.5 和 `theme/prove_playbook.md` §3。
+
+---
+
 ## Mathlib / StatLib 搜索策略（省 token 三级法）— 强制执行
 
 **本节是硬性规则，所有证明流程（`/prove`、`/prove-deep`、subagent）必须遵循。**
@@ -116,13 +138,13 @@
 
 搜索 Mathlib 或 StatLib API 时按以下顺序，**逐级升级**，不要跳级：
 
-### 第零级：查证明知识库（Phase 0 已完成）— 匹配到则跳过后续
-- `theme/proof_knowledge.yaml` 的 L3/L2 已包含常用 API 链路
-- **如果 Phase 0 已匹配到 L3 strategy 或 L2 chain → 按 key_api 列表定向查签名，跳过全文读取**
+### 第零级：路线 key_api + 证明知识库 — 匹配到则跳过后续
+- **如果 Phase 0.5 路线搜索获得了 key_api** → 按列表定向查签名，跳过全文读取
+- **如果** `theme/proof_knowledge.yaml` 的 L3/L2 已匹配 → 同上
 - key_api 中的名字按来源查签名：
   - **StatLean API** → `grep -i '<name>' theme/statlean_api_index.tsv`（614 条，毫秒级）
   - **Mathlib API** → `grep -i '<name>' theme/mathlib_full_type_index.tsv`（51K 条，毫秒级）
-- 仅当知识库未覆盖当前 goal 时才进入第一级
+- 仅当路线和知识库均未覆盖当前 goal 时才进入第一级
 
 ### 第一级：查静态索引（~8.5K token）— 知识库未匹配时执行
 - 读 `theme/mathlib_api_index.md`（~650+ 条，按 namespace 分 section）
@@ -150,12 +172,13 @@
 
 ## Phase 0 工具链（强制）
 
-### 攻击 sorry 前必查证明知识库
-- **每次**攻击 sorry 前，先读 `theme/proof_knowledge.yaml` 按 trigger 匹配 goal 形态
-- 四层知识：L3 策略（证明架构）、L2 API 链路、L1 tactic 技巧
-- **匹配到 L3/L2** → 优先使用已记录的 strategy/chain（一轮验证即可），**跳过 mathlib_api_index.md**
-- **未匹配** → 升级到 mathlib_api_index.md 搜索（三级法第一级）
-- **给 subagent 的 prompt 必须包含**："先读 `theme/proof_knowledge.yaml` 查找与当前 goal 匹配的 pattern，匹配到则跳过 mathlib_api_index"
+### 攻击 sorry 前必查路线 + 知识库
+- **Phase 0.5 路线搜索**：按 R1→R2→R3→R4→R5 五级 fallback 获取证明路线
+- 有路线 → 按路线 key_api 定向查签名，**跳过 mathlib_api_index.md 全文读取**
+- 无路线 → 读 `theme/proof_knowledge.yaml` 按 trigger 匹配 goal 形态
+  - **匹配到 L3/L2** → 优先使用已记录的 strategy/chain（一轮验证即可），**跳过 mathlib_api_index.md**
+  - **未匹配** → 升级到 mathlib_api_index.md 搜索（三级法第一级）
+- **给 subagent 的 prompt 必须包含**：Phase 0.5 路线搜索指令 + "先读 `theme/proof_knowledge.yaml` 查找匹配的 pattern，匹配到则跳过 mathlib_api_index"
 
 ### proof_knowledge.yaml 维护规则
 - **自动入库**：证明成功后 agent 输出 `new_knowledge` YAML 块，由 `scripts/ingest_knowledge.py` 自动入库
@@ -167,6 +190,12 @@
 - 读大文件（>200 行）前，**优先**用 `python3 scripts/extract_signatures.py <file>` 获取声明索引
 - 只有需要修改具体证明体时才 Read 完整文件
 - **给 subagent 的 prompt 必须包含**：用 `extract_signatures.py` 先读声明索引，定位目标行号后再 Read 指定范围
+
+### API 命名坑速查表
+- `theme/api_gotchas.tsv`：~12 条高频 API 命名错误（wrong_guess → correct_api）
+- 用法：`grep -i '<name>' theme/api_gotchas.tsv`
+- **build 报 `unknown identifier` / `unknown constant` 时必须先查此表**，再查 full_type_index
+- 维护：发现新命名坑时追加行（TSV 格式：wrong_guess\tcorrect_api\tnote）
 
 ### Mathlib 离线索引查询
 - `theme/mathlib_full_type_index.tsv`：51K 条声明名+类型，grep 毫秒级
@@ -233,12 +262,35 @@
 
 ---
 
-## 经验反馈闭环（强制）
+## 输出预算规则（强制）— 屏幕摘要 vs 文件存档
 
-**每次会话结束前**，输出一份「本轮经验报告」，格式如下：
+**根本原则**：屏幕上只放用户需要"扫一眼"的信息；所有详情写文件，告诉用户文件路径。
 
-### 报告格式
+| 内容 | 屏幕输出 | 文件存档 |
+|------|---------|---------|
+| PROVE 报告 | `PROVE: <name> — sorry N→M \| closed: [names]`（1-3 行） | `reports/prove_report_<name>.md` |
+| DAG PROVE 报告 | `DAG PROVE: Xmin \| sorry N→M`（3-5 行） | `reports/prove_deep_<target>.md` |
+| 经验报告 | `经验报告已写入 reports/session_report.md`（1 行） | `reports/session_report.md` |
+| 知识入库 | `入库 N 条 pattern`（1 行） | YAML + 脚本输出在 Bash 工具内 |
+| 策略分析 | `Strategy: X via [API1, API2]`（1 行） | 写入对应报告文件 |
+| build 错误 | 1 行摘要 + fix 动作 | build log 在 Bash 工具输出里 |
 
+**预算上限**：
+- `/prove` 单 sorry → 屏幕文本 ≤ 3K token
+- `/prove-deep` 多 sorry → 屏幕文本 ≤ 5K token
+- 超预算 → 极简模式：只输出 sorry 计数变化 + 文件路径
+- `/prove-out` 演示模式豁免此限制
+- 工具调用输出（Bash、Read、Grep 等）不计入预算
+
+---
+
+## 经验反馈闭环（强制）— 输出分流模式
+
+**每次会话的实质性工作结束后**，执行以下流程：
+
+### 流程
+
+1. **完整报告写文件**（用 Write 工具写入 `reports/session_report.md`）：
 ```
 ## 本轮经验报告
 
@@ -258,16 +310,18 @@
 - <坑描述> — <解决方案>
 ```
 
-### 流程
+2. **屏幕只输出 1 行摘要**：
+```
+经验报告已写入 reports/session_report.md（入库 N 条 pattern，K 条踩坑）
+```
 
-1. **Claude 输出报告** — 每次会话的实质性工作结束后，主动输出上述报告
-2. **proof_knowledge 入库（强制，不等用户确认）**：
-   - 证明过程中发现的 L1/L2/L3 pattern（正面或 anti）→ **直接写入** `theme/proof_knowledge.yaml`
-   - 在报告的「已入库」section 列出本轮写入的条目，注明层级和 anti 标记
+3. **proof_knowledge 入库（强制，不等用户确认）**：
+   - 证明过程中发现的 L1/L2/L3 pattern（正面或 anti）→ 写入临时 YAML 文件后运行
+     `python3 scripts/ingest_knowledge.py --input <file>` 标准入库（自动验证 + 去重）
    - `anti: true` 条目 = 负面经验（"不要走这条路"），与正面条目放在同一层级
    - 原来的「证明策略新 pattern」和「踩坑记录中的证明相关部分」**统一进 proof_knowledge**
-3. **用户审阅** — 用户决定 Pipeline 改进、分类规则等是否值得固化
-4. **用户指令固化** — 用户说「采纳 X」后，Claude 执行：
+4. **用户审阅** — 用户决定 Pipeline 改进、分类规则等是否值得固化
+5. **用户指令固化** — 用户说「采纳 X」后，Claude 执行：
    - Pipeline 改进 → 更新对应 `theme/scripts/` 代码或 pipeline skill
    - 分类规则 → 更新 `theme/scripts/classify.py` 的 `_THEOREM_RULES` 或 ontology
    - 非证明类踩坑 → 写入 `memory/pitfalls.md`
