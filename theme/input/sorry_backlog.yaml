@@ -1,4 +1,4 @@
-version: v129
+version: v131
 generated: 2026-03-13
 total_sorry: 6
 
@@ -42,7 +42,7 @@ sorry_items:
 
 - id: lsi.integrated_condEntropyAt_condExpect_le
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1219
+  line: 1213
   theorem: integrated_condEntropyAt_condExpect_le
   type: honest
   depth: 2
@@ -52,26 +52,25 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: lsi.integrable_condEntropy
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 952
-  theorem: integrable_condEntropyAt
-  type: blocked
-  depth: 2
-  priority: 13
-  blocker: "Follows from entropy_subadditivity infrastructure."
-  estimated_lines: 20
-  dependencies: [lsi.entropy_subadditivity_of_nonneg]
-  unlocks: []
-
 - id: lsi.entropy_subadditivity_not_integrable_log
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1251
+  line: 1245
   theorem: entropy_subadditivity_not_integrable_log
   type: honest
   depth: 2
   priority: 15
   blocker: "Non-integrable g·log(g) case. In Lean convention (∫ non-integrable = 0): entropyPi = -(∫g)·log(∫g). For a.e. x, slice g·log(g) not integrable (since global positive part diverges), so condEntropyAt = -(E_i g)·log(E_i g). Need ∑∫-(E_i g)·log(E_i g) ≥ -(∫g)·log(∫g). By Jensen on convex x·log(x): each ∫(E_i g)·log(E_i g) ≥ (∫g)·log(∫g). But this gives ∑ ≥ n·(∫g)·log(∫g) which is wrong direction when (∫g)·log(∫g) > 0. Mathematically both sides = +∞. May need Lean convention workaround. ~50 lines."
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: entropy.logsobolev.gaussian_lsi_normalized_of_integrable
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 417
+  theorem: gaussian_lsi_normalized_of_integrable
+  type: unknown
+  depth: 1
+  priority: 99
   estimated_lines: 50
   dependencies: []
   unlocks: []
