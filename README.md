@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化数理统计的核心定理，涵盖估计理论、充分性、极限定理、集中不等式、回归分析、Gaussian 分析等。
 
-**当前规模**：55 个 Lean 文件 · ~20,800 行 · ~750 个声明 · 49 个零 sorry 模块 · **7 个 sorry 待证**
+**当前规模**：55 个 Lean 文件 · ~21,500 行 · ~800 个声明 · 48 个零 sorry 模块 · **6 个 sorry 待证**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -87,6 +87,9 @@
 | OU 正性（P_t g > 0 a.e.） | `Gaussian/OrnsteinUhlenbeck.lean` |
 | Gaussian Dirichlet form（∫Lφ·ψ dγ = -∫φ'ψ' dγ） | `Gaussian/OrnsteinUhlenbeck.lean` |
 | 积分 Cauchy-Schwarz（(∫h)²/(∫k) ≤ ∫h²/k） | `Gaussian/OrnsteinUhlenbeck.lean` |
+| **1D Gaussian Log-Sobolev 不等式**（Bakry-Emery, C²） | `Gaussian/OrnsteinUhlenbeck.lean` |
+| 熵耗散（d/dt Ent(P_t g) = -I(P_t g)） | `Gaussian/OrnsteinUhlenbeck.lean` |
+| Fisher 信息收缩（I(P_t g) ≤ e⁻²ᵗ I(g)） | `Gaussian/OrnsteinUhlenbeck.lean` |
 | ANOVA 方差分解 | `Variance/ANOVA.lean` |
 | Efron-Stein 不等式 | `Variance/EfronStein.lean` |
 | 熵非负性（Jensen）+ 条件熵非负 | `Entropy/Basic.lean` |
@@ -117,29 +120,24 @@
 
 ---
 
-## 正在进行：1D Gaussian Log-Sobolev 不等式
+## 已完成：1D Gaussian Log-Sobolev 不等式 ✅
 
-通过 **Bakry-Emery 准则**（Ornstein-Uhlenbeck 半群方法）证明 1D Gaussian LSI：
+通过 **Bakry-Emery 准则**（Ornstein-Uhlenbeck 半群方法）完整证明 1D Gaussian LSI（C² 版本）：
 
 $$\text{Ent}_\gamma(f^2) \leq 2 \int (f')^2 \, d\gamma$$
 
-当前进度：几乎所有子引理已证明，**仅剩 1 个 sorry**（主定理 wiring，~250 行，需要 C² 正则性假设）。
+**零 sorry**（3429 行，~30 个引理）。证明架构：比较函数 Φ(t) = F(t) + (I(g)/2)(1−e⁻²ᵗ) 单调递增（Fisher 收缩），
+配合 F(T)→0（OU 收敛 + DCT）和 F(T)≥0（Jensen），得 Ent(g) ≤ I(g)/2 = 2∫(f')²。
 
 ```
-ouSemigroup_zero              ✅  P_0 = id
-integral_ouSemigroup          ✅  ∫ P_t f dγ = ∫ f dγ (Fubini + Gaussian 仿射稳定性)
-ouSemigroup_hasDerivAt        ✅  (P_t f)' = e⁻ᵗ P_t(f') (Leibniz 规则)
-ouSemigroup_tendsto           ✅  P_t f(x) → E[f] (DCT)
-ouSemigroup_pos_ae            ✅  P_t g > 0 a.e. for t > 0
-gaussian_dirichlet_form       ✅  ∫ Lφ·ψ dγ = -∫ φ'ψ' dγ (Stein identity)
-integral_sq_div_le            ✅  (∫h)²/(∫k) ≤ ∫(h²/k) (Cauchy-Schwarz)
-dirichlet_form_entropy        ✅  ∫ L(P_t g)(1+log P_t g) dγ = -Fisher (IBP)
-entropy_dissipation           ✅  d/dt Ent(P_t g) = -I(P_t g)
-fisherInfo_ouSemigroup_le     ✅  I(P_t g) ≤ e⁻²ᵗ I(g) (contraction)
-entropy_dissipation_domination ✅  domination bound for Leibniz
-hPt_upper                     ✅  pointwise upper bound for P_t g derivative
-                              ─────────────────────────────
-gaussian_lsi_normalized_from_ou ❌  main wiring: Ent(g) ≤ I(g)/2 (~250 行)
+ouSemigroup_zero               ✅  P_0 = id
+integral_ouSemigroup           ✅  ∫ P_t f dγ = ∫ f dγ
+ouSemigroup_hasDerivAt         ✅  (P_t f)' = e⁻ᵗ P_t(f')
+ouSemigroup_tendsto            ✅  P_t f(x) → E[f]
+ouSemigroup_pos_ae             ✅  P_t g > 0 a.e. for t > 0
+entropy_dissipation            ✅  d/dt Ent(P_t g) = -I(P_t g)
+fisherInfo_ouSemigroup_le      ✅  I(P_t g) ≤ e⁻²ᵗ I(g)
+gaussian_lsi_normalized_from_ou ✅  Ent(f²) ≤ 2∫(f')² (C² version)
 ```
 
 ---
@@ -227,20 +225,19 @@ Statlean/
 
 ---
 
-## Sorry 缺口
+## Sorry 缺口（6 个）
 
 | 模块 | Sorry | 简述 | Blocker |
 |------|-------|------|---------|
 | BerryEsseen | 1 | Lévy CDF 反演界 | Stieltjes inversion (~100 行 Fourier) |
-| OrnsteinUhlenbeck | 1 | Gaussian LSI 主定理 wiring | ~250 行，需要 C² 正则性假设 |
-| LogSobolev | 4 | integrable f²·log f²、条件熵可积、DPI、non-integrable | blocked by Gaussian LSI |
-| Herbst | 1 | Sub-Gaussian MGF | blocked by Gaussian LSI |
+| LogSobolev | 4 | integrable f²·log f²、条件熵可积、DPI、non-integrable | LSI 已证（C²），需 L² 扩展 |
+| Herbst | 1 | Sub-Gaussian MGF | blocked by LSI L² 扩展 |
 
 ```
 依赖 DAG:
-  BerryEsseen (1 sorry)          ── 独立
-  OrnsteinUhlenbeck (1 sorry) ──→ LogSobolev.LSI ──→ LogSobolev (4 sorry)
-                                                  └─→ Herbst (1 sorry)
+  BerryEsseen (1 sorry)           ── 独立
+  OrnsteinUhlenbeck (0 sorry) ✅ ──→ LogSobolev (4 sorry)
+                                   └─→ Herbst (1 sorry)
 ```
 
 完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)

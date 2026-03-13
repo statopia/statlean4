@@ -1,6 +1,6 @@
-version: v126
-generated: 2026-03-12
-total_sorry: 7
+version: v129
+generated: 2026-03-13
+total_sorry: 6
 
 sorry_items:
 
@@ -15,18 +15,6 @@ sorry_items:
   estimated_lines: 100
   dependencies: []
   unlocks: []
-
-- id: ou.gaussian_lsi_wiring
-  file: Statlean/Gaussian/OrnsteinUhlenbeck.lean
-  line: 2702
-  theorem: gaussian_lsi_normalized_from_ou
-  type: ready
-  depth: 3
-  priority: 7
-  blocker: "Major wiring: (1) Add C² + bounded-deriv hypotheses to theorem (current MemLp f 2 too weak for entropy_dissipation). (2) Set g=f², g'=2ff', g''=2(f'²+ff''), verify ALL 14 hypotheses of entropy_dissipation. (3) Monotonicity argument: G(t)=F(t)+(1-e^{-2t})/2·I(g) has G'≥0, so G(0)≤G(∞). (4) Limit: F(∞)→0 from OU convergence + ∫g=1. (5) Fisher identity: I(g)=4∫(f')². Mathlib API: monotoneOn_of_deriv_nonneg, or direct bound from FTC."
-  estimated_lines: 250
-  dependencies: [ou.integral_invariance, ou.spatial_commutation, ou.convergence, ou.entropy_dissipation, ou.fisher_contraction]
-  unlocks: [herbst.subgaussian_mgf, lsi.integrable_sq_log]
 
 - id: lsi.integrable_sq_log
   file: Statlean/Entropy/LogSobolev.lean
