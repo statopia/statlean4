@@ -1,6 +1,6 @@
-version: v131
+version: v134
 generated: 2026-03-13
-total_sorry: 6
+total_sorry: 5
 
 sorry_items:
 
@@ -18,7 +18,7 @@ sorry_items:
 
 - id: lsi.integrable_sq_log
   file: Statlean/Entropy/LogSobolev.lean
-  line: 340
+  line: 341
   theorem: integrable_sq_mul_log_sq_of_memLp
   type: blocked
   depth: 2
@@ -40,21 +40,9 @@ sorry_items:
   dependencies: [ou.gaussian_lsi_wiring, lsi.entropy_subadditivity_of_nonneg]
   unlocks: []
 
-- id: lsi.integrated_condEntropyAt_condExpect_le
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 1213
-  theorem: integrated_condEntropyAt_condExpect_le
-  type: honest
-  depth: 2
-  priority: 10
-  blocker: "Data processing inequality: ∫ condEnt_i(E_j g) ≤ ∫ condEnt_i(g) for i≠j. Deep result: equivalent to supermodularity of F(h)=∫h·log(h) under conditional expectations, or KL divergence ≥ 0. Direct proof circular (reduces to same inequality with i,j swapped). Need mutual-information approach: F(g)-F(E_j g) = ∫g·log(g/(E_j g)) ≥ 0 (Gibbs). ~100-150 lines."
-  estimated_lines: 120
-  dependencies: []
-  unlocks: []
-
 - id: lsi.entropy_subadditivity_not_integrable_log
   file: Statlean/Entropy/LogSobolev.lean
-  line: 1245
+  line: 2088
   theorem: entropy_subadditivity_not_integrable_log
   type: honest
   depth: 2
@@ -66,7 +54,7 @@ sorry_items:
 
 - id: entropy.logsobolev.gaussian_lsi_normalized_of_integrable
   file: Statlean/Entropy/LogSobolev.lean
-  line: 417
+  line: 418
   theorem: gaussian_lsi_normalized_of_integrable
   type: unknown
   depth: 1

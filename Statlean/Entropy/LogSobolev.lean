@@ -1913,7 +1913,8 @@ private lemma entropy_convex_mixture {n : ℕ}
         ∫ t, g (Function.update (Function.update x j s) i t) *
           Real.log (h t) ∂stdGaussian -
         c s * Real.log C := by
-      filter_upwards [hg_sl_ij, hgl_sl_ij, hab_ac_ae, hcross_int] with s hs_int hs_log_int hs_ac hs_cross
+      filter_upwards [hg_sl_ij, hgl_sl_ij, hab_ac_ae,
+        hcross_int] with s hs_int hs_log_int hs_ac hs_cross
       exact condEntropyAt_ge_cross_term
         (fun t => g (Function.update (Function.update x j s) i t)) h
         (fun t => hg_nn _) hh_nn hs_int hs_log_int hs_cross hh_int hC_pos hs_ac
