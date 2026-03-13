@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 104
+entry_count: 110
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -162,6 +162,27 @@ L3_strategies:
   - trigger: "OU commutation hasDerivAt ouSemigroup differentiate under integral"
     strategy: "Use hasDerivAt_integral_of_dominated_loc_of_deriv_le from Mathlib. Chain rule: d/dx f(ax+cy) = a·f'(ax+cy). Need: uniform bound on f', integrability of f∘φ, ae measurability of a·f'∘φ."
     key_api: ['hasDerivAt_integral_of_dominated_loc_of_deriv_le']
+    confidence: 5
+
+  - trigger: "ae_ae_comm / swap ∀ᵐ x, ∀ᵐ y ↔ ∀ᵐ y, ∀ᵐ x (MeasurableSet blocker)"
+    strategy: "AEStronglyMeasurable proxy: replace f with f' = hf.aestronglyMeasurable.mk f (StronglyMeasurable), prove MeasurableSet for proxy predicate (trivial), apply ae_ae_comm on proxy, transfer back via ae_eq"
+    workflow: "1. set F' := hF.aestronglyMeasurable.mk F; 2. get hF'_sm := stronglyMeasurable_mk; 3. prove MeasurableSet for F'-based predicate (use hF'_sm.measurable + measurableSet_singleton); 4. transfer h_fwd to proxy predicates via filter_upwards + ae_eq; 5. apply ae_ae_comm on proxy; 6. transfer back via filter_upwards + ae_eq"
+    key_api: ['Measure.ae_ae_comm', 'AEStronglyMeasurable.mk', 'AEStronglyMeasurable.stronglyMeasurable_mk', 'AEStronglyMeasurable.ae_eq_mk', 'Measure.ae_ae_of_ae_prod']
+    source: DPI entropy_convex_mixture hab_ac_ae
+    confidence: 5
+
+  - trigger: "∫_s[∫_t f_s(t)·g(t)] = ∫_t g(t)·(∫_s f_s(t)) (Fubini + pull out t-only factor)"
+    strategy: "integral_integral_swap + integral_mul_right/integral_mul_const to pull factor independent of inner variable"
+    workflow: "1. establish Integrable (uncurry F) (μ.prod ν) via integrable_prod_iff'; 2. rw [integral_integral_swap hprod]; 3. congr 1; ext t; rw [integral_mul_right/integral_mul_const]"
+    key_api: ['integral_integral_swap', 'integral_mul_right', 'integral_mul_const', 'integral_mul_left']
+    source: DPI entropy_convex_mixture hfub_cross
+    confidence: 5
+
+  - trigger: "Integrable (fun t => f_s(t) * g(t)) for ae s (cross-term product integrability)"
+    strategy: "Show product function integrable on μ×ν via integrable_prod_iff', then use Integrable.prod_right_ae for ae-s slice. Tonelli trick: ∫∫|f_s·g| ds dt = ∫|g(t)|·h(t) dt when h = ∫f_s"
+    workflow: "1. AEStronglyMeasurable of product via hprod.aestronglyMeasurable.mul hg.comp_snd; 2. ae-slice condition from hprod.prod_left_ae + .mul_const; 3. norm-integral = ∫h·|g| via integral_mul_const + simp; 4. (integrable_prod_iff' hG_aesm).mpr ⟨cond1, cond2⟩; 5. .prod_right_ae"
+    key_api: ["integrable_prod_iff'", 'Integrable.prod_right_ae', 'Integrable.prod_left_ae', 'integral_mul_const']
+    source: DPI entropy_convex_mixture hcross_int
     confidence: 5
 
 # ═══════════════════════════════════════════
@@ -370,6 +391,16 @@ L2_api_chains:
     chain: "Expand (ax+by)² = a²x² + 2abxy + b²y². Integrate: E[y]=0 (integral_id_gaussianReal), E[y²]=1 (variance_eq_sub + variance_fun_id_gaussianReal). Result: a²x² + b². Cleaner than Cauchy-Schwarz for integral bounds."
     confidence: 5
 
+  - trigger: "ae_ae_comm requires MeasurableSet but functions are only AEStronglyMeasurable"
+    chain: "AEStronglyMeasurable.mk → StronglyMeasurable.measurable → measurableSet_singleton → ae_ae_comm → filter_upwards transfer back"
+    source: DPI hab_ac_ae
+    confidence: 5
+
+  - trigger: "integrable_prod_iff vs integrable_prod_iff' (which convention?)"
+    chain: "integrable_prod_iff: ae in FIRST coord (x), integrable in SECOND (y). integrable_prod_iff': ae in SECOND coord (y), integrable in FIRST (x). prod_left_ae: ae in SECOND coord. prod_right_ae: ae in FIRST coord."
+    source: DPI cross-term integrability
+    confidence: 5
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -517,4 +548,8 @@ L1_tactic_tips:
 
   - trigger: "exp(-s)^2 = exp(-2s) in Lean"
     tip: "rw [sq, ← Real.exp_add]; congr 1; ring"
+    frequency: 1
+
+  - trigger: "ae quantifier swap"
+    tip: "Do NOT try to prove MeasurableSet directly when functions are only AEStronglyMeasurable. Use .mk proxy approach instead."
     frequency: 1

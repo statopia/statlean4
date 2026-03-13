@@ -290,6 +290,20 @@ This follows the original `/prove-deep` flow but with:
    - sync backlog + commit
    - 更新 MEMORY.md
    - 输出: "上下文已满，用 /prove-deep all-leaves 继续"
+9. **同文件写互斥（强制，DPI 教训）**:
+   - 多个 agent **不得同时修改同一 .lean 文件**
+   - 同一文件的不同 sorry → 串行攻击（A 完成 → commit → B 从新状态启动）
+   - 不同文件的 sorry → 可并行
+   - 违反此规则 → agent 在过时代码上浪费 token（实测 ~220K token 损失）
+10. **snippet check 优先于 lake build（强制）**:
+    - tactic 试错 → `bash scripts/check_snippet.sh`（~10s）
+    - 全模块验证 → `lake build Statlean.<Module>`（~150s）
+    - **比例要求**：snippet check ≥ 3× lake build 次数
+    - DPI 教训：80 次 lake build ≈ 3.5h 纯编译 = 42% 墙钟时间
+11. **跨会话 agent 处理**:
+    - 新会话开始后，检查旧 agent 目标代码是否已变更
+    - 若已变更 → 不等旧 agent，从当前文件状态启动新 agent
+    - 旧 agent 返回后若与当前文件冲突 → 丢弃结果
 
 ## Key Context
 

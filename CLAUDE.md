@@ -218,8 +218,20 @@ R5: LLM 自主探索（50-300K token）→ 当前流程
   - 仅当有数据依赖时才串行（如 A 的输出是 B 的输入）
   - **硬性上限 3 并发**：待攻击任务超过 3 个时，按优先级选前 3 个并行，剩余排队等空位
   - 纯研究/搜索型 agent → `model: haiku`；需要写代码的 agent → `model: sonnet` 或默认
+- **同文件写互斥（强制）**：多个 agent 不得同时修改同一 .lean 文件
+  - 同一文件的不同 sorry → **串行**（A 完成 → commit → B 在新文件状态上启动）
+  - 不同文件的 sorry → 可并行
+  - 违反此规则会导致 agent 在过时代码上浪费 token（DPI 教训：~220K token 浪费于文件冲突）
+- **跨会话 agent 及时终止**：新会话开始后，检查旧 agent 的目标代码是否已变更
+  - 若代码已被其他 agent 修改 → 不等待旧 agent，用新 agent 从当前文件状态续接
+  - 旧 agent 返回后若结果与当前文件冲突 → 丢弃，不合并
 - **subagent 用 haiku**：纯搜索、grep、读文件指定 `model: haiku`
-- **增量编译**：`lake build Statlean.Gaussian.Poincare` 只编目标，不要每次全量 build
+- **增量编译（强制优先 snippet check）**：
+  - tactic 试错阶段（单个 sorry 攻击）→ **必须用** `bash scripts/check_snippet.sh <file> <start> <end>`（~10s）
+  - 全模块验证（子引理完成后）→ `lake build Statlean.<Module>`（~150s）
+  - 全库验证（提交前）→ `lake build`
+  - **比例要求**：snippet check ≥ 3x lake build 次数（违反 = 编译时间浪费）
+  - DPI 教训：18 agent 累计 ~80 次 lake build ≈ 3.5h 纯编译，占墙钟 42%
 - **grep 先于 read**：用 Grep 定位行号再 Read 指定范围，不盲读大文件
 - **不重复搜索**：委派给 subagent 的搜索不要自己再做一遍
 - **深度预算**：`/prove` 模式 3 轮发散即 triage；`/prove-deep` 模式不设轮数限制，可以运行数小时
