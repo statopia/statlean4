@@ -2,6 +2,7 @@ import Statlean.Entropy.Basic
 import Statlean.Gaussian.Poincare
 import Statlean.Gaussian.OrnsteinUhlenbeck
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
+import Mathlib.MeasureTheory.Measure.Prod
 
 /-! # Gaussian Log-Sobolev Inequality
 
@@ -1116,6 +1117,39 @@ private lemma condExpect_nonneg_of_nonneg {n : ℕ}
     0 ≤ ∫ t, g (Function.update x i t) ∂stdGaussian :=
   integral_nonneg (fun t => hg_nn _)
 
+-- Gibbs inequality: for a ≥ 0, b > 0, a·log(a) - a·log(b) ≥ a - b.
+-- Key step in proving KL divergence ≥ 0.
+private lemma gibbs_pointwise {a b : ℝ} (ha : 0 ≤ a) (hb : 0 < b) :
+    a * Real.log a - a * Real.log b ≥ a - b := by
+  rcases eq_or_lt_of_le ha with rfl | ha_pos
+  · simp; linarith
+  · have hb_ne := ne_of_gt hb
+    have ha_ne := ne_of_gt ha_pos
+    rw [show a * Real.log a - a * Real.log b = a * Real.log (a / b) from by
+      rw [Real.log_div ha_ne hb_ne]; ring]
+    have h := mul_log_ge_sub_one (a / b) (div_pos ha_pos hb)
+    -- h : (a/b) * log(a/b) ≥ a/b - 1
+    -- Need: a * log(a/b) ≥ a - b
+    -- a * log(a/b) = b * ((a/b) * log(a/b))  [since b * (a/b) = a]
+    -- ≥ b * (a/b - 1) = a - b
+    have hab_eq : b * (a / b) = a := by field_simp
+    have hge : b * (a / b * log (a / b)) ≥ b * (a / b - 1) :=
+      mul_le_mul_of_nonneg_left (ge_iff_le.mp h) hb.le
+    linarith [show b * (a / b - 1) = a - b by nlinarith,
+              show b * (a / b * log (a / b)) = a * log (a / b) by nlinarith]
+
+-- Function.update commutativity for distinct indices.
+private lemma update_comm_of_ne {n : ℕ} {i j : Fin n} (hij : i ≠ j)
+    (x : Fin n → ℝ) (a b : ℝ) :
+    Function.update (Function.update x i a) j b =
+    Function.update (Function.update x j b) i a := by
+  ext k
+  by_cases hki : k = i <;> by_cases hkj : k = j
+  · exact absurd (hki ▸ hkj) hij
+  · subst hki; simp [Function.update_apply, hij, hij.symm]
+  · subst hkj; simp [Function.update_apply, hij, hij.symm]
+  · simp [Function.update_apply, hki, hkj]
+
 -- Helper: ∫ h dγ¹ = ∫ h(fun _ => t) dγ(t) via piFinSuccAbove decomposition.
 private lemma integral_stdGaussianPi_one_eq (h : (Fin 1 → ℝ) → ℝ) :
     ∫ x, h x ∂stdGaussianPi 1 = ∫ t, h (fun _ => t) ∂stdGaussian := by
@@ -1161,12 +1195,820 @@ private lemma entropy_subadditivity_fin1
   simp only [entropyPi]
   rw [integral_stdGaussianPi_one_eq, integral_stdGaussianPi_one_eq]
 
+-- Log-sum inequality for 1D integrals (Gibbs variational form).
+-- For a ≥ 0, b > 0 a.e., with appropriate integrability:
+--   ∫ a·log(a) - ∫ a·log(b) ≥ (∫a)·log(∫a) - (∫a)·log(∫b)
+-- Proof: apply gibbs_pointwise with scaled b, then integrate.
+private lemma log_sum_inequality
+    (a b : ℝ → ℝ) (ha_nn : ∀ x, 0 ≤ a x) (hb_pos : ∀ x, 0 < b x)
+    (ha_int : Integrable a stdGaussian)
+    (ha_log : Integrable (fun x => a x * Real.log (a x)) stdGaussian)
+    (ha_logb : Integrable (fun x => a x * Real.log (b x)) stdGaussian)
+    (hb_int : Integrable b stdGaussian)
+    (hA_pos : 0 < ∫ x, a x ∂stdGaussian)
+    (hB_pos : 0 < ∫ x, b x ∂stdGaussian) :
+    ∫ x, a x * Real.log (a x) ∂stdGaussian -
+      ∫ x, a x * Real.log (b x) ∂stdGaussian ≥
+    (∫ x, a x ∂stdGaussian) * Real.log (∫ x, a x ∂stdGaussian) -
+      (∫ x, a x ∂stdGaussian) * Real.log (∫ x, b x ∂stdGaussian) := by
+  set A := ∫ x, a x ∂stdGaussian
+  set B := ∫ x, b x ∂stdGaussian
+  -- Scale b: let b̃(x) = b(x) · A / B. Then ∫b̃ = A.
+  -- Gibbs pointwise: a·log(a) - a·log(b̃) ≥ a - b̃
+  -- Integrating: ∫a·loga - ∫a·log(b̃) ≥ ∫a - ∫b̃ = A - A = 0
+  -- And log(b̃) = log(b) + log(A/B), so ∫a·log(b̃) = ∫a·logb + A·log(A/B)
+  -- Therefore: ∫a·loga - ∫a·logb - A·log(A/B) ≥ 0
+  -- i.e., ∫a·loga - ∫a·logb ≥ A·log(A/B) = A·logA - A·logB
+  have hB_ne : B ≠ 0 := ne_of_gt hB_pos
+  have hAB : 0 < A / B := div_pos hA_pos hB_pos
+  -- Pointwise bound: for each x, a(x)·loga(x) - a(x)·log(b(x)·A/B) ≥ a(x) - b(x)·A/B
+  have hpw : ∀ x, a x * Real.log (a x) - a x * Real.log (b x * (A / B)) ≥
+      a x - b x * (A / B) := by
+    intro x
+    exact gibbs_pointwise (ha_nn x) (mul_pos (hb_pos x) hAB)
+  -- Integrate pointwise bound
+  have hint_scaled : Integrable (fun x => a x * Real.log (b x * (A / B))) stdGaussian := by
+    have : (fun x => a x * Real.log (b x * (A / B))) =
+        (fun x => a x * Real.log (b x) + a x * Real.log (A / B)) := by
+      ext x
+      rw [Real.log_mul (ne_of_gt (hb_pos x)) (ne_of_gt hAB)]
+      ring
+    rw [this]
+    exact ha_logb.add (ha_int.mul_const _)
+  have hge : ∫ x, (a x * Real.log (a x) - a x * Real.log (b x * (A / B))) ∂stdGaussian ≥
+      ∫ x, (a x - b x * (A / B)) ∂stdGaussian :=
+    by rw [ge_iff_le]
+       exact integral_mono (ha_int.sub (hb_int.mul_const _))
+        (ha_log.sub hint_scaled) (fun x => by linarith [hpw x])
+  -- RHS of hge = A - B·(A/B) = A - A = 0
+  have hrhs : ∫ x, (a x - b x * (A / B)) ∂stdGaussian = 0 := by
+    rw [integral_sub ha_int (hb_int.mul_const _), integral_mul_const]
+    have hBA : B * (A / B) = A := by field_simp
+    linarith
+  -- LHS of hge: expand log(b·A/B) = logb + log(A/B)
+  have hlhs : ∫ x, (a x * Real.log (a x) - a x * Real.log (b x * (A / B))) ∂stdGaussian =
+      ∫ x, a x * Real.log (a x) ∂stdGaussian -
+      ∫ x, a x * Real.log (b x) ∂stdGaussian -
+      A * Real.log (A / B) := by
+    rw [integral_sub ha_log hint_scaled]
+    have : ∫ x, a x * Real.log (b x * (A / B)) ∂stdGaussian =
+        ∫ x, a x * Real.log (b x) ∂stdGaussian + A * Real.log (A / B) := by
+      have hexp : (fun x => a x * Real.log (b x * (A / B))) =
+          (fun x => a x * Real.log (b x) + a x * Real.log (A / B)) := by
+        ext x
+        rw [Real.log_mul (ne_of_gt (hb_pos x)) (ne_of_gt hAB)]
+        ring
+      rw [hexp, integral_add ha_logb (ha_int.mul_const _)]
+      congr 1; rw [integral_mul_const]
+    linarith
+  -- Combine: ∫a·loga - ∫a·logb - A·log(A/B) ≥ 0
+  -- i.e., ∫a·loga - ∫a·logb ≥ A·log(A/B) = A·logA - A·logB
+  have hkey : ∫ x, a x * Real.log (a x) ∂stdGaussian -
+      ∫ x, a x * Real.log (b x) ∂stdGaussian ≥ A * Real.log (A / B) := by
+    linarith [hlhs ▸ hge, hrhs]
+  -- A·log(A/B) = A·logA - A·logB
+  rw [Real.log_div (ne_of_gt hA_pos) hB_ne] at hkey
+  linarith
+
+-- Variant of log_sum_inequality with nonneg b (relaxed from b > 0).
+-- The key additional hypothesis is hab_ac: b(x) = 0 → a(x) = 0 (a.e.),
+-- which ensures the Gibbs bound holds a.e. even when b = 0 at some points.
+private lemma log_sum_inequality_nn
+    (a b : ℝ → ℝ) (ha_nn : ∀ x, 0 ≤ a x) (hb_nn : ∀ x, 0 ≤ b x)
+    (ha_int : Integrable a stdGaussian)
+    (ha_log : Integrable (fun x => a x * Real.log (a x)) stdGaussian)
+    (ha_logb : Integrable (fun x => a x * Real.log (b x)) stdGaussian)
+    (hb_int : Integrable b stdGaussian)
+    (hA_pos : 0 < ∫ x, a x ∂stdGaussian)
+    (hB_pos : 0 < ∫ x, b x ∂stdGaussian)
+    (hab_ac : ∀ᵐ x ∂stdGaussian, b x = 0 → a x = 0) :
+    ∫ x, a x * Real.log (a x) ∂stdGaussian -
+      ∫ x, a x * Real.log (b x) ∂stdGaussian ≥
+    (∫ x, a x ∂stdGaussian) * Real.log (∫ x, a x ∂stdGaussian) -
+      (∫ x, a x ∂stdGaussian) * Real.log (∫ x, b x ∂stdGaussian) := by
+  set A := ∫ x, a x ∂stdGaussian
+  set B := ∫ x, b x ∂stdGaussian
+  have hB_ne : B ≠ 0 := ne_of_gt hB_pos
+  have hAB : 0 < A / B := div_pos hA_pos hB_pos
+  -- Pointwise Gibbs a.e.: a·log(a) - a·log(b·A/B) ≥ a - b·A/B
+  have hpw : ∀ᵐ x ∂stdGaussian,
+      a x * Real.log (a x) - a x * Real.log (b x * (A / B)) ≥
+      a x - b x * (A / B) := by
+    filter_upwards [hab_ac] with x hac
+    rcases eq_or_lt_of_le (hb_nn x) with hbz | hbp
+    · -- b(x) = 0, so a(x) = 0 by absolute continuity
+      have hax := hac hbz.symm; simp [hax, hbz.symm]
+    · exact gibbs_pointwise (ha_nn x) (mul_pos hbp hAB)
+  -- log(b·A/B) = log(b) + log(A/B) a.e.
+  have hlog_split : ∀ᵐ x ∂stdGaussian,
+      a x * Real.log (b x * (A / B)) =
+      a x * Real.log (b x) + a x * Real.log (A / B) := by
+    filter_upwards [hab_ac] with x hac
+    rcases eq_or_lt_of_le (hb_nn x) with hbz | hbp
+    · simp [hac hbz.symm, hbz.symm]
+    · rw [Real.log_mul (ne_of_gt hbp) (ne_of_gt hAB)]; ring
+  -- Integrability of a·log(b·A/B)
+  have hint_scaled : Integrable (fun x => a x * Real.log (b x * (A / B))) stdGaussian :=
+    (ha_logb.add (ha_int.mul_const _)).congr (hlog_split.mono fun x hx => hx.symm)
+  -- Integrate the Gibbs bound
+  have hge : ∫ x, (a x * Real.log (a x) - a x * Real.log (b x * (A / B))) ∂stdGaussian ≥
+      ∫ x, (a x - b x * (A / B)) ∂stdGaussian :=
+    ge_iff_le.mpr (integral_mono_ae
+      (ha_int.sub (hb_int.mul_const _))
+      (ha_log.sub hint_scaled)
+      (by filter_upwards [hpw] with x hx; linarith))
+  -- RHS = A - B·(A/B) = 0
+  have hrhs : ∫ x, (a x - b x * (A / B)) ∂stdGaussian = 0 := by
+    rw [integral_sub ha_int (hb_int.mul_const _), integral_mul_const]
+    rw [show B * (A / B) = A from mul_div_cancel₀ A hB_ne]
+    exact sub_self A
+  -- LHS expansion
+  have hlhs : ∫ x, (a x * Real.log (a x) - a x * Real.log (b x * (A / B))) ∂stdGaussian =
+      ∫ x, a x * Real.log (a x) ∂stdGaussian -
+      ∫ x, a x * Real.log (b x) ∂stdGaussian -
+      A * Real.log (A / B) := by
+    rw [integral_sub ha_log hint_scaled]
+    have : ∫ x, a x * Real.log (b x * (A / B)) ∂stdGaussian =
+        ∫ x, a x * Real.log (b x) ∂stdGaussian + A * Real.log (A / B) := by
+      rw [integral_congr_ae hlog_split, integral_add ha_logb (ha_int.mul_const _)]
+      congr 1; rw [integral_mul_const]
+    linarith
+  have hkey : ∫ x, a x * Real.log (a x) ∂stdGaussian -
+      ∫ x, a x * Real.log (b x) ∂stdGaussian ≥ A * Real.log (A / B) := by
+    linarith [hlhs ▸ hge, hrhs]
+  -- A * log(A/B) = A * logA - A * logB
+  rw [Real.log_div (ne_of_gt hA_pos) hB_ne] at hkey
+  nlinarith [mul_sub A (Real.log A) (Real.log B)]
+
+-- Jensen integrated: ∫ (E_j g)·log(E_j g) ≤ ∫ g·log(g) for nonneg integrable g.
+-- This is the integrated version of `convexOn_mul_log.map_integral_le`.
+private lemma jensen_condExpect_integral_le {n : ℕ}
+    (g : (Fin (n + 1) → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
+    (hg : Integrable g (stdGaussianPi (n + 1)))
+    (hg_log : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi (n + 1)))
+    (j : Fin (n + 1)) :
+    ∫ x, (∫ t, g (Function.update x j t) ∂stdGaussian) *
+        Real.log (∫ t, g (Function.update x j t) ∂stdGaussian) ∂(stdGaussianPi (n + 1)) ≤
+    ∫ x, g x * Real.log (g x) ∂(stdGaussianPi (n + 1)) := by
+  -- Step 1: Pointwise Jensen a.e.
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) j
+  set μ' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+  set γn := Measure.pi (fun k : Fin n => μ' (j.succAbove k))
+  have hmp := measurePreserving_piFinSuccAbove μ' j
+  have hupd : ∀ y t, Function.update y j t = e.symm (t, (e y).2) := by
+    intro y t
+    conv_lhs => rw [(e.symm_apply_apply y).symm]
+    simp only [e, MeasurableEquiv.piFinSuccAbove_symm_apply]
+    exact @Fin.update_insertNth n (fun _ => ℝ) j (e y).1 t (e y).2
+  have hg_prod : Integrable (g ∘ e.symm) (stdGaussian.prod γn) :=
+    hmp.symm.integrable_comp_of_integrable hg
+  have hgl_prod : Integrable ((fun x => g x * log (g x)) ∘ e.symm) (stdGaussian.prod γn) :=
+    hmp.symm.integrable_comp_of_integrable hg_log
+  have hg_ae : ∀ᵐ y ∂(stdGaussianPi (n + 1)),
+      Integrable (fun t => g (Function.update y j t)) stdGaussian := by
+    have hae_γn := hg_prod.prod_left_ae
+    have hae_prod := ae_snd_of_ae_marginal stdGaussian γn hae_γn
+    exact (hmp.quasiMeasurePreserving.ae hae_prod).mono fun y hy => by
+      rwa [show (fun t => (g ∘ e.symm) (t, (e y).2)) =
+          (fun t => g (Function.update y j t)) from by
+        ext t; simp only [Function.comp]; rw [hupd y t]] at hy
+  have hgl_ae : ∀ᵐ y ∂(stdGaussianPi (n + 1)),
+      Integrable (fun t => g (Function.update y j t) *
+        log (g (Function.update y j t))) stdGaussian := by
+    have hae_γn := hgl_prod.prod_left_ae
+    have hae_prod := ae_snd_of_ae_marginal stdGaussian γn hae_γn
+    exact (hmp.quasiMeasurePreserving.ae hae_prod).mono fun y hy => by
+      rwa [show (fun t => ((fun x => g x * log (g x)) ∘ e.symm) (t, (e y).2)) =
+          (fun t => g (Function.update y j t) * log (g (Function.update y j t))) from by
+        ext t; simp only [Function.comp]; rw [hupd y t]] at hy
+  -- Pointwise Jensen a.e.
+  have hpw : ∀ᵐ y ∂(stdGaussianPi (n + 1)),
+      (∫ t, g (Function.update y j t) ∂stdGaussian) *
+        log (∫ t, g (Function.update y j t) ∂stdGaussian) ≤
+      ∫ t, g (Function.update y j t) * log (g (Function.update y j t)) ∂stdGaussian :=
+    by filter_upwards [hg_ae, hgl_ae] with y hgy hgly
+       exact jensen_condExpect_mul_log g hg_nn y j hgy hgly
+  -- Step 2: Integrability of Ej·log(Ej)
+  have hEj_log_int : Integrable (fun x => (∫ t, g (Function.update x j t) ∂stdGaussian) *
+      log (∫ t, g (Function.update x j t) ∂stdGaussian)) (stdGaussianPi (n + 1)) := by
+    -- condEntropyAt = first_term - Ej·log(Ej), all integrable
+    have hA_int := integrable_condExpect_stdGaussianPi_gen _ hg_log j
+    have hcondEnt_int := integrable_condEntropyAt_of_nonneg g hg_nn hg hg_log j
+    -- Ej·log(Ej) = first_term - condEntropyAt, hence integrable
+    have : (fun x => (∫ t, g (Function.update x j t) ∂stdGaussian) *
+        log (∫ t, g (Function.update x j t) ∂stdGaussian)) =
+      fun x => (∫ t, g (Function.update x j t) * log (g (Function.update x j t)) ∂stdGaussian) -
+        condEntropyAt stdGaussian g j x := by
+      ext x; simp only [condEntropyAt, entropy]; ring
+    rw [this]; exact hA_int.sub hcondEnt_int
+  -- Step 3: ∫ slice(g·logg) = ∫ g·logg by Fubini
+  have hfub : ∫ x, (∫ t, g (Function.update x j t) * log (g (Function.update x j t)) ∂stdGaussian)
+      ∂(stdGaussianPi (n + 1)) =
+      ∫ x, g x * log (g x) ∂(stdGaussianPi (n + 1)) :=
+    integral_condExpect_eq_integral_pi _ hg_log j
+  -- Combine
+  calc ∫ x, (∫ t, g (Function.update x j t) ∂stdGaussian) *
+          log (∫ t, g (Function.update x j t) ∂stdGaussian) ∂(stdGaussianPi (n + 1))
+      ≤ ∫ x, (∫ t, g (Function.update x j t) * log (g (Function.update x j t)) ∂stdGaussian)
+          ∂(stdGaussianPi (n + 1)) :=
+        integral_mono_ae hEj_log_int (integrable_condExpect_stdGaussianPi_gen _ hg_log j) hpw
+    _ = ∫ x, g x * log (g x) ∂(stdGaussianPi (n + 1)) := hfub
+
+
+-- ae decomposition: ∀ᵐ y, P(y) → ∀ᵐ x, ∀ᵐ s, P(update x j s).
+-- Uses piFinSuccAbove at j + MeasurableEquiv.prodComm swap + measure_ae_null_of_prod_null.
+private lemma ae_ae_update_of_ae {n : ℕ} {P : (Fin (n + 1) → ℝ) → Prop}
+    (j : Fin (n + 1))
+    (h : ∀ᵐ y ∂(stdGaussianPi (n + 1)), P y) :
+    ∀ᵐ x ∂(stdGaussianPi (n + 1)),
+      ∀ᵐ s ∂stdGaussian, P (Function.update x j s) := by
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) j
+  set μ' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+  set γn := Measure.pi (fun k : Fin n => μ' (j.succAbove k))
+  have hmp := measurePreserving_piFinSuccAbove μ' j
+  have hupd : ∀ y t, Function.update y j t = e.symm (t, (e y).2) := by
+    intro y t; conv_lhs => rw [(e.symm_apply_apply y).symm]
+    simp only [e, MeasurableEquiv.piFinSuccAbove_symm_apply]
+    exact @Fin.update_insertNth n (fun _ => ℝ) j (e y).1 t (e y).2
+  -- The composite e.symm ∘ swap : (Fin n → ℝ) × ℝ → (Fin (n+1) → ℝ) is measure-preserving
+  -- from (γn × γ) to γ^{n+1}, since e : γ^{n+1} ≃ (γ × γn) and swap : (γn × γ) ≃ (γ × γn).
+  set f : (Fin n → ℝ) × ℝ → (Fin (n + 1) → ℝ) := fun q => e.symm (q.2, q.1)
+  have hf_mp : MeasurePreserving f (γn.prod stdGaussian) (stdGaussianPi (n + 1)) := by
+    have : f = e.symm ∘ Prod.swap := by ext ⟨z, s⟩; rfl
+    rw [this]
+    exact hmp.symm.comp ⟨measurable_swap, Measure.prod_swap⟩
+  -- Transport h: ∀ᵐ y, P(y) → ∀ᵐ (z,s) ∂(γn×γ), P(e.symm(s,z))
+  have h_null_swap : ∀ᵐ q ∂(γn.prod stdGaussian), P (e.symm (q.2, q.1)) := by
+    rw [ae_iff] at h ⊢
+    have hnms : NullMeasurableSet {y | ¬P y} (stdGaussianPi (n + 1)) :=
+      NullMeasurableSet.of_null h
+    have : {q : (Fin n → ℝ) × ℝ | ¬P (e.symm (q.2, q.1))} = f ⁻¹' {y | ¬P y} := by
+      ext ⟨z, s⟩; simp [f, Set.mem_preimage]
+    rw [this, hf_mp.measure_preimage hnms]; exact h
+  -- ae_ae_of_ae_prod on (γn × γ): ∀ᵐ z ∂γn, ∀ᵐ s ∂γ, P(e.symm(s,z))
+  have h_ae_ae : ∀ᵐ z ∂γn, ∀ᵐ s ∂stdGaussian, P (e.symm (s, z)) :=
+    Measure.ae_ae_of_ae_prod h_null_swap
+  -- Transport back via removeNth j
+  have hmp_rem : MeasurePreserving (fun x : Fin (n + 1) → ℝ => Fin.removeNth j x)
+      (stdGaussianPi (n + 1)) γn := by
+    change MeasurePreserving (Prod.snd ∘ e) _ _
+    simp only [stdGaussianPi]
+    exact measurePreserving_snd.comp
+      (measurePreserving_piFinSuccAbove (fun (_ : Fin (n + 1)) => stdGaussian) j)
+  exact (hmp_rem.quasiMeasurePreserving.ae h_ae_ae).mono fun x hx =>
+    hx.mono fun s hs => by show P (Function.update x j s); rw [hupd x s]; exact hs
+
+-- ae product integrability of g at two coordinates (i, j) via double piFinSuccAbove.
+-- For ae x, (s, t) ↦ g(update(update x j s) i t) is integrable on γ × γ.
+private lemma ae_integrable_prod_update_update {n : ℕ}
+    (g : (Fin (n + 1) → ℝ) → ℝ)
+    (hg : Integrable g (stdGaussianPi (n + 1)))
+    (i j : Fin (n + 1)) (hij : i ≠ j) :
+    ∀ᵐ x ∂(stdGaussianPi (n + 1)),
+      Integrable (fun p : ℝ × ℝ => g (Function.update (Function.update x j p.1) i p.2))
+        (stdGaussian.prod stdGaussian) := by
+  -- Step 1: find j' : Fin n such that i.succAbove j' = j
+  obtain ⟨j', hj'⟩ := Fin.exists_succAbove_eq (Ne.symm hij)
+  -- Case split on n to handle piFinSuccAbove at j' : Fin n
+  rcases n with _ | m
+  · exact Fin.elim0 j'
+  -- Now n = m + 1, so j' : Fin (m + 1) and piFinSuccAbove works
+  -- Step 2: decompose γ^{m+2} at coordinate i
+  set ei := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (m + 2) => ℝ) i
+  set μi : Fin (m + 2) → Measure ℝ := fun _ => stdGaussian
+  set γn := Measure.pi (fun k : Fin (m + 1) => μi (i.succAbove k))
+  have hmpi := measurePreserving_piFinSuccAbove μi i
+  -- g ∘ ei.symm ∈ L¹(γ × γ^{m+1})
+  have hG : Integrable (g ∘ ei.symm) (stdGaussian.prod γn) :=
+    hmpi.symm.integrable_comp_of_integrable hg
+  -- Step 3: decompose γ^{m+1} at coordinate j'
+  set μn : Fin (m + 1) → Measure ℝ := fun k => μi (i.succAbove k)
+  set ej := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (m + 1) => ℝ) j'
+  set γm := Measure.pi (fun k : Fin m => μn (j'.succAbove k))
+  have hmpj := measurePreserving_piFinSuccAbove μn j'
+  -- Step 4: Prod.map id ej.symm : γ × (γ × γ^m) → γ × γ^{m+1} is MP
+  have hpm : MeasurePreserving (Prod.map id ej.symm)
+      (stdGaussian.prod (stdGaussian.prod γm)) (stdGaussian.prod γn) :=
+    (MeasurePreserving.id stdGaussian).prod hmpj.symm
+  -- g ∘ ei.symm ∘ Prod.map id ej.symm ∈ L¹(γ × (γ × γ^m))
+  have hH : Integrable (g ∘ ei.symm ∘ Prod.map id ej.symm)
+      (stdGaussian.prod (stdGaussian.prod γm)) :=
+    hpm.integrable_comp_of_integrable hG
+  -- Step 5: prodAssoc : (γ × γ) × γ^m → γ × (γ × γ^m) is MP
+  have hpa : MeasurePreserving (MeasurableEquiv.prodAssoc (α := ℝ) (β := ℝ)
+      (γ := Fin m → ℝ))
+      ((stdGaussian.prod stdGaussian).prod γm)
+      (stdGaussian.prod (stdGaussian.prod γm)) :=
+    measurePreserving_prodAssoc stdGaussian stdGaussian γm
+  -- Composed function ∈ L¹((γ × γ) × γ^m)
+  have hK : Integrable (g ∘ ei.symm ∘ Prod.map id ej.symm ∘ MeasurableEquiv.prodAssoc)
+      ((stdGaussian.prod stdGaussian).prod γm) :=
+    hpa.integrable_comp_of_integrable hH
+  -- Step 6: prod_left_ae gives ae integrability on γ × γ
+  have hae_γm : ∀ᵐ r ∂γm,
+      Integrable (fun p : ℝ × ℝ =>
+        (g ∘ ei.symm ∘ Prod.map id ej.symm ∘ MeasurableEquiv.prodAssoc) (p, r))
+        (stdGaussian.prod stdGaussian) := hK.prod_left_ae
+  -- Step 7: transport ae from γ^m to γ^{m+2}
+  -- The projection x ↦ removeNth j' (removeNth i x) is QMP from γ^{m+2} to γ^m
+  have hmp_remi : MeasurePreserving (fun x : Fin (m + 2) → ℝ => Fin.removeNth i x)
+      (stdGaussianPi (m + 2)) γn := by
+    change MeasurePreserving (Prod.snd ∘ ei) _ _
+    exact measurePreserving_snd.comp hmpi
+  have hmp_remj : MeasurePreserving (fun z : Fin (m + 1) → ℝ => Fin.removeNth j' z)
+      γn γm := by
+    change MeasurePreserving (Prod.snd ∘ ej) _ _
+    exact measurePreserving_snd.comp hmpj
+  have hmp_rem2 : MeasurePreserving
+      (fun x : Fin (m + 2) → ℝ => Fin.removeNth j' (Fin.removeNth i x))
+      (stdGaussianPi (m + 2)) γm := hmp_remj.comp hmp_remi
+  -- Transport: ae r ∂γ^m → ae x ∂γ^{m+2}
+  have hae_x := hmp_rem2.quasiMeasurePreserving.ae hae_γm
+  -- Step 8: rewrite the integrand to match the goal
+  exact hae_x.mono fun x hx => by
+    set r := Fin.removeNth j' (Fin.removeNth i x)
+    -- Key identity: ei.symm(t, ej.symm(s, r)) = update(update x j s) i t
+    have hident : ∀ s t, (ei.symm (t, ej.symm (s, r))) =
+        Function.update (Function.update x j s) i t := by
+      intro s t
+      -- Unfold piFinSuccAbove.symm to insertNth
+      show Fin.insertNth i t (Fin.insertNth j' s r) =
+        Function.update (Function.update x j s) i t
+      -- Step 1: insertNth j' s r = update (removeNth i x) j' s
+      have h1 : Fin.insertNth j' s r =
+          Function.update (Fin.removeNth i x) j' s := by
+        rw [← Fin.update_insertNth j' ((Fin.removeNth i x) j') s
+          (Fin.removeNth j' (Fin.removeNth i x))]
+        congr 1; exact (Fin.insertNthEquiv _ j').right_inv (Fin.removeNth i x)
+      rw [h1, Fin.insertNth_update, show i.succAbove j' = j from hj']
+      -- Step 2: insertNth i t (removeNth i x) = update x i t
+      have h3 : Fin.insertNth i t (Fin.removeNth i x) = Function.update x i t := by
+        rw [← Fin.update_insertNth i (x i) t (Fin.removeNth i x)]
+        congr 1; exact (Fin.insertNthEquiv _ i).right_inv x
+      rw [h3]
+      exact @Function.update_comm _ _ (fun _ => ℝ) _ _ hij t s x
+    -- Rewrite the composed function to use update
+    have hcong : (fun p : ℝ × ℝ =>
+        (g ∘ ei.symm ∘ Prod.map id ej.symm ∘ MeasurableEquiv.prodAssoc) (p, r)) =
+        (fun p : ℝ × ℝ => g (Function.update (Function.update x j p.2) i p.1)) := by
+      ext ⟨a, b⟩
+      simp only [Function.comp, MeasurableEquiv.prodAssoc, Equiv.prodAssoc,
+        MeasurableEquiv.coe_mk, Equiv.coe_fn_mk, Prod.map, id]
+      rw [hident b a]
+    rw [hcong] at hx
+    -- hx : Integrable (fun p => g(update(update x j p.2) i p.1)) (γ.prod γ)
+    -- Goal: Integrable (fun p => g(update(update x j p.1) i p.2)) (γ.prod γ)
+    -- Use Prod.swap: γ.prod γ ≃ γ.prod γ via swap
+    have hswap := Measure.measurePreserving_swap.integrable_comp_of_integrable hx
+    -- hswap : Integrable ((fun p => g(update(update x j p.2) i p.1)) ∘ Prod.swap) (γ.prod γ)
+    -- (fun p => ...) ∘ swap = (fun p => g(update(update x j p.1) i p.2))
+    convert hswap using 1
+
+-- Entropy of mixture ≤ mixture of entropies: core inequality for DPI.
+-- Proof: log_sum_inequality_nn for each s gives Ent(f_s) ≥ ∫f_s·log(h) - c_s·log(C).
+-- Integrate over s, use fubini_cross_term to collapse ∫_s∫f_s·log(h) = ∫h·log(h).
+-- Conclude ∫_s Ent(f_s) ≥ Ent(h).
+-- Note: the "two Jensen" approach fails (opposite-sign bounds don't combine).
+-- Pointwise log-sum bound: for nonneg a, b with a = f_s, b = h (the mixture),
+-- condEntropyAt(a) ≥ ∫ a·log(b) - (∫a)·log(∫b), with case handling for ∫a = 0.
+-- This is the key per-s bound used in entropy_convex_mixture.
+private lemma condEntropyAt_ge_cross_term
+    (a b : ℝ → ℝ) (ha_nn : ∀ t, 0 ≤ a t) (hb_nn : ∀ t, 0 ≤ b t)
+    (ha_int : Integrable a stdGaussian)
+    (ha_log : Integrable (fun t => a t * Real.log (a t)) stdGaussian)
+    (ha_logb : Integrable (fun t => a t * Real.log (b t)) stdGaussian)
+    (hb_int : Integrable b stdGaussian)
+    (hB_pos : 0 < ∫ t, b t ∂stdGaussian)
+    (hab_ac : ∀ᵐ t ∂stdGaussian, b t = 0 → a t = 0) :
+    ∫ t, a t * Real.log (a t) ∂stdGaussian -
+      (∫ t, a t ∂stdGaussian) * Real.log (∫ t, a t ∂stdGaussian) ≥
+    ∫ t, a t * Real.log (b t) ∂stdGaussian -
+      (∫ t, a t ∂stdGaussian) * Real.log (∫ t, b t ∂stdGaussian) := by
+  rcases le_or_gt (∫ t, a t ∂stdGaussian) 0 with hA_le | hA_pos
+  · -- ∫ a ≤ 0, but a ≥ 0, so ∫ a = 0, hence a = 0 ae
+    have hA_eq : ∫ t, a t ∂stdGaussian = 0 :=
+      le_antisymm hA_le (integral_nonneg ha_nn)
+    have ha_ae : ∀ᵐ t ∂stdGaussian, a t = 0 := by
+      rwa [integral_eq_zero_iff_of_nonneg ha_nn ha_int] at hA_eq
+    have h1 : ∫ t, a t * Real.log (a t) ∂stdGaussian = 0 := by
+      rw [integral_congr_ae (ha_ae.mono fun t ht => show a t * Real.log (a t) = 0 by simp [ht])]
+      simp
+    have h2 : ∫ t, a t * Real.log (b t) ∂stdGaussian = 0 := by
+      rw [integral_congr_ae (ha_ae.mono fun t ht => show a t * Real.log (b t) = 0 by simp [ht])]
+      simp
+    simp [hA_eq, h1, h2]
+  · have h := log_sum_inequality_nn a b ha_nn hb_nn ha_int ha_log ha_logb
+      hb_int hA_pos hB_pos hab_ac
+    linarith
+
+private lemma entropy_convex_mixture {n : ℕ}
+    (g : (Fin (n + 1) → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
+    (hg : Integrable g (stdGaussianPi (n + 1)))
+    (hg_log : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi (n + 1)))
+    (i j : Fin (n + 1)) (hij : i ≠ j) :
+    ∀ᵐ x ∂(stdGaussianPi (n + 1)),
+    condEntropyAt stdGaussian
+      (fun y => ∫ t, g (Function.update y j t) ∂stdGaussian) i x ≤
+    ∫ s, condEntropyAt stdGaussian g i (Function.update x j s) ∂stdGaussian := by
+  -- Strategy: unfold condEntropyAt, rewrite LHS via update_comm,
+  -- apply condEntropyAt_ge_cross_term for ae s, integrate, use fubini_cross_term.
+  -- ae-s integrability: for ae x, for ae s, i-slices of g at upd x j s are integrable
+  -- ae-s integrability via ae_ae_update_of_ae
+  -- First establish: ∀ᵐ y, Integrable (fun t => g(update y i t)) stdGaussian
+  -- and: ∀ᵐ y, Integrable (fun t => g(update y i t) * log(g(update y i t))) stdGaussian
+  -- These use the standard piFinSuccAbove + prod_left_ae + ae_snd_of_ae_marginal pattern.
+  have hg_ae_i : ∀ᵐ y ∂(stdGaussianPi (n + 1)),
+      Integrable (fun t => g (Function.update y i t)) stdGaussian := by
+    set ei' := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) i
+    set μ'' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+    set γni' := Measure.pi (fun k : Fin n => μ'' (i.succAbove k))
+    have hmpi' := measurePreserving_piFinSuccAbove μ'' i
+    have hupdi' : ∀ y t, Function.update y i t = ei'.symm (t, (ei' y).2) := by
+      intro y t; conv_lhs => rw [(ei'.symm_apply_apply y).symm]
+      simp only [ei', MeasurableEquiv.piFinSuccAbove_symm_apply]
+      exact @Fin.update_insertNth n (fun _ => ℝ) i (ei' y).1 t (ei' y).2
+    have hg_prod := hmpi'.symm.integrable_comp_of_integrable hg
+    have hae_γn := hg_prod.prod_left_ae
+    have hae_prod := ae_snd_of_ae_marginal stdGaussian γni' hae_γn
+    exact (hmpi'.quasiMeasurePreserving.ae hae_prod).mono fun y hy => by
+      rwa [show (fun t => (g ∘ ei'.symm) (t, (ei' y).2)) =
+          (fun t => g (Function.update y i t)) from by
+        ext t; simp only [Function.comp]; rw [hupdi' y t]] at hy
+  have hgl_ae_i : ∀ᵐ y ∂(stdGaussianPi (n + 1)),
+      Integrable (fun t => g (Function.update y i t) *
+        Real.log (g (Function.update y i t))) stdGaussian := by
+    set ei' := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) i
+    set μ'' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+    set γni' := Measure.pi (fun k : Fin n => μ'' (i.succAbove k))
+    have hmpi' := measurePreserving_piFinSuccAbove μ'' i
+    have hupdi' : ∀ y t, Function.update y i t = ei'.symm (t, (ei' y).2) := by
+      intro y t; conv_lhs => rw [(ei'.symm_apply_apply y).symm]
+      simp only [ei', MeasurableEquiv.piFinSuccAbove_symm_apply]
+      exact @Fin.update_insertNth n (fun _ => ℝ) i (ei' y).1 t (ei' y).2
+    have hgl_prod := hmpi'.symm.integrable_comp_of_integrable hg_log
+    have hae_γn := hgl_prod.prod_left_ae
+    have hae_prod := ae_snd_of_ae_marginal stdGaussian γni' hae_γn
+    exact (hmpi'.quasiMeasurePreserving.ae hae_prod).mono fun y hy => by
+      rwa [show (fun t => ((fun x => g x * Real.log (g x)) ∘ ei'.symm) (t, (ei' y).2)) =
+          (fun t => g (Function.update y i t) *
+            Real.log (g (Function.update y i t))) from by
+        ext t; simp only [Function.comp]; rw [hupdi' y t]] at hy
+  -- Now apply ae_ae_update_of_ae to decompose at coordinate j
+  have hg_ae_ij : ∀ᵐ x ∂(stdGaussianPi (n + 1)),
+      ∀ᵐ s ∂stdGaussian,
+        Integrable (fun t => g (Function.update (Function.update x j s) i t))
+          stdGaussian := ae_ae_update_of_ae j hg_ae_i
+  have hgl_ae_ij : ∀ᵐ x ∂(stdGaussianPi (n + 1)),
+      ∀ᵐ s ∂stdGaussian,
+        Integrable (fun t => g (Function.update (Function.update x j s) i t) *
+          Real.log (g (Function.update (Function.update x j s) i t)))
+          stdGaussian := ae_ae_update_of_ae j hgl_ae_i
+  -- ae integrability of E_j g at coordinate i (for h integrability)
+  set Ejg : (Fin (n + 1) → ℝ) → ℝ := fun y => ∫ s, g (Function.update y j s) ∂stdGaussian
+  have hEjg_int : Integrable Ejg (stdGaussianPi (n + 1)) :=
+    integrable_condExpect_stdGaussianPi_gen g hg j
+  set ei := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) i
+  set μ' : Fin (n + 1) → Measure ℝ := fun _ => stdGaussian
+  set γni := Measure.pi (fun k : Fin n => μ' (i.succAbove k))
+  have hmpi := measurePreserving_piFinSuccAbove μ' i
+  have hupdi : ∀ y t, Function.update y i t = ei.symm (t, (ei y).2) := by
+    intro y t; conv_lhs => rw [(ei.symm_apply_apply y).symm]
+    simp only [ei, MeasurableEquiv.piFinSuccAbove_symm_apply]
+    exact @Fin.update_insertNth n (fun _ => ℝ) i (ei y).1 t (ei y).2
+  have hEjg_ae_i : ∀ᵐ y ∂(stdGaussianPi (n + 1)),
+      Integrable (fun t => Ejg (Function.update y i t)) stdGaussian := by
+    have hp := (hmpi.symm.integrable_comp_of_integrable hEjg_int).prod_left_ae
+    exact (hmpi.quasiMeasurePreserving.ae (ae_snd_of_ae_marginal stdGaussian γni hp)).mono
+      fun y hy => by rwa [show (fun t => (Ejg ∘ ei.symm) (t, (ei y).2)) =
+        (fun t => Ejg (Function.update y i t)) from by
+          ext t; simp only [Function.comp]; rw [hupdi y t]] at hy
+  -- ae product integrability of (s,t) ↦ g(update(update x j s) i t) on γ×γ
+  have hprod_ae := ae_integrable_prod_update_update g hg i j hij
+  -- ae product integrability of (s,t) ↦ g·log(g)(update(update x j s) i t) on γ×γ
+  have hprod_log_ae := ae_integrable_prod_update_update
+    (fun y => g y * Real.log (g y)) hg_log i j hij
+  -- Combine ae conditions
+  filter_upwards [hg_ae_ij, hgl_ae_ij, hEjg_ae_i, hprod_ae, hprod_log_ae] with
+    x hg_sl_ij hgl_sl_ij hEjg_sl hprod hprod_log
+  -- Rewrite LHS via update_comm
+  have hcomm : ∀ t,
+      (fun y => ∫ s, g (Function.update y j s) ∂stdGaussian) (Function.update x i t) =
+      ∫ s, g (Function.update (Function.update x j s) i t) ∂stdGaussian := by
+    intro t; simp only; congr 1; ext s
+    have : Function.update (Function.update x i t) j s =
+        Function.update (Function.update x j s) i t :=
+      update_comm_of_ne hij _ t s
+    rw [this]
+  show condEntropyAt stdGaussian
+      (fun y => ∫ s, g (Function.update y j s) ∂stdGaussian) i x ≤
+    ∫ s, condEntropyAt stdGaussian g i (Function.update x j s) ∂stdGaussian
+  simp only [condEntropyAt, entropy]
+  simp_rw [hcomm]
+  -- Goal: ∫ h·log(h) - C·log(C) ≤ ∫_s [∫ f_s·log(f_s) - c_s·log(c_s)]
+  -- where h(t) = ∫_s f_s(t), f_s(t) = g(upd(upd x j s) i t), c_s = ∫f_s, C = ∫h.
+  set h : ℝ → ℝ := fun t =>
+    ∫ s, g (Function.update (Function.update x j s) i t) ∂stdGaussian
+  have hh_eq_Ejg : h = fun t => Ejg (Function.update x i t) := by
+    ext t; simp only [h, Ejg]; congr 1; ext s
+    congr 1; exact (update_comm_of_ne hij _ t s).symm
+  have hh_int : Integrable h stdGaussian := hh_eq_Ejg ▸ hEjg_sl
+  have hh_nn : ∀ t, 0 ≤ h t := fun t => integral_nonneg (fun s' => hg_nn _)
+  -- Cross-term approach: for ae s, condEntropyAt(f_s) ≥ ∫ f_s·log(h) - c_s·log(C)
+  -- Integrating + Fubini gives ∫_s condEntropyAt(f_s) ≥ ∫ h·log(h) - C·log(C)
+  set C := ∫ t, h t ∂stdGaussian with hC_def
+  have hC_nn : 0 ≤ C := integral_nonneg hh_nn
+  -- Case split: C = 0 (trivial) vs C > 0 (cross-term bound)
+  rcases eq_or_lt_of_le hC_nn with hC_zero | hC_pos
+  · -- C = 0: h = 0 ae, so LHS = 0, RHS ≥ 0
+    have hC_eq : C = 0 := hC_zero.symm
+    have hh_ae : ∀ᵐ t ∂stdGaussian, h t = 0 := by
+      rwa [integral_eq_zero_iff_of_nonneg hh_nn hh_int] at hC_eq
+    have hLHS_eq : ∫ t, h t * Real.log (h t) ∂stdGaussian = 0 := by
+      rw [integral_congr_ae (hh_ae.mono fun t ht => show h t * Real.log (h t) = 0 by simp [ht])]
+      simp
+    rw [hLHS_eq, hC_eq]; simp
+    apply integral_nonneg_of_ae
+    filter_upwards [hg_sl_ij, hgl_sl_ij] with s hs_int hs_log_int
+    exact sub_nonneg.mpr (Real.convexOn_mul_log.map_integral_le
+      Real.continuous_mul_log.continuousOn isClosed_Ici
+      (ae_of_all _ (fun t => hg_nn (Function.update (Function.update x j s) i t)))
+      hs_int hs_log_int)
+  · -- C > 0: use cross-term bound
+    -- c_s = ∫ f_s, C = ∫ h
+    set c : ℝ → ℝ := fun s =>
+      ∫ t, g (Function.update (Function.update x j s) i t) ∂stdGaussian
+    have hc_nn : ∀ s, 0 ≤ c s := fun s => integral_nonneg (fun t => hg_nn _)
+    have hc_int : Integrable c stdGaussian := hprod.integral_prod_left
+    -- C = ∫_s c_s ds (Fubini)
+    have hC_eq : C = ∫ s, c s ∂stdGaussian := by
+      simp only [C, hC_def, c]
+      exact (integral_integral_swap hprod).symm
+    -- h·log(h) integrability — sandwich between -1/e and ∫_s f_s·log(f_s) (Jensen)
+    have hJensen_t : ∀ᵐ t ∂stdGaussian,
+        h t * Real.log (h t) ≤
+        ∫ s, g (Function.update (Function.update x j s) i t) *
+          Real.log (g (Function.update (Function.update x j s) i t)) ∂stdGaussian := by
+      filter_upwards [hprod.prod_left_ae, hprod_log.prod_left_ae] with t ht_int ht_log_int
+      exact Real.convexOn_mul_log.map_integral_le
+        Real.continuous_mul_log.continuousOn isClosed_Ici
+        (ae_of_all _ (fun s => hg_nn _)) ht_int ht_log_int
+    have hhl_int : Integrable (fun t => h t * Real.log (h t)) stdGaussian :=
+      integrable_of_le_of_le
+        (hh_int.1.mul (Real.measurable_log.comp_aemeasurable hh_int.1.aemeasurable).aestronglyMeasurable)
+        (ae_of_all _ (fun t => mul_log_ge_neg_inv_exp (h t) (hh_nn t)))
+        hJensen_t (integrable_const _) hprod_log.integral_prod_right
+    -- ae absolute continuity: for ae s, h(t)=0 → f_s(t)=0 ae t
+    -- Proof: first show ∀ᵐ t, ∀ᵐ s (from integral=0 + nonneg), then swap quantifiers
+    -- via ae_ae_comm using AEStronglyMeasurable proxies for MeasurableSet.
+    have hab_ac_ae : ∀ᵐ s ∂stdGaussian,
+        ∀ᵐ t ∂stdGaussian,
+          h t = 0 → g (Function.update (Function.update x j s) i t) = 0 := by
+      -- Forward: ∀ᵐ t, ∀ᵐ s, h(t)=0 → g(...)=0
+      have h_fwd : ∀ᵐ t ∂stdGaussian, ∀ᵐ s ∂stdGaussian,
+          h t = 0 → g (Function.update (Function.update x j s) i t) = 0 := by
+        filter_upwards [hprod.prod_left_ae] with t h_int_s
+        by_cases ht : h t = 0
+        · have h_nn' : ∀ s, 0 ≤ g (Function.update (Function.update x j s) i t) := fun s => hg_nn _
+          exact ((integral_eq_zero_iff_of_nonneg h_nn' h_int_s).mp ht).mono fun s hs _ => hs
+        · exact ae_of_all _ (fun _ h_abs => absurd h_abs ht)
+      -- AEStronglyMeasurable proxies for ae_ae_comm
+      set F : ℝ × ℝ → ℝ := fun p => g (Function.update (Function.update x j p.1) i p.2)
+      have hF_aesm : AEStronglyMeasurable F (stdGaussian.prod stdGaussian) :=
+        hprod.aestronglyMeasurable
+      set F' := hF_aesm.mk F
+      have hF'_sm := hF_aesm.stronglyMeasurable_mk
+      have hF_ae_eq : F =ᵐ[stdGaussian.prod stdGaussian] F' := hF_aesm.ae_eq_mk
+      set h' := hh_int.aestronglyMeasurable.mk h
+      have hh'_sm := hh_int.aestronglyMeasurable.stronglyMeasurable_mk
+      have hh_ae_eq : h =ᵐ[stdGaussian] h' := hh_int.aestronglyMeasurable.ae_eq_mk
+      -- MeasurableSet for proxy: {(t,s) | h'(t)=0 → F'(s,t)=0}
+      have hms : MeasurableSet {p : ℝ × ℝ | h' p.1 = 0 → F' (p.2, p.1) = 0} := by
+        have : {p : ℝ × ℝ | h' p.1 = 0 → F' (p.2, p.1) = 0} =
+            {p | h' p.1 ≠ 0} ∪ {p | F' (p.2, p.1) = 0} := by ext p; simp [imp_iff_not_or]
+        rw [this]
+        exact ((hh'_sm.measurable.comp measurable_fst)
+          (measurableSet_singleton 0).compl).union
+          ((hF'_sm.measurable.comp measurable_swap) (measurableSet_singleton 0))
+      -- Transfer h_fwd to proxy: ∀ᵐ t, ∀ᵐ s, h'(t)=0 → F'(s,t)=0
+      have hF_swap_ae : ∀ᵐ t ∂stdGaussian, ∀ᵐ s ∂stdGaussian, F (s, t) = F' (s, t) :=
+        Measure.ae_ae_of_ae_prod
+          (Measure.measurePreserving_swap.quasiMeasurePreserving.ae_eq hF_ae_eq)
+      have h_fwd' : ∀ᵐ t ∂stdGaussian, ∀ᵐ s ∂stdGaussian,
+          h' t = 0 → F' (s, t) = 0 := by
+        filter_upwards [h_fwd, hh_ae_eq, hF_swap_ae] with t ht_fwd ht_eq ht_F_eq
+        filter_upwards [ht_fwd, ht_F_eq] with s hs_fwd hs_F_eq
+        intro hh't; rw [← hs_F_eq]; exact hs_fwd (by rwa [ht_eq])
+      -- ae_ae_comm swaps proxy, then transfer back
+      have hswap := (Measure.ae_ae_comm hms).mp h_fwd'
+      have hF_ae_fwd : ∀ᵐ s ∂stdGaussian, ∀ᵐ t ∂stdGaussian, F (s, t) = F' (s, t) :=
+        Measure.ae_ae_of_ae_prod hF_ae_eq
+      filter_upwards [hswap, hF_ae_fwd,
+        (show ∀ᵐ s ∂stdGaussian, ∀ᵐ t ∂stdGaussian, h t = h' t from
+          ae_of_all _ fun _ => hh_ae_eq)] with s hs_proxy hs_F hs_h
+      filter_upwards [hs_proxy, hs_F, hs_h] with t ht_proxy ht_F ht_h
+      intro hht_zero
+      show g (Function.update (Function.update x j s) i t) = 0
+      rw [show g (Function.update (Function.update x j s) i t) = F (s, t) from rfl, ht_F]
+      exact ht_proxy (by rwa [← ht_h])
+    -- Product integrability of cross-term (s,t) ↦ f_s(t) * log(h(t))
+    -- Proved via integrable_prod_iff': ae-t slice (scalar mul) + norm = hhl.norm
+    have hcross_prod : Integrable
+        (fun p : ℝ × ℝ =>
+          g (Function.update (Function.update x j p.1) i p.2) *
+            Real.log (h p.2))
+        (stdGaussian.prod stdGaussian) := by
+      have hlog_aesm :
+          AEStronglyMeasurable (fun t => Real.log (h t))
+            stdGaussian :=
+        (Real.measurable_log.comp_aemeasurable
+          hh_int.aestronglyMeasurable.aemeasurable
+            ).aestronglyMeasurable
+      have hG_aesm : AEStronglyMeasurable
+          (fun p : ℝ × ℝ =>
+            g (Function.update (Function.update x j p.1) i p.2) *
+              Real.log (h p.2))
+          (stdGaussian.prod stdGaussian) :=
+        hprod.aestronglyMeasurable.mul hlog_aesm.comp_snd
+      refine (integrable_prod_iff' hG_aesm).mpr ⟨?_, ?_⟩
+      · filter_upwards [hprod.prod_left_ae] with t ht_int
+        exact ht_int.mul_const _
+      · have hkey :
+            (fun t =>
+              ∫ s,
+                ‖g (Function.update
+                    (Function.update x j s) i t) *
+                  Real.log (h t)‖ ∂stdGaussian) =ᵐ[stdGaussian]
+            fun t => ‖h t * Real.log (h t)‖ := by
+          filter_upwards [hprod.prod_left_ae] with t ht_int
+          have : ∀ s,
+              ‖g (Function.update
+                  (Function.update x j s) i t) *
+                Real.log (h t)‖ =
+              g (Function.update
+                  (Function.update x j s) i t) *
+                ‖Real.log (h t)‖ := by
+            intro s
+            rw [norm_mul, Real.norm_eq_abs,
+              abs_of_nonneg (hg_nn _)]
+          simp_rw [this]
+          rw [integral_mul_const]
+          simp only [norm_mul, Real.norm_eq_abs,
+            abs_of_nonneg (hh_nn t), h]
+        exact (integrable_congr hkey).mpr hhl_int.norm
+    -- Cross-term integrability: ae s slice
+    have hcross_int : ∀ᵐ s ∂stdGaussian,
+        Integrable
+          (fun t =>
+            g (Function.update
+                (Function.update x j s) i t) *
+              Real.log (h t))
+          stdGaussian :=
+      hcross_prod.prod_right_ae
+    -- Case split: C = 0 (trivial) vs C > 0 (use condEntropyAt_ge_cross_term)
+    rcases eq_or_lt_of_le hC_nn with hC_zero | hC_pos
+    · -- C = 0: h = 0 ae, so ∫∫ f_s = 0. For ae s: f_s = 0 ae, giving condEnt = 0.
+      -- LHS = 0 - 0 = 0 ≤ 0 = RHS.
+      have hC_eq_zero : C = 0 := hC_zero.symm
+      have hh_ae : ∀ᵐ t ∂stdGaussian, h t = 0 :=
+        (integral_eq_zero_iff_of_nonneg hh_nn hh_int).mp hC_eq_zero
+      have h1 : ∫ t, h t * Real.log (h t) ∂stdGaussian = 0 := by
+        have : (fun t => h t * Real.log (h t)) =ᵐ[stdGaussian] fun _ => (0 : ℝ) :=
+          hh_ae.mono fun t ht => show h t * Real.log (h t) = 0 by rw [ht, zero_mul]
+        rw [integral_congr_ae this, integral_zero]
+      -- For ae s: c_s = 0 (from C = ∫ c_s = 0 and c_s ≥ 0)
+      have hc_zero : ∀ᵐ s ∂stdGaussian, c s = 0 := by
+        have : C = ∫ s, c s ∂stdGaussian := hC_eq
+        rw [hC_eq_zero] at this
+        exact (integral_eq_zero_iff_of_nonneg hc_nn hc_int).mp this.symm
+      -- For ae s: f_s = 0 ae (from c_s = 0 and f_s ≥ 0)
+      have hfs_zero : ∀ᵐ s ∂stdGaussian,
+          ∀ᵐ t ∂stdGaussian, g (Function.update (Function.update x j s) i t) = 0 := by
+        filter_upwards [hc_zero, hg_sl_ij] with s hcs hs_int
+        exact (integral_eq_zero_iff_of_nonneg (fun t => hg_nn _) hs_int).mp hcs
+      -- Each condEnt integrand is 0 ae
+      have hRHS_zero : ∀ᵐ s ∂stdGaussian,
+          ∫ t, g (Function.update (Function.update x j s) i t) *
+            Real.log (g (Function.update (Function.update x j s) i t)) ∂stdGaussian -
+          (∫ t, g (Function.update (Function.update x j s) i t) ∂stdGaussian) *
+            Real.log (∫ t, g (Function.update (Function.update x j s) i t) ∂stdGaussian) = 0 := by
+        filter_upwards [hfs_zero] with s hs
+        have h1' : ∫ t, g (Function.update (Function.update x j s) i t) *
+            Real.log (g (Function.update (Function.update x j s) i t)) ∂stdGaussian = 0 := by
+          have : (fun t => g (Function.update (Function.update x j s) i t) *
+              Real.log (g (Function.update (Function.update x j s) i t))) =ᵐ[stdGaussian]
+              fun _ => (0 : ℝ) :=
+            hs.mono fun t ht => show g (Function.update (Function.update x j s) i t) *
+                Real.log (g (Function.update (Function.update x j s) i t)) = 0 by rw [ht, zero_mul]
+          rw [integral_congr_ae this, integral_zero]
+        have h2' : ∫ t, g (Function.update (Function.update x j s) i t) ∂stdGaussian = 0 := by
+          rw [integral_congr_ae hs, integral_zero]
+        rw [h1', h2', zero_mul, sub_zero]
+      rw [h1, hC_eq_zero, Real.log_zero, mul_zero, sub_zero,
+        integral_congr_ae hRHS_zero, integral_zero]
+    -- Per-s bound from condEntropyAt_ge_cross_term (C > 0 case)
+    have hper_s : ∀ᵐ s ∂stdGaussian,
+        ∫ t, g (Function.update (Function.update x j s) i t) *
+          Real.log (g (Function.update (Function.update x j s) i t)) ∂stdGaussian -
+        c s * Real.log (c s) ≥
+        ∫ t, g (Function.update (Function.update x j s) i t) *
+          Real.log (h t) ∂stdGaussian -
+        c s * Real.log C := by
+      filter_upwards [hg_sl_ij, hgl_sl_ij, hab_ac_ae, hcross_int] with s hs_int hs_log_int hs_ac hs_cross
+      exact condEntropyAt_ge_cross_term
+        (fun t => g (Function.update (Function.update x j s) i t)) h
+        (fun t => hg_nn _) hh_nn hs_int hs_log_int hs_cross hh_int hC_pos hs_ac
+    -- Fubini cross-term: swap + pull out log(h)
+    have hfub_cross :
+        ∫ s, (∫ t,
+          g (Function.update
+              (Function.update x j s) i t) *
+            Real.log (h t) ∂stdGaussian) ∂stdGaussian =
+        ∫ t, h t * Real.log (h t) ∂stdGaussian := by
+      rw [integral_integral_swap hcross_prod]
+      congr 1; ext t
+      rw [integral_mul_const (Real.log (h t))
+        (fun s =>
+          g (Function.update
+              (Function.update x j s) i t))]
+    -- Integrability of cross-term and c·log(c) as functions of s
+    have hcross_s_int : Integrable
+        (fun s => ∫ t,
+          g (Function.update
+              (Function.update x j s) i t) *
+            Real.log (h t) ∂stdGaussian)
+        stdGaussian :=
+      hcross_prod.integral_prod_left
+    have hclogc_int : Integrable
+        (fun s => c s * Real.log (c s))
+        stdGaussian := by
+      refine integrable_of_le_of_le
+        (hc_int.1.mul
+          (Real.measurable_log.comp_aemeasurable
+            hc_int.1.aemeasurable
+              ).aestronglyMeasurable)
+        (ae_of_all _ fun s =>
+          mul_log_ge_neg_inv_exp (c s) (hc_nn s))
+        ?_ (integrable_const _)
+        hprod_log.integral_prod_left
+      -- Upper bound: c·log(c) ≤ ∫ f_s·log(f_s) (Jensen)
+      filter_upwards [hg_sl_ij, hgl_sl_ij] with s
+        hs_int hs_log_int
+      exact convexOn_mul_log.map_integral_le
+        continuous_mul_log.continuousOn isClosed_Ici
+        (ae_of_all _ fun t => hg_nn _)
+        hs_int hs_log_int
+    -- Integrability of condEnt integrand
+    have hfl_s_int : Integrable
+        (fun s => ∫ t,
+          g (Function.update
+              (Function.update x j s) i t) *
+            Real.log
+              (g (Function.update
+                  (Function.update x j s) i t))
+          ∂stdGaussian)
+        stdGaussian :=
+      hprod_log.integral_prod_left
+    -- Final wiring: integral_mono_ae + Fubini identity
+    calc ∫ t, h t * Real.log (h t) ∂stdGaussian -
+          C * Real.log C
+        = ∫ s, (∫ t,
+            g (Function.update
+                (Function.update x j s) i t) *
+              Real.log (h t) ∂stdGaussian) ∂stdGaussian -
+          ∫ s, c s * Real.log C ∂stdGaussian := by
+            rw [hfub_cross,
+              integral_mul_const (Real.log C) c, hC_eq]
+        _ = ∫ s, ((∫ t,
+            g (Function.update
+                (Function.update x j s) i t) *
+              Real.log (h t) ∂stdGaussian) -
+            c s * Real.log C) ∂stdGaussian :=
+          (integral_sub hcross_s_int
+            (hc_int.mul_const _)).symm
+        _ ≤ ∫ s, ((∫ t,
+            g (Function.update
+                (Function.update x j s) i t) *
+              Real.log
+                (g (Function.update
+                    (Function.update x j s) i t))
+            ∂stdGaussian) -
+            c s * Real.log (c s)) ∂stdGaussian := by
+          exact integral_mono_ae
+            (hcross_s_int.sub (hc_int.mul_const _))
+            (hfl_s_int.sub hclogc_int)
+            (hper_s.mono fun s hs => hs)
+
 -- Sub-lemma 1: Data processing inequality for integrated conditional entropy.
 -- E_j averaging can only decrease ∫ condEnt_i(g), i.e., averaging out coordinate j
 -- makes the conditional entropy at coordinate i (for i ≠ j) only smaller.
--- Proof: pointwise Jensen for x·log(x) (convex on [0,∞)) applied to the
--- inner integral over coord j.
--- Uses: jensen_condExpect_mul_log (pointwise Jensen), condEntropyAt_nonneg_of_nonneg.
+--
+-- Proof structure (non-circular):
+-- 1. Rewrite RHS via integral_condExpect_eq_integral_pi at j:
+--    ∫ condEntropyAt g i = ∫[∫_s condEntropyAt g i (upd x j s) dγ(s)] dγⁿ
+-- 2. Pointwise: condEntropyAt(Ejg, i, x) ≤ ∫_s condEntropyAt(g, i, upd x j s) dγ(s)
+--    This is entropy convexity of mixture (entropy_convex_mixture).
+--    Key: Ejg(upd x i t) = ∫_s g(upd(upd x j s) i t) dγ(s) by update_comm.
+-- 3. integral_mono_ae concludes.
 private lemma integrated_condEntropyAt_condExpect_le {n : ℕ}
     (g : (Fin n → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
     (hg : Integrable g (stdGaussianPi n))
@@ -1176,41 +2018,42 @@ private lemma integrated_condEntropyAt_condExpect_le {n : ℕ}
         (fun y => ∫ t, g (Function.update y j t) ∂stdGaussian) i x
       ∂(stdGaussianPi n) ≤
     ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
-  -- The proof uses the chain rule + DPI approach:
-  -- ∫ condEnt_i(E_j g) = entropyPi(E_j g) - entropyPi(E_i E_j g)  [chain rule for E_j g]
-  -- ∫ condEnt_i(g) = entropyPi(g) - entropyPi(E_i g)              [chain rule for g]
-  -- Need: entropyPi(E_j g) - entropyPi(E_i E_j g) ≤ entropyPi(g) - entropyPi(E_i g)
-  -- This is: ∫(E_j g)·log(E_j g) - ∫(E_i E_j g)·log(E_i E_j g)
-  --        ≤ ∫g·log(g) - ∫(E_i g)·log(E_i g)
-  -- (the (∫h)·log(∫h) terms cancel since all four functions have the same integral).
-  --
-  -- Equivalently: F(g) + F(E_i E_j g) ≥ F(E_i g) + F(E_j g) where F(h) = ∫h·log(h).
-  -- This is the supermodularity of F under conditional expectations,
-  -- equivalent to non-negativity of mutual information.
-  --
-  -- However, applying the chain rule requires integrability of slice integrals
-  -- which is non-trivial. We instead use a direct calculation.
-  --
-  -- Direct approach: split ∫ condEnt = ∫ A - ∫ B where
-  --   A(x) = ∫_t φ(upd x i t)·log(φ(upd x i t)) dγ(t)  (first term)
-  --   B(x) = (∫_t φ(upd x i t) dγ(t))·log(∫_t φ(upd x i t) dγ(t))  (second term)
-  -- for φ = E_j g (LHS) resp. φ = g (RHS).
-  --
-  -- By Fubini: ∫ A_{E_j g} = ∫ (E_j g)·log(E_j g) = F(E_j g)
-  --            ∫ A_g = ∫ g·log(g) = F(g)
-  -- By def:    ∫ B_{E_j g} = ∫ (E_i E_j g)·log(E_i E_j g)
-  --            ∫ B_g = ∫ (E_i g)·log(E_i g)
-  --
-  -- So the claim is F(E_j g) - ∫(E_i E_j g)·log(E_i E_j g)
-  --              ≤ F(g) - ∫(E_i g)·log(E_i g).
-  -- i.e., [F(g) - F(E_j g)] ≥ [∫(E_i g)·log(E_i g) - ∫(E_i E_j g)·log(E_i E_j g)]
-  -- i.e., [F(g) - F(E_j g)] ≥ [F(E_i g) - F(E_j(E_i g))]  (commutativity)
-  -- Both sides are ≥ 0 (Jensen). The inequality follows from:
-  --   ∫ g·log(g·c/(r·q)) ≥ 0  (mutual information ≥ 0)
-  -- where c = E_i E_j g, r = E_i g, q = E_j g.
-  -- This equals c·∫ p·log(p/(p₁·p₂)) where p = g/c is a "density" and p₁, p₂ marginals.
-  -- By KL divergence ≥ 0 (Jensen for -log): ∫ p·log(p/(p₁·p₂)) ≥ 0.
-  sorry
+  rcases n with _ | n
+  · exact Fin.elim0 i
+  -- Abbreviations
+  set Ejg : (Fin (n + 1) → ℝ) → ℝ := fun y => ∫ t, g (Function.update y j t) ∂stdGaussian
+  -- Key properties of Ejg
+  have hEj_nn : ∀ x, 0 ≤ Ejg x := fun x => integral_nonneg (fun t => hg_nn _)
+  have hEj_int : Integrable Ejg (stdGaussianPi (n + 1)) :=
+    integrable_condExpect_stdGaussianPi_gen g hg j
+  have hEj_log_int : Integrable (fun x => Ejg x * Real.log (Ejg x))
+      (stdGaussianPi (n + 1)) := by
+    have hA := integrable_condExpect_stdGaussianPi_gen _ hg_log j
+    have hC := integrable_condEntropyAt_of_nonneg g hg_nn hg hg_log j
+    have : (fun x => Ejg x * Real.log (Ejg x)) =
+        fun x => (∫ t, g (Function.update x j t) *
+          Real.log (g (Function.update x j t)) ∂stdGaussian) -
+          condEntropyAt stdGaussian g j x := by
+      ext x; simp only [condEntropyAt, entropy, Ejg]; ring
+    rw [this]; exact hA.sub hC
+  -- Integrability of condEntropyAt g i and condEntropyAt Ejg i
+  have hcondEnt_g_int := integrable_condEntropyAt_of_nonneg g hg_nn hg hg_log i
+  have hcondEnt_Ej_int := integrable_condEntropyAt_of_nonneg Ejg hEj_nn hEj_int hEj_log_int i
+  -- Step 1: Rewrite RHS via Fubini at coordinate j
+  have hRHS_fub :
+      ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi (n + 1)) =
+      ∫ x, (∫ s, condEntropyAt stdGaussian g i (Function.update x j s) ∂stdGaussian)
+        ∂(stdGaussianPi (n + 1)) :=
+    (integral_condExpect_eq_integral_pi
+      (fun x => condEntropyAt stdGaussian g i x) hcondEnt_g_int j).symm
+  rw [hRHS_fub]
+  -- Step 2: integral_mono_ae using entropy_convex_mixture
+  have hcondEnt_avg_int :
+      Integrable (fun x => ∫ s, condEntropyAt stdGaussian g i (Function.update x j s) ∂stdGaussian)
+        (stdGaussianPi (n + 1)) :=
+    integrable_condExpect_stdGaussianPi_gen _ hcondEnt_g_int j
+  exact integral_mono_ae hcondEnt_Ej_int hcondEnt_avg_int
+    (entropy_convex_mixture g hg_nn hg hg_log i j hij)
 
 -- Sub-lemma 2: When g·log(g) is not integrable but g ≥ 0 and g ∈ L¹,
 -- the sum of integrated conditional entropies is still ≥ entropyPi.
