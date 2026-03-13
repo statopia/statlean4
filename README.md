@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化数理统计的核心定理，涵盖估计理论、充分性、极限定理、集中不等式、回归分析、Gaussian 分析等。
 
-**当前规模**：55 个 Lean 文件 · ~21,500 行 · ~800 个声明 · 48 个零 sorry 模块 · **6 个 sorry 待证**
+**当前规模**：55 个 Lean 文件 · ~22,000 行 · ~850 个声明 · 48 个零 sorry 模块 · **4 个 sorry 待证**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -93,7 +93,10 @@
 | ANOVA 方差分解 | `Variance/ANOVA.lean` |
 | Efron-Stein 不等式 | `Variance/EfronStein.lean` |
 | 熵非负性（Jensen）+ 条件熵非负 | `Entropy/Basic.lean` |
-| 熵子可加性（链式规则 + DPI 框架） | `Entropy/LogSobolev.lean` |
+| **数据处理不等式 (DPI)**（条件熵单调性） | `Entropy/LogSobolev.lean` |
+| 熵凸性（混合熵 ≤ 混合的熵） | `Entropy/LogSobolev.lean` |
+| Log-sum 不等式（连续版） | `Entropy/LogSobolev.lean` |
+| 熵子可加性（链式规则 + DPI） | `Entropy/LogSobolev.lean` |
 
 ### 假设检验
 
@@ -225,19 +228,19 @@ Statlean/
 
 ---
 
-## Sorry 缺口（6 个）
+## Sorry 缺口（4 个）
 
 | 模块 | Sorry | 简述 | Blocker |
 |------|-------|------|---------|
 | BerryEsseen | 1 | Lévy CDF 反演界 | Stieltjes inversion (~100 行 Fourier) |
-| LogSobolev | 4 | integrable f²·log f²、条件熵可积、DPI、non-integrable | LSI 已证（C²），需 L² 扩展 |
-| Herbst | 1 | Sub-Gaussian MGF | blocked by LSI L² 扩展 |
+| LogSobolev | 2 | integrable f²·log f²、LSI L² bridge | C² → L² 逼近（mollification） |
+| LogSobolev | 1 | non-integrable subadditivity | 可能 FALSE（Lean ∫=0 约定） |
 
 ```
 依赖 DAG:
   BerryEsseen (1 sorry)           ── 独立
-  OrnsteinUhlenbeck (0 sorry) ✅ ──→ LogSobolev (4 sorry)
-                                   └─→ Herbst (1 sorry)
+  OrnsteinUhlenbeck (0 sorry) ✅ ──→ LogSobolev (3 sorry, DPI ✅)
+                                   └─→ Herbst (0 sorry，blocked by LSI L² bridge)
 ```
 
 完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
