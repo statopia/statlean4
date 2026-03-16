@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化数理统计的核心定理，涵盖估计理论、充分性、极限定理、集中不等式、回归分析、Gaussian 分析等。
 
-**当前规模**：55 个 Lean 文件 · ~22,000 行 · ~850 个声明 · 48 个零 sorry 模块 · **4 个 sorry 待证**
+**当前规模**：55 个 Lean 文件 · ~22,400 行 · ~850 个声明 · 48 个零 sorry 模块 · **5 个 sorry 待证**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -228,19 +228,20 @@ Statlean/
 
 ---
 
-## Sorry 缺口（4 个）
+## Sorry 缺口（5 个）
 
 | 模块 | Sorry | 简述 | Blocker |
 |------|-------|------|---------|
 | BerryEsseen | 1 | Lévy CDF 反演界 | Stieltjes inversion (~100 行 Fourier) |
 | LogSobolev | 2 | integrable f²·log f²、LSI L² bridge | C² → L² 逼近（mollification） |
 | LogSobolev | 1 | non-integrable subadditivity | 可能 FALSE（Lean ∫=0 约定） |
+| Herbst | 1 | hasSubgaussianMGF of Lipschitz | 需要 LSI + Grönwall |
 
 ```
 依赖 DAG:
   BerryEsseen (1 sorry)           ── 独立
   OrnsteinUhlenbeck (0 sorry) ✅ ──→ LogSobolev (3 sorry, DPI ✅)
-                                   └─→ Herbst (0 sorry，blocked by LSI L² bridge)
+                                   └─→ Herbst (1 sorry，blocked by LSI L² bridge)
 ```
 
 完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
