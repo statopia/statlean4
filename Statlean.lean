@@ -84,3 +84,7 @@ import Statlean.LimitTheorems.LindebergFeller
 import Statlean.LimitTheorems.DeltaMethod
 import Statlean.LimitTheorems.CramerWold
 import Statlean.Pipeline.Lecture9Handout
+
+-- Causal inference (Lin, Kong, Wang 2022)
+import Statlean.Causal.Basic
+import Statlean.Causal.OptimalTransport
