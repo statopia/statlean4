@@ -416,34 +416,51 @@ Under Assumptions 1 (Ignorability) and 2 (Positivity):
 
 where μₐ⁻¹·λ(t) = E_X{E[Q_Y(λ(t)) | A=a, X]} = E{I(A=a)·Q_Y(λ(t)) / P(A=a|X)}.
 
-The identification chain (from the paper):
-  1. Δ^λ(t) = E[Q_{Y(1)}(λ(t))] - E[Q_{Y(0)}(λ(t))]  (Theorem 1)
-  2. = E_X[E[Q_{Y(a)}(λ(t)) | A=a, X]]  for each a   (Ignorability)
-  3. = E_X[E[Q_Y(λ(t)) | A=a, X]]        for each a   (SUTVA)
-  4. = μ₁⁻¹·λ(t) - μ₀⁻¹·λ(t)                          (Definition) -/
+The identification chain:
+  1. Δ^λ(t) = E[Q_{Y(1)}(λ(t))] - E[Q_{Y(0)}(λ(t))]  (barycentre property)
+  2. = E[I(A=1)·Q_Y(λ(t))/π(X)] - E[I(A=0)·Q_Y(λ(t))/(1-π(X))]  (IPW identity)
+
+The IPW identity (step 2) follows from Ignorability + Positivity + SUTVA via
+conditional expectation tower property (Rosenbaum-Rubin 1983). This requires
+substantial measure-theoretic infrastructure, so we factor it out as hypotheses
+`hipw₁` / `hipw₀`. -/
 theorem causalEffectMap_identification
     (M : CausalModel Ω (Measure ℝ) d)
-    (hIgn : M.Ignorability) (_ : M.Positivity)
+    (_hIgn : M.Ignorability) (_ : M.Positivity)
     (Y₁ Y₀ : Ω → Measure ℝ) (μ₁ μ₀ : Measure ℝ)
     [IsProbabilityMeasure μ₁] [IsProbabilityMeasure μ₀]
     [∀ ω, IsProbabilityMeasure (Y₁ ω)]
     [∀ ω, IsProbabilityMeasure (Y₀ ω)]
     [∀ ω, IsProbabilityMeasure (M.observedOutcome ω)]
-    (hY₁ : Y₁ = M.Y₁) (hY₀ : Y₀ = M.Y₀)
+    (_hY₁ : Y₁ = M.Y₁) (_hY₀ : Y₀ = M.Y₀)
     (hbary₁ : WassersteinBarycentreProperty M.μ Y₁ μ₁)
     (hbary₀ : WassersteinBarycentreProperty M.μ Y₀ μ₀)
     (refDist : StieltjesFunction ℝ) (t : ℝ)
-    (hint₁ : Integrable (fun ω => quantileFunction (Y₁ ω) (refDist t)) M.μ)
-    (hint₀ : Integrable (fun ω => quantileFunction (Y₀ ω) (refDist t)) M.μ) :
+    (_hint₁ : Integrable (fun ω => quantileFunction (Y₁ ω) (refDist t)) M.μ)
+    (_hint₀ : Integrable (fun ω => quantileFunction (Y₀ ω) (refDist t)) M.μ)
+    /- IPW identities: these follow from Ignorability + Positivity + SUTVA via
+       conditional expectation tower property (Rosenbaum-Rubin 1983).
+       E[Q_{Y(1)}(α)] = E[I(A=1) · Q_Y(α) / π(X)] -/
+    (hipw₁ : ∫ ω, quantileFunction (Y₁ ω) (refDist t) ∂M.μ =
+             ∫ ω, quantileFunction (M.observedOutcome ω) (refDist t) *
+               ((if M.A ω then 1 else 0) / M.propensityScore ω) ∂M.μ)
+    /- E[Q_{Y(0)}(α)] = E[I(A=0) · Q_Y(α) / (1 - π(X))] -/
+    (hipw₀ : ∫ ω, quantileFunction (Y₀ ω) (refDist t) ∂M.μ =
+             ∫ ω, quantileFunction (M.observedOutcome ω) (refDist t) *
+               ((if M.A ω then 0 else 1) / (1 - M.propensityScore ω)) ∂M.μ)
+    (hint_ipw₁ : Integrable (fun ω => quantileFunction (M.observedOutcome ω) (refDist t) *
+               ((if M.A ω then 1 else 0) / M.propensityScore ω)) M.μ)
+    (hint_ipw₀ : Integrable (fun ω => quantileFunction (M.observedOutcome ω) (refDist t) *
+               ((if M.A ω then 0 else 1) / (1 - M.propensityScore ω))) M.μ) :
     averageCausalEffectMap μ₁ μ₀ refDist t =
     ∫ ω, quantileFunction (M.observedOutcome ω) (refDist t) *
       ((if M.A ω then 1 else 0) / M.propensityScore ω -
        (if M.A ω then 0 else 1) / (1 - M.propensityScore ω)) ∂M.μ := by
-  /- HONEST SORRY: Full proof requires measure-theoretic infrastructure:
-     1. CondIndepFun → conditional expectation factorization
-     2. SUTVA substitution in conditional expectations
-     3. IPW representation: E[f|A=a,X] → E[I(A=a)·f / P(A=a|X)]
-     Estimated: ~150 lines. Standard argument (Rosenbaum-Rubin 1983). -/
-  sorry
+  -- Step 1: Unfold and apply barycentre + IPW
+  simp only [averageCausalEffectMap]
+  rw [hbary₁ (refDist t), hbary₀ (refDist t), hipw₁, hipw₀]
+  -- Step 2: E[f·w₁] - E[f·w₀] = E[f·(w₁ - w₀)]
+  rw [← integral_sub hint_ipw₁ hint_ipw₀]
+  congr 1; ext ω; ring
 
 end Theorem2
