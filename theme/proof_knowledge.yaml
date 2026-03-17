@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 110
+entry_count: 115
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -401,6 +401,14 @@ L2_api_chains:
     source: DPI cross-term integrability
     confidence: 5
 
+  - trigger: "variance via pushforward to gaussianReal"
+    chain: "variance_map + variance_id_gaussianReal"
+    confidence: 4
+
+  - trigger: "covariance = inner product via polarization"
+    chain: "norm_add_sq_real + variance_eq + integral_congr_ae (ae linearity)"
+    confidence: 4
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -552,4 +560,16 @@ L1_tactic_tips:
 
   - trigger: "ae quantifier swap"
     tip: "Do NOT try to prove MeasurableSet directly when functions are only AEStronglyMeasurable. Use .mk proxy approach instead."
+    frequency: 1
+
+  - trigger: "integral_map argument order"
+    tip: "integral_map takes AEMeasurable f μ first, then AEStronglyMeasurable g (μ.map f)"
+    frequency: 1
+
+  - trigger: "memLp_map_measure_iff needs AEStronglyMeasurable for composed function"
+    tip: "memLp_map_measure_iff requires AEStronglyMeasurable g (μ.map f), not f, and returns ↔ for MemLp (g∘f)"
+    frequency: 1
+
+  - trigger: "variance_map pattern matching"
+    tip: "DO NOT try rw [← variance_map] — Lean won't match f against id∘f. Use have := (variance_map ...).symm instead."
     frequency: 1
