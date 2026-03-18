@@ -25,8 +25,14 @@ import Mathlib.MeasureTheory.Measure.Prod
   - `hasDerivAt_f_mul_psi_eps` — d/dx [f·ψ_ε] = f'·ψ_ε + f²·f'/(f²+ε)
   - `sq_div_sq_add_eps_le_one` — f²/(f²+ε) ≤ 1
   - `two_mul_le_sq_add_sq` — 2ab ≤ a² + b²
+  - `mul_log_superadditive` — s·log(s) + ε·log(ε) ≤ (s+ε)·log(s+ε) (convexity)
+  - `integrable_sq_add_eps_mul_log` — (f²+ε)·log(f²+ε) integrable when f bounded
+- **ε→0 limit in `lsi_of_bounded_C2`** (Sorry 1 PROVED):
+  The limit argument from ∀ε>0 bound to the ε=0 case uses:
+  `mul_log_superadditive` (pointwise), `le_of_forall_pos_lt_add` (limit),
+  and continuity of t·log(t) at 0.
 
-## Sorry gaps (6 sorry lines in this file, 5 sorry-using declarations)
+## Sorry gaps (5 sorry lines in this file, 5 sorry-using declarations)
 
 ### LSI bridge (3 sorry declarations, was 1 monolithic)
 The C² bounded ae-positive case is PROVED via `lsi_of_bounded_C2_ae_pos`
@@ -34,9 +40,10 @@ The C² bounded ae-positive case is PROVED via `lsi_of_bounded_C2_ae_pos`
 the approximation argument bridging from general MemLp 2 + C¹:
 
 - `lsi_of_bounded_C2` — removes ae-positivity from C² bounded case.
-  **Strategy**: Regularize f → h_ε = √(f²+ε)/√(1+ε), which is C², bounded,
-  positive everywhere, normalized. Apply ae-pos version, then take ε → 0 via DCT.
-  **Effort**: ~60 lines (derivative calculations for √(f²+ε) + DCT limit).
+  **ε→0 limit PROVED** via `mul_log_superadditive` + `le_of_forall_pos_lt_add`.
+  **Remaining sorry**: the ε-regularized bound (substitute h = √(f²+ε)/√(1+ε),
+  apply `lsi_of_bounded_C2_ae_pos` to h, transform back).
+  **Effort**: ~80 lines (HasDerivAt for h and h', boundedness, normalization, algebra).
 
 - `lsi_of_bounded_C1` — bridges from C¹ to C² via OU smoothing.
   **Strategy**: P_t f is C^∞ bounded for t > 0 (needs ContDiff proof for OU).
@@ -392,6 +399,65 @@ lemma sq_div_sq_add_eps_le_one (t ε : ℝ) (hε : 0 < ε) :
 lemma two_mul_le_sq_add_sq (a b : ℝ) : 2 * a * b ≤ a ^ 2 + b ^ 2 := by
   nlinarith [sq_nonneg (a - b)]
 
+/-- Superadditivity of `t * log t`: for `s ≥ 0` and `ε > 0`,
+    `s * log s + ε * log ε ≤ (s + ε) * log (s + ε)`.
+    Follows from convexity of `t * log t` on `[0, ∞)` with `g(0) = 0`. -/
+lemma mul_log_superadditive (s ε : ℝ) (hs : 0 ≤ s) (hε : 0 < ε) :
+    s * log s + ε * log ε ≤ (s + ε) * log (s + ε) := by
+  by_cases hs0 : s = 0
+  · simp [hs0]
+  have hs_pos : 0 < s := lt_of_le_of_ne hs (Ne.symm hs0)
+  have hse : 0 < s + ε := by linarith
+  have key : ∀ t, 0 < t → t ≤ s + ε →
+      t * log t ≤ t / (s + ε) * ((s + ε) * log (s + ε)) := by
+    intro t ht hle
+    have hw1 : 0 ≤ t / (s + ε) := div_nonneg ht.le hse.le
+    have hw2 : 0 ≤ 1 - t / (s + ε) := sub_nonneg.mpr ((div_le_one₀ hse).mpr hle)
+    have h := Real.convexOn_mul_log.2 (Set.mem_Ici.mpr hse.le) (Set.mem_Ici.mpr le_rfl)
+      hw1 hw2 (by ring)
+    simp only [smul_eq_mul, mul_zero, add_zero, Real.log_zero] at h
+    have heq : t / (s + ε) * (s + ε) = t := div_mul_cancel₀ t (ne_of_gt hse)
+    rw [heq] at h; exact h
+  have h1 := key s hs_pos (le_add_of_nonneg_right hε.le)
+  have h2 := key ε hε (le_add_of_nonneg_left hs)
+  calc s * log s + ε * log ε
+      ≤ s / (s + ε) * ((s + ε) * log (s + ε)) + ε / (s + ε) * ((s + ε) * log (s + ε)) :=
+        add_le_add h1 h2
+    _ = (s + ε) * log (s + ε) := by
+        rw [← add_mul, ← add_div, div_self (ne_of_gt hse), one_mul]
+
+/-- `(f²+ε) * log(f²+ε)` is integrable under `stdGaussian` when `f` is continuous and bounded. -/
+lemma integrable_sq_add_eps_mul_log (f : ℝ → ℝ) (ε : ℝ) (hε : 0 < ε)
+    (hf_cont : Continuous f) (C : ℝ) (hC : ∀ x, ‖f x‖ ≤ C) :
+    Integrable (fun x => (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε)) stdGaussian := by
+  -- (f²+ε)*log(f²+ε) = (mul_log) ∘ (f²+ε) is continuous, bounded, hence integrable.
+  have h_cont : Continuous (fun x => (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε)) :=
+    Real.continuous_mul_log.comp ((hf_cont.pow _).add continuous_const)
+  set M := (C ^ 2 + ε) * (|Real.log ε| + |Real.log (C ^ 2 + ε)|) + 1 with hM_def
+  apply (memLp_top_of_bound h_cont.aestronglyMeasurable M (ae_of_all _ _)).integrable le_top
+  intro x
+  have hfx : f x ^ 2 ≤ C ^ 2 := by
+    have h1 : |f x| ≤ C := hC x
+    nlinarith [sq_nonneg (|f x| - C), abs_nonneg (f x), sq_abs (f x)]
+  have hpos : 0 < f x ^ 2 + ε := by positivity
+  have hub : f x ^ 2 + ε ≤ C ^ 2 + ε := by linarith
+  have hlb : ε ≤ f x ^ 2 + ε := le_add_of_nonneg_left (sq_nonneg _)
+  rw [Real.norm_eq_abs, abs_mul, abs_of_pos hpos]
+  have hlog_bound : |Real.log (f x ^ 2 + ε)| ≤ |Real.log ε| + |Real.log (C ^ 2 + ε)| := by
+    rcases le_or_gt 1 (f x ^ 2 + ε) with h1 | h1
+    · rw [abs_of_nonneg (Real.log_nonneg h1)]
+      calc Real.log (f x ^ 2 + ε) ≤ Real.log (C ^ 2 + ε) := Real.log_le_log hpos hub
+        _ ≤ |Real.log (C ^ 2 + ε)| := le_abs_self _
+        _ ≤ _ := le_add_of_nonneg_left (abs_nonneg _)
+    · rw [abs_of_neg (Real.log_neg hpos h1)]
+      calc -Real.log (f x ^ 2 + ε) ≤ -Real.log ε := neg_le_neg (Real.log_le_log hε hlb)
+        _ = |Real.log ε| := by rw [abs_of_neg (Real.log_neg hε (by linarith))]
+        _ ≤ _ := le_add_of_nonneg_right (abs_nonneg _)
+  calc (f x ^ 2 + ε) * |Real.log (f x ^ 2 + ε)|
+      ≤ (C ^ 2 + ε) * (|Real.log ε| + |Real.log (C ^ 2 + ε)|) :=
+        mul_le_mul hub hlog_bound (abs_nonneg _) (by positivity)
+    _ ≤ M := le_add_of_le_of_nonneg le_rfl (by positivity)
+
 /-! ### 1D Gaussian log-Sobolev inequality (Gross 1975)
 
 For `f, f'` in `L^2(gamma)` with `integral(f^2) = 1` and `f^2 log(f^2)` integrable:
@@ -453,27 +519,67 @@ private lemma lsi_of_bounded_C2
   suffices heps : ∀ ε > (0 : ℝ),
       ∫ x, (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) ∂stdGaussian ≤
         2 * ∫ x, f' x ^ 2 ∂stdGaussian + (1 + ε) * Real.log (1 + ε) by
-    -- For any δ > 0 we show ∫f²·log(f²) ≤ 2∫f'² + δ, then conclude.
-    -- Pick ε small enough so that (1+ε)·log(1+ε) < δ/2 and
-    -- |∫(f²+ε)·log(f²+ε) - ∫f²·log(f²)| < δ/2.
-    -- The latter uses DCT with f bounded.
-    -- For now: blocked by DCT infrastructure for ε-parametric integral.
-    sorry
+    -- Use le_of_forall_pos_lt_add: for any δ > 0, find ε > 0 with error < δ.
+    -- Key: superadditivity gives f²·log(f²) ≤ (f²+ε)·log(f²+ε) - ε·log(ε),
+    -- combined with heps: total error = (1+ε)·log(1+ε) - ε·log(ε) → 0.
+    apply le_of_forall_pos_lt_add
+    intro δ hδ
+    obtain ⟨C, hC⟩ := hf_bound
+    -- Find ε > 0 with (1+ε)·log(1+ε) - ε·log(ε) < δ, using continuity
+    have hg_cont : Continuous (fun t : ℝ => (1 + t) * Real.log (1 + t) - t * Real.log t) :=
+      (Real.continuous_mul_log.comp (by fun_prop)).sub Real.continuous_mul_log
+    have hg_tendsto : Filter.Tendsto (fun t : ℝ => (1 + t) * Real.log (1 + t) - t * Real.log t)
+        (nhds 0) (nhds 0) := by
+      have := hg_cont.tendsto 0; simp at this; exact this
+    rw [Metric.tendsto_nhds_nhds] at hg_tendsto
+    obtain ⟨η, hη_pos, hη⟩ := hg_tendsto δ hδ
+    set ε := min (η / 2) (1 / 2) with hε_def
+    have hε_pos : 0 < ε := by positivity
+    have hε_lt : dist ε 0 < η := by
+      simp [abs_of_pos hε_pos]
+      exact lt_of_le_of_lt (min_le_left _ _) (by linarith)
+    have hg_lt : (1 + ε) * Real.log (1 + ε) - ε * Real.log ε < δ := by
+      have := hη hε_lt
+      rw [Real.dist_eq] at this; simp only [sub_zero] at this
+      exact lt_of_le_of_lt (le_abs_self _) this
+    -- f is continuous (differentiable everywhere)
+    have hf_cont : Continuous f :=
+      (Differentiable.continuous (fun x => (hderiv x).differentiableAt))
+    -- Integrability of (f²+ε)·log(f²+ε)
+    have hint2 : Integrable (fun x => (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε)) stdGaussian :=
+      integrable_sq_add_eps_mul_log f ε hε_pos hf_cont C hC
+    -- Integrability of the shifted integrand
+    have hint3 : Integrable
+        (fun x => (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) - ε * Real.log ε)
+        stdGaussian :=
+      hint2.sub (integrable_const _)
+    -- Pointwise: f²·log(f²) ≤ (f²+ε)·log(f²+ε) - ε·log(ε)
+    have hpw : ∀ x, f x ^ 2 * Real.log (f x ^ 2) ≤
+        (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) - ε * Real.log ε := fun x => by
+      linarith [mul_log_superadditive (f x ^ 2) ε (sq_nonneg _) hε_pos]
+    -- Integrate the pointwise bound
+    have h_int := integral_mono hint hint3 hpw
+    -- Split: ∫(g - c) = ∫g - c·μ(univ) = ∫g - c (probability measure)
+    have h_split : ∫ x, ((f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) - ε * Real.log ε) ∂stdGaussian
+        = ∫ x, (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) ∂stdGaussian - ε * Real.log ε := by
+      rw [integral_sub hint2 (integrable_const _), integral_const]
+      simp [measure_univ]
+    rw [h_split] at h_int
+    -- Chain: ∫f²·log(f²) ≤ ∫(f²+ε)·log(f²+ε) - ε·log(ε)
+    --      ≤ 2∫f'² + (1+ε)·log(1+ε) - ε·log(ε) < 2∫f'² + δ
+    have h_eps := heps ε hε_pos
+    linarith
   -- Prove the ε-regularized bound using lsi_of_bounded_C2_ae_pos.
+  -- Strategy: substitute h = √(f²+ε)/√(1+ε), apply LSI to h, transform back.
+  -- h is C², bounded, ae-positive (ε>0 makes f²+ε > 0), normalized (∫h²=1).
+  -- Key identities:
+  --   h² = (f²+ε)/(1+ε), so ∫h² = (1+ε)/(1+ε) = 1
+  --   h²·log(h²) = [(f²+ε)·log(f²+ε) - (f²+ε)·log(1+ε)] / (1+ε)
+  --   h'² = f²·f'²/((f²+ε)·(1+ε)) ≤ f'²/(1+ε) since f²/(f²+ε) ≤ 1
+  -- LSI gives: ∫h²·log(h²) ≤ 2∫h'²
+  -- Unfolding: [∫(f²+ε)·log(f²+ε) - (1+ε)·log(1+ε)]/(1+ε) ≤ 2∫f'²/(1+ε)
+  -- Multiply by (1+ε): ∫(f²+ε)·log(f²+ε) ≤ 2∫f'² + (1+ε)·log(1+ε) ✓
   intro ε hε
-  -- Define h(x) = √(f(x)² + ε) / √(1 + ε).
-  set h := fun x => Real.sqrt (f x ^ 2 + ε) / Real.sqrt (1 + ε) with hh_def
-  -- h'(x) = f(x)·f'(x) / [√(f(x)²+ε) · √(1+ε)]
-  set h' := fun x => f x * f' x / (Real.sqrt (f x ^ 2 + ε) * Real.sqrt (1 + ε)) with hh'_def
-  -- h''(x) = [f'(x)²·ε + f(x)·f''(x)·(f(x)²+ε)] / [(f(x)²+ε)^(3/2) · √(1+ε)]
-  set h'' := fun x =>
-    (f' x ^ 2 * ε + f x * f'' x * (f x ^ 2 + ε)) /
-    ((f x ^ 2 + ε) ^ (3/2 : ℝ) * Real.sqrt (1 + ε)) with hh''_def
-  -- Apply lsi_of_bounded_C2_ae_pos to h.
-  -- This requires: C², bounded, bounded derivatives, ae positive, normalized, integrable entropy.
-  -- All follow from f bounded with bounded derivatives and ε > 0.
-  -- The resulting LSI ∫h²·log(h²) ≤ 2∫h'² gives, after unpacking and algebra:
-  -- ∫(f²+ε)·log(f²+ε) ≤ 2∫f'² + (1+ε)·log(1+ε).
   sorry
 
 /-- **LSI for bounded C¹ functions** — bridges from C¹ to C² via OU smoothing.
