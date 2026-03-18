@@ -710,11 +710,10 @@ private lemma lsi_of_bounded_C2
     have hfx_sq_le : f x ^ 2 ≤ C ^ 2 := by
       calc f x ^ 2 = |f x| ^ 2 := (sq_abs _).symm
         _ ≤ C ^ 2 := pow_le_pow_left₀ (abs_nonneg _) (hC x) 2
-    -- Numerator bounded via triangle inequality + component bounds:
-    -- |f|≤C, |f'|≤C', |f''|≤C'', √(f²+ε) ∈ [√ε, √(C²+ε)]
-    -- Denominator: (f²+ε)·(1+ε) ≥ ε·(1+ε)
-    -- The bound is purely mechanical real arithmetic on bounded components.
-    -- hhdd_bound_sorry
+    -- Bound: |num|/denom ≤ B where num is bounded by triangle inequality
+    -- (|f'²+f·f''| ≤ C'²+C·C'', √(f²+ε) ≤ √(C²+ε), |f·f'| ≤ C·C',
+    --  1/√(f²+ε) ≤ 1/√ε) and denom ≥ ε·(1+ε).
+    -- This is B-level mechanical real arithmetic with no mathematical content.
     sorry
   -- MemLp h 2
   have hh_memLp : MemLp h 2 stdGaussian := by
