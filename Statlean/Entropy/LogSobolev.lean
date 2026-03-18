@@ -727,8 +727,68 @@ private lemma lsi_of_bounded_C2
     -- |A| = |f'²+f·f''| · √(f²+ε) · √(1+ε) ≤ (C'²+C·C'') · √(C²+ε) · √(1+ε)
     -- |B| = |f·f'|² / √(f²+ε) · √(1+ε) ≤ (C·C')² / √ε · √(1+ε)
     -- denom = (f²+ε)·(1+ε) ≥ ε·(1+ε)
-    -- B-level mechanical bound deferred to keep proof clean:
-    sorry
+    -- Numerator bound via triangle: |a - b| ≤ |a| + |b|
+    set num := (f' x ^ 2 + f x * f'' x) * (√(f x ^ 2 + ε) * √(1 + ε)) -
+        f x * f' x * (f x * f' x / √(f x ^ 2 + ε) * √(1 + ε))
+    have hff' : |f x * f' x| ≤ C * C' := by
+      rw [abs_mul]; exact mul_le_mul (hC x) (hC' x) (abs_nonneg _) hC_nn
+    have ht1c : |f' x ^ 2 + f x * f'' x| ≤ C' ^ 2 + C * C'' := by
+      have hp : f' x ^ 2 ≤ C' ^ 2 := by
+        calc _ = |f' x| ^ 2 := (sq_abs _).symm
+          _ ≤ C' ^ 2 := pow_le_pow_left₀ (abs_nonneg _) (hC' x) 2
+      have hm : |f x * f'' x| ≤ C * C'' := by
+        rw [abs_mul]; exact mul_le_mul (hC x) (hC'' x) (abs_nonneg _) hC_nn
+      calc |f' x ^ 2 + f x * f'' x| ≤ |f' x ^ 2| + |f x * f'' x| :=
+            abs_add_le _ _
+        _ = f' x ^ 2 + |f x * f'' x| := by rw [abs_of_nonneg (sq_nonneg _)]
+        _ ≤ C' ^ 2 + C * C'' := by linarith
+    have hsq_le : √(f x ^ 2 + ε) ≤ √(C ^ 2 + ε) := Real.sqrt_le_sqrt (by linarith)
+    have hsqε_le : √ε ≤ √(f x ^ 2 + ε) := Real.sqrt_le_sqrt (by linarith [sq_nonneg (f x)])
+    have hC''_nn : 0 ≤ C'' := le_trans (norm_nonneg _) (hC'' 0)
+    -- |term1| bound
+    have hA : |(f' x ^ 2 + f x * f'' x) * (√(f x ^ 2 + ε) * √(1 + ε))| ≤
+        (C' ^ 2 + C * C'') * √(C ^ 2 + ε) * √(1 + ε) := by
+      rw [abs_mul, abs_of_nonneg (mul_nonneg (Real.sqrt_nonneg _) (Real.sqrt_nonneg _))]
+      have h1 : |f' x ^ 2 + f x * f'' x| * (√(f x ^ 2 + ε) * √(1 + ε)) ≤
+          (C' ^ 2 + C * C'') * (√(f x ^ 2 + ε) * √(1 + ε)) :=
+        mul_le_mul_of_nonneg_right ht1c (mul_nonneg (Real.sqrt_nonneg _) (Real.sqrt_nonneg _))
+      have h2 : (C' ^ 2 + C * C'') * (√(f x ^ 2 + ε) * √(1 + ε)) ≤
+          (C' ^ 2 + C * C'') * (√(C ^ 2 + ε) * √(1 + ε)) :=
+        mul_le_mul_of_nonneg_left
+          (mul_le_mul_of_nonneg_right hsq_le (Real.sqrt_nonneg _))
+          (by nlinarith [sq_nonneg C'])
+      linarith
+    -- |f·f'/√(f²+ε)| ≤ C·C'/√ε
+    have hdiv_le : |f x * f' x / √(f x ^ 2 + ε)| ≤ C * C' / √ε := by
+      rw [abs_div, abs_of_nonneg (Real.sqrt_nonneg _)]
+      -- |ff'| / √(f²+ε) ≤ |ff'| / √ε ≤ CC' / √ε
+      calc |f x * f' x| / √(f x ^ 2 + ε)
+          ≤ |f x * f' x| / √ε := by
+            apply div_le_div_of_nonneg_left (abs_nonneg _)
+              (Real.sqrt_pos_of_pos hε) hsqε_le
+        _ ≤ C * C' / √ε :=
+            div_le_div_of_nonneg_right hff' (Real.sqrt_nonneg _)
+    -- |term2| bound
+    have hB : |f x * f' x * (f x * f' x / √(f x ^ 2 + ε) * √(1 + ε))| ≤
+        C * C' * (C * C' / √ε) * √(1 + ε) := by
+      rw [show f x * f' x * (f x * f' x / √(f x ^ 2 + ε) * √(1 + ε)) =
+          (f x * f' x) * (f x * f' x / √(f x ^ 2 + ε)) * √(1 + ε) from by ring,
+          abs_mul, abs_mul, abs_of_nonneg (Real.sqrt_nonneg _)]
+      exact mul_le_mul (mul_le_mul hff' hdiv_le (abs_nonneg _) (by positivity))
+        (le_refl _) (Real.sqrt_nonneg _) (by positivity)
+    -- |num| = |a - b| ≤ |a| + |b|
+    have hnum : |num| ≤ (C' ^ 2 + C * C'') * √(C ^ 2 + ε) * √(1 + ε) +
+        C * C' * (C * C' / √ε) * √(1 + ε) := by
+      calc |num| ≤ |(f' x ^ 2 + f x * f'' x) * (√(f x ^ 2 + ε) * √(1 + ε))| +
+          |f x * f' x * (f x * f' x / √(f x ^ 2 + ε) * √(1 + ε))| :=
+            abs_sub _ _
+        _ ≤ _ := add_le_add hA hB
+    -- Denominator: (f²+ε)·(1+ε) ≥ ε·(1+ε)
+    have hdenom : ε * (1 + ε) ≤ (f x ^ 2 + ε) * (1 + ε) :=
+      mul_le_mul_of_nonneg_right (by linarith [sq_nonneg (f x)]) (by linarith)
+    -- Combine: |num|/denom ≤ |num|/(ε·(1+ε)) ≤ numbound/(ε·(1+ε)) = B
+    exact (div_le_div_of_nonneg_left (by linarith [abs_nonneg num])
+      (by positivity) hdenom).trans (div_le_div_of_nonneg_right hnum (by positivity))
   -- MemLp h 2
   have hh_memLp : MemLp h 2 stdGaussian := by
     obtain ⟨Cb, hCb⟩ := hh_bound
