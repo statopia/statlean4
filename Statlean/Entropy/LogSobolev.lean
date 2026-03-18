@@ -1178,13 +1178,25 @@ private lemma lsi_of_bounded_C1
   have hCf_nn : 0 ≤ Cf := le_trans (norm_nonneg _) (hCf 0)
   have hCf'_nn : 0 ≤ Cf' := le_trans (norm_nonneg _) (hCf' 0)
   have hf_cont : Continuous f := Differentiable.continuous (fun x => (hderiv x).differentiableAt)
-  -- The proof uses ouSemigroup smoothing (C¹ → C²) + normalization + DCT limit.
-  -- Infrastructure proved above:
-  --   ouSemigroup_hasSecondDeriv: P_t f is C² for t > 0
-  --   ouSemigroup_sq_integral_le: ∫(P_t f)² ≤ ∫f² (L² contraction)
-  --   ouSemigroup_bound_norm: |P_t f| ≤ ‖f‖_∞
-  -- The remaining argument (normalization + apply lsi_of_bounded_C2 + DCT) is ~100 lines
-  -- of standard but technical Lean. See comments above for the complete strategy.
+  -- Use le_of_tendsto: show F n → ∫f²·log(f²) where F n ≤ 2∫f'² for all n.
+  -- F n = ∫(P_{t_n} f)²·log((P_{t_n} f)²) where t_n = 1/(n+1).
+  -- Step 1: F n ≤ 2∫f'² (from normalized C² LSI + L² contraction + a_n² ≤ 1)
+  -- Step 2: F n → ∫f²·log(f²) (DCT with constant dominator)
+  -- Combine via le_of_tendsto.
+  --
+  -- Step 1 requires: for t > 0, normalize P_t f to h_t = P_t f / √(∫(P_t f)²),
+  -- apply lsi_of_bounded_C2 to h_t, and show the entropy of P_t f satisfies
+  -- ∫(P_t f)²·log((P_t f)²) ≤ 2∫(P_t f)')² + a_t²·log(a_t²) ≤ 2∫f'²
+  -- using a_t² ≤ 1 (log ≤ 0) and L² contraction of the derivative.
+  --
+  -- Step 2 uses:
+  -- - P_t f → f pointwise as t → 0 (ouSemigroup_zero)
+  -- - |P_t f| ≤ Cf (ouSemigroup_bound_norm)
+  -- - |x²·log(x²)| ≤ D for |x| ≤ Cf (bounded continuous on compact)
+  -- - tendsto_integral_of_dominated_convergence with constant bound D
+  --
+  -- Both steps are technically sound but involve ~50 lines each of measurability
+  -- and integrability bookkeeping. The mathematical content is standard.
   sorry
 
 /-- **Approximation lemma**: From MemLp 2 + C¹ to bounded via smooth truncation.
