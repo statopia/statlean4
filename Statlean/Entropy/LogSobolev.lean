@@ -1338,18 +1338,166 @@ private lemma lsi_of_bounded_C1
       have ha2_le : a ^ 2 ≤ 1 :=
         ha_sq ▸ (ouSemigroup_sq_integral_le t (le_of_lt ht) f hf_cont hf
           ⟨Cf, hCf⟩).trans (le_of_eq hnorm)
-      -- Normalize h = g/a, h' = g'/a, apply lsi_of_bounded_C2, unwind.
-      -- h is bounded C² with ∫h²=1, so lsi_of_bounded_C2 gives ∫h²·log(h²) ≤ 2∫h'².
-      -- Pointwise: (g x/a)²·log((g x/a)²) = (1/a²)(g x²·log(g x²) - g x²·log(a²))
-      -- Integrating: ∫h²·log(h²) = (1/a²)(∫g²·log(g²) - a²·log(a²))
-      -- So: ∫g²·log(g²) = a²·∫h²·log(h²) + a²·log(a²)
-      --                   ≤ 2a²·∫h'² + a²·log(a²)    [by lsi_of_bounded_C2]
-      --                   = 2∫g'² + a²·log(a²)        [since a²·∫h'² = ∫g'²]
-      --                   ≤ 2∫g'²                      [since a²·log(a²) ≤ 0]
-      --                   ≤ 2∫f'²                      [by hderiv_sq_le]
-      -- All ingredients are available (hg_deriv, hg''_deriv, hg_bound, etc.)
-      -- The remaining work is API bookkeeping (MemLp.mul_const, norm_div, etc.)
-      sorry
+      -- Define normalized function h = g/a, derivatives h' = g'/a, h'' = g''/a
+      set h := fun x => g x / a with hh_def
+      set h' := fun x => (exp (-t) * ouSemigroup t f' x) / a with hh'_def
+      set h'' := fun x => g'' x / a with hh''_def
+      -- h has derivative h'
+      have hh_deriv : ∀ x, HasDerivAt h (h' x) x := fun x =>
+        (hg_deriv x).div_const a
+      -- h' has derivative h''
+      have hh'_deriv : ∀ x, HasDerivAt h' (h'' x) x := fun x =>
+        (hg''_deriv x).div_const a
+      -- h is bounded
+      have hh_bound : ∃ C, ∀ x, ‖h x‖ ≤ C :=
+        ⟨Cf / a, fun x => by
+          simp only [hh_def, norm_div, Real.norm_eq_abs, abs_of_pos ha_pos]
+          exact div_le_div_of_nonneg_right (hg_bound x) ha_pos.le⟩
+      -- g' bound: ‖exp(-t) * P_t f' x‖ ≤ Cf'
+      have hg'_bound : ∀ x, ‖exp (-t) * ouSemigroup t f' x‖ ≤ Cf' := fun x => by
+        rw [norm_mul, Real.norm_eq_abs, abs_of_pos (exp_pos _)]
+        calc exp (-t) * ‖ouSemigroup t f' x‖
+            ≤ 1 * Cf' := by
+              apply mul_le_mul
+              · exact Real.exp_le_one_iff.mpr (by linarith)
+              · exact ouSemigroup_bound_norm f' t Cf' hCf'_nn hCf' x
+              · exact norm_nonneg _
+              · norm_num
+          _ = Cf' := one_mul _
+      -- h' is bounded
+      have hh'_bound : ∃ C, ∀ x, ‖h' x‖ ≤ C :=
+        ⟨Cf' / a, fun x => by
+          simp only [hh'_def, norm_div, Real.norm_eq_abs, abs_of_pos ha_pos]
+          exact div_le_div_of_nonneg_right (hg'_bound x) ha_pos.le⟩
+      -- h'' is bounded
+      have hh''_bound : ∃ C, ∀ x, ‖h'' x‖ ≤ C := by
+        obtain ⟨B, hB⟩ := hg''_bound
+        exact ⟨B / a, fun x => by
+          simp only [hh''_def, norm_div, Real.norm_eq_abs, abs_of_pos ha_pos]
+          exact div_le_div_of_nonneg_right (hB x) ha_pos.le⟩
+      -- g is continuous (differentiable everywhere)
+      have hg_cont : Continuous g := by
+        exact Differentiable.continuous (fun z => (hg_deriv z).differentiableAt)
+      -- MemLp h 2: h = g/a, g is continuous and bounded
+      have hh_memLp : MemLp h 2 stdGaussian := by
+        obtain ⟨Ch, hCh⟩ := hh_bound
+        exact (memLp_top_of_bound (hg_cont.div_const a).aestronglyMeasurable Ch
+          (ae_of_all _ hCh)).mono_exponent (by norm_num)
+      -- MemLp h' 2: h' = deriv h, bounded + measurable
+      have hh'_memLp : MemLp h' 2 stdGaussian := by
+        obtain ⟨Ch', hCh'⟩ := hh'_bound
+        have hh'_eq : h' = deriv h :=
+          funext fun x => (hh_deriv x).deriv.symm
+        have hh'_asm : AEStronglyMeasurable h' stdGaussian :=
+          hh'_eq ▸ (measurable_deriv h).aestronglyMeasurable
+        exact (memLp_top_of_bound hh'_asm Ch' (ae_of_all _ hCh')).mono_exponent (by norm_num)
+      -- ∫h² = 1
+      have hh_norm : ∫ x, h x ^ 2 ∂stdGaussian = 1 := by
+        simp only [hh_def, div_pow]
+        rw [integral_div, ha_sq, div_self (ne_of_gt hint_pos)]
+      -- h²·log(h²) integrable (h is bounded continuous)
+      have hh_cont : Continuous h := hg_cont.div_const a
+      have hh_int : Integrable (fun x => h x ^ 2 * Real.log (h x ^ 2)) stdGaussian := by
+        obtain ⟨Ch, hCh⟩ := hh_bound
+        have hh_sq_cont : Continuous (fun x => h x ^ 2 * Real.log (h x ^ 2)) :=
+          Real.continuous_mul_log.comp (hh_cont.pow 2)
+        refine (memLp_top_of_bound hh_sq_cont.aestronglyMeasurable (Ch ^ 4 + 1)
+          (ae_of_all _ fun x => ?_)).integrable le_top
+        have hnn : 0 ≤ h x ^ 2 := sq_nonneg _
+        have hle : h x ^ 2 ≤ Ch ^ 2 := by
+          have hab : |h x| ≤ Ch := by rw [← Real.norm_eq_abs]; exact hCh x
+          exact sq_le_sq' (by linarith [neg_abs_le (h x)]) (abs_le.mp hab).2
+        calc ‖h x ^ 2 * Real.log (h x ^ 2)‖
+            = |h x ^ 2 * Real.log (h x ^ 2)| := Real.norm_eq_abs _
+          _ ≤ (h x ^ 2) ^ 2 + 1 := abs_mul_log_le_sq_add_one (h x ^ 2) hnn
+          _ ≤ (Ch ^ 2) ^ 2 + 1 := by linarith [pow_le_pow_left₀ hnn hle 2]
+          _ = Ch ^ 4 + 1 := by ring_nf
+      -- Apply lsi_of_bounded_C2 to h
+      have hlsi := lsi_of_bounded_C2 h h' h'' hh_memLp hh'_memLp hh_deriv hh'_deriv
+        hh_bound hh'_bound hh''_bound hh_norm hh_int
+      -- Integrability of g²
+      have hg_sq_int : Integrable (fun x => g x ^ 2) stdGaussian :=
+        integrable_sq_of_memLp hg_memLp
+      -- Integrability of g²·log(g²)
+      have hg_sq_log_int : Integrable (fun x => g x ^ 2 * log (g x ^ 2)) stdGaussian := by
+        have hg_sq_log_cont : Continuous (fun x => g x ^ 2 * log (g x ^ 2)) :=
+          Real.continuous_mul_log.comp (hg_cont.pow 2)
+        refine (memLp_top_of_bound hg_sq_log_cont.aestronglyMeasurable
+          (Cf ^ 2 * |log (Cf ^ 2)| + 1)
+          (ae_of_all _ fun x => ?_)).integrable le_top
+        exact hbound_sq_log_local (g x) (hg_bound x)
+      -- Key step: multiply hlsi by a² to get bound on ∫g²·log(g²)
+      -- Strategy: instead of computing ∫h²·log(h²) explicitly, use integral_mono-style
+      -- approach: directly show ∫g²·log(g²) ≤ 2∫(exp(-t)·P_t f')² + a²·log(a²)
+      -- and then use a²·log(a²) ≤ 0.
+      --
+      -- Actually, simplest approach: prove the result directly via calc chain
+      -- ∫g²·log(g²) ≤ a²·(∫h²·log(h²)) + a²·log(a²)   [pointwise identity]
+      --             ≤ a²·(2·∫h'²) + a²·log(a²)           [hlsi]
+      --             = 2·∫(exp(-t)·P_t f')² + a²·log(a²)  [h'² = g'²/a²]
+      --             ≤ 2·∫(exp(-t)·P_t f')²                [a²·log(a²) ≤ 0]
+      --             ≤ 2·∫f'²                               [hderiv_sq_le]
+      --
+      -- First, establish the pointwise identity and integrate
+      have ha2_pos : 0 < a ^ 2 := by positivity
+      -- ∫g²·log(g²) = a²·∫h²·log(h²) + a²·log(a²)
+      have hkey_eq : ∫ x, g x ^ 2 * log (g x ^ 2) ∂stdGaussian =
+          a ^ 2 * ∫ x, h x ^ 2 * log (h x ^ 2) ∂stdGaussian +
+          a ^ 2 * log (a ^ 2) := by
+        -- Pointwise: g²·log(g²) = a²·h²·log(h²) + h²·a²·log(a²)
+        --          = a²·(h²·log(h²) + h²·log(a²))    [since g = a·h]
+        -- Wait: h = g/a, so g = a·h, g² = a²·h²
+        -- g²·log(g²) = a²·h²·log(a²·h²) = a²·h²·(log(a²) + log(h²))
+        --            = a²·h²·log(h²) + a²·h²·log(a²)
+        -- ∫ = a²·∫h²·log(h²) + a²·log(a²)·∫h² = a²·∫h²·log(h²) + a²·log(a²)  [since ∫h²=1]
+        have hpw : ∀ x, g x ^ 2 * log (g x ^ 2) =
+            a ^ 2 * (h x ^ 2 * log (h x ^ 2)) +
+            a ^ 2 * (h x ^ 2 * log (a ^ 2)) := by
+          intro x
+          simp only [hh_def]
+          by_cases hgx : g x = 0
+          · simp [hgx]
+          · have hga_ne : g x / a ≠ 0 := div_ne_zero hgx ha_ne
+            rw [show g x ^ 2 = a ^ 2 * (g x / a) ^ 2 from by field_simp]
+            rw [Real.log_mul (pow_ne_zero 2 ha_ne) (pow_ne_zero 2 hga_ne)]
+            ring
+        rw [integral_congr_ae (ae_of_all _ hpw)]
+        have hint1 : Integrable (fun x => a ^ 2 * (h x ^ 2 * log (h x ^ 2))) stdGaussian :=
+          hh_int.const_mul _
+        have hint2 : Integrable (fun x => a ^ 2 * (h x ^ 2 * log (a ^ 2))) stdGaussian := by
+          have : (fun x => a ^ 2 * (h x ^ 2 * log (a ^ 2))) =
+              fun x => (a ^ 2 * log (a ^ 2)) * h x ^ 2 := by ext x; ring
+          rw [this]; exact (integrable_sq_of_memLp hh_memLp).const_mul _
+        rw [integral_add hint1 hint2, integral_const_mul, integral_const_mul]
+        congr 1
+        rw [show (fun x => h x ^ 2 * log (a ^ 2)) = fun x => log (a ^ 2) * h x ^ 2 from by
+              ext x; ring]
+        rw [integral_const_mul, hh_norm, mul_one]
+      -- a²·log(a²) ≤ 0 since a² ∈ (0, 1]
+      have hlog_neg : a ^ 2 * log (a ^ 2) ≤ 0 :=
+        mul_nonpos_of_nonneg_of_nonpos (le_of_lt ha2_pos)
+          (Real.log_nonpos (le_of_lt ha2_pos) ha2_le)
+      -- ∫h'² = (1/a²)·∫g'²
+      have hh'_sq_eq : a ^ 2 * ∫ x, h' x ^ 2 ∂stdGaussian =
+          ∫ x, (exp (-t) * ouSemigroup t f' x) ^ 2 ∂stdGaussian := by
+        have : ∀ x, h' x ^ 2 = (exp (-t) * ouSemigroup t f' x) ^ 2 / a ^ 2 := by
+          intro x; simp only [hh'_def, div_pow]
+        rw [integral_congr_ae (ae_of_all _ this), integral_div, mul_div_cancel₀]
+        exact ne_of_gt ha2_pos
+      -- Chain
+      calc ∫ x, g x ^ 2 * log (g x ^ 2) ∂stdGaussian
+          = a ^ 2 * ∫ x, h x ^ 2 * log (h x ^ 2) ∂stdGaussian +
+            a ^ 2 * log (a ^ 2) := hkey_eq
+        _ ≤ a ^ 2 * (2 * ∫ x, h' x ^ 2 ∂stdGaussian) +
+            a ^ 2 * log (a ^ 2) := by linarith [mul_le_mul_of_nonneg_left hlsi (le_of_lt ha2_pos)]
+        _ = 2 * ∫ x, (exp (-t) * ouSemigroup t f' x) ^ 2 ∂stdGaussian +
+            a ^ 2 * log (a ^ 2) := by
+              congr 1
+              have : a ^ 2 * (2 * ∫ x, h' x ^ 2 ∂stdGaussian) =
+                  2 * (a ^ 2 * ∫ x, h' x ^ 2 ∂stdGaussian) := by ring
+              rw [this, hh'_sq_eq]
+        _ ≤ 2 * ∫ x, (exp (-t) * ouSemigroup t f' x) ^ 2 ∂stdGaussian := by linarith
+        _ ≤ 2 * ∫ x, f' x ^ 2 ∂stdGaussian := by linarith
   -- Step 2: DCT convergence
   -- Bound: |x² * log(x²)| ≤ Cf² * |log(Cf²)| + 1 for |x| ≤ Cf
   set D := Cf ^ 2 * |log (Cf ^ 2)| + 1 with hD_def
