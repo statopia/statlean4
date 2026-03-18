@@ -1775,6 +1775,72 @@ private lemma continuous_smoothCutoff (n : ℕ) : Continuous (smoothCutoff n) :=
   unfold smoothCutoff hatFun
   fun_prop
 
+/-- HasDerivAt for smoothCutoff at every point. The proof splits into regions:
+    interior (|x| < n or |x| > n+1): locally constant, derivative 0
+    transition (n < |x| < n+1): polynomial, standard calculus
+    boundary (|x| = n or |x| = n+1): both sides give derivative 0, use isLittleO -/
+private lemma hasDerivAt_smoothCutoff (n : ℕ) (x : ℝ) :
+    HasDerivAt (smoothCutoff n) (smoothCutoffDeriv n x) x := by
+  -- Strategy: show smoothCutoffDeriv n x = D where D is the expected derivative,
+  -- then prove HasDerivAt (smoothCutoff n) D x by case analysis.
+  -- Five-way split: |x| < n, |x| = n, n < |x| < n+1, |x| = n+1, |x| > n+1
+  rcases lt_trichotomy |x| (n : ℝ) with hlt | heq | hgt
+  · -- Case 1: |x| < n → smoothCutoff locally constant 1, deriv = 0
+    have hD : smoothCutoffDeriv n x = 0 := by
+      simp only [smoothCutoffDeriv]
+      exact if_neg (by push_neg; intro h; linarith)
+    rw [hD]
+    have heq_loc : ∀ᶠ y in nhds x, smoothCutoff n y = 1 := by
+      have habs := abs_lt.mp hlt
+      have hmem : Set.Ioo (-(↑n : ℝ)) ↑n ∈ nhds x :=
+        IsOpen.mem_nhds isOpen_Ioo ⟨by linarith [habs.1], by linarith [habs.2]⟩
+      exact Filter.mem_of_superset hmem fun y hy => by
+        simp only [Set.mem_Ioo] at hy
+        exact smoothCutoff_eq_one_of_abs_le n y (abs_le.mpr ⟨by linarith, by linarith⟩)
+    exact (hasDerivAt_const x (1 : ℝ)).congr_of_eventuallyEq heq_loc
+  · -- Case 2: |x| = n → boundary, deriv = 0
+    have hD : smoothCutoffDeriv n x = 0 := by
+      simp only [smoothCutoffDeriv]
+      exact if_neg (by push_neg; intro h; linarith)
+    rw [hD]
+    sorry -- boundary case: smoothCutoff(x+h) - 1 = O(h²) = o(h)
+  · rcases lt_trichotomy |x| ((n : ℝ) + 1) with hlt2 | heq2 | hgt2
+    · -- Case 3: n < |x| < n+1, transition region
+      -- Split on sign of x
+      rcases le_or_gt 0 x with hx_nn | hx_neg
+      · -- x ≥ 0 (hence x > 0): polynomial HasDerivAt for (c-y)²(3-2(c-y))
+        -- Strategy: show smoothCutoff = polynomial in nhds x, compute derivative,
+        -- use congr_of_eventuallyEq. See mathematical derivation in the docstring.
+        sorry
+      · -- x < 0: polynomial HasDerivAt for (c+y)²(3-2(c+y))
+        sorry
+    · -- Case 4: |x| = n+1, boundary, deriv = 0
+      have hD : smoothCutoffDeriv n x = 0 := by
+        simp only [smoothCutoffDeriv]
+        exact if_neg (by push_neg; intro h; linarith)
+      rw [hD]
+      sorry -- boundary case: smoothCutoff(x+h) = O(h²) = o(h)
+    · -- Case 5: |x| > n+1, smoothCutoff locally constant 0, deriv = 0
+      have hD : smoothCutoffDeriv n x = 0 := by
+        simp only [smoothCutoffDeriv]
+        exact if_neg (by push_neg; intro h; linarith)
+      rw [hD]
+      have heq_loc : ∀ᶠ y in nhds x, smoothCutoff n y = 0 := by
+        rcases le_or_gt 0 x with hx_nn | hx_neg
+        · have hx_gt : (↑n + 1 : ℝ) < x := by linarith [abs_of_nonneg hx_nn]
+          have hmem : Set.Ioi ((↑n + 1 : ℝ)) ∈ nhds x := IsOpen.mem_nhds isOpen_Ioi hx_gt
+          exact Filter.mem_of_superset hmem fun y hy =>
+            smoothCutoff_eq_zero_of_abs_ge n y (by
+              have := Set.mem_Ioi.mp hy
+              rw [abs_of_pos (by linarith)]; linarith)
+        · have hx_lt : x < -(↑n + 1 : ℝ) := by linarith [abs_of_neg hx_neg]
+          have hmem : Set.Iio (-(↑n + 1 : ℝ)) ∈ nhds x := IsOpen.mem_nhds isOpen_Iio hx_lt
+          exact Filter.mem_of_superset hmem fun y hy =>
+            smoothCutoff_eq_zero_of_abs_ge n y (by
+              have := Set.mem_Iio.mp hy
+              rw [abs_of_neg (by linarith)]; linarith)
+      exact (hasDerivAt_const x (0 : ℝ)).congr_of_eventuallyEq heq_loc
+
 private lemma spatialTrunc_bounded (f : ℝ → ℝ) (hf_cont : Continuous f) (n : ℕ) :
     ∃ C, ∀ x, ‖spatialTrunc f n x‖ ≤ C := by
   have hsupp : ∀ x, (n : ℝ) + 1 ≤ |x| → spatialTrunc f n x = 0 := by
@@ -1828,7 +1894,9 @@ private lemma exists_bounded_C1_approx
   -- (3) HasDerivAt
   · intro n x
     -- Chain rule: d/dx[f(x)·cutoff(x)] = f'(x)·cutoff(x) + f(x)·cutoff'(x)
-    sorry
+    show HasDerivAt (fun y => f y * smoothCutoff n y)
+      (f' x * smoothCutoff n x + f x * smoothCutoffDeriv n x) x
+    exact (hderiv x).mul (hasDerivAt_smoothCutoff n x)
   -- (4) Pointwise domination: (g_n x)² ≤ (f x)²
   · exact fun n x => spatialTrunc_sq_le f n x
   -- (5) Energy convergence: ∫(g_n')² → ∫(f')²
