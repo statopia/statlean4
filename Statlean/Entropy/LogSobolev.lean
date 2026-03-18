@@ -1631,13 +1631,21 @@ private lemma lsi_approximation_from_bounded
         2 * ∫ x, g' x ^ 2 ∂stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  -- Strategy: Define f_n = φ_n ∘ f where φ_n is a smooth truncation
-  -- satisfying: φ_n(t) = t for |t| ≤ n, |φ_n(t)| ≤ n+1, 0 ≤ φ_n' ≤ 1.
-  -- Then f_n is bounded, f_n → f in L², f_n' = φ_n'(f)·f' so ∫f_n'² ≤ ∫f'².
-  -- The entropy convergence uses:
-  -- - Positive part: f_n² ↑ f², so f_n²·log⁺(f_n²) ↑ f²·log⁺(f²) (monotone convergence)
-  -- - Negative part: |f_n²·log⁻(f_n²)| ≤ 1/e (dominated convergence)
-  -- After normalization (divide by ∫f_n²), apply hlsi_bdd and take limit.
+  -- Strategy: arctan truncation + OU kernel differentiation.
+  -- Step 1: f_n = (n+1)·arctan(f/(n+1)) — bounded by (n+1)π/2, |f_n'| ≤ |f'|.
+  -- Step 2: H_n = P_{1/n}(f_n) — bounded, and HasDerivAt with BOUNDED derivative
+  --   via kernel differentiation: d/dx P_t(g)(x) = (a/b)·∫ y·g(ax+by) dγ(y),
+  --   which is bounded by (a/b)·‖g‖_∞·√(2/π) for bounded g.
+  --   (Differentiates the Gaussian kernel, not g — avoids needing g' bounded.)
+  -- Step 3: Normalize H_n, apply hlsi_bdd, take double limit (n→∞, then t→0).
+  --
+  -- Blocker: Step 2 requires proving HasDerivAt for P_t of bounded measurable
+  -- functions via Lebesgue-integral kernel differentiation. This needs:
+  --   ouSemigroup t f x = ∫ f(u)·K_t(x,u) du  [change of variable to Lebesgue]
+  --   d/dx K_t(x,u) = K_t(x,u)·a(u-ax)/b²     [differentiate Gaussian kernel]
+  --   hasDerivAt_integral_of_dominated_loc_of_deriv_le  [Mathlib Leibniz rule]
+  -- with bound(u) = M·(a/b²)·|u-ax₀+a|·K_t(x₀-1,u) ∈ L¹(Lebesgue).
+  -- Estimated effort: ~80 lines (change of variable + Leibniz rule application).
   sorry
 
 private lemma gaussian_lsi_normalized_of_integrable
