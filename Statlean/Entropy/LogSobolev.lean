@@ -54,9 +54,11 @@ the approximation argument bridging from general MemLp 2 + C¹:
   **Effort**: ~140 lines (C1→C2 sub-lemma: ~60 + limit argument: ~80).
 
 - `lsi_approximation_from_bounded` — general W^{1,2}(γ) → bounded via truncation.
-  **Strategy**: Smooth truncation φ_n ∘ f with |φ_n'| ≤ 1, apply bounded case,
-  take n → ∞ via MCT (positive part) + DCT (negative part ≤ 1/e).
-  **Effort**: ~70 lines (smooth truncation definition + convergence).
+  Uses `exists_bounded_C1_approx` which constructs g_n = f · smoothCutoff_n (spatial Hermite
+  cubic cutoff). Proved: pointwise domination, boundedness, entropy integrability, MemLp.
+  **Remaining sorry** (inside `exists_bounded_C1_approx`): HasDerivAt for smoothCutoff·f,
+  g_n' boundedness + MemLp, energy convergence, positive L² norm, entropy convergence.
+  **Effort**: ~100 lines (piecewise HasDerivAt for smoothCutoff + DCT arguments).
 
 ### Other sorry gaps
 - `integrable_sq_mul_log_sq_of_memLp` — f²·log(f²) ∈ L¹(γ) for f ∈ W^{1,2}(γ)
@@ -1666,7 +1668,9 @@ private lemma ouSemigroup_cameron_martin (t δ x₀ : ℝ) (ht : 0 < t) (g : ℝ
 where η_n is a smooth cutoff. Apply the bounded LSI to each g_n (with normalization),
 then take the limit via DCT. This avoids the OU kernel differentiation blocker. -/
 
-/-- Existence of bounded C¹ approximations to an L²(γ) function.
+/-! ### Bounded C¹ approximation infrastructure
+
+Existence of bounded C¹ approximations to an L²(γ) function.
 
 For f ∈ L²(γ) with f' ∈ L²(γ) and HasDerivAt everywhere, there exist bounded C¹
 approximations g_n with:
@@ -1677,10 +1681,120 @@ approximations g_n with:
 - ∫ (g_n')² → ∫ (f')² (energy convergence)
 - ∫ g_n² → 1 (L² norm convergence)
 
-Construction (not formalized): g_n = f · η_n where η_n is a smooth cutoff
-with η_n(x) = 1 for |x| ≤ n, η_n(x) = 0 for |x| ≥ n+1, 0 ≤ η_n ≤ 1,
-|η_n'| ≤ 2. Then g_n is bounded (f continuous on compact), g_n' = f'·η_n + f·η_n'
+Construction: g_n(x) = f(x) · cutoff_n(x) where cutoff_n is a C¹ spatial cutoff
+with cutoff_n(x) = 1 for |x| ≤ n, cutoff_n(x) = 0 for |x| ≥ n+1, 0 ≤ cutoff_n ≤ 1.
+We use the Hermite cubic smoothing of max(0, min(1, n+1-|x|)) to get C¹ regularity:
+  cutoff_n(x) = t²(3-2t) where t = max(0, min(1, n+1-|x|))
+Then g_n is bounded (f continuous on compact [-n-1,n+1]), g_n' = f'·cutoff_n + f·cutoff_n'
 is bounded, and the convergence properties follow from DCT + L² dominance. -/
+
+/-- Piecewise linear hat: `max 0 (min 1 ((n:ℝ)+1-|x|))`.
+    Equals 1 on `|x| ≤ n`, equals 0 on `|x| ≥ n+1`, linear transition. -/
+private noncomputable def hatFun (n : ℕ) (x : ℝ) : ℝ :=
+  max 0 (min 1 ((n : ℝ) + 1 - |x|))
+
+/-- C¹ cutoff via Hermite cubic interpolation of `hatFun`.
+    `smoothCutoff n x = t²(3-2t)` where `t = hatFun n x`.
+    This is C¹ because the derivative at boundaries vanishes. -/
+private noncomputable def smoothCutoff (n : ℕ) (x : ℝ) : ℝ :=
+  let t := hatFun n x
+  t ^ 2 * (3 - 2 * t)
+
+private lemma hatFun_nonneg (n : ℕ) (x : ℝ) : 0 ≤ hatFun n x :=
+  le_max_left 0 _
+
+private lemma hatFun_le_one (n : ℕ) (x : ℝ) : hatFun n x ≤ 1 := by
+  simp only [hatFun]
+  exact max_le (by linarith) (min_le_left _ _)
+
+private lemma smoothCutoff_nonneg (n : ℕ) (x : ℝ) : 0 ≤ smoothCutoff n x := by
+  simp only [smoothCutoff]
+  have ht0 := hatFun_nonneg n x
+  have ht1 := hatFun_le_one n x
+  apply mul_nonneg (sq_nonneg _)
+  linarith
+
+private lemma smoothCutoff_le_one (n : ℕ) (x : ℝ) : smoothCutoff n x ≤ 1 := by
+  simp only [smoothCutoff]
+  have ht0 := hatFun_nonneg n x
+  have ht1 := hatFun_le_one n x
+  set t := hatFun n x
+  -- t²(3-2t) ≤ 1 for t ∈ [0,1]: equivalent to 2t³ - 3t² + 1 ≥ 0, i.e., (1-t)²(1+2t) ≥ 0
+  nlinarith [sq_nonneg (1 - t)]
+
+private lemma hatFun_eq_one_of_abs_le (n : ℕ) (x : ℝ) (h : |x| ≤ n) :
+    hatFun n x = 1 := by
+  simp only [hatFun]
+  have h1 : (1 : ℝ) ≤ (n : ℝ) + 1 - |x| := by linarith
+  rw [min_eq_left h1, max_eq_right (by linarith : (0 : ℝ) ≤ 1)]
+
+private lemma smoothCutoff_eq_one_of_abs_le (n : ℕ) (x : ℝ) (h : |x| ≤ n) :
+    smoothCutoff n x = 1 := by
+  simp only [smoothCutoff, hatFun_eq_one_of_abs_le n x h]; ring
+
+private lemma hatFun_eq_zero_of_abs_ge (n : ℕ) (x : ℝ) (h : (n : ℝ) + 1 ≤ |x|) :
+    hatFun n x = 0 := by
+  simp only [hatFun]
+  rw [max_eq_left]
+  exact min_le_of_right_le (by linarith)
+
+private lemma smoothCutoff_eq_zero_of_abs_ge (n : ℕ) (x : ℝ) (h : (n : ℝ) + 1 ≤ |x|) :
+    smoothCutoff n x = 0 := by
+  simp only [smoothCutoff, hatFun_eq_zero_of_abs_ge n x h]; ring
+
+/-- Explicit derivative of the smoothCutoff. In the transition region n < |x| < n+1:
+    d/dx[t²(3-2t)] = 6t(1-t)·t' where t = n+1-|x|, t' = -sign(x).
+    On the flat regions (|x| ≤ n or |x| ≥ n+1), the derivative is 0.
+    At boundaries, 6t(1-t) = 0 ensures C¹ regularity.
+    |smoothCutoffDeriv n x| ≤ 3/2 everywhere (max of 6t(1-t) on [0,1] is 3/2). -/
+private noncomputable def smoothCutoffDeriv (n : ℕ) (x : ℝ) : ℝ :=
+  let t := hatFun n x
+  if (n : ℝ) < |x| ∧ |x| < (n : ℝ) + 1 then
+    6 * t * (1 - t) * (if x ≥ 0 then -1 else 1)
+  else 0
+
+/-- Spatial truncation: g_n(x) = f(x) · smoothCutoff_n(x).
+    This is bounded, C¹, and pointwise dominated by f. -/
+private noncomputable def spatialTrunc (f : ℝ → ℝ) (n : ℕ) (x : ℝ) : ℝ :=
+  f x * smoothCutoff n x
+
+/-- Derivative of spatial truncation: g_n'(x) = f'(x)·cutoff(x) + f(x)·cutoff'(x). -/
+private noncomputable def spatialTruncDeriv (f f' : ℝ → ℝ) (n : ℕ) (x : ℝ) : ℝ :=
+  f' x * smoothCutoff n x + f x * smoothCutoffDeriv n x
+
+private lemma spatialTrunc_sq_le (f : ℝ → ℝ) (n : ℕ) (x : ℝ) :
+    (spatialTrunc f n x) ^ 2 ≤ f x ^ 2 := by
+  simp only [spatialTrunc]
+  rw [mul_pow]
+  have h0 := smoothCutoff_nonneg n x
+  have h1 := smoothCutoff_le_one n x
+  have hsq : smoothCutoff n x ^ 2 ≤ 1 := by nlinarith
+  nlinarith [sq_nonneg (f x)]
+
+private lemma continuous_smoothCutoff (n : ℕ) : Continuous (smoothCutoff n) := by
+  unfold smoothCutoff hatFun
+  fun_prop
+
+private lemma spatialTrunc_bounded (f : ℝ → ℝ) (hf_cont : Continuous f) (n : ℕ) :
+    ∃ C, ∀ x, ‖spatialTrunc f n x‖ ≤ C := by
+  have hsupp : ∀ x, (n : ℝ) + 1 ≤ |x| → spatialTrunc f n x = 0 := by
+    intro x hx; simp [spatialTrunc, smoothCutoff_eq_zero_of_abs_ge n x hx, mul_zero]
+  have hcont : Continuous (spatialTrunc f n) :=
+    hf_cont.mul (continuous_smoothCutoff n)
+  -- On the compact interval [-(n+1), n+1], f·cutoff is bounded by compactness.
+  -- Outside this interval, the function is 0.
+  have hK : IsCompact (Set.Icc (-(↑n + 1 : ℝ)) (↑n + 1)) := isCompact_Icc
+  obtain ⟨M, hM⟩ := hK.exists_bound_of_continuousOn hcont.continuousOn
+  refine ⟨max M 0, fun x => ?_⟩
+  by_cases hx : |x| ≤ (n : ℝ) + 1
+  · have hx_mem : x ∈ Set.Icc (-(↑n + 1 : ℝ)) (↑n + 1) := by
+      rw [Set.mem_Icc]; constructor <;> linarith [abs_le.mp hx]
+    calc ‖spatialTrunc f n x‖ ≤ M := hM x hx_mem
+      _ ≤ max M 0 := le_max_left _ _
+  · push_neg at hx
+    rw [hsupp x hx.le, norm_zero]
+    exact le_max_right _ _
+
 private lemma exists_bounded_C1_approx
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
@@ -1700,7 +1814,66 @@ private lemma exists_bounded_C1_approx
       (∀ n, 0 < ∫ x, (g n x) ^ 2 ∂stdGaussian) ∧
       (Filter.Tendsto (fun n => ∫ x, (g n x) ^ 2 * Real.log ((g n x) ^ 2) ∂stdGaussian)
         Filter.atTop (nhds (∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian))) := by
-  sorry
+  -- Use spatial truncation: g_n = f · smoothCutoff_n
+  have hf_cont : Continuous f :=
+    Differentiable.continuous (fun x => (hderiv x).differentiableAt)
+  refine ⟨spatialTrunc f, spatialTruncDeriv f f', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  -- (1) g_n bounded
+  · exact fun n => spatialTrunc_bounded f hf_cont n
+  -- (2) g_n' bounded
+  · intro n
+    -- f' is continuous (from HasDerivAt), cutoff and cutoff' bounded
+    -- On compact support [-(n+1), n+1], f'·cutoff + f·cutoff' is bounded
+    sorry
+  -- (3) HasDerivAt
+  · intro n x
+    -- Chain rule: d/dx[f(x)·cutoff(x)] = f'(x)·cutoff(x) + f(x)·cutoff'(x)
+    sorry
+  -- (4) Pointwise domination: (g_n x)² ≤ (f x)²
+  · exact fun n x => spatialTrunc_sq_le f n x
+  -- (5) Energy convergence: ∫(g_n')² → ∫(f')²
+  · -- As n → ∞, cutoff_n → 1 pointwise, so g_n' → f' pointwise.
+    -- DCT: |g_n'|² ≤ C·(|f'|² + |f|²) which is integrable.
+    sorry
+  -- (6) MemLp g_n 2
+  · intro n
+    obtain ⟨C, hC⟩ := spatialTrunc_bounded f hf_cont n
+    exact (memLp_top_of_bound
+      (hf_cont.mul (continuous_smoothCutoff n)).aestronglyMeasurable
+      C (ae_of_all _ hC)).mono_exponent (by norm_num)
+  -- (7) MemLp g_n' 2
+  · intro n
+    sorry
+  -- (8) Entropy integrability for g_n (bounded → trivial)
+  · intro n
+    obtain ⟨C, hC⟩ := spatialTrunc_bounded f hf_cont n
+    -- g_n is bounded and continuous, so g_n²·log(g_n²) is bounded
+    have hg_cont : Continuous (spatialTrunc f n) :=
+      hf_cont.mul (continuous_smoothCutoff n)
+    refine (memLp_top_of_bound
+      (Real.continuous_mul_log.comp (hg_cont.pow 2)).aestronglyMeasurable (C ^ 4 + 1)
+      (ae_of_all _ fun x => ?_)).integrable le_top
+    calc ‖(spatialTrunc f n x) ^ 2 * Real.log ((spatialTrunc f n x) ^ 2)‖
+        = |spatialTrunc f n x ^ 2 * Real.log (spatialTrunc f n x ^ 2)| :=
+          Real.norm_eq_abs _
+      _ ≤ (spatialTrunc f n x ^ 2) ^ 2 + 1 :=
+          abs_mul_log_le_sq_add_one _ (sq_nonneg _)
+      _ ≤ (C ^ 2) ^ 2 + 1 := by
+          have habs : |spatialTrunc f n x| ≤ C := by
+            have := hC x; rwa [Real.norm_eq_abs] at this
+          have hab : spatialTrunc f n x ^ 2 ≤ C ^ 2 := by
+            calc spatialTrunc f n x ^ 2 = |spatialTrunc f n x| ^ 2 := (sq_abs _).symm
+              _ ≤ C ^ 2 := by nlinarith [abs_nonneg (spatialTrunc f n x)]
+          nlinarith [sq_nonneg (spatialTrunc f n x ^ 2), sq_nonneg (C ^ 2)]
+      _ = C ^ 4 + 1 := by ring_nf
+  -- (9) Positive L² norm: ∫ g_n² > 0
+  · intro n
+    -- For large n, cutoff_n = 1 on [-n, n], so ∫ g_n² ≥ ∫_{|x|≤n} f² > 0
+    -- since ∫ f² = 1 > 0 and f is not a.e. 0.
+    sorry
+  -- (10) Entropy convergence: ∫ g_n²·log(g_n²) → ∫ f²·log(f²)
+  · -- g_n → f pointwise, |g_n|² ≤ |f|², DCT for the integrable part.
+    sorry
 
 /-- For a bounded function g with bounded derivative, the unnormalized LSI holds:
 ∫ g² log g² ≤ 2∫ g'² + (∫ g²) · log(∫ g²).
