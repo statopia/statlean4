@@ -1662,7 +1662,35 @@ private lemma ouSemigroup_cameron_martin (t δ x₀ : ℝ) (ht : 0 < t) (g : ℝ
 
 /-- **Approximation lemma**: From MemLp 2 + C¹ to bounded via smooth truncation.
 Given f ∈ W^{1,2}(γ), construct f_n bounded with |f_n| ≤ |f|, f_n → f in L²,
-and ∫f_n'² ≤ ∫f'², such that ∫f_n²·log(f_n²) → ∫f²·log(f²). -/
+and ∫f_n'² ≤ ∫f'², such that ∫f_n²·log(f_n²) → ∫f²·log(f²).
+
+## Proof architecture (3 layers)
+
+### Layer 1: Kernel differentiation (`ouSemigroup_hasDerivAt_of_bounded_meas`)
+For bounded measurable g and t > 0, P_t g has HasDerivAt at every x:
+  d/dx P_t g(x) = (a/b) · ∫ y·g(ax+by) dγ(y)
+Proof: Cameron-Martin + `hasDerivAt_integral_of_dominated_loc_of_deriv_le`.
+Infrastructure available: `ouSemigroup_cameron_martin`, `gaussianReal_tilt`.
+
+### Layer 2: Energy bound via Stein identity
+When g additionally has HasDerivAt with g' ∈ L²(γ), the kernel derivative equals
+`a · P_t g'(x)` (by Stein identity on slices h(y) = g(ax+by), h'(y) = b·g'(ax+by)):
+  ∫ (d/dx P_t g)² dγ = a² · ∫ (P_t g')² dγ ≤ a² · ∫ g'² dγ ≤ ∫ g'² dγ
+Infrastructure: `stein_identity` (requires MemLp 2 + HasDerivAt everywhere).
+
+### Layer 3: Approximation argument
+For each t > 0: P_t f is bounded (f bounded), has HasDerivAt + bounded derivative
+(Layer 1), energy ∫(P_t f)'^2 ≤ ∫f'² (Layer 2). Apply hlsi_bdd to normalized P_t f.
+Take limit t → 0 via DCT (pattern from `lsi_of_bounded_C1` above).
+
+### Blocker
+Layer 2 requires `stein_identity` for slices f(ax+by) where f' ∈ L²(γ) but NOT bounded.
+Current `stein_identity` requires MemLp f' 2, which for slices means
+∫ f'(ax+by)² dγ(y) < ∞ for ALL x (not just a.e.). This is true for bounded f
+(slice is bounded hence in L²), but the derivative slice b·f'(ax+by) is only in L²(γ_y)
+for a.e. x (by Fubini), not all x.
+
+Estimated total to close: ~90 lines (Layer 1: ~50, Layer 2: ~25, Layer 3: ~15 glue). -/
 private lemma lsi_approximation_from_bounded
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
@@ -1680,28 +1708,6 @@ private lemma lsi_approximation_from_bounded
         2 * ∫ x, g' x ^ 2 ∂stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  -- Strategy: Apply hlsi_bdd to P_t(f) for bounded f (i.e., replicate the structure
-  -- of lsi_of_bounded_C1 which is passed as hlsi_bdd). Since f itself is NOT bounded,
-  -- we use the OU semigroup to produce bounded approximations with bounded derivatives.
-  --
-  -- Key insight: P_t(f) for t > 0 is bounded (by ouSemigroup_bound_norm) and has HasDerivAt
-  -- with bounded derivative when f has bounded derivative. But f' is NOT bounded.
-  -- So we use kernel differentiation: for bounded measurable g and t > 0,
-  -- d/dx P_t g(x) = (a/b) ∫ y·g(ax+by) dγ(y), bounded by (a/b)·‖g‖_∞·E[|Y|].
-  --
-  -- Infrastructure available: `gaussianReal_tilt` and `ouSemigroup_cameron_martin`
-  -- (above) express P_t g(x₀+δ) as a γ-integral with exponential tilt weight.
-  -- Remaining steps for full proof:
-  -- (a) Apply `hasDerivAt_integral_of_dominated_loc_of_deriv_le` with μ=stdGaussian
-  --     to the tilted representation. The HasDerivAt of the exponential tilt in δ
-  --     is standard (exp ∘ quadratic). The domination bound uses
-  --     `integrable_exp_abs_stdGaussian` (~30 lines).
-  -- (b) Identify the kernel derivative (a/b)·∫y·g(ax+by)dγ with a·P_t(g') via
-  --     `stein_identity` for differentiable g, giving the energy bound
-  --     ∫(P_t g)'^2 ≤ ∫g'^2 (~20 lines).
-  -- (c) Take limits: P_t(φ_n(f)) → f as t→0, n→∞ (~40 lines, pattern from
-  --     lsi_of_bounded_C1 above).
-  -- Estimated total: ~90 additional lines on top of existing infrastructure.
   sorry
 
 private lemma gaussian_lsi_normalized_of_integrable
