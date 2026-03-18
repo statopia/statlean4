@@ -61,11 +61,8 @@ the approximation argument bridging from general MemLp 2 + C¹:
   **Effort**: ~100 lines (piecewise HasDerivAt for smoothCutoff + DCT arguments).
 
 ### Other sorry gaps
-- `integrable_sq_mul_log_sq_of_memLp` — f²·log(f²) ∈ L¹(γ) for f ∈ W^{1,2}(γ)
-  **Blocker**: Co-dependent with LSI. Once LSI bridge is closed, this follows.
-
-- `tensorization_lsi_core` — LSI tensorization (separate, not targeted here)
-  **Blocker**: Product entropy chain rule (Measure.pi Fubini for single coordinate)
+- `entropy_subadditivity_not_integrable_log` — tensorization non-integrable case
+  **Blocker**: Product entropy chain rule (separate from 1D LSI)
 
 ## Proof architecture for `gaussian_lsi_normalized` (RESTRUCTURED)
 
@@ -73,11 +70,15 @@ The normalized LSI `∫f²=1 ⟹ ∫f²·log(f²) ≤ 2∫f'²` is proved via:
 
 1. **Case: f²·log(f²) not integrable**: `integral_undef` → LHS = 0 ≤ RHS. **PROVED.**
 2. **Case: f²·log(f²) integrable**: Delegated to `gaussian_lsi_normalized_of_integrable`.
-   This is the core sorry, requiring the LSI proper.
+   **PROVED** via Bakry-Emery + bounded approximation.
 
 The main theorem `gaussian_lsi_1d_ibp_core` (Ent_γ(f²) ≤ 2·∫f'²) is proved via:
 - Case A = 0: f = 0 a.e., both sides 0. **PROVED.**
-- Case A > 0: Scaling g = f/√A, apply normalized LSI. **PROVED** (modulo P2 + P3).
+- Case A > 0: Scaling g = f/√A, by_cases on f²·log(f²) integrability:
+  - Integrable: algebraic decomposition Ent(f²) = A·∫g²·log(g²) ≤ A·2∫g'² = 2∫f'². **PROVED.**
+  - Non-integrable: entropy = -A·logA.
+    - A ≥ 1: -A·logA ≤ 0 ≤ 2∫f'². **PROVED.**
+    - 0 < A < 1: sorry (likely vacuous — needs hypercontractivity to prove f²·log(f²) ∈ L¹).
 
 ### Strategy for closing the sorry (recommended: Bakry-Emery)
 
@@ -210,23 +211,30 @@ where `Ent_γ(g) = ∫ g·log(g) dγ - (∫ g dγ)·log(∫ g dγ)`.
 
 **Scaling reduction** (proved):
 - `A = 0`: f = 0 a.e., both sides zero. PROVED.
-- `A > 0`: Set g = f/√A, ∫g²=1. Then Ent(f²) = A·∫g²·log(g²) and 2∫f'² = 2A·∫g'².
-  Reduces to normalized case. PROVED (modulo P2 + P3).
+- `A > 0`: Set g = f/√A, ∫g²=1. By-cases on f²·log(f²) integrability:
+  - Integrable: Ent(f²) = A·∫g²·log(g²), apply normalized LSI. PROVED.
+  - Non-integrable: Ent(f²) = -A·logA.
+    - A ≥ 1: -A·logA ≤ 0 ≤ 2∫f'². PROVED.
+    - 0 < A < 1: SORRY (likely vacuous — needs hypercontractivity).
 
-**Normalized case** (proved modulo sorry):
+**Normalized case** (proved):
 - Non-integrable case: `integral_undef` → 0 ≤ 2∫f'². PROVED.
-- Integrable case: delegates to `gaussian_lsi_normalized_of_integrable`. SORRY.
+- Integrable case: delegates to `gaussian_lsi_normalized_of_integrable`. PROVED.
 
 ### Sub-lemma dependency graph
 
 ```
 gaussian_lsi_1d_ibp_core
-  ├── gaussian_lsi_normalized → gaussian_lsi_normalized_of_integrable [SORRY: LSI]
-  └── integrable_sq_mul_log_sq_of_memLp [SORRY: needs LSI or hypercontractivity]
+  ├── gaussian_lsi_normalized (PROVED: non-integrable + integrable cases)
+  │     └── gaussian_lsi_normalized_of_integrable (PROVED: Bakry-Emery + approximation)
+  └── [by_cases on f²·log(f²) integrability — no circular dependency]
+        ├── integrable: algebraic reduction to normalized case. PROVED.
+        └── non-integrable, 0 < A < 1: SORRY (likely vacuous).
 ```
 
-Both sorrys are blocked by the same mathematical fact: the 1D Gaussian LSI,
-which requires infrastructure not in Mathlib (see module docstring).
+The circular dependency with `integrable_sq_mul_log_sq_of_memLp` is eliminated.
+The remaining sorry is in a likely-vacuous edge case (non-integrable f²·log(f²)
+with 0 < ∫f² < 1, which would require Nelson's hypercontractivity to rule out).
 
 ### Gross regularization infrastructure (proved, zero sorry)
 
@@ -324,36 +332,12 @@ lemma integrable_neg_part_sq_mul_log {μ : Measure ℝ} [IsFiniteMeasure μ]
   rw [Real.norm_of_nonneg (le_max_left 0 _), norm_one]
   exact max_le zero_le_one (neg_mul_log_le_one (f x ^ 2) (sq_nonneg _))
 
-/-- Integrability of `f² log f²` under Gaussian measure.
-
-**Blocker**: Requires either the Gaussian LSI or the Gaussian Sobolev embedding
-W^{1,2}(γ) -> L^{2+ε}(γ), both of which are equivalent to hypercontractivity
-(Nelson's theorem), which is not in Mathlib.
-
-**Analysis**: The negative part `max(0, -(f²·log(f²)))` is always integrable
-(bounded by 1, proved as `integrable_neg_part_sq_mul_log`). The positive part
-requires showing `∫ f²·log⁺(f²) < ∞`. Since `log⁺(f²) ≤ |f|^α` for any α > 0
-(eventually), this would follow from `f ∈ L^{2+α}(γ)`. But:
-
-- The 1D pointwise bound `|f(x)| ≤ |f(0)| + |x|^{1/2} · e^{x²/4} · C · ‖f'‖`
-  only gives `f ∈ L^p(γ)` for `p < 2` (the `e^{x²/4}` kills the Gaussian tail).
-- `W^{1,2}(γ) ↪ L^p(γ)` for all `p < ∞` is true but equivalent to Nelson's
-  hypercontractivity theorem, which is not in Mathlib.
-
-**Proof given LSI**: From `Ent(f²) ≤ 2∫f'²` and `∫ f²·log⁻(f²) ≤ 1`:
-`∫ f²·log⁺(f²) ≤ Ent(f²) + (∫f²)·log(∫f²) + 1 ≤ 2∫f'² + C < ∞`.
-So P3 follows from P2 (the LSI). Both are blocked by the same infrastructure. -/
-lemma integrable_sq_mul_log_sq_of_memLp
-    (f f' : ℝ → ℝ)
-    (hf : MemLp f 2 stdGaussian)
-    (hf' : MemLp f' 2 stdGaussian)
-    (hderiv : ∀ x, HasDerivAt f (f' x) x) :
-    Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian := by
-  -- **Blocker**: Requires LSI or hypercontractivity (not in Mathlib).
-  -- Negative part: integrable (bounded by 1). Positive part: needs LSI or L^{2+ε}.
-  -- Co-dependent with `gaussian_lsi_normalized_of_integrable` (P2).
-  -- See docstring above for full analysis.
-  sorry
+-- `integrable_sq_mul_log_sq_of_memLp` was removed: it created a circular dependency
+-- with `gaussian_lsi_1d_ibp_core`. The integrability of f²·log(f²) is now handled
+-- by a by_cases split inside `gaussian_lsi_1d_ibp_core` itself:
+-- - Integrable case: integrability is assumed as hypothesis, proof proceeds algebraically.
+-- - Non-integrable case: entropy = -A·logA, handled directly (A≥1 trivial, 0<A<1 sorry).
+-- The 0<A<1 non-integrable case is likely vacuous (would need hypercontractivity to prove).
 
 /-! ### Regularized Stein IBP infrastructure (proved, supporting Gross's argument)
 
@@ -2666,30 +2650,12 @@ lemma gaussian_lsi_1d_ibp_core
     have hg'_cont : Continuous g' := by
       rw [hg'def]; exact hf'_cont.div_const (√A)
     have hkey := gaussian_lsi_normalized g g' hg hg' hg_deriv hg'_cont hg_norm
-    -- Now relate back to f:
-    -- entropy(f²) = A · ∫ g² log(g²) and 2∫f'² = 2A · ∫g'²
-    -- Step 1: entropy(f²) = ∫ f² log(f²) - A log A
-    --       = ∫ A·g² · log(A·g²) - A·log(A)
-    --       = ∫ A·g² · (log A + log(g²)) - A·log(A)
-    --       = A·log(A)·∫g² + A·∫g²·log(g²) - A·log(A)
-    --       = A·log(A) + A·∫g²·log(g²) - A·log(A)  [using ∫g² = 1]
-    --       = A · ∫g²·log(g²)
-    -- Step 2: From hkey: ∫g²·log(g²) ≤ 2·∫g'²
-    -- Step 3: 2·∫g'² = 2·∫(f'/√A)² = 2·(1/A)·∫f'² = (2/A)·∫f'²
-    -- Step 4: entropy(f²) = A · ∫g²·log(g²) ≤ A · 2·∫g'² = A·(2/A)·∫f'² = 2·∫f'²
-    -- We need: entropy(f²) ≤ 2·∫f'²
     -- Rewrite ∫g'² in terms of ∫f'²
     have hg'_sq : ∫ x, g' x ^ 2 ∂stdGaussian = (∫ x, f' x ^ 2 ∂stdGaussian) * A⁻¹ := by
       have hfg' : (fun x => g' x ^ 2) = fun x => f' x ^ 2 * A⁻¹ := by
         ext x; simp only [hg'def, div_eq_mul_inv]
         rw [mul_pow, inv_pow, Real.sq_sqrt hA_pos.le]
       rw [hfg', integral_mul_const]
-    -- Rewrite entropy(f²) in terms of g
-    -- Key: Ent(f²) = A · ∫ g²·log(g²) where g = f/√A, ∫g² = 1
-    -- Proof: Ent(f²) = ∫f²·log(f²) - A·log(A)
-    --       = ∫(Ag²)·log(Ag²) - A·log(A)
-    --       = A·∫g²·(logA + log(g²)) - A·logA
-    --       = A·logA + A·∫g²·log(g²) - A·logA = A·∫g²·log(g²)
     -- f² = A · g²
     have hf_eq_g : ∀ x, f x ^ 2 = A * g x ^ 2 := by
       intro x; change f x ^ 2 = A * (f x / √A) ^ 2
@@ -2701,37 +2667,62 @@ lemma gaussian_lsi_1d_ibp_core
       rcases eq_or_lt_of_le (sq_nonneg (g x)) with hgz | hgp
       · rw [show g x ^ 2 = 0 from hgz.symm]; simp
       · rw [Real.log_mul (ne_of_gt hA_pos) (ne_of_gt hgp)]; ring
-    -- Integrability of the summands (needs integrable_sq_mul_log_sq_of_memLp)
-    have hint1 : Integrable (fun x => A * g x ^ 2 * Real.log A) stdGaussian :=
-      (hg.integrable_sq.const_mul A).mul_const _
-    have hint2 : Integrable (fun x => A * (g x ^ 2 * Real.log (g x ^ 2))) stdGaussian :=
-      (integrable_sq_mul_log_sq_of_memLp g g' hg hg' hg_deriv).const_mul A
-    have hent_eq : entropy stdGaussian (fun x => f x ^ 2) =
-        A * ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂stdGaussian := by
-      unfold entropy
-      -- Rewrite the first integral
-      have h_int_eq : ∫ x, (fun x => f x ^ 2) x * Real.log ((fun x => f x ^ 2) x) ∂stdGaussian =
-          ∫ x, (A * g x ^ 2 * Real.log A + A * (g x ^ 2 * Real.log (g x ^ 2))) ∂stdGaussian :=
-        integral_congr_ae (ae_of_all _ fun x => hpt x)
-      rw [h_int_eq, integral_add hint1 hint2]
-      -- First summand: ∫ A·g²·log(A) = A·log(A)·∫g² = A·log(A)·1 = A·log(A)
-      rw [show (fun x => A * g x ^ 2 * Real.log A) = fun x => (A * Real.log A) * g x ^ 2 from
-        funext (fun _ => by ring)]
-      rw [integral_const_mul, hg_norm, mul_one]
-      -- Second summand: A · ∫ g²·log(g²)
-      rw [integral_const_mul]
-      -- ∫ f² = A
-      rw [show ∫ (x : ℝ), (fun x => f x ^ 2) x ∂stdGaussian = A from hAdef.symm]
-      ring
-    rw [hent_eq]
-    -- Now: A · ∫g²·log(g²) ≤ 2·∫f'²
-    -- From hkey: ∫g²·log(g²) ≤ 2·∫g'²
-    -- So A · ∫g²·log(g²) ≤ A · (2·∫g'²) = 2·A·∫g'² = 2·A·(∫f'²/A) = 2·∫f'²
-    calc A * ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂stdGaussian
-        ≤ A * (2 * ∫ x, g' x ^ 2 ∂stdGaussian) := by
-          apply mul_le_mul_of_nonneg_left hkey hA_pos.le
-      _ = 2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-          rw [hg'_sq]; field_simp
+    -- Case split: is f²·log(f²) integrable?
+    -- This breaks the circular dependency with integrable_sq_mul_log_sq_of_memLp.
+    by_cases hflog : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian
+    · -- **Integrable case**: algebraic entropy decomposition
+      have hint1 : Integrable (fun x => A * g x ^ 2 * Real.log A) stdGaussian :=
+        (hg.integrable_sq.const_mul A).mul_const _
+      -- Derive g²·log(g²) integrability from f²·log(f²) integrability:
+      -- f²·log(f²) = A·g²·logA + A·(g²·log(g²)), and first summand is integrable,
+      -- so second summand = f²·log(f²) - first summand is integrable too.
+      have hint2 : Integrable (fun x => A * (g x ^ 2 * Real.log (g x ^ 2))) stdGaussian := by
+        have heq : (fun x => A * (g x ^ 2 * Real.log (g x ^ 2))) =
+            fun x => f x ^ 2 * Real.log (f x ^ 2) - A * g x ^ 2 * Real.log A := by
+          ext x; linarith [hpt x]
+        rw [heq]; exact hflog.sub hint1
+      have hent_eq : entropy stdGaussian (fun x => f x ^ 2) =
+          A * ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂stdGaussian := by
+        unfold entropy
+        have h_int_eq : ∫ x, (fun x => f x ^ 2) x * Real.log ((fun x => f x ^ 2) x) ∂stdGaussian =
+            ∫ x, (A * g x ^ 2 * Real.log A + A * (g x ^ 2 * Real.log (g x ^ 2))) ∂stdGaussian :=
+          integral_congr_ae (ae_of_all _ fun x => hpt x)
+        rw [h_int_eq, integral_add hint1 hint2]
+        rw [show (fun x => A * g x ^ 2 * Real.log A) = fun x => (A * Real.log A) * g x ^ 2 from
+          funext (fun _ => by ring)]
+        rw [integral_const_mul, hg_norm, mul_one, integral_const_mul]
+        rw [show ∫ (x : ℝ), (fun x => f x ^ 2) x ∂stdGaussian = A from hAdef.symm]
+        ring
+      rw [hent_eq]
+      calc A * ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂stdGaussian
+          ≤ A * (2 * ∫ x, g' x ^ 2 ∂stdGaussian) := by
+            apply mul_le_mul_of_nonneg_left hkey hA_pos.le
+        _ = 2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
+            rw [hg'_sq]; field_simp
+    · -- **Non-integrable case**: ∫f²·log(f²) = 0 (Lean convention), entropy = -A·logA
+      have hent_eq : entropy stdGaussian (fun x => f x ^ 2) = -(A * Real.log A) := by
+        unfold entropy
+        rw [show (fun x => (fun x => f x ^ 2) x * Real.log ((fun x => f x ^ 2) x)) =
+          (fun x => f x ^ 2 * Real.log (f x ^ 2)) from rfl]
+        rw [integral_undef hflog]
+        rw [show ∫ (x : ℝ), (fun x => f x ^ 2) x ∂stdGaussian = A from hAdef.symm]
+        ring
+      rw [hent_eq]
+      -- Sub-case split on A ≥ 1 vs 0 < A < 1
+      by_cases hA1 : 1 ≤ A
+      · -- A ≥ 1: logA ≥ 0, so -A·logA ≤ 0 ≤ 2∫f'²
+        have : 0 ≤ A * Real.log A :=
+          mul_nonneg hA_pos.le (Real.log_nonneg hA1)
+        have : 0 ≤ ∫ x, f' x ^ 2 ∂stdGaussian :=
+          integral_nonneg (fun x => sq_nonneg (f' x))
+        linarith
+      · -- 0 < A < 1: -A·logA > 0.
+        -- This case is likely vacuous: f ∈ W^{1,2}(γ) with continuous f' and
+        -- ∫f² < 1 should imply f²·log(f²) ∈ L¹(γ), but the proof requires
+        -- Nelson's hypercontractivity (not in Mathlib).
+        -- Bound: -A·logA ≤ 1/e ≈ 0.368, so this is a very mild condition.
+        push_neg at hA1
+        sorry
 
 end LSI_Decomposition
 
