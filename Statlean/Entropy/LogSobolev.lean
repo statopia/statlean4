@@ -26,29 +26,32 @@ import Mathlib.MeasureTheory.Measure.Prod
   - `sq_div_sq_add_eps_le_one` — f²/(f²+ε) ≤ 1
   - `two_mul_le_sq_add_sq` — 2ab ≤ a² + b²
 
-## Sorry gaps (4 sorry lines in this file, 3 independent blockers)
-- `gaussian_lsi_normalized_of_integrable` — the integrable case of normalized LSI
-  **Blocker**: The 1D Gaussian LSI is a deep result. Every known proof requires
-  infrastructure not in Mathlib:
-  (a) Bakry-Emery Gamma_2 criterion + OU semigroup (~300 lines new infra)
-  (b) Nelson hypercontractivity (~400 lines, documented as stuck)
-  (c) Brunn-Minkowski / Prekopa-Leindler inequality (not in Mathlib)
-  (d) Optimal transport / Caffarelli's theorem (not in Mathlib)
-  (e) Two-point inequality + CLT transfer (~200 lines)
-  The Stein identity alone gives Poincare, NOT the LSI. The previous comment
-  claiming "Stein + Poincare + Young" suffices was incorrect — the Stein identity
-  relates first moments to derivatives, while the LSI involves entropy (nonlinear).
-  **Recommended path**: (a) Bakry-Emery, since Gamma_2 >= Gamma_1 is trivial for
-  Gaussian (Gamma_2 = f''^2 + f'^2 >= f'^2 = Gamma_1). The hard part is proving
-  that Gamma_2 >= rho*Gamma_1 implies LSI(2/rho), which needs the OU semigroup
-  entropy dissipation formula.
+## Sorry gaps (6 sorry lines in this file, 5 sorry-using declarations)
+
+### LSI bridge (3 sorry declarations, was 1 monolithic)
+The C² bounded ae-positive case is PROVED via `lsi_of_bounded_C2_ae_pos`
+(wrapper around `gaussian_lsi_normalized_from_ou`). The remaining gap is
+the approximation argument bridging from general MemLp 2 + C¹:
+
+- `lsi_of_bounded_C2` — removes ae-positivity from C² bounded case.
+  **Strategy**: Regularize f → h_ε = √(f²+ε)/√(1+ε), which is C², bounded,
+  positive everywhere, normalized. Apply ae-pos version, then take ε → 0 via DCT.
+  **Effort**: ~60 lines (derivative calculations for √(f²+ε) + DCT limit).
+
+- `lsi_of_bounded_C1` — bridges from C¹ to C² via OU smoothing.
+  **Strategy**: P_t f is C^∞ bounded for t > 0 (needs ContDiff proof for OU).
+  Apply `lsi_of_bounded_C2`, take t → 0.
+  **Effort**: ~50 lines (OU second derivative + DCT).
+
+- `lsi_approximation_from_bounded` — general W^{1,2}(γ) → bounded via truncation.
+  **Strategy**: Smooth truncation φ_n ∘ f with |φ_n'| ≤ 1, apply bounded case,
+  take n → ∞ via MCT (positive part) + DCT (negative part ≤ 1/e).
+  **Effort**: ~70 lines (smooth truncation definition + convergence).
+
+### Other sorry gaps
 - `integrable_sq_mul_log_sq_of_memLp` — f²·log(f²) ∈ L¹(γ) for f ∈ W^{1,2}(γ)
-  **Blocker**: Requires the LSI or Gaussian Sobolev embedding W^{1,2}(γ) -> L^p(γ)
-  for p > 2 (which is equivalent to hypercontractivity). The negative part is
-  integrable (bounded by 1, proved). The positive part requires either the LSI
-  (to bound integral of f^2 log^+(f^2)) or L^{2+eps} integrability of f.
-  The 1D pointwise bound |f(x)| <= |f(0)| + |x|^{1/2} * e^{x^2/4} * C * ||f'||
-  only gives f in L^p(gamma) for p < 2, which is insufficient.
+  **Blocker**: Co-dependent with LSI. Once LSI bridge is closed, this follows.
+
 - `tensorization_lsi_core` — LSI tensorization (separate, not targeted here)
   **Blocker**: Product entropy chain rule (Measure.pi Fubini for single coordinate)
 
@@ -389,7 +392,7 @@ lemma sq_div_sq_add_eps_le_one (t ε : ℝ) (hε : 0 < ε) :
 lemma two_mul_le_sq_add_sq (a b : ℝ) : 2 * a * b ≤ a ^ 2 + b ^ 2 := by
   nlinarith [sq_nonneg (a - b)]
 
-/-- **1D Gaussian log-Sobolev inequality** (Gross 1975).
+/-! ### 1D Gaussian log-Sobolev inequality (Gross 1975)
 
 For `f, f'` in `L^2(gamma)` with `integral(f^2) = 1` and `f^2 log(f^2)` integrable:
   `integral(f^2 * log(f^2)) <= 2 * integral(f'^2)`
@@ -397,12 +400,133 @@ For `f, f'` in `L^2(gamma)` with `integral(f^2) = 1` and `f^2 log(f^2)` integrab
 Equivalently in Fisher information form: `Ent(g) <= 1/2 * I(g)` where
 `g = f^2`, `I(g) = integral((g')^2/g) = 4*integral(f'^2)`.
 
-**Blocker**: Every known proof requires OU semigroup infrastructure not in Mathlib:
-(a) Bakry-Emery via OU semigroup (~250 lines): define `P_t` via Mehler formula,
-    prove entropy dissipation `d/dt Ent(P_t g) = -I(P_t g)`, Fisher decay
-    `I(P_t g) <= e^{-2t} I(g)`, integrate to get `Ent(g) <= 1/2 I(g)`.
-(b) Hypercontractivity of OU semigroup (~400 lines)
-(c) Two-point inequality + CLT transfer (~200 lines) -/
+The C² bounded version is proved in `OrnsteinUhlenbeck.gaussian_lsi_normalized_from_ou`
+via the Bakry-Emery Gamma_2 criterion and OU semigroup entropy dissipation.
+
+The proof here bridges from general `MemLp 2` + C¹ hypotheses to that theorem
+via approximation layers:
+1. `lsi_of_bounded_C2_ae_pos`: bounded C² ae-positive → LSI (via OU theorem)
+2. `lsi_of_bounded_C2`: bounded C² → LSI (positivity via OU perturbation)
+3. `lsi_of_bounded_C1`: bounded C¹ → LSI (smoothing via OU semigroup)
+4. `lsi_approximation_from_bounded`: general → bounded (smooth truncation)
+5. `gaussian_lsi_normalized_of_integrable`: combines layers 3+4 -/
+
+/-- **LSI for bounded C² ae-positive functions** — thin wrapper around OU theorem.
+Handles the case where f is bounded with bounded derivatives and f ≠ 0 a.e.
+This is a direct application of `gaussian_lsi_normalized_from_ou`. -/
+private lemma lsi_of_bounded_C2_ae_pos
+    (f f' f'' : ℝ → ℝ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hderiv' : ∀ x, HasDerivAt f' (f'' x) x)
+    (hf_bound : ∃ C, ∀ x, ‖f x‖ ≤ C)
+    (hf'_bound : ∃ C, ∀ x, ‖f' x‖ ≤ C)
+    (hf''_bound : ∃ C, ∀ x, ‖f'' x‖ ≤ C)
+    (hf_pos : ∀ᵐ x ∂stdGaussian, f x ≠ 0)
+    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
+    (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
+    ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
+      2 * ∫ x, f' x ^ 2 ∂stdGaussian :=
+  Statlean.Gaussian.gaussian_lsi_normalized_from_ou f f' f'' hf hf' hderiv hderiv'
+    hf_bound hf'_bound hf''_bound hf_pos hnorm hint
+
+/-- **LSI for bounded C² functions** — removes the ae-positivity requirement.
+If f is bounded C² with ∫f²=1, we can handle f=0 on a null set by perturbation:
+f_δ = √(f² + δ) satisfies f_δ > 0 everywhere, ∫f_δ² = 1 + δ, and
+∫f_δ²·log(f_δ²) → ∫f²·log(f²) as δ → 0. -/
+private lemma lsi_of_bounded_C2
+    (f f' f'' : ℝ → ℝ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hderiv' : ∀ x, HasDerivAt f' (f'' x) x)
+    (hf_bound : ∃ C, ∀ x, ‖f x‖ ≤ C)
+    (hf'_bound : ∃ C, ∀ x, ‖f' x‖ ≤ C)
+    (hf''_bound : ∃ C, ∀ x, ‖f'' x‖ ≤ C)
+    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
+    (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
+    ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
+      2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
+  -- It suffices to show: ∀ ε > 0, ∫(f²+ε)·log(f²+ε) ≤ 2∫f'² + (1+ε)·log(1+ε).
+  -- Then take ε → 0: LHS → ∫f²·log(f²) by DCT, RHS → 2∫f'².
+  suffices heps : ∀ ε > (0 : ℝ),
+      ∫ x, (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) ∂stdGaussian ≤
+        2 * ∫ x, f' x ^ 2 ∂stdGaussian + (1 + ε) * Real.log (1 + ε) by
+    -- For any δ > 0 we show ∫f²·log(f²) ≤ 2∫f'² + δ, then conclude.
+    -- Pick ε small enough so that (1+ε)·log(1+ε) < δ/2 and
+    -- |∫(f²+ε)·log(f²+ε) - ∫f²·log(f²)| < δ/2.
+    -- The latter uses DCT with f bounded.
+    -- For now: blocked by DCT infrastructure for ε-parametric integral.
+    sorry
+  -- Prove the ε-regularized bound using lsi_of_bounded_C2_ae_pos.
+  intro ε hε
+  -- Define h(x) = √(f(x)² + ε) / √(1 + ε).
+  set h := fun x => Real.sqrt (f x ^ 2 + ε) / Real.sqrt (1 + ε) with hh_def
+  -- h'(x) = f(x)·f'(x) / [√(f(x)²+ε) · √(1+ε)]
+  set h' := fun x => f x * f' x / (Real.sqrt (f x ^ 2 + ε) * Real.sqrt (1 + ε)) with hh'_def
+  -- h''(x) = [f'(x)²·ε + f(x)·f''(x)·(f(x)²+ε)] / [(f(x)²+ε)^(3/2) · √(1+ε)]
+  set h'' := fun x =>
+    (f' x ^ 2 * ε + f x * f'' x * (f x ^ 2 + ε)) /
+    ((f x ^ 2 + ε) ^ (3/2 : ℝ) * Real.sqrt (1 + ε)) with hh''_def
+  -- Apply lsi_of_bounded_C2_ae_pos to h.
+  -- This requires: C², bounded, bounded derivatives, ae positive, normalized, integrable entropy.
+  -- All follow from f bounded with bounded derivatives and ε > 0.
+  -- The resulting LSI ∫h²·log(h²) ≤ 2∫h'² gives, after unpacking and algebra:
+  -- ∫(f²+ε)·log(f²+ε) ≤ 2∫f'² + (1+ε)·log(1+ε).
+  sorry
+
+/-- **LSI for bounded C¹ functions** — bridges from C¹ to C² via OU smoothing.
+For bounded f with ∀ x, HasDerivAt f (f' x) x, the OU semigroup P_t f
+is C^∞ and bounded for t > 0. Apply `lsi_of_bounded_C2` to P_t f and
+take t → 0⁺ via dominated convergence (f bounded → P_t f bounded by same). -/
+private lemma lsi_of_bounded_C1
+    (f f' : ℝ → ℝ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hf_bound : ∃ C, ∀ x, ‖f x‖ ≤ C)
+    (hf'_bound : ∃ C, ∀ x, ‖f' x‖ ≤ C)
+    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
+    (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
+    ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
+      2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
+  -- Strategy: Apply OU semigroup to get C^∞ approximation.
+  -- P_t f satisfies: ‖P_t f‖_∞ ≤ ‖f‖_∞, (P_t f)' = e^{-t} P_t f',
+  -- P_t f → f pointwise as t → 0+ (f bounded continuous).
+  -- For t > 0, P_t f is C^∞ with bounded derivatives (by `ouSemigroup_hasDerivAt`).
+  -- Apply `lsi_of_bounded_C2` to P_t f for t = 1/n, take limit.
+  sorry
+
+/-- **Approximation lemma**: From MemLp 2 + C¹ to bounded via smooth truncation.
+Given f ∈ W^{1,2}(γ), construct f_n bounded with |f_n| ≤ |f|, f_n → f in L²,
+and ∫f_n'² ≤ ∫f'², such that ∫f_n²·log(f_n²) → ∫f²·log(f²). -/
+private lemma lsi_approximation_from_bounded
+    (f f' : ℝ → ℝ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
+    (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian)
+    (hlsi_bdd : ∀ (g g' : ℝ → ℝ),
+      MemLp g 2 stdGaussian → MemLp g' 2 stdGaussian →
+      (∀ x, HasDerivAt g (g' x) x) →
+      (∃ C, ∀ x, ‖g x‖ ≤ C) → (∃ C, ∀ x, ‖g' x‖ ≤ C) →
+      ∫ x, g x ^ 2 ∂stdGaussian = 1 →
+      Integrable (fun x => g x ^ 2 * Real.log (g x ^ 2)) stdGaussian →
+      ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂stdGaussian ≤
+        2 * ∫ x, g' x ^ 2 ∂stdGaussian) :
+    ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
+      2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
+  -- Strategy: Define f_n = φ_n ∘ f where φ_n is a smooth truncation
+  -- satisfying: φ_n(t) = t for |t| ≤ n, |φ_n(t)| ≤ n+1, 0 ≤ φ_n' ≤ 1.
+  -- Then f_n is bounded, f_n → f in L², f_n' = φ_n'(f)·f' so ∫f_n'² ≤ ∫f'².
+  -- The entropy convergence uses:
+  -- - Positive part: f_n² ↑ f², so f_n²·log⁺(f_n²) ↑ f²·log⁺(f²) (monotone convergence)
+  -- - Negative part: |f_n²·log⁻(f_n²)| ≤ 1/e (dominated convergence)
+  -- After normalization (divide by ∫f_n²), apply hlsi_bdd and take limit.
+  sorry
+
 private lemma gaussian_lsi_normalized_of_integrable
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
@@ -412,10 +536,12 @@ private lemma gaussian_lsi_normalized_of_integrable
     (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  -- The C² version is proved in OrnsteinUhlenbeck.gaussian_lsi_normalized_from_ou.
-  -- Bridging from general MemLp 2 to bounded C² requires an approximation argument
-  -- (mollification + truncation + dominated convergence). This is future work.
-  sorry
+  -- Decomposition: bounded C¹ case + approximation from general to bounded.
+  -- Step 1: The bounded case is handled by `lsi_of_bounded_C1`.
+  -- Step 2: The general case reduces to bounded via `lsi_approximation_from_bounded`.
+  exact lsi_approximation_from_bounded f f' hf hf' hderiv hnorm hint
+    (fun g g' hg hg' hgd hgb hg'b hgn hgi =>
+      lsi_of_bounded_C1 g g' hg hg' hgd hgb hg'b hgn hgi)
 
 lemma gaussian_lsi_normalized
     (f f' : ℝ → ℝ)
@@ -2078,8 +2204,17 @@ private lemma integrated_condEntropyAt_condExpect_le {n : ℕ}
 -- This means: in any slice, ∫ (g·log g)⁺ is typically infinite too.
 -- And ∫ condEnt_i(g)(x) = ∫ slice(g·log(g)) - (E_i g)·log(E_i g) → each term
 -- has a non-integrable positive part so the Lean integral is not 0 but could be anything...
--- Actually this case is subtle. Let's handle it more carefully.
--- For now: mark as sorry, attack after sub-lemma 1.
+-- **STATUS: LIKELY FALSE** under Lean's `∫ non-integrable = 0` convention.
+-- Counterexample: g(x₁,x₂) = h₁(x₁)·h₂(x₂) where both hᵢ·log(hᵢ) ∉ L¹(γ)
+-- and 0 < (∫h₁)(∫h₂) < 1. Then:
+--   LHS = entropyPi g = -(∫g)·log(∫g) > 0  (since ∫g < 1)
+--   RHS: For each i, condEntropyAt_i involves non-integrable h_j·log(h_j),
+--     making condEntropyAt_i non-integrable on the product → ∫ condEntropyAt_i = 0.
+--   So RHS = 0 < LHS.
+-- This sorry becomes dead code once `integrable_sq_mul_log_sq_of_memLp` is proved:
+-- the only call path is `entropy_subadditivity_of_nonneg → entropy_subadditivity_pi`
+-- where g = f² with f ∈ MemLp 2, and derivative control ensures g·log(g) ∈ L¹.
+-- TODO: add `hg_log` hypothesis to `entropy_subadditivity_of_nonneg` once sorry 1 is closed.
 private lemma entropy_subadditivity_not_integrable_log {n : ℕ} (hn : 2 ≤ n)
     (g : (Fin n → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
     (hg : Integrable g (stdGaussianPi n))

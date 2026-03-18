@@ -1,24 +1,25 @@
-version: v134
-generated: 2026-03-13
-total_sorry: 5
+version: v137
+generated: 2026-03-18
+total_sorry: 8
 
 sorry_items:
 
 - id: berry_esseen.levy_cdf_diff_fourier_bound
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 693
+  line: 736
   theorem: levy_cdf_diff_fourier_bound
   type: stuck
   depth: 2
   priority: 1
-  blocker: "Lévy inversion → CDF bound: |cdf μ y - cdf ν y| ≤ (1/π)∫_{-T}^T ‖Δ‖/|t| + 24/(πT). Proof: (1) Fubini with abel_sinc_integral + charFun definition to get Abel-regularized Lévy identity: ∫ arctan((x-y)/ε) d(μ-ν) = ∫₀^∞ e^{-εt} Im(Δ(t)e^{-ity})/t dt. (2) ε→0 limit: LHS → π(G(y)-F(y)) by DCT (|arctan| ≤ π/2), RHS split at T. (3) [0,T] part ≤ (1/π)∫_{-T}^T ‖Δ‖/|t|, tail ≤ 24/(πT) using density bound. (4) Right-continuity extends from continuity points to all y. ~100 lines. Requires abel_sinc_integral. "
-  estimated_lines: 100
+  blocker: "Esseen's inequality (Lévy inversion). The specific constants 1/π and 24/(πT) are ESSENTIAL — the smoothing approach (berry_esseen_smoothing, already proved) gives non-universal constants depending on the charFun integral, so the final Berry-Esseen constant cannot be universal. Proof requires: (1) Fubini for Abel-regularized sinc kernel against μ, (2) DCT for ε→0⁺, (3) charFun tail bound using density hypothesis. Mathlib has integral_charFun_Icc (Fubini for charFun) and abel_sinc_integral (proved in file). No simpler mathematical workaround exists."
+  estimated_lines: 100-150
   dependencies: []
   unlocks: []
+  grade: "D"
 
 - id: lsi.integrable_sq_log
   file: Statlean/Entropy/LogSobolev.lean
-  line: 341
+  line: 344
   theorem: integrable_sq_mul_log_sq_of_memLp
   type: blocked
   depth: 2
@@ -40,25 +41,54 @@ sorry_items:
   dependencies: [ou.gaussian_lsi_wiring, lsi.entropy_subadditivity_of_nonneg]
   unlocks: []
 
-- id: lsi.entropy_subadditivity_not_integrable_log
+- id: lsi.lsi_of_bounded_C2
   file: Statlean/Entropy/LogSobolev.lean
-  line: 2088
-  theorem: entropy_subadditivity_not_integrable_log
+  line: 461
+  sorry_lines: [461, 477]
+  theorem: lsi_of_bounded_C2
+  type: honest
+  depth: 1
+  priority: 5
+  grade: "C"
+  blocker: "Remove ae-positivity from C² bounded case. Strategy: regularize f → h_ε = √(f²+ε)/√(1+ε), apply ae-pos version, take ε→0 via DCT. Needs derivative calculations for √(f²+ε) + DCT limit."
+  estimated_lines: 60
+  dependencies: []
+  unlocks: [lsi.lsi_of_bounded_C1]
+
+- id: lsi.lsi_of_bounded_C1
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 499
+  theorem: lsi_of_bounded_C1
   type: honest
   depth: 2
-  priority: 15
-  blocker: "Non-integrable g·log(g) case. In Lean convention (∫ non-integrable = 0): entropyPi = -(∫g)·log(∫g). For a.e. x, slice g·log(g) not integrable (since global positive part diverges), so condEntropyAt = -(E_i g)·log(E_i g). Need ∑∫-(E_i g)·log(E_i g) ≥ -(∫g)·log(∫g). By Jensen on convex x·log(x): each ∫(E_i g)·log(E_i g) ≥ (∫g)·log(∫g). But this gives ∑ ≥ n·(∫g)·log(∫g) which is wrong direction when (∫g)·log(∫g) > 0. Mathematically both sides = +∞. May need Lean convention workaround. ~50 lines."
+  priority: 6
+  grade: "C"
+  blocker: "Bridge C¹→C² via OU smoothing. P_t f for t>0 is C^∞ bounded. Apply lsi_of_bounded_C2 to P_t f, take t→0 via DCT."
   estimated_lines: 50
-  dependencies: []
-  unlocks: []
+  dependencies: [lsi.lsi_of_bounded_C2]
+  unlocks: [lsi.lsi_approximation_from_bounded]
 
-- id: entropy.logsobolev.gaussian_lsi_normalized_of_integrable
+- id: lsi.lsi_approximation_from_bounded
   file: Statlean/Entropy/LogSobolev.lean
-  line: 418
-  theorem: gaussian_lsi_normalized_of_integrable
-  type: unknown
-  depth: 1
+  line: 528
+  theorem: lsi_approximation_from_bounded
+  type: honest
+  depth: 3
+  priority: 7
+  grade: "C"
+  blocker: "Smooth truncation φ_n∘f with |φ_n'|≤1, apply bounded case, take n→∞ via MCT (positive part) + DCT (negative part ≤ 1/e). Needs smooth truncation definition."
+  estimated_lines: 70
+  dependencies: [lsi.lsi_of_bounded_C1]
+  unlocks: [lsi.integrable_sq_log]
+
+- id: lsi.entropy_subadditivity_not_integrable_log
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 2224
+  theorem: entropy_subadditivity_not_integrable_log
+  type: False
+  depth: 2
   priority: 99
-  estimated_lines: 50
+  blocker: "LIKELY FALSE under Lean's ∫=0 convention. Counterexample: g(x₁,x₂) = h₁(x₁)·h₂(x₂) with both hᵢ·log(hᵢ) ∉ L¹(γ) and 0 < (∫h₁)(∫h₂) < 1. Then LHS = -(∫g)·log(∫g) > 0 but RHS = 0 (each condEntropyAt_i involves non-integrable hⱼ·log(hⱼ), making it non-integrable on product → Lean integral = 0). Becomes dead code once integrable_sq_mul_log_sq_of_memLp is proved, since actual usage path (g = f²) always has integrable g·log(g)."
+  estimated_lines: 0
   dependencies: []
   unlocks: []

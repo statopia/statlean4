@@ -71,18 +71,15 @@
 
 ---
 
-## 当前 Sorry 等级评估
+## 当前 Sorry 等级评估 (2026-03-18, 5 total sorry)
 
-| Sorry | 文件 | 等级 | 预计时间 | 预计 Token | Blocker |
-|-------|------|------|---------|-----------|---------|
-| `uniform_of_pointwise_on_rationals` | Convergence:433 | B-C | 30-60 min | 80-150K | CDF 右连续 + Dini |
-| Kolmogorov cross-term independence | Convergence:689 | B | 20-40 min | 50-100K | iIndepFun.indepFun_finset |
-| `levy_cdf_diff_fourier_bound` | BerryEsseen:693 | E | 5-10 hr | 300-500K | Stieltjes inversion |
-| Gaussian LSI core | LogSobolev:339 | E | 5-10 hr | 300-500K | hypercontractivity |
-| normalized LSI | LogSobolev:439 | C (blocked) | 30-60 min | 100-150K | 依赖 LSI core |
-| 条件熵可积性 | LogSobolev:862 | C | 30-60 min | 80-120K | Fubini for Measure.pi |
-| 张量化 | LogSobolev:1124 | D | 2-4 hr | 200-350K | entropy subadditivity |
-| Herbst LSI | Herbst:77 | S (blocked) | 5 min | 10K | 等 LSI core |
+| Sorry | 文件:行 | 等级 | 预计时间 | 预计 Token | 状态 |
+|-------|---------|------|---------|-----------|------|
+| `levy_cdf_diff_fourier_bound` | BerryEsseen:700 | D | 3-6 hr | 200-400K | Stieltjes inversion blocker |
+| `integrable_sq_mul_log_sq_of_memLp` | LogSobolev:341 | C | 30-60 min | 100-150K | 依赖 sorry 2 关闭后自动可证 |
+| `gaussian_lsi_normalized_of_integrable` | LogSobolev:418 | D | 2-4 hr | 200-350K | 核心：C¹→C² 近似（OU 平滑 + 截断） |
+| `entropy_subadditivity_not_integrable_log` | LogSobolev:2089 | **FALSE** | — | — | Lean ∫=0 约定下为假（有反例），dead code |
+| `hasSubgaussianMGF_centered...` | Herbst:77 | S (blocked) | 5 min | 10K | 等 LogSobolev sorry 关闭 |
 
 ---
 
