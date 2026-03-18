@@ -1867,7 +1867,8 @@ private lemma exists_bounded_C1_approx
     (hf' : MemLp f' 2 stdGaussian)
     (hderiv : ∀ x, HasDerivAt f (f' x) x)
     (hf'_cont : Continuous f')
-    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1) :
+    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
+    (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
     ∃ (g g' : ℕ → ℝ → ℝ),
       (∀ n, ∃ C, ∀ x, ‖g n x‖ ≤ C) ∧
       (∀ n, ∃ C, ∀ x, ‖g' n x‖ ≤ C) ∧
@@ -1878,7 +1879,7 @@ private lemma exists_bounded_C1_approx
       (∀ n, MemLp (g n) 2 stdGaussian) ∧
       (∀ n, MemLp (g' n) 2 stdGaussian) ∧
       (∀ n, Integrable (fun x => (g n x) ^ 2 * Real.log ((g n x) ^ 2)) stdGaussian) ∧
-      (∀ n, 0 < ∫ x, (g n x) ^ 2 ∂stdGaussian) ∧
+      (∀ᶠ n in Filter.atTop, 0 < ∫ x, (g n x) ^ 2 ∂stdGaussian) ∧
       (Filter.Tendsto (fun n => ∫ x, (g n x) ^ 2 * Real.log ((g n x) ^ 2) ∂stdGaussian)
         Filter.atTop (nhds (∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian))) := by
   -- Use spatial truncation: g_n = f · smoothCutoff_n
@@ -1951,9 +1952,93 @@ private lemma exists_bounded_C1_approx
   -- (4) Pointwise domination: (g_n x)² ≤ (f x)²
   · exact fun n x => spatialTrunc_sq_le f n x
   -- (5) Energy convergence: ∫(g_n')² → ∫(f')²
-  · -- As n → ∞, cutoff_n → 1 pointwise, so g_n' → f' pointwise.
-    -- DCT: |g_n'|² ≤ C·(|f'|² + |f|²) which is integrable.
-    sorry
+  · -- spatialTruncDeriv f f' n x → f' x pointwise, by DCT.
+    -- Dominator: (|f'| + 2|f|)² ≤ 2(f')² + 8f² which is integrable.
+    apply tendsto_integral_of_dominated_convergence
+      (fun x => 2 * (f' x) ^ 2 + 8 * (f x) ^ 2)
+    · -- AEStronglyMeasurable for each n
+      intro n
+      have heq : (fun x => (spatialTruncDeriv f f' n x) ^ 2) =
+          (fun x => (deriv (spatialTrunc f n) x) ^ 2) := by
+        ext x
+        congr 1
+        exact (((hderiv x).mul (hasDerivAt_smoothCutoff n x)).deriv).symm
+      rw [heq]
+      exact ((measurable_deriv _).pow_const 2).aestronglyMeasurable
+    · -- Dominator integrable
+      exact (integrable_sq_of_memLp hf').const_mul 2 |>.add
+        ((integrable_sq_of_memLp hf).const_mul 8)
+    · -- Pointwise bound: |g_n'(x)|² ≤ 2(f'x)² + 8(fx)²
+      intro n; exact ae_of_all _ fun x => by
+        rw [Real.norm_eq_abs, abs_of_nonneg (sq_nonneg _)]
+        simp only [spatialTruncDeriv]
+        -- (f' x * cutoff + f x * cutoff')² ≤ 2(f' x)² + 2(f x · cutoff')²
+        -- ≤ 2(f' x)² + 2(f x)² · 4 = 2(f' x)² + 8(f x)²
+        have hcut_le : |smoothCutoff n x| ≤ 1 := by
+          rw [abs_le]; exact ⟨by linarith [smoothCutoff_nonneg n x], smoothCutoff_le_one n x⟩
+        have hcutD_le : |smoothCutoffDeriv n x| ≤ 2 := by
+          have ht0 := hatFun_nonneg n x
+          have ht1 := hatFun_le_one n x
+          simp only [smoothCutoffDeriv]
+          split_ifs with h hx'
+          · rw [show 6 * hatFun n x * (1 - hatFun n x) * (-1) =
+              -(6 * hatFun n x * (1 - hatFun n x)) from by ring,
+              abs_neg, abs_of_nonneg (by nlinarith)]
+            nlinarith [sq_nonneg (hatFun n x - 1/2)]
+          · rw [show 6 * hatFun n x * (1 - hatFun n x) * 1 =
+              6 * hatFun n x * (1 - hatFun n x) from by ring,
+              abs_of_nonneg (by nlinarith)]
+            nlinarith [sq_nonneg (hatFun n x - 1/2)]
+          · simp
+        -- (a + b)² ≤ 2a² + 2b²
+        have hab : (f' x * smoothCutoff n x + f x * smoothCutoffDeriv n x) ^ 2 ≤
+            2 * (f' x * smoothCutoff n x) ^ 2 + 2 * (f x * smoothCutoffDeriv n x) ^ 2 := by
+          nlinarith [sq_nonneg (f' x * smoothCutoff n x - f x * smoothCutoffDeriv n x)]
+        calc (f' x * smoothCutoff n x + f x * smoothCutoffDeriv n x) ^ 2
+            ≤ 2 * (f' x * smoothCutoff n x) ^ 2 + 2 * (f x * smoothCutoffDeriv n x) ^ 2 := hab
+          _ = 2 * (f' x) ^ 2 * (smoothCutoff n x) ^ 2 +
+              2 * (f x) ^ 2 * (smoothCutoffDeriv n x) ^ 2 := by ring
+          _ ≤ 2 * (f' x) ^ 2 * 1 + 2 * (f x) ^ 2 * 4 := by
+              apply add_le_add
+              · apply mul_le_mul_of_nonneg_left _ (by positivity)
+                have : (smoothCutoff n x) ^ 2 ≤ 1 := by
+                  nlinarith [smoothCutoff_nonneg n x, smoothCutoff_le_one n x]
+                linarith
+              · apply mul_le_mul_of_nonneg_left _ (by positivity)
+                have : (smoothCutoffDeriv n x) ^ 2 ≤ 4 := by
+                  have h1 : (smoothCutoffDeriv n x) ^ 2 = |smoothCutoffDeriv n x| ^ 2 := (sq_abs _).symm
+                  rw [h1]; nlinarith [hcutD_le, abs_nonneg (smoothCutoffDeriv n x)]
+                linarith
+          _ = 2 * (f' x) ^ 2 + 8 * (f x) ^ 2 := by ring
+    · -- Pointwise convergence: (g_n' x)² → (f' x)²
+      exact ae_of_all _ fun x => by
+        -- smoothCutoff n x is eventually constant = 1 (for n ≥ ⌈|x|⌉)
+        have hcut_ev : ∀ᶠ n in Filter.atTop, smoothCutoff n x = 1 :=
+          Filter.mem_atTop_sets.mpr ⟨Nat.ceil |x|, fun n hn =>
+            smoothCutoff_eq_one_of_abs_le n x (by
+              calc |x| ≤ ↑(Nat.ceil |x|) := Nat.le_ceil _
+                _ ≤ ↑n := Nat.cast_le.mpr hn)⟩
+        have hcut_tendsto : Filter.Tendsto (fun n => smoothCutoff n x) Filter.atTop (nhds 1) :=
+          tendsto_nhds_of_eventually_eq hcut_ev
+        -- smoothCutoffDeriv n x is eventually constant = 0
+        have hcutD_ev : ∀ᶠ n in Filter.atTop, smoothCutoffDeriv n x = 0 :=
+          Filter.mem_atTop_sets.mpr ⟨Nat.ceil |x|, fun n hn => by
+            simp only [smoothCutoffDeriv]
+            have habs_le : |x| ≤ n := by
+              calc |x| ≤ ↑(Nat.ceil |x|) := Nat.le_ceil _
+                _ ≤ ↑n := Nat.cast_le.mpr hn
+            exact if_neg (by push_neg; intro h; linarith)⟩
+        have hcutD_tendsto : Filter.Tendsto (fun n => smoothCutoffDeriv n x) Filter.atTop (nhds 0) :=
+          tendsto_nhds_of_eventually_eq hcutD_ev
+        show Filter.Tendsto (fun n => (spatialTruncDeriv f f' n x) ^ 2) Filter.atTop
+          (nhds ((f' x) ^ 2))
+        simp only [spatialTruncDeriv]
+        have : Filter.Tendsto (fun n => f' x * smoothCutoff n x + f x * smoothCutoffDeriv n x)
+            Filter.atTop (nhds (f' x * 1 + f x * 0)) :=
+          (Filter.Tendsto.const_mul (f' x) hcut_tendsto).add
+            (Filter.Tendsto.const_mul (f x) hcutD_tendsto)
+        simp only [mul_one, mul_zero, add_zero] at this
+        exact this.pow 2
   -- (6) MemLp g_n 2
   · intro n
     obtain ⟨C, hC⟩ := spatialTrunc_bounded f hf_cont n
@@ -1962,7 +2047,61 @@ private lemma exists_bounded_C1_approx
       C (ae_of_all _ hC)).mono_exponent (by norm_num)
   -- (7) MemLp g_n' 2
   · intro n
-    sorry
+    -- spatialTruncDeriv = deriv (spatialTrunc f n), and deriv is always measurable
+    have hasm : AEStronglyMeasurable (spatialTruncDeriv f f' n) stdGaussian := by
+      have heq : spatialTruncDeriv f f' n = deriv (spatialTrunc f n) := by
+        ext x
+        exact ((hderiv x).mul (hasDerivAt_smoothCutoff n x)).deriv.symm
+      rw [heq]
+      exact (measurable_deriv _).aestronglyMeasurable
+    -- Reuse the boundedness argument from (2)
+    have hK : IsCompact (Set.Icc (-(↑n + 1 : ℝ)) (↑n + 1)) := isCompact_Icc
+    obtain ⟨Mf', hMf'⟩ := hK.exists_bound_of_continuousOn hf'_cont.continuousOn
+    obtain ⟨Mf, hMf⟩ := hK.exists_bound_of_continuousOn hf_cont.continuousOn
+    refine (memLp_top_of_bound hasm (max (Mf' + Mf * 2) 0)
+      (ae_of_all _ fun x => ?_)).mono_exponent (by norm_num)
+    by_cases hx : |x| ≤ (n : ℝ) + 1
+    · have hx_mem : x ∈ Set.Icc (-(↑n + 1 : ℝ)) (↑n + 1) := by
+        rw [Set.mem_Icc]; constructor <;> linarith [abs_le.mp hx]
+      have hcutD_bdd : ‖smoothCutoffDeriv n x‖ ≤ 2 := by
+        have ht0 := hatFun_nonneg n x
+        have ht1 := hatFun_le_one n x
+        simp only [smoothCutoffDeriv, Real.norm_eq_abs]
+        split_ifs with h hx'
+        · rw [show 6 * hatFun n x * (1 - hatFun n x) * (-1) =
+            -(6 * hatFun n x * (1 - hatFun n x)) from by ring,
+            abs_neg, abs_of_nonneg (by nlinarith)]
+          nlinarith [sq_nonneg (hatFun n x - 1/2)]
+        · rw [show 6 * hatFun n x * (1 - hatFun n x) * 1 =
+            6 * hatFun n x * (1 - hatFun n x) from by ring,
+            abs_of_nonneg (by nlinarith)]
+          nlinarith [sq_nonneg (hatFun n x - 1/2)]
+        · simp
+      show ‖spatialTruncDeriv f f' n x‖ ≤ _
+      simp only [spatialTruncDeriv]
+      calc ‖f' x * smoothCutoff n x + f x * smoothCutoffDeriv n x‖
+          ≤ ‖f' x * smoothCutoff n x‖ + ‖f x * smoothCutoffDeriv n x‖ := norm_add_le _ _
+        _ = ‖f' x‖ * ‖smoothCutoff n x‖ + ‖f x‖ * ‖smoothCutoffDeriv n x‖ := by
+            rw [norm_mul, norm_mul]
+        _ ≤ Mf' * 1 + Mf * 2 := by
+            apply add_le_add
+            · apply mul_le_mul (hMf' x hx_mem) _ (norm_nonneg _)
+                (by linarith [norm_nonneg (f' x), hMf' x hx_mem])
+              rw [Real.norm_eq_abs, abs_le]
+              exact ⟨by linarith [smoothCutoff_nonneg n x], smoothCutoff_le_one n x⟩
+            · exact mul_le_mul (hMf x hx_mem) hcutD_bdd (norm_nonneg _)
+                (by linarith [norm_nonneg (f x), hMf x hx_mem])
+        _ = Mf' + Mf * 2 := by ring
+        _ ≤ max (Mf' + Mf * 2) 0 := le_max_left _ _
+    · push_neg at hx
+      show ‖spatialTruncDeriv f f' n x‖ ≤ _
+      simp only [spatialTruncDeriv]
+      have hcut0 : smoothCutoff n x = 0 := smoothCutoff_eq_zero_of_abs_ge n x hx.le
+      have hcutD0 : smoothCutoffDeriv n x = 0 := by
+        simp only [smoothCutoffDeriv]
+        exact if_neg (by push_neg; intro h; linarith)
+      rw [hcut0, hcutD0, mul_zero, mul_zero, add_zero, norm_zero]
+      exact le_max_right _ _
   -- (8) Entropy integrability for g_n (bounded → trivial)
   · intro n
     obtain ⟨C, hC⟩ := spatialTrunc_bounded f hf_cont n
@@ -1985,14 +2124,97 @@ private lemma exists_bounded_C1_approx
               _ ≤ C ^ 2 := by nlinarith [abs_nonneg (spatialTrunc f n x)]
           nlinarith [sq_nonneg (spatialTrunc f n x ^ 2), sq_nonneg (C ^ 2)]
       _ = C ^ 4 + 1 := by ring_nf
-  -- (9) Positive L² norm: ∫ g_n² > 0
-  · intro n
-    -- For large n, cutoff_n = 1 on [-n, n], so ∫ g_n² ≥ ∫_{|x|≤n} f² > 0
-    -- since ∫ f² = 1 > 0 and f is not a.e. 0.
-    sorry
+  -- (9) Positive L² norm: ∫ g_n² > 0 (eventually)
+  · -- By DCT: ∫(g_n)² → ∫f² = 1 > 0, so eventually ∫(g_n)² > 0.
+    -- Pointwise convergence: spatialTrunc f n x → f x (smoothCutoff n x → 1 as n → ∞)
+    have hpw : ∀ x, Filter.Tendsto (fun n => (spatialTrunc f n x) ^ 2) Filter.atTop
+        (nhds (f x ^ 2)) := by
+      intro x
+      have hcut_tendsto : Filter.Tendsto (fun n => smoothCutoff n x) Filter.atTop (nhds 1) :=
+        tendsto_nhds_of_eventually_eq (Filter.mem_atTop_sets.mpr ⟨Nat.ceil |x|, fun n hn =>
+          smoothCutoff_eq_one_of_abs_le n x (by
+            calc |x| ≤ ↑(Nat.ceil |x|) := Nat.le_ceil _
+              _ ≤ ↑n := Nat.cast_le.mpr hn)⟩)
+      have hst : Filter.Tendsto (fun n => spatialTrunc f n x) Filter.atTop (nhds (f x)) := by
+        simp only [spatialTrunc]
+        have h := Filter.Tendsto.const_mul (f x) hcut_tendsto
+        simp only [mul_one] at h; exact h
+      exact hst.pow 2
+    -- Dominated convergence: (g_n x)² ≤ (f x)² which is integrable
+    have hconv : Filter.Tendsto (fun n => ∫ x, (spatialTrunc f n x) ^ 2 ∂stdGaussian)
+        Filter.atTop (nhds (∫ x, f x ^ 2 ∂stdGaussian)) := by
+      apply tendsto_integral_of_dominated_convergence (fun x => (f x) ^ 2)
+      · intro n
+        exact ((hf_cont.mul (continuous_smoothCutoff n)).pow 2).aestronglyMeasurable
+      · exact integrable_sq_of_memLp hf
+      · intro n; exact ae_of_all _ fun x => by
+          rw [Real.norm_eq_abs, abs_of_nonneg (sq_nonneg _)]
+          exact spatialTrunc_sq_le f n x
+      · exact ae_of_all _ fun x => hpw x
+    -- Since the limit is 1 > 0, eventually the sequence is > 0
+    rw [hnorm] at hconv
+    exact (hconv.eventually (Ioi_mem_nhds zero_lt_one)).mono fun n hn =>
+      Set.mem_Ioi.mp hn
   -- (10) Entropy convergence: ∫ g_n²·log(g_n²) → ∫ f²·log(f²)
-  · -- g_n → f pointwise, |g_n|² ≤ |f|², DCT for the integrable part.
-    sorry
+  · -- DCT with dominator |f²·log(f²)| + 1.
+    -- Pointwise: g_n² → f², so g_n²·log(g_n²) → f²·log(f²) by continuity of t·log(t).
+    apply tendsto_integral_of_dominated_convergence
+      (fun x => |f x ^ 2 * Real.log (f x ^ 2)| + 1)
+    · -- AEStronglyMeasurable
+      intro n
+      exact (Real.continuous_mul_log.comp
+        ((hf_cont.mul (continuous_smoothCutoff n)).pow 2)).aestronglyMeasurable
+    · -- Dominator integrable
+      exact hint.norm.add (integrable_const _)
+    · -- Pointwise bound: |g_n²·log(g_n²)| ≤ |f²·log(f²)| + 1
+      intro n; exact ae_of_all _ fun x => by
+        rw [Real.norm_eq_abs]
+        have hgn_sq := spatialTrunc_sq_le f n x
+        have hgn_nn : 0 ≤ (spatialTrunc f n x) ^ 2 := sq_nonneg _
+        have hf_nn : 0 ≤ f x ^ 2 := sq_nonneg _
+        -- Case split: if g_n² ≥ 1 or g_n² < 1
+        by_cases hge : 1 ≤ (spatialTrunc f n x) ^ 2
+        · -- g_n² ≥ 1: t·log(t) is nonneg and increasing for t ≥ 1
+          have hge_f : 1 ≤ f x ^ 2 := le_trans hge hgn_sq
+          have h1 : 0 ≤ (spatialTrunc f n x) ^ 2 * Real.log ((spatialTrunc f n x) ^ 2) :=
+            mul_nonneg hgn_nn (Real.log_nonneg hge)
+          rw [abs_of_nonneg h1]
+          have hlog_le : Real.log ((spatialTrunc f n x) ^ 2) ≤ Real.log (f x ^ 2) :=
+            Real.log_le_log (by linarith) hgn_sq
+          calc (spatialTrunc f n x) ^ 2 * Real.log ((spatialTrunc f n x) ^ 2)
+              ≤ (spatialTrunc f n x) ^ 2 * Real.log (f x ^ 2) :=
+                mul_le_mul_of_nonneg_left hlog_le hgn_nn
+            _ ≤ f x ^ 2 * Real.log (f x ^ 2) :=
+                mul_le_mul_of_nonneg_right hgn_sq (Real.log_nonneg hge_f)
+            _ ≤ |f x ^ 2 * Real.log (f x ^ 2)| := le_abs_self _
+            _ ≤ _ := le_add_of_nonneg_right one_pos.le
+        · -- g_n² < 1: |g_n²·log(g_n²)| = -(g_n²·log(g_n²)) ≤ 1
+          push_neg at hge
+          have habs_le : |(spatialTrunc f n x) ^ 2 * Real.log ((spatialTrunc f n x) ^ 2)| ≤ 1 := by
+            rw [abs_le]
+            constructor
+            · -- Lower bound: -1 ≤ t·log(t) is always true for t ≥ 0
+              linarith [neg_mul_log_le_one _ hgn_nn]
+            · -- Upper bound: t·log(t) ≤ 0 ≤ 1 for t ∈ [0,1)
+              have : (spatialTrunc f n x) ^ 2 * Real.log ((spatialTrunc f n x) ^ 2) ≤ 0 :=
+                mul_nonpos_of_nonneg_of_nonpos hgn_nn (Real.log_nonpos hgn_nn hge.le)
+              linarith
+          linarith [abs_nonneg (f x ^ 2 * Real.log (f x ^ 2))]
+    · -- Pointwise convergence
+      exact ae_of_all _ fun x => by
+        have hcut_tendsto : Filter.Tendsto (fun n => smoothCutoff n x) Filter.atTop (nhds 1) :=
+          tendsto_nhds_of_eventually_eq (Filter.mem_atTop_sets.mpr ⟨Nat.ceil |x|, fun n hn =>
+            smoothCutoff_eq_one_of_abs_le n x (by
+              calc |x| ≤ ↑(Nat.ceil |x|) := Nat.le_ceil _
+                _ ≤ ↑n := Nat.cast_le.mpr hn)⟩)
+        -- spatialTrunc f n x → f x
+        have hst_tendsto : Filter.Tendsto (fun n => spatialTrunc f n x) Filter.atTop (nhds (f x)) := by
+          simp only [spatialTrunc]
+          have h := Filter.Tendsto.const_mul (f x) hcut_tendsto
+          simp only [mul_one] at h; exact h
+        -- g_n² → f², so g_n²·log(g_n²) → f²·log(f²) by continuity of t·log(t)
+        exact (Real.continuous_mul_log.continuousAt.tendsto.comp
+          (hst_tendsto.pow 2)).congr (fun n => rfl)
 
 /-- For a bounded function g with bounded derivative, the unnormalized LSI holds:
 ∫ g² log g² ≤ 2∫ g'² + (∫ g²) · log(∫ g²).
@@ -2174,14 +2396,14 @@ private lemma lsi_approximation_from_bounded
   -- take limit using entropy convergence from the approximation lemma.
   obtain ⟨g, g', hg_bdd, hg'_bdd, hg_deriv, hg_dom, hg'_energy, hg_memLp,
     hg'_memLp, hg_ent_int, hg_pos, hg_ent_conv⟩ :=
-    exists_bounded_C1_approx f f' hf hf' hderiv hf'_cont hnorm
+    exists_bounded_C1_approx f f' hf hf' hderiv hf'_cont hnorm hint
   -- For each n: ∫ g_n² ≤ ∫ f² = 1 (by pointwise domination), so log(∫ g_n²) ≤ 0.
   -- The unnormalized LSI gives ∫ g_n² log g_n² ≤ 2∫ g_n'² + (∫ g_n²)·log(∫ g_n²) ≤ 2∫ g_n'².
-  have hbound : ∀ n, ∫ x, (g n x) ^ 2 * Real.log ((g n x) ^ 2) ∂stdGaussian ≤
+  have hbound : ∀ᶠ n in Filter.atTop, ∫ x, (g n x) ^ 2 * Real.log ((g n x) ^ 2) ∂stdGaussian ≤
       2 * ∫ x, (g' n x) ^ 2 ∂stdGaussian := by
-    intro n
+    filter_upwards [hg_pos] with n hn_pos
     have hunorm := lsi_bdd_unnormalized (g n) (g' n) (hg_memLp n) (hg'_memLp n)
-      (hg_deriv n) (hg_bdd n) (hg'_bdd n) (hg_pos n) hlsi_bdd
+      (hg_deriv n) (hg_bdd n) (hg'_bdd n) hn_pos hlsi_bdd
     -- ∫ g_n² ≤ ∫ f² = 1
     have hle1 : ∫ x, (g n x) ^ 2 ∂stdGaussian ≤ 1 := by
       rw [← hnorm]
@@ -2190,13 +2412,12 @@ private lemma lsi_approximation_from_bounded
     have hlog_neg : (∫ x, (g n x) ^ 2 ∂stdGaussian) *
         Real.log (∫ x, (g n x) ^ 2 ∂stdGaussian) ≤ 0 :=
       mul_nonpos_of_nonneg_of_nonpos
-        (le_of_lt (hg_pos n))
-        (Real.log_nonpos (le_of_lt (hg_pos n)) hle1)
+        (le_of_lt hn_pos)
+        (Real.log_nonpos (le_of_lt hn_pos) hle1)
     linarith
   -- ∫ g_n² log g_n² → ∫ f² log f² and 2∫ g_n'² → 2∫ f'² with ∀ n, LHS n ≤ RHS n.
   -- By le_of_tendsto_of_tendsto, the limits satisfy the same inequality.
-  exact le_of_tendsto_of_tendsto hg_ent_conv (hg'_energy.const_mul 2)
-    (Filter.Eventually.of_forall hbound)
+  exact le_of_tendsto_of_tendsto hg_ent_conv (hg'_energy.const_mul 2) hbound
 
 private lemma gaussian_lsi_normalized_of_integrable
     (f f' : ℝ → ℝ)
