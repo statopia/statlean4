@@ -1775,6 +1775,80 @@ private lemma continuous_smoothCutoff (n : ℕ) : Continuous (smoothCutoff n) :=
   unfold smoothCutoff hatFun
   fun_prop
 
+-- Helper: 1 - hatFun n y ≤ |y - x| when |x| = n (for boundary case 2)
+private lemma one_sub_hatFun_le_abs_sub (n : ℕ) (x y : ℝ) (hx : |x| = (n : ℝ)) :
+    1 - hatFun n y ≤ |y - x| := by
+  simp only [hatFun]
+  by_cases h1 : ↑n + 1 - |y| ≤ 0
+  · rw [max_eq_left (min_le_of_right_le h1)]; simp only [sub_zero]
+    linarith [abs_sub_abs_le_abs_sub y x]
+  · push_neg at h1; by_cases h2 : 1 ≤ ↑n + 1 - |y|
+    · rw [min_eq_left h2, max_eq_right (show (0 : ℝ) ≤ 1 by linarith)]; simp
+    · push_neg at h2
+      rw [min_eq_right h2.le, max_eq_right h1.le]
+      have := abs_sub_abs_le_abs_sub y x; rw [hx] at this; linarith
+
+-- Helper: hatFun n y ≤ |y - x| when |x| = n+1 (for boundary case 4)
+private lemma hatFun_le_abs_sub (n : ℕ) (x y : ℝ) (hx : |x| = (n : ℝ) + 1) :
+    hatFun n y ≤ |y - x| := by
+  simp only [hatFun]
+  by_cases h1 : ↑n + 1 - |y| ≤ 0
+  · rw [max_eq_left (min_le_of_right_le h1)]; exact abs_nonneg _
+  · push_neg at h1; by_cases h2 : 1 ≤ ↑n + 1 - |y|
+    · rw [min_eq_left h2, max_eq_right (show (0 : ℝ) ≤ 1 by linarith)]
+      have : |x| - |y| ≥ 1 := by rw [hx]; linarith
+      linarith [abs_sub_abs_le_abs_sub x y, abs_sub_comm y x]
+    · push_neg at h2
+      rw [min_eq_right h2.le, max_eq_right h1.le]
+      have : |x| - |y| ≤ |x - y| := abs_sub_abs_le_abs_sub x y
+      rw [hx] at this; linarith [abs_sub_comm x y]
+
+-- Quadratic bound: |smoothCutoff - 1| ≤ 3(y-x)² at boundary |x| = n
+private lemma smoothCutoff_sub_one_le_sq (n : ℕ) (x y : ℝ) (hx : |x| = (n : ℝ)) :
+    |smoothCutoff n y - 1| ≤ 3 * (y - x) ^ 2 := by
+  have ht0 := hatFun_nonneg n y
+  have ht1 := hatFun_le_one n y
+  have hkey := one_sub_hatFun_le_abs_sub n x y hx
+  have hsub : smoothCutoff n y - 1 = -((1 - hatFun n y) ^ 2 * (1 + 2 * hatFun n y)) := by
+    simp only [smoothCutoff]; ring
+  rw [hsub, abs_neg, abs_of_nonneg (by apply mul_nonneg (sq_nonneg _); linarith)]
+  calc (1 - hatFun n y) ^ 2 * (1 + 2 * hatFun n y)
+      ≤ (1 - hatFun n y) ^ 2 * 3 := by nlinarith
+    _ ≤ |y - x| ^ 2 * 3 := by nlinarith [sq_nonneg (1 - hatFun n y), sq_abs (y - x)]
+    _ = 3 * (y - x) ^ 2 := by rw [sq_abs]; ring
+
+-- Quadratic bound: |smoothCutoff| ≤ 3(y-x)² at boundary |x| = n+1
+private lemma smoothCutoff_le_sq (n : ℕ) (x y : ℝ) (hx : |x| = (n : ℝ) + 1) :
+    |smoothCutoff n y| ≤ 3 * (y - x) ^ 2 := by
+  have ht0 := hatFun_nonneg n y
+  have ht1 := hatFun_le_one n y
+  have hkey := hatFun_le_abs_sub n x y hx
+  have hsm : smoothCutoff n y = hatFun n y ^ 2 * (3 - 2 * hatFun n y) := by simp [smoothCutoff]
+  rw [hsm, abs_of_nonneg (by nlinarith [sq_nonneg (hatFun n y)])]
+  calc hatFun n y ^ 2 * (3 - 2 * hatFun n y)
+      ≤ hatFun n y ^ 2 * 3 := by nlinarith
+    _ ≤ |y - x| ^ 2 * 3 := by nlinarith [sq_nonneg (hatFun n y), sq_abs (y - x)]
+    _ = 3 * (y - x) ^ 2 := by rw [sq_abs]; ring
+
+-- Boundary HasDerivAt helper: quadratic bound ⟹ derivative 0
+private lemma hasDerivAt_zero_of_quadratic_bound (f : ℝ → ℝ) (x v : ℝ)
+    (hv : f x = v) (hbd : ∀ y, |f y - v| ≤ 3 * (y - x) ^ 2) :
+    HasDerivAt f 0 x := by
+  rw [hasDerivAt_iff_isLittleO, Asymptotics.isLittleO_iff]
+  simp only [smul_zero, sub_zero]
+  intro c hc
+  have hmem : Set.Ioo (x - c / 3) (x + c / 3) ∈ nhds x :=
+    IsOpen.mem_nhds isOpen_Ioo ⟨by linarith, by linarith⟩
+  exact Filter.mem_of_superset hmem fun y hy => by
+    simp only [Set.mem_Ioo] at hy
+    show ‖f y - f x‖ ≤ c * ‖y - x‖
+    rw [hv]; simp only [Real.norm_eq_abs]
+    have hab : |y - x| < c / 3 := abs_lt.mpr ⟨by linarith, by linarith⟩
+    calc |f y - v| ≤ 3 * (y - x) ^ 2 := hbd y
+      _ = 3 * (|y - x| * |y - x|) := by rw [← sq_abs]; ring
+      _ ≤ 3 * (c / 3 * |y - x|) := by nlinarith [abs_nonneg (y - x)]
+      _ = c * |y - x| := by ring
+
 /-- HasDerivAt for smoothCutoff at every point. The proof splits into regions:
     interior (|x| < n or |x| > n+1): locally constant, derivative 0
     transition (n < |x| < n+1): polynomial, standard calculus
@@ -1803,23 +1877,95 @@ private lemma hasDerivAt_smoothCutoff (n : ℕ) (x : ℝ) :
       simp only [smoothCutoffDeriv]
       exact if_neg (by push_neg; intro h; linarith)
     rw [hD]
-    sorry -- boundary case: smoothCutoff(x+h) - 1 = O(h²) = o(h)
+    exact hasDerivAt_zero_of_quadratic_bound _ x 1
+      (smoothCutoff_eq_one_of_abs_le n x (le_of_eq heq))
+      (smoothCutoff_sub_one_le_sq n x · heq)
   · rcases lt_trichotomy |x| ((n : ℝ) + 1) with hlt2 | heq2 | hgt2
     · -- Case 3: n < |x| < n+1, transition region
       -- Split on sign of x
       rcases le_or_gt 0 x with hx_nn | hx_neg
       · -- x ≥ 0 (hence x > 0): polynomial HasDerivAt for (c-y)²(3-2(c-y))
-        -- Strategy: show smoothCutoff = polynomial in nhds x, compute derivative,
-        -- use congr_of_eventuallyEq. See mathematical derivation in the docstring.
-        sorry
+        have hx_pos : 0 < x := by linarith [abs_of_nonneg hx_nn]
+        have habs : |x| = x := abs_of_nonneg hx_nn
+        -- smoothCutoff agrees with polynomial p(y) = (n+1-y)²(3-2(n+1-y)) near x
+        have heq_loc : ∀ᶠ y in nhds x, smoothCutoff n y =
+            ((↑n + 1 - y) ^ 2 * (3 - 2 * (↑n + 1 - y))) := by
+          have hmem : Set.Ioo (n : ℝ) (↑n + 1) ∈ nhds x :=
+            IsOpen.mem_nhds isOpen_Ioo ⟨by rw [← habs]; exact hgt, by rw [← habs]; exact hlt2⟩
+          exact Filter.mem_of_superset hmem fun y hy => by
+            simp only [Set.mem_Ioo] at hy
+            have hy_pos : 0 < y := by linarith [hy.1]
+            show smoothCutoff n y = _
+            simp only [smoothCutoff, hatFun, abs_of_pos hy_pos,
+              min_eq_right (show ↑n + 1 - y ≤ 1 by linarith [hy.1]),
+              max_eq_right (show (0 : ℝ) ≤ ↑n + 1 - y by linarith [hy.2])]
+        -- polynomial HasDerivAt
+        have h1 : HasDerivAt (fun y => (↑n : ℝ) + 1 - y) (-1) x :=
+          (hasDerivAt_id x).const_sub _
+        have h2 := h1.pow 2
+        have h3 : HasDerivAt (fun y => (3 : ℝ) - 2 * ((↑n + 1) - y)) (-(2 * (-1))) x :=
+          (h1.const_mul 2).const_sub 3
+        have h4 := h2.mul h3
+        simp only [Pi.pow_apply] at h4
+        -- derivative value matches smoothCutoffDeriv
+        have hDval : smoothCutoffDeriv n x =
+            (↑2 * (↑n + 1 - x) ^ (2 - 1) * -1 * (3 - 2 * (↑n + 1 - x)) +
+              (↑n + 1 - x) ^ 2 * -(2 * -1)) := by
+          simp only [smoothCutoffDeriv, hatFun, habs,
+            if_pos (show (n : ℝ) < x ∧ x < ↑n + 1 from ⟨by rw [← habs]; exact hgt,
+              by rw [← habs]; exact hlt2⟩),
+            if_pos hx_nn,
+            min_eq_right (show ↑n + 1 - x ≤ 1 by rw [← habs]; linarith),
+            max_eq_right (show (0 : ℝ) ≤ ↑n + 1 - x by rw [← habs]; linarith)]
+          ring
+        rw [hDval]
+        exact h4.congr_of_eventuallyEq heq_loc
       · -- x < 0: polynomial HasDerivAt for (c+y)²(3-2(c+y))
-        sorry
+        have habs : |x| = -x := abs_of_neg hx_neg
+        -- smoothCutoff agrees with polynomial p(y) = (n+1+y)²(3-2(n+1+y)) near x
+        have heq_loc : ∀ᶠ y in nhds x, smoothCutoff n y =
+            ((↑n + 1 + y) ^ 2 * (3 - 2 * (↑n + 1 + y))) := by
+          have hmem : Set.Ioo (-(↑n + 1 : ℝ)) (-(↑n : ℝ)) ∈ nhds x :=
+            IsOpen.mem_nhds isOpen_Ioo ⟨by linarith [habs ▸ hlt2],
+              by linarith [habs ▸ hgt]⟩
+          exact Filter.mem_of_superset hmem fun y hy => by
+            simp only [Set.mem_Ioo] at hy
+            have hy_neg : y < 0 := by linarith [hy.2]
+            show smoothCutoff n y = _
+            simp only [smoothCutoff, hatFun, abs_of_neg hy_neg,
+              min_eq_right (show ↑n + 1 - -y ≤ 1 by linarith [hy.2]),
+              max_eq_right (show (0 : ℝ) ≤ ↑n + 1 - -y by linarith [hy.1])]
+            ring
+        -- polynomial HasDerivAt: d/dy[(c+y)²(3-2(c+y))] at x
+        have h1 : HasDerivAt (fun y => (↑n : ℝ) + 1 + y) 1 x := by
+          have := hasDerivAt_id x
+          convert (hasDerivAt_const x ((↑n : ℝ) + 1)).add this using 1 <;> simp
+        have h2 := h1.pow 2
+        have h3 : HasDerivAt (fun y => (3 : ℝ) - 2 * ((↑n + 1) + y)) (-(2 * 1)) x :=
+          (h1.const_mul 2).const_sub 3
+        have h4 := h2.mul h3
+        simp only [Pi.pow_apply] at h4
+        -- derivative value matches smoothCutoffDeriv
+        have hDval : smoothCutoffDeriv n x =
+            (↑2 * (↑n + 1 + x) ^ (2 - 1) * 1 * (3 - 2 * (↑n + 1 + x)) +
+              (↑n + 1 + x) ^ 2 * -(2 * 1)) := by
+          simp only [smoothCutoffDeriv, hatFun, habs,
+            if_pos (show (n : ℝ) < -x ∧ -x < ↑n + 1 from ⟨by rw [← habs]; exact hgt,
+              by rw [← habs]; exact hlt2⟩),
+            if_neg (show ¬(0 : ℝ) ≤ x from not_le.mpr hx_neg),
+            min_eq_right (show ↑n + 1 - -x ≤ 1 by rw [← habs]; linarith),
+            max_eq_right (show (0 : ℝ) ≤ ↑n + 1 - -x by rw [← habs]; linarith)]
+          ring
+        rw [hDval]
+        exact h4.congr_of_eventuallyEq heq_loc
     · -- Case 4: |x| = n+1, boundary, deriv = 0
       have hD : smoothCutoffDeriv n x = 0 := by
         simp only [smoothCutoffDeriv]
         exact if_neg (by push_neg; intro h; linarith)
       rw [hD]
-      sorry -- boundary case: smoothCutoff(x+h) = O(h²) = o(h)
+      exact hasDerivAt_zero_of_quadratic_bound _ x 0
+        (smoothCutoff_eq_zero_of_abs_ge n x (le_of_eq heq2.symm))
+        (fun y => by rw [sub_zero]; exact smoothCutoff_le_sq n x y heq2)
     · -- Case 5: |x| > n+1, smoothCutoff locally constant 0, deriv = 0
       have hD : smoothCutoffDeriv n x = 0 := by
         simp only [smoothCutoffDeriv]
