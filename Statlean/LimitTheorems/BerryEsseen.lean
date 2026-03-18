@@ -8,9 +8,9 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **1 sorry** remains: `levy_cdf_diff_fourier_bound` (large T, I < π case)
-  - **Proof plan documented**: Fejér kernel bracket approach (see section header)
-  - Dependency chain: Dirichlet integral → sinc² integral → Fejér kernel → bracket
+- **1 sorry** remains: `esseen_smoothing_ineq` (Esseen's smoothing inequality)
+  - **Proof plan documented**: Localization + Schwartz smoothing (Esseen 1945 / arXiv:2602.06234)
+  - `levy_cdf_diff_fourier_bound` now PROVED modulo `esseen_smoothing_ineq`
 - `abel_sinc_integral` PROVED (zero sorry, Leibniz rule + ODE uniqueness)
 - `esseen_fourier_cdf_bound` PROVED from `levy_cdf_diff_fourier_bound`
 - `esseen_concentration_universal` PROVED modulo Fejér infrastructure
@@ -28,7 +28,7 @@ The proof follows the classical Fourier-analytic approach:
    `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24/(πT)`
    Uses: Fejér kernel K_F ≥ 0 (sin² positivity), ∫ K_F = 1 (sinc² integral),
    Fubini on truncated domain, and bracket inequality with density bound on ν.
-   **1 sorry** (large T, I < π case). Proof plan: Fejér bracket approach.
+   **1 sorry** (`esseen_smoothing_ineq`). Proof plan: Esseen localization + Schwartz smoothing.
 
 2. **Core Fourier bound** (`levy_cdf_diff_fourier_bound`): Combines trivial cases
    (small T, large I) with `fejer_bracket_bound` for the hard case.
@@ -46,21 +46,16 @@ The proof follows the classical Fourier-analytic approach:
 
 ## Remaining sorry (1)
 
-- `levy_cdf_diff_fourier_bound` (large T, I < π case): Esseen's smoothing inequality.
-  **Hypothesis fix**: Changed from `∀ y, ν(Icc y (y+1)) ≤ M` (too weak, point masses
-  give counterexample: μ=δ_0, ν=δ_{1/T²}, y=0 gives |F-G|=1 but RHS≈2/T→0)
-  to Lipschitz CDF: `∀ a b, a ≤ b → ν(Icc a b) ≤ M*(b-a)` (bounded density).
-  **Proof plan** (Bobkov's Fourier inversion remainder bound, ~200 lines):
-  Reference: Bobkov (2024) "On the remainder term in the approximate Fourier
-  inversion formula for distribution functions", Proposition 2.1 + Corollary 1.2.
-  1. Prove |r(t)| ≤ π/(1+t) where r(t) = ∫_t^∞ sin(u)/u du (~30 lines)
-  2. Bobkov identity via Fubini + bound on r: for CDF F with charfun φ,
-     |F(x) - (1/2π)∫_{-T}^T φ(t)e^{-itx}/(-it)dt - 1/2| ≤ ∫dF(z)/(1+T|z-x|)
-  3. Apply to difference F-G, bound ∫dν(z)/(1+T|z-x|) using Q_ν(h) ≤ Mh
-  4. By Prop 1.1: δ_ν(T) ≤ 2/(1+T) + 4M·log(1+T)/T ≤ 8M·log(T)/T for T ≥ 2
-  5. Combined: |F-G| ≤ I/(2π) + 8M·log(T)/T + ∫dμ(z)/(1+T|z-x|)
-  6. The μ-integral ≤ 1 (trivial), absorb into I/(2π) using I/π - I/(2π) = I/(2π)
-  Note: the constant 24 in 24/(πT) is generous; log(T)/T ≤ 24/(πT) for T ≤ ~2078
+- `esseen_smoothing_ineq`: Esseen's smoothing inequality (Esseen 1945).
+  For prob measures μ, ν with ν having bounded density:
+  `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24/(πT)`
+  **Proof plan** (arXiv:2602.06234, "A friendly proof of Berry-Esseen"):
+  1. Localization: find a₀ where Δ(a₀) ≈ Δ̄, then Δ(a₀+t) ≥ Δ̄/2 for t ∈ [0, Δ̄/(2M)]
+  2. Schwartz smoothing: convolve Δ with φ having Fourier support in [-T,T]
+  3. Show Δ̄ ≤ 2 sup|Δ_f| + C_φ M/T via localization + rapid decay of φ
+  4. Fourier bound: sup|Δ_f| ≤ I/(2π) from |φ̂(t)| ≤ 1/(2π|t|)
+  5. Combine: Δ̄ ≤ I/π + C_φ M/T with C_φ chosen so C_φ M ≤ 24
+  Note: `levy_cdf_diff_fourier_bound` is now PROVED modulo this lemma.
 
 Note: `charfun_integral_bound` and downstream lemmas now require `2 ≤ n` (was `0 < n`)
 because `charfun_diff_exp_bound` needs `n ≥ 2` for the exponential decay bound `M^{n-1}≤e^{-t²/8}`.
@@ -836,6 +831,36 @@ private lemma truncated_fubini_sinc
   congr 1; ext t
   exact integral_div t (fun x => Real.sin ((x - y) * t))
 
+/-- **Esseen's smoothing inequality** (Esseen 1945).
+
+For probability measures `μ`, `ν` where `ν` has CDF that is `M`-Lipschitz
+(equivalently, `ν` has density bounded by `M`), the supremum of the CDF difference
+is bounded by the characteristic function integral plus a density error:
+
+  `sup_y |cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24M/(πT)`
+
+**Proof sketch** (Esseen 1945 / "A friendly proof of Berry-Esseen" arXiv:2602.06234):
+1. WLOG `sup Δ = sup|Δ| = Δ̄ > 0`.
+2. **Localization**: Choose `a₀` with `Δ(a₀) ≥ 0.9Δ̄`. By the Lipschitz condition
+   on `ν`, `Δ(a₀+t) ≥ Δ(a₀) - Mt` for `t ≥ 0`.
+3. **Smoothing**: Convolve `Δ` with a Schwartz probability density `φ` whose Fourier
+   transform is supported in `[-T, T]`. The smoothed `Δ_f(a) = ∫ Δ(a+y)φ(y)dy`
+   satisfies `Δ̄ ≤ 2 sup|Δ_f| + C_φ M / T`.
+4. **Fourier bound**: Since `φ̂` is compactly supported in `[-T, T]` with
+   `|φ̂(t)| ≤ 1/(2π|t|)`, we get `sup|Δ_f| ≤ (1/(2π)) I`.
+5. **Combine**: `Δ̄ ≤ I/π + C_φ M/T`.
+-/
+private lemma esseen_smoothing_ineq
+    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    (hν_density : ∃ M : ℝ, 0 < M ∧
+      ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
+    (T : ℝ) (hT : 0 < T) (y : ℝ) :
+    |cdf μ y - cdf ν y| ≤
+      (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
+        ‖charFun μ t - charFun ν t‖ / |t|) +
+      24 / (Real.pi * T) := by
+  sorry
+
 /-- **Esseen's Fourier-analytic CDF bound.**
 
 For probability measures `μ`, `ν` where `ν` has bounded density (CDF is `M`-Lipschitz),
@@ -1007,7 +1032,8 @@ private lemma levy_cdf_diff_fourier_bound
         -- 5. Fubini for Cesàro-weighted sinc — bounded integrand on [0,T] × μ
         -- The only caller uses M = 1 (Gaussian density).
         push_neg at hI_near_pi
-        sorry
+        -- Apply Esseen's smoothing inequality
+        exact esseen_smoothing_ineq μ ν ⟨M, hM_pos, hM_bound⟩ T hT y
 
 private lemma esseen_fourier_cdf_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
