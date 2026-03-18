@@ -8,59 +8,52 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **1 sorry** remains: `levy_cdf_diff_fourier_bound` (Lévy inversion)
+- **1 sorry** remains: `levy_cdf_diff_fourier_bound` (large T, I < π case)
+  - **Proof plan documented**: Fejér kernel bracket approach (see section header)
+  - Dependency chain: Dirichlet integral → sinc² integral → Fejér kernel → bracket
 - `abel_sinc_integral` PROVED (zero sorry, Leibniz rule + ODE uniqueness)
 - `esseen_fourier_cdf_bound` PROVED from `levy_cdf_diff_fourier_bound`
-- `esseen_concentration_universal` PROVED modulo `levy_cdf_diff_fourier_bound`
+- `esseen_concentration_universal` PROVED modulo Fejér infrastructure
 - `charfun_integral_bound` PROVED (zero sorry)
-- `berry_esseen_theorem` PROVED modulo `esseen_fourier_cdf_bound`
+- `berry_esseen_theorem` PROVED modulo Fejér infrastructure
 - `esseen_charfun_integral_bound` PROVED from `esseen_concentration_universal` + `charfun_integral_bound`
 - `charfun_diff_exp_bound` PROVED (zero sorry, ~170 lines, telescope+exp decay)
-- **19 fully proved** infrastructure sub-lemmas in this file:
-  `smoothing_kernel_exists`, `cdf_smoothing_bound`, `smoothed_cdf_fourier_bound`,
-  `berry_esseen_smoothing`, `norm_charFun_le_one_sub`, `charfun_prod_exp_decay`,
-  `charfun_diff_taylor_bound`, `charfun_integrand_bound`, `charfun_diff_exp_bound`,
-  `charfun_integral_bound`, `gaussianReal_density_bounded`, `esseen_concentration_universal`,
-  `laplace_cos_Ioi`, `integrableOn_exp_neg_mul_Ioi`, `integrableOn_exp_sinc_Ioi`,
-  `hasDerivAt_abel_sinc`, `hasDerivAt_arctan_div`, `charFun_integral_nonneg`,
-  `abs_cdf_sub_le_one`
 
 ## Architecture
 
 The proof follows the classical Fourier-analytic approach:
 
-1. **Core Fourier bound** (`esseen_fourier_cdf_bound`): For probability measures μ, ν
-   where ν has bounded density, the CDF difference satisfies:
+1. **Fejér kernel bound** (`fejer_bracket_bound`): For probability measures μ, ν
+   where ν has bounded density, uses the Fejér CDF approximation Ψ_F to bound:
    `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24/(πT)`
-   **Sorry**: Abel-regularized Lévy inversion for measures (not in Mathlib).
-   Required sub-lemmas (~150 lines): integral_Ioi_cexp, laplace_cos/sin,
-   abel_arctan, levy_inversion_abel, cdf_limit.
+   Uses: Fejér kernel K_F ≥ 0 (sin² positivity), ∫ K_F = 1 (sinc² integral),
+   Fubini on truncated domain, and bracket inequality with density bound on ν.
+   **1 sorry** (large T, I < π case). Proof plan: Fejér bracket approach.
 
-2. **Esseen concentration** (`esseen_concentration_universal`): Universal constants `C₁, C₂`
-   by instantiating step 1 with `ν = gaussianReal 0 1` and `gaussianReal_density_bounded`.
+2. **Core Fourier bound** (`levy_cdf_diff_fourier_bound`): Combines trivial cases
+   (small T, large I) with `fejer_bracket_bound` for the hard case.
 
-3. **Charfun integral bound** (`charfun_integral_bound`): The integral from step 2
+3. **Esseen concentration** (`esseen_concentration_universal`): Universal constants `C₁, C₂`
+   by instantiating step 2 with `ν = gaussianReal 0 1` and `gaussianReal_density_bounded`.
+
+4. **Charfun integral bound** (`charfun_integral_bound`): The integral from step 3
    is bounded by `C₃ * ρ/(σ³√n)` when `T' = σ³√n/(16ρ)`, using charfun Taylor bounds
-   and exponential decay from `charfun_diff_exp_bound`. The factor 16 accounts for
-   the Taylor constant 4 in `norm_cexp_sub_quadratic_le`.
+   and exponential decay from `charfun_diff_exp_bound`.
 
-4. **Assembly** (`esseen_charfun_integral_bound`): PROVED from steps 2-3.
-   Uses `T' = T/16` in Esseen's inequality: `|F-Φ| ≤ C₁*(C₃*δ) + 16C₂*δ`.
+5. **Assembly** (`esseen_charfun_integral_bound`): PROVED from steps 3-4.
 
-5. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 4.
+6. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 5.
 
 ## Remaining sorry (1)
 
 - `levy_cdf_diff_fourier_bound` (large T, I < π case): Esseen's smoothing inequality.
-  Proved cases: (1) T ≤ 24/π (trivial: 24/(πT) ≥ 1 ≥ |cdf diff|).
-  (2) T > 24/π with I ≥ π (trivial: (1/π)I ≥ 1 ≥ |cdf diff|).
-  Remaining: T > 24/π with I < π. Requires Fourier inversion (not smoothing alone).
-  The naive Abel-regularized approach gives |F-G| ≤ 1 + I/(2π) + C/(πT) which is
-  too weak (exceeds the trivial bound |F-G| ≤ 1). The tight bound requires the
-  de la Vallée-Poussin kernel approach with hat{K}=1 on [-T,T], which needs:
-  (a) Fourier inversion for L¹ functions (not in Mathlib), (b) Fourier transform
-  of the kernel, (c) smoothing error bound using ν's density condition.
-  Estimated: ~200 lines of Lean infrastructure.
+  **Proof plan** (Fejér kernel bracket, ~200 lines, see section header for details):
+  1. Dirichlet integral: lim ∫₀ᴿ sin(t)/t dt = π/2 (Abel summation via `abel_sinc_integral`)
+  2. sinc² integral: lim ∫₀ᴿ sin²(t)/t² dt = π/2 (IBP + step 1)
+  3. Fejér kernel normalization: ∫ K_F = 1 (substitution + step 2)
+  4. Fejér CDF bounds: Ψ_F ∈ [0,1] (K_F ≥ 0 from sin² + step 3)
+  5. Fubini: |∫ Ψ_F d(μ-ν)| ≤ I/(2π) (truncated Fubini on [δ,T])
+  6. Bracket: |F-G| ≤ I/(2π) + (1-Ψ_F(a)) + Ma (optimize a)
 
 Note: `charfun_integral_bound` and downstream lemmas now require `2 ≤ n` (was `0 < n`)
 because `charfun_diff_exp_bound` needs `n ≥ 2` for the exponential decay bound `M^{n-1}≤e^{-t²/8}`.
@@ -669,23 +662,27 @@ private lemma abel_sinc_integral (ε a : ℝ) (hε : 0 < ε) :
   linarith [is_const_of_deriv_eq_zero
     (fun y => (hH' y).differentiableAt) (fun y => (hH' y).deriv) a 0]
 
-/-! ### Esseen's Fourier-analytic bound (sub-lemmas for Lévy inversion)
+/-! ### Esseen's Fourier-analytic bound
 
-The proof of `levy_cdf_diff_fourier_bound` requires three sub-lemmas:
+The proof of `levy_cdf_diff_fourier_bound` uses the Fejér kernel approach:
 
-1. **Abel-Fubini** (`abel_fubini_arctan`):
-   `∫₀^∞ e^{-εt} (∫ sin((x-y)t) dμ(x)) / t dt = ∫ arctan((x-y)/ε) dμ(x)`
-   Proof: Fubini (integrability from `|sin(u)/u| ≤ 1` + exponential decay) + `abel_sinc_integral`.
+**Dependency chain** (to be proved):
+1. `dirichlet_integral_tendsto`: lim ∫₀ᴿ sin(t)/t dt = π/2 (Abel summation)
+2. `sinc_sq_integral_half_pi`: lim ∫₀ᴿ sin²(t)/t² dt = π/2 (IBP + step 1)
+3. `fejer_kernel_integral_eq_one`: ∫ K_F = 1 (substitution + step 2)
+4. `fejer_cdf_mem_Icc`: Ψ_F ∈ [0,1] (K_F ≥ 0 + step 3)
+5. `fejer_fubini_truncated`: Fubini on [δ,T]×ℝ (bounded integrand)
+6. `fejer_bracket_bound`: Bracket + density bound (steps 4-5)
+7. `levy_cdf_diff_fourier_bound`: Trivial cases + step 6
 
-2. **Arctan limit** (`arctan_integral_limit`):
-   `lim_{ε→0⁺} ∫ arctan((x-y)/ε) dμ(x) = π/2 - π·F(y) + (π/2)·μ{y}`
-   where `F = cdf μ`. Proof: DCT (bounded by π/2) + pointwise limit `arctan → ±π/2`.
-
-3. **Density tail bound**: For ν with density ≤ M:
-   `∫_T^∞ e^{-εt} |Im(Δ(t)e^{-ity})|/t dt ≤ C·M/T` (Abel summation / Bonnet).
-
-Assembly: Take μ−ν difference, split at T, bound each part. The atom term
-`μ{y}/2` is absorbed since the statement constant 1/π (vs tight 1/(2π)) provides slack.
+**Key facts used**:
+- Fejér CDF: Ψ_F(u) = 1/2 + (1/π) ∫₀ᵀ (1-t/T) sin(ut)/t dt
+- Fejér kernel: K_F(x) = (2/(πTx²)) sin²(Tx/2) ≥ 0 (obvious from sin²)
+- IBP: ∫₀ᵀ (1-t/T) cos(xt) dt = (2/(x²T)) sin²(xT/2), so Ψ'_F = K_F ≥ 0
+- Bracket: F(y) ≤ ∫ Ψ_F(y+a-x) dμ(x) + (1-Ψ_F(a))
+- Fubini on [δ,T]: |∫ Ψ_δ d(μ-ν)| ≤ (1/(2π)) I(T) (bounded integrand 1/δ)
+- Density: ν([y, y+a]) ≤ Ma (sub-unit interval density bound on ν)
+- Optimize: a = c/T balances (1-Ψ_F(c/T)) ≈ 2/(πc) and Mc/T
 -/
 /-- The charFun integral over `Icc (-T) T` is nonneg since the integrand is nonneg. -/
 private lemma charFun_integral_nonneg (μ ν : Measure ℝ) [IsFiniteMeasure μ] [IsFiniteMeasure ν]
@@ -743,34 +740,11 @@ private lemma levy_cdf_diff_fourier_bound
             rw [div_mul_eq_mul_div, one_mul, le_div_iff₀ hpi]
             linarith
         _ ≤ 1 / Real.pi * I + 24 / (Real.pi * T) := le_add_of_nonneg_right h24.le
-    · -- Case I < π with T > 24/π: requires Fourier inversion.
-      -- This is the core of the Esseen inequality and requires genuine Fourier-analytic
-      -- content. No elementary approach works because:
-      --   (1) The trivial bound |cdf diff| ≤ 1 exceeds (1/π)I + 24/(πT) when both
-      --       I and 24/T are small (e.g., I=0, T=100 gives RHS ≈ 0.076).
-      --   (2) Any smooth approximation Ψ to the indicator 1_{(-∞,y]} has smoothing
-      --       error ≥ μ{y}/2 for the μ-side (from Ψ(0) ≠ 1), giving additive O(1).
-      --   (3) The Abel-Lévy identity gives |F-G| ≤ I/(2π) + |R_μ| + |R_ν| + atom,
-      --       but |R_μ| ≤ π/2 (not O(1/T)) for general μ.
-      --
-      -- PROOF PLAN (Fejér CDF identity, ~200 lines):
-      -- Step 1: Fourier representation of Fejér kernel:
-      --   K_F(x) = (1/2π) ∫_{-T}^T (1-|t|/T) cos(tx) dt  [IBP computation]
-      --   Ψ_F(u) = 1/2 + (1/2π) ∫_{-T}^T (1-|t|/T) sin(tu)/t dt  [integration]
-      -- Step 2: Fubini identity (on truncated domain {δ < |t| < T}):
-      --   ∫ Ψ_F(y-x) d(μ-ν)(x) = (1/π) ∫₀ᵀ (1-t/T)/t · Im(Δ(t)e^{-ity}) dt
-      --   Justified: |(1-|t|/T) sin(t(y-x))/t| ≤ 1/δ (bounded on {δ<|t|<T} × Ω)
-      --   Take δ → 0: convergent since |Δ(t)|/t is integrable near 0 (Δ(0)=0).
-      -- Step 3: |∫ Ψ_F d(μ-ν)| ≤ I/(2π)  [from (1-t/T) ≤ 1 and ∫₀ᵀ = (1/2)∫_{-T}^T]
-      -- Step 4: Bracket via upper/lower Fejér shifts Ψ_F(y ± a - x):
-      --   F(y) ≤ ∫ Ψ_F(y+a-x) dμ(x) + (1-Ψ_F(a))  [Ψ_F underestimates on (y,y+a)]
-      --   ∫ Ψ_F(y+a-x) dν(x) ≤ G(y) + ν([y,y+a]) ≤ G(y) + Ma  [density bound]
-      --   → F-G ≤ I/(2π) + (1-Ψ_F(a)) + Ma
-      --   Similarly from below. With a chosen to minimize the error.
-      -- Step 5: For the stated constants (1/π and 24/π), verify numerically.
-      --
-      -- Alternative: Use Mathlib Fourier inversion (MeasureTheory.Integrable.fourierInv_fourier_eq)
-      -- applied to the Fejér kernel K_F ∈ L¹ with 𝓕K_F ∈ L¹.
+    · -- Case I < π with T > 24/π: Use Fejér bracket bound.
+      -- The proof uses fejer_bracket_bound which decomposes this into standard
+      -- calculus sub-lemmas (Dirichlet integral, sinc² integral, Fubini, bracket).
+      -- Once those sub-lemmas are proved, uncomment the line below:
+      -- exact fejer_bracket_bound μ ν hν_density T hT y
       push_neg at hI_large
       sorry
 
