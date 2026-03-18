@@ -580,7 +580,255 @@ private lemma lsi_of_bounded_C2
   -- Unfolding: [∫(f²+ε)·log(f²+ε) - (1+ε)·log(1+ε)]/(1+ε) ≤ 2∫f'²/(1+ε)
   -- Multiply by (1+ε): ∫(f²+ε)·log(f²+ε) ≤ 2∫f'² + (1+ε)·log(1+ε) ✓
   intro ε hε
-  sorry
+  -- Key constants
+  have h1ε_pos : 0 < 1 + ε := by linarith
+  have hsq1ε_pos : 0 < √(1 + ε) := Real.sqrt_pos_of_pos h1ε_pos
+  have hsq1ε_ne : √(1 + ε) ≠ 0 := ne_of_gt hsq1ε_pos
+  obtain ⟨C, hC⟩ := hf_bound
+  obtain ⟨C', hC'⟩ := hf'_bound
+  obtain ⟨C'', hC''⟩ := hf''_bound
+  have hC_nn : 0 ≤ C := le_trans (norm_nonneg _) (hC 0)
+  have hC'_nn : 0 ≤ C' := le_trans (norm_nonneg _) (hC' 0)
+  have hf_cont : Continuous f :=
+    Differentiable.continuous (fun x => (hderiv x).differentiableAt)
+  have hf'_cont : Continuous f' :=
+    Differentiable.continuous (fun x => (hderiv' x).differentiableAt)
+  -- Define h(x) = √(f(x)²+ε) / √(1+ε)
+  set h := fun x => √(f x ^ 2 + ε) / √(1 + ε) with hh_def
+  -- Define h'(x) = f(x)·f'(x) / (√(f(x)²+ε) · √(1+ε))
+  set hd := fun x => f x * f' x / (√(f x ^ 2 + ε) * √(1 + ε)) with hhd_def
+  -- h(x) > 0 everywhere since f(x)²+ε > 0
+  have hh_pos : ∀ x, 0 < h x := fun x => by
+    simp only [hh_def]; positivity
+  have hh_ne : ∀ x, h x ≠ 0 := fun x => ne_of_gt (hh_pos x)
+  -- h continuous
+  have hh_cont : Continuous h := by
+    simp only [hh_def]
+    exact (Real.continuous_sqrt.comp (hf_cont.pow 2 |>.add continuous_const)).div_const _
+  -- hd continuous
+  have hhd_cont : Continuous hd := by
+    simp only [hhd_def]
+    exact (hf_cont.mul hf'_cont).div
+      ((Real.continuous_sqrt.comp (hf_cont.pow 2 |>.add continuous_const)).mul
+        continuous_const) (fun x => by positivity)
+  -- h² = (f²+ε)/(1+ε)
+  have hh_sq : ∀ x, h x ^ 2 = (f x ^ 2 + ε) / (1 + ε) := fun x => by
+    simp only [hh_def, div_pow]
+    rw [Real.sq_sqrt (by positivity : (0 : ℝ) ≤ f x ^ 2 + ε),
+        Real.sq_sqrt (by linarith : (0 : ℝ) ≤ 1 + ε)]
+  -- ∫h² = 1
+  have hh_norm : ∫ x, h x ^ 2 ∂stdGaussian = 1 := by
+    simp_rw [hh_sq]
+    have := integral_div (1 + ε) (fun x => f x ^ 2 + ε) (μ := stdGaussian)
+    rw [this, integral_add (integrable_sq_of_memLp hf) (integrable_const _)]
+    simp [hnorm, measure_univ]; field_simp; linarith
+  -- Helper: d/dx (f²+ε) = 2·f·f'
+  have h_sq_add_eps_deriv : ∀ x, HasDerivAt (fun y => f y ^ 2 + ε) (2 * f x * f' x) x :=
+    fun x => by
+      have h1 := (hderiv x).pow 2
+      have h2 := h1.add (hasDerivAt_const x ε)
+      simp only [Nat.cast_ofNat, add_zero] at h2
+      convert h2 using 1; ring
+  -- Helper: d/dx √(f²+ε) = f·f' / √(f²+ε)
+  have h_sqrt_fep_deriv : ∀ x, HasDerivAt (fun y => √(f y ^ 2 + ε))
+      (f x * f' x / √(f x ^ 2 + ε)) x := fun x => by
+    have hgx_ne : f x ^ 2 + ε ≠ 0 := ne_of_gt (by positivity)
+    have h1 := (Real.hasDerivAt_sqrt hgx_ne).comp x (h_sq_add_eps_deriv x)
+    simp only [Function.comp] at h1
+    convert h1 using 1
+    field_simp
+  -- HasDerivAt h hd x: chain rule
+  have hh_deriv : ∀ x, HasDerivAt h (hd x) x := fun x => by
+    simp only [hh_def, hhd_def]
+    have := (h_sqrt_fep_deriv x).div_const (√(1 + ε))
+    rwa [div_div] at this
+  -- For hd': use differentiability to get HasDerivAt with deriv
+  -- hd = (f·f') / (√(f²+ε) · √(1+ε)) — all components are differentiable
+  have hhd_diff : Differentiable ℝ hd := by
+    intro x
+    simp only [hhd_def]
+    apply DifferentiableAt.div
+    · exact ((hderiv x).differentiableAt.mul (hderiv' x).differentiableAt)
+    · exact ((h_sqrt_fep_deriv x).differentiableAt.mul
+        (differentiableAt_const _))
+    · positivity
+  set hdd := deriv hd with hhdd_def
+  have hhd_hasderiv : ∀ x, HasDerivAt hd (hdd x) x := fun x =>
+    (hhd_diff x).hasDerivAt
+  -- Boundedness of h
+  have hh_bound : ∃ Cb, ∀ x, ‖h x‖ ≤ Cb := by
+    refine ⟨√(C ^ 2 + ε) / √(1 + ε), fun x => ?_⟩
+    rw [Real.norm_eq_abs, abs_of_pos (hh_pos x), hh_def]
+    apply div_le_div_of_nonneg_right _ (le_of_lt hsq1ε_pos)
+    apply Real.sqrt_le_sqrt
+    have hfx : f x ^ 2 ≤ C ^ 2 := by
+      calc f x ^ 2 = |f x| ^ 2 := (sq_abs _).symm
+        _ ≤ C ^ 2 := pow_le_pow_left₀ (abs_nonneg _) (hC x) 2
+    linarith
+  -- Boundedness of hd
+  have hhd_bound : ∃ Cb, ∀ x, ‖hd x‖ ≤ Cb := by
+    refine ⟨C * C' / (√ε * √(1 + ε)), fun x => ?_⟩
+    rw [Real.norm_eq_abs, hhd_def]
+    have hdenom_pos : 0 < √(f x ^ 2 + ε) * √(1 + ε) := by positivity
+    rw [abs_div, abs_of_pos hdenom_pos]
+    have hnum : |f x * f' x| ≤ C * C' := by
+      rw [abs_mul]; exact mul_le_mul (hC x) (hC' x) (abs_nonneg _) hC_nn
+    have hdenom : √ε * √(1 + ε) ≤ √(f x ^ 2 + ε) * √(1 + ε) := by
+      apply mul_le_mul_of_nonneg_right _ (le_of_lt hsq1ε_pos)
+      exact Real.sqrt_le_sqrt (le_add_of_nonneg_left (sq_nonneg _))
+    calc |f x * f' x| / (√(f x ^ 2 + ε) * √(1 + ε))
+        ≤ C * C' / (√(f x ^ 2 + ε) * √(1 + ε)) :=
+          div_le_div_of_nonneg_right hnum (le_of_lt hdenom_pos)
+      _ ≤ C * C' / (√ε * √(1 + ε)) :=
+          div_le_div_of_nonneg_left (by positivity) (by positivity) hdenom
+  -- Boundedness of hdd (deriv hd): hd = f·f'/(√(f²+ε)·√(1+ε))
+  -- Quotient rule gives hdd = [(f'²+f·f'')·√(f²+ε) - f·f'·(f·f'/√(f²+ε))] / ((f²+ε)·√(1+ε))
+  -- All components bounded (|f|≤C, |f'|≤C', |f''|≤C''), denominator ≥ ε·√(1+ε) > 0.
+  have hhdd_bound : ∃ Cb, ∀ x, ‖hdd x‖ ≤ Cb := by
+    -- hdd = deriv(hd) where hd = u/v, u = f·f', v = √(f²+ε)·√(1+ε).
+    -- Quotient rule: hdd = (u'v - uv')/v². Components bounded, denom ≥ ε·(1+ε).
+    -- Compute explicit form of hdd
+    have hdd_explicit : ∀ x, hdd x =
+        ((f' x ^ 2 + f x * f'' x) * (√(f x ^ 2 + ε) * √(1 + ε)) -
+         f x * f' x * (f x * f' x / √(f x ^ 2 + ε) * √(1 + ε))) /
+        ((f x ^ 2 + ε) * (1 + ε)) := fun x => by
+      have hv_ne : √(f x ^ 2 + ε) * √(1 + ε) ≠ 0 := ne_of_gt (by positivity)
+      have hu : HasDerivAt (fun y => f y * f' y) (f' x ^ 2 + f x * f'' x) x := by
+        have := (hderiv x).mul (hderiv' x); convert this using 1; ring
+      have hq := hu.div ((h_sqrt_fep_deriv x).mul_const _) hv_ne
+      have := (hhd_hasderiv x).unique hq; rw [this]; congr 1
+      rw [mul_pow, Real.sq_sqrt (by positivity : (0 : ℝ) ≤ f x ^ 2 + ε),
+          Real.sq_sqrt (by linarith : (0 : ℝ) ≤ 1 + ε)]
+    -- Bound |hdd x| directly using the explicit formula
+    -- Numerator ≤ (C'²+C·C'')·√(C²+ε)·√(1+ε) + C²·C'²·√(1+ε)/√ε
+    -- Denominator ≥ ε·(1+ε)
+    set B := ((C' ^ 2 + C * C'') * √(C ^ 2 + ε) * √(1 + ε) +
+              C * C' * (C * C' / √ε) * √(1 + ε)) / (ε * (1 + ε))
+    refine ⟨B, fun x => ?_⟩
+    rw [hdd_explicit x, Real.norm_eq_abs, abs_div,
+        abs_of_pos (by positivity : 0 < (f x ^ 2 + ε) * (1 + ε))]
+    have hfx_sq_le : f x ^ 2 ≤ C ^ 2 := by
+      calc f x ^ 2 = |f x| ^ 2 := (sq_abs _).symm
+        _ ≤ C ^ 2 := pow_le_pow_left₀ (abs_nonneg _) (hC x) 2
+    -- Numerator bounded via triangle inequality + component bounds:
+    -- |f|≤C, |f'|≤C', |f''|≤C'', √(f²+ε) ∈ [√ε, √(C²+ε)]
+    -- Denominator: (f²+ε)·(1+ε) ≥ ε·(1+ε)
+    -- The bound is purely mechanical real arithmetic on bounded components.
+    -- hhdd_bound_sorry
+    sorry
+  -- MemLp h 2
+  have hh_memLp : MemLp h 2 stdGaussian := by
+    obtain ⟨Cb, hCb⟩ := hh_bound
+    exact (memLp_top_of_bound hh_cont.aestronglyMeasurable Cb
+      (ae_of_all _ hCb)).mono_exponent le_top
+  -- MemLp hd 2
+  have hhd_memLp : MemLp hd 2 stdGaussian := by
+    obtain ⟨Cb, hCb⟩ := hhd_bound
+    exact (memLp_top_of_bound hhd_cont.aestronglyMeasurable Cb
+      (ae_of_all _ hCb)).mono_exponent le_top
+  -- h ≠ 0 ae
+  have hh_ae_pos : ∀ᵐ x ∂stdGaussian, h x ≠ 0 := ae_of_all _ hh_ne
+  -- h²·log(h²) integrable: use integrable_sq_add_eps_mul_log with h and small δ > 0
+  -- then take δ = 1 (any positive works) and use congr to match the goal
+  -- Actually simpler: h² = (f²+ε)/(1+ε), so h²·log(h²) = (f²+ε)/(1+ε)·log((f²+ε)/(1+ε))
+  -- which is bounded since f is bounded. Use integrable_sq_add_eps_mul_log indirectly.
+  have hh_int : Integrable (fun x => h x ^ 2 * Real.log (h x ^ 2)) stdGaussian := by
+    -- h is bounded continuous, so h² is bounded, so h²·log(h²) is bounded continuous
+    have hh_sq_cont : Continuous (fun x => h x ^ 2 * Real.log (h x ^ 2)) :=
+      Real.continuous_mul_log.comp (hh_cont.pow 2)
+    obtain ⟨Cb, hCb⟩ := hh_bound
+    -- abs_mul_log_le_sq_add_one gives |t*log(t)| ≤ t²+1 for t≥0
+    -- So |h²·log(h²)| ≤ (h²)²+1 ≤ Cb⁴+1
+    refine (memLp_top_of_bound hh_sq_cont.aestronglyMeasurable (Cb ^ 4 + 1) (ae_of_all _ fun x => ?_)).integrable le_top
+    have hnn : 0 ≤ h x ^ 2 := sq_nonneg _
+    have hle : h x ^ 2 ≤ Cb ^ 2 := by
+      have : h x ≤ Cb := le_trans (le_abs_self _) (hCb x)
+      exact pow_le_pow_left₀ (le_of_lt (hh_pos x)) this 2
+    calc ‖h x ^ 2 * Real.log (h x ^ 2)‖
+        = |h x ^ 2 * Real.log (h x ^ 2)| := Real.norm_eq_abs _
+      _ ≤ (h x ^ 2) ^ 2 + 1 := abs_mul_log_le_sq_add_one (h x ^ 2) hnn
+      _ ≤ (Cb ^ 2) ^ 2 + 1 := by linarith [pow_le_pow_left₀ hnn hle 2]
+      _ = Cb ^ 4 + 1 := by ring_nf
+  -- Apply lsi_of_bounded_C2_ae_pos
+  have hlsi := lsi_of_bounded_C2_ae_pos h hd hdd
+    hh_memLp hhd_memLp hh_deriv hhd_hasderiv hh_bound hhd_bound hhdd_bound
+    hh_ae_pos hh_norm hh_int
+  -- hlsi : ∫h²·log(h²) ≤ 2·∫hd²
+  -- Step: hd(x)² ≤ f'(x)²/(1+ε) pointwise
+  have hhd_sq_le : ∀ x, hd x ^ 2 ≤ f' x ^ 2 / (1 + ε) := fun x => by
+    -- hd x = f x * f' x / (√(f x^2+ε) * √(1+ε))
+    -- hd x^2 = (f x)^2 * (f' x)^2 / ((f x^2+ε) * (1+ε))
+    -- ≤ (f' x)^2 / (1+ε) iff (f x)^2 / (f x^2+ε) ≤ 1
+    have hfep_pos : 0 < f x ^ 2 + ε := by positivity
+    have h1 : hd x ^ 2 = f x ^ 2 * f' x ^ 2 / ((f x ^ 2 + ε) * (1 + ε)) := by
+      simp only [hhd_def, div_pow, mul_pow]
+      rw [Real.sq_sqrt (le_of_lt hfep_pos), Real.sq_sqrt (by linarith : (0 : ℝ) ≤ 1 + ε)]
+    rw [h1]
+    rw [div_le_div_iff₀ (by positivity) h1ε_pos]
+    -- f x^2 * f' x^2 * (1+ε) ≤ f' x^2 * ((f x^2+ε) * (1+ε))
+    -- iff f x^2 * f' x^2 ≤ f' x^2 * (f x^2+ε)
+    -- iff f x^2 ≤ f x^2+ε (when f' x^2 ≥ 0)
+    have := sq_nonneg (f' x)
+    have := sq_nonneg (f x)
+    have : 0 ≤ ε * f' x ^ 2 * (1 + ε) := by positivity
+    nlinarith
+  -- ∫hd² ≤ ∫f'²/(1+ε)
+  have h_rhs : 2 * ∫ x, hd x ^ 2 ∂stdGaussian ≤
+      2 * (∫ x, f' x ^ 2 ∂stdGaussian) / (1 + ε) := by
+    have h1 : ∫ x, hd x ^ 2 ∂stdGaussian ≤ (∫ x, f' x ^ 2 ∂stdGaussian) / (1 + ε) := by
+      calc ∫ x, hd x ^ 2 ∂stdGaussian
+          ≤ ∫ x, f' x ^ 2 / (1 + ε) ∂stdGaussian := by
+            exact integral_mono (integrable_sq_of_memLp hhd_memLp)
+              ((integrable_sq_of_memLp hf').div_const _) hhd_sq_le
+        _ = (∫ x, f' x ^ 2 ∂stdGaussian) / (1 + ε) :=
+            integral_div (1 + ε) (fun x => f' x ^ 2)
+    rw [mul_div_assoc]
+    exact mul_le_mul_of_nonneg_left h1 (by norm_num : (0 : ℝ) ≤ 2)
+  -- h²·log(h²) = (f²+ε)/(1+ε) · log((f²+ε)/(1+ε))
+  -- = (f²+ε)/(1+ε) · (log(f²+ε) - log(1+ε))
+  -- ∫ h²·log(h²) = ∫(f²+ε)·log(f²+ε)/(1+ε) - log(1+ε)·∫(f²+ε)/(1+ε)
+  --              = ∫(f²+ε)·log(f²+ε)/(1+ε) - log(1+ε)  [since ∫h²=1]
+  -- From hlsi: ∫(f²+ε)·log(f²+ε)/(1+ε) - log(1+ε) ≤ 2·∫f'²/(1+ε)
+  -- Multiply by (1+ε): ∫(f²+ε)·log(f²+ε) - (1+ε)·log(1+ε) ≤ 2·∫f'²
+  -- Rearrange: ∫(f²+ε)·log(f²+ε) ≤ 2·∫f'² + (1+ε)·log(1+ε)
+  -- Use hlsi ≤ h_rhs to get the chain
+  have h_chain := le_trans hlsi h_rhs
+  -- Now rewrite ∫h²·log(h²) in terms of the original integrals
+  -- Transform LHS of hlsi in terms of original integrals
+  -- h²·log(h²) = (f²+ε)/(1+ε) · (log(f²+ε) - log(1+ε))
+  -- ∫ h²·log(h²) = [∫(f²+ε)·log(f²+ε) - (1+ε)·log(1+ε)] / (1+ε)
+  have h_lhs_eq : ∫ x, h x ^ 2 * Real.log (h x ^ 2) ∂stdGaussian =
+      (∫ x, (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) ∂stdGaussian -
+       (1 + ε) * Real.log (1 + ε)) / (1 + ε) := by
+    -- Rewrite pointwise
+    have hpw : (fun x => h x ^ 2 * Real.log (h x ^ 2)) =
+        (fun x => ((f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) -
+         (f x ^ 2 + ε) * Real.log (1 + ε)) / (1 + ε)) := by
+      ext x; rw [hh_sq, Real.log_div (ne_of_gt (by positivity)) (ne_of_gt h1ε_pos)]; ring
+    have hint1 := integrable_sq_add_eps_mul_log f ε hε hf_cont C hC
+    have hint2 : Integrable (fun x => (f x ^ 2 + ε) * Real.log (1 + ε)) stdGaussian :=
+      (integrable_sq_of_memLp hf |>.add (integrable_const _)).mul_const _
+    calc ∫ x, h x ^ 2 * Real.log (h x ^ 2) ∂stdGaussian
+        = ∫ x, ((f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) -
+           (f x ^ 2 + ε) * Real.log (1 + ε)) / (1 + ε) ∂stdGaussian := by
+          rw [hpw]
+      _ = (∫ x, ((f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) -
+           (f x ^ 2 + ε) * Real.log (1 + ε)) ∂stdGaussian) / (1 + ε) :=
+          integral_div (1 + ε) _
+      _ = (∫ x, (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) ∂stdGaussian -
+           ∫ x, (f x ^ 2 + ε) * Real.log (1 + ε) ∂stdGaussian) / (1 + ε) := by
+          rw [integral_sub hint1 hint2]
+      _ = (∫ x, (f x ^ 2 + ε) * Real.log (f x ^ 2 + ε) ∂stdGaussian -
+           (1 + ε) * Real.log (1 + ε)) / (1 + ε) := by
+          congr 1; congr 1
+          rw [integral_mul_const,
+              integral_add (integrable_sq_of_memLp hf) (integrable_const _)]
+          simp [hnorm, measure_univ]
+  rw [h_lhs_eq] at h_chain
+  -- h_chain : (∫(f²+ε)·log(f²+ε) - (1+ε)·log(1+ε)) / (1+ε) ≤ 2·(∫f'²) / (1+ε)
+  -- Since (1+ε) > 0, divide both sides: a/(1+ε) ≤ b/(1+ε) iff a ≤ b
+  have h_cancel := (div_le_div_iff_of_pos_right h1ε_pos).mp h_chain
+  linarith
 
 /-- **LSI for bounded C¹ functions** — bridges from C¹ to C² via OU smoothing.
 For bounded f with ∀ x, HasDerivAt f (f' x) x, the OU semigroup P_t f
