@@ -1660,37 +1660,206 @@ private lemma ouSemigroup_cameron_martin (t δ x₀ : ℝ) (ht : 0 < t) (g : ℝ
   rw [show (fun y => g (a * x₀ + b * (y + v))) = (fun y => ψ (y + v)) from rfl,
       hstep1, gaussianReal_tilt ψ v hψ_gv]
 
-/-- **Approximation lemma**: From MemLp 2 + C¹ to bounded via smooth truncation.
-Given f ∈ W^{1,2}(γ), construct f_n bounded with |f_n| ≤ |f|, f_n → f in L²,
-and ∫f_n'² ≤ ∫f'², such that ∫f_n²·log(f_n²) → ∫f²·log(f²).
+/-! ### Approximation from bounded to general L²(γ)
 
-## Proof architecture (3 layers)
+**Strategy (spatial cutoff)**: Approximate f by bounded C¹ functions g_n = f·η_n
+where η_n is a smooth cutoff. Apply the bounded LSI to each g_n (with normalization),
+then take the limit via DCT. This avoids the OU kernel differentiation blocker. -/
 
-### Layer 1: Kernel differentiation (`ouSemigroup_hasDerivAt_of_bounded_meas`)
-For bounded measurable g and t > 0, P_t g has HasDerivAt at every x:
-  d/dx P_t g(x) = (a/b) · ∫ y·g(ax+by) dγ(y)
-Proof: Cameron-Martin + `hasDerivAt_integral_of_dominated_loc_of_deriv_le`.
-Infrastructure available: `ouSemigroup_cameron_martin`, `gaussianReal_tilt`.
+/-- Existence of bounded C¹ approximations to an L²(γ) function.
 
-### Layer 2: Energy bound via Stein identity
-When g additionally has HasDerivAt with g' ∈ L²(γ), the kernel derivative equals
-`a · P_t g'(x)` (by Stein identity on slices h(y) = g(ax+by), h'(y) = b·g'(ax+by)):
-  ∫ (d/dx P_t g)² dγ = a² · ∫ (P_t g')² dγ ≤ a² · ∫ g'² dγ ≤ ∫ g'² dγ
-Infrastructure: `stein_identity` (requires MemLp 2 + HasDerivAt everywhere).
+For f ∈ L²(γ) with f' ∈ L²(γ) and HasDerivAt everywhere, there exist bounded C¹
+approximations g_n with:
+- g_n, g_n' globally bounded (for applying the bounded LSI)
+- HasDerivAt g_n (g_n' · x) x for all x (C¹ regularity)
+- |g_n x| ≤ |f x| pointwise (for DCT domination of the entropy integral)
+- g_n → f pointwise (for convergence of the entropy integral)
+- ∫ (g_n')² → ∫ (f')² (energy convergence)
+- ∫ g_n² → 1 (L² norm convergence)
 
-### Layer 3: Approximation argument
-For each t > 0: P_t f is bounded (f bounded), has HasDerivAt + bounded derivative
-(Layer 1), energy ∫(P_t f)'^2 ≤ ∫f'² (Layer 2). Apply hlsi_bdd to normalized P_t f.
-Take limit t → 0 via DCT (pattern from `lsi_of_bounded_C1` above).
+Construction (not formalized): g_n = f · η_n where η_n is a smooth cutoff
+with η_n(x) = 1 for |x| ≤ n, η_n(x) = 0 for |x| ≥ n+1, 0 ≤ η_n ≤ 1,
+|η_n'| ≤ 2. Then g_n is bounded (f continuous on compact), g_n' = f'·η_n + f·η_n'
+is bounded, and the convergence properties follow from DCT + L² dominance. -/
+private lemma exists_bounded_C1_approx
+    (f f' : ℝ → ℝ)
+    (hf : MemLp f 2 stdGaussian)
+    (hf' : MemLp f' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1) :
+    ∃ (g g' : ℕ → ℝ → ℝ),
+      (∀ n, ∃ C, ∀ x, ‖g n x‖ ≤ C) ∧
+      (∀ n, ∃ C, ∀ x, ‖g' n x‖ ≤ C) ∧
+      (∀ n x, HasDerivAt (g n) (g' n x) x) ∧
+      (∀ n x, (g n x) ^ 2 ≤ f x ^ 2) ∧
+      (Filter.Tendsto (fun n => ∫ x, (g' n x) ^ 2 ∂stdGaussian)
+        Filter.atTop (nhds (∫ x, (f' x) ^ 2 ∂stdGaussian))) ∧
+      (∀ n, MemLp (g n) 2 stdGaussian) ∧
+      (∀ n, MemLp (g' n) 2 stdGaussian) ∧
+      (∀ n, Integrable (fun x => (g n x) ^ 2 * Real.log ((g n x) ^ 2)) stdGaussian) ∧
+      (∀ n, 0 < ∫ x, (g n x) ^ 2 ∂stdGaussian) ∧
+      (Filter.Tendsto (fun n => ∫ x, (g n x) ^ 2 * Real.log ((g n x) ^ 2) ∂stdGaussian)
+        Filter.atTop (nhds (∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian))) := by
+  sorry
 
-### Blocker
-Layer 2 requires `stein_identity` for slices f(ax+by) where f' ∈ L²(γ) but NOT bounded.
-Current `stein_identity` requires MemLp f' 2, which for slices means
-∫ f'(ax+by)² dγ(y) < ∞ for ALL x (not just a.e.). This is true for bounded f
-(slice is bounded hence in L²), but the derivative slice b·f'(ax+by) is only in L²(γ_y)
-for a.e. x (by Fubini), not all x.
+/-- For a bounded function g with bounded derivative, the unnormalized LSI holds:
+∫ g² log g² ≤ 2∫ g'² + (∫ g²) · log(∫ g²).
 
-Estimated total to close: ~90 lines (Layer 1: ~50, Layer 2: ~25, Layer 3: ~15 glue). -/
+This follows from applying the normalized LSI to g/‖g‖_L² and unfolding. -/
+private lemma lsi_bdd_unnormalized
+    (g g' : ℝ → ℝ)
+    (hg : MemLp g 2 stdGaussian)
+    (hg' : MemLp g' 2 stdGaussian)
+    (hderiv : ∀ x, HasDerivAt g (g' x) x)
+    (hg_bdd : ∃ C, ∀ x, ‖g x‖ ≤ C)
+    (hg'_bdd : ∃ C, ∀ x, ‖g' x‖ ≤ C)
+    (hg_pos : 0 < ∫ x, g x ^ 2 ∂stdGaussian)
+    (hlsi_bdd : ∀ (h h' : ℝ → ℝ),
+      MemLp h 2 stdGaussian → MemLp h' 2 stdGaussian →
+      (∀ x, HasDerivAt h (h' x) x) →
+      (∃ C, ∀ x, ‖h x‖ ≤ C) → (∃ C, ∀ x, ‖h' x‖ ≤ C) →
+      ∫ x, h x ^ 2 ∂stdGaussian = 1 →
+      Integrable (fun x => h x ^ 2 * Real.log (h x ^ 2)) stdGaussian →
+      ∫ x, h x ^ 2 * Real.log (h x ^ 2) ∂stdGaussian ≤
+        2 * ∫ x, h' x ^ 2 ∂stdGaussian) :
+    ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂stdGaussian ≤
+      2 * ∫ x, g' x ^ 2 ∂stdGaussian +
+      (∫ x, g x ^ 2 ∂stdGaussian) * Real.log (∫ x, g x ^ 2 ∂stdGaussian) := by
+  -- Normalize: set a = √(∫g²), h = g/a, h' = g'/a
+  set a := Real.sqrt (∫ x, g x ^ 2 ∂stdGaussian)
+  have ha_pos : 0 < a := Real.sqrt_pos_of_pos hg_pos
+  have ha_ne : a ≠ 0 := ne_of_gt ha_pos
+  set h := fun x => g x / a
+  set h' := fun x => g' x / a
+  -- h is bounded
+  have hh_bdd : ∃ C, ∀ x, ‖h x‖ ≤ C := by
+    obtain ⟨C, hC⟩ := hg_bdd
+    exact ⟨C / a, fun x => by
+      show ‖g x / a‖ ≤ C / a
+      rw [norm_div, Real.norm_of_nonneg ha_pos.le]
+      exact div_le_div_of_nonneg_right (hC x) ha_pos.le⟩
+  -- h' is bounded
+  have hh'_bdd : ∃ C, ∀ x, ‖h' x‖ ≤ C := by
+    obtain ⟨C, hC⟩ := hg'_bdd
+    exact ⟨C / a, fun x => by
+      show ‖g' x / a‖ ≤ C / a
+      rw [norm_div, Real.norm_of_nonneg ha_pos.le]
+      exact div_le_div_of_nonneg_right (hC x) ha_pos.le⟩
+  -- HasDerivAt h (h' x) x
+  have hh_deriv : ∀ x, HasDerivAt h (h' x) x := by
+    intro x; exact (hderiv x).div_const a
+  -- MemLp h 2
+  have hh_memLp : MemLp h 2 stdGaussian := by
+    obtain ⟨Ch, hCh⟩ := hh_bdd
+    have hh_cont : Continuous h := (Differentiable.continuous (fun z => (hh_deriv z).differentiableAt))
+    exact (memLp_top_of_bound hh_cont.aestronglyMeasurable Ch (ae_of_all _ hCh)).mono_exponent (by norm_num)
+  -- MemLp h' 2
+  have hh'_memLp : MemLp h' 2 stdGaussian := by
+    obtain ⟨Ch', hCh'⟩ := hh'_bdd
+    have hh'_meas : AEStronglyMeasurable h' stdGaussian := by
+      show AEStronglyMeasurable (fun x => g' x / a) stdGaussian
+      have : (fun x => g' x / a) = fun x => a⁻¹ * g' x := by ext x; simp [div_eq_mul_inv, mul_comm]
+      rw [this]; exact hg'.aestronglyMeasurable.const_mul _
+    exact (memLp_top_of_bound hh'_meas Ch' (ae_of_all _ hCh')).mono_exponent (by norm_num)
+  -- ∫ h² = 1
+  have hh_norm : ∫ x, h x ^ 2 ∂stdGaussian = 1 := by
+    simp only [h, div_pow]
+    rw [integral_div, Real.sq_sqrt hg_pos.le, div_self (ne_of_gt hg_pos)]
+  -- h²·log(h²) integrable (h bounded)
+  have hh_int : Integrable (fun x => h x ^ 2 * Real.log (h x ^ 2)) stdGaussian := by
+    obtain ⟨Ch, hCh⟩ := hh_bdd
+    have hh_cont : Continuous h := Differentiable.continuous (fun z => (hh_deriv z).differentiableAt)
+    refine (memLp_top_of_bound
+      (Real.continuous_mul_log.comp (hh_cont.pow 2)).aestronglyMeasurable (Ch ^ 4 + 1)
+      (ae_of_all _ fun x => ?_)).integrable le_top
+    calc ‖h x ^ 2 * Real.log (h x ^ 2)‖
+        = |h x ^ 2 * Real.log (h x ^ 2)| := Real.norm_eq_abs _
+      _ ≤ (h x ^ 2) ^ 2 + 1 := abs_mul_log_le_sq_add_one (h x ^ 2) (sq_nonneg _)
+      _ ≤ (Ch ^ 2) ^ 2 + 1 := by
+          have hab := hCh x  -- ‖h x‖ ≤ Ch
+          have habs : |h x| ≤ Ch := (Real.norm_eq_abs (h x)).symm.trans_le hab
+          have hsq : h x ^ 2 ≤ Ch ^ 2 := by
+            have h1 : h x ^ 2 = |h x| ^ 2 := (sq_abs _).symm
+            have h2 : Ch ^ 2 = |Ch| ^ 2 := (sq_abs _).symm
+            rw [h1, h2]; exact pow_le_pow_left₀ (abs_nonneg _) (habs.trans (le_abs_self _)) 2
+          nlinarith [sq_nonneg (h x ^ 2 - Ch ^ 2)]
+      _ = Ch ^ 4 + 1 := by ring_nf
+  -- Apply hlsi_bdd to h
+  have hlsi := hlsi_bdd h h' hh_memLp hh'_memLp hh_deriv hh_bdd hh'_bdd hh_norm hh_int
+  -- Now unfold: ∫g²·log(g²) = a²·∫h²·log(h²) + a²·log(a²)
+  have ha2 : a ^ 2 = ∫ x, g x ^ 2 ∂stdGaussian := Real.sq_sqrt hg_pos.le
+  have ha2_pos : (0 : ℝ) < a ^ 2 := by positivity
+  -- Pointwise identity: g²·log(g²) = a²·h²·log(h²) + a²·h²·log(a²)
+  have hpw : ∀ x, g x ^ 2 * Real.log (g x ^ 2) =
+      a ^ 2 * (h x ^ 2 * Real.log (h x ^ 2)) +
+      a ^ 2 * (h x ^ 2 * Real.log (a ^ 2)) := by
+    intro x
+    simp only [h]
+    by_cases hgx : g x = 0
+    · simp [hgx]
+    · have hga_ne : g x / a ≠ 0 := div_ne_zero hgx ha_ne
+      rw [show g x ^ 2 = a ^ 2 * (g x / a) ^ 2 from by field_simp]
+      rw [Real.log_mul (pow_ne_zero 2 ha_ne) (pow_ne_zero 2 hga_ne)]
+      ring
+  -- Integrate both sides
+  have hg_sq_int : Integrable (fun x => g x ^ 2) stdGaussian := integrable_sq_of_memLp hg
+  have hg_sq_log_int : Integrable (fun x => g x ^ 2 * Real.log (g x ^ 2)) stdGaussian := by
+    obtain ⟨Cg, hCg⟩ := hg_bdd
+    have hg_cont : Continuous g := Differentiable.continuous (fun z => (hderiv z).differentiableAt)
+    refine (memLp_top_of_bound
+      (Real.continuous_mul_log.comp (hg_cont.pow 2)).aestronglyMeasurable (Cg ^ 4 + 1)
+      (ae_of_all _ fun x => ?_)).integrable le_top
+    calc ‖g x ^ 2 * Real.log (g x ^ 2)‖
+        = |g x ^ 2 * Real.log (g x ^ 2)| := Real.norm_eq_abs _
+      _ ≤ (g x ^ 2) ^ 2 + 1 := abs_mul_log_le_sq_add_one (g x ^ 2) (sq_nonneg _)
+      _ ≤ (Cg ^ 2) ^ 2 + 1 := by
+          have hab := hCg x  -- ‖g x‖ ≤ Cg
+          have habs : |g x| ≤ Cg := (Real.norm_eq_abs (g x)).symm.trans_le hab
+          have hsq : g x ^ 2 ≤ Cg ^ 2 := by
+            have h1 : g x ^ 2 = |g x| ^ 2 := (sq_abs _).symm
+            have h2 : Cg ^ 2 = |Cg| ^ 2 := (sq_abs _).symm
+            rw [h1, h2]; exact pow_le_pow_left₀ (abs_nonneg _) (habs.trans (le_abs_self _)) 2
+          nlinarith [sq_nonneg (g x ^ 2 - Cg ^ 2)]
+      _ = Cg ^ 4 + 1 := by ring_nf
+  have hint1 : Integrable (fun x => a ^ 2 * (h x ^ 2 * Real.log (h x ^ 2))) stdGaussian :=
+    hh_int.const_mul _
+  have hint2 : Integrable (fun x => a ^ 2 * (h x ^ 2 * Real.log (a ^ 2))) stdGaussian := by
+    have : (fun x => a ^ 2 * (h x ^ 2 * Real.log (a ^ 2))) =
+        fun x => (a ^ 2 * Real.log (a ^ 2)) * h x ^ 2 := by ext x; ring
+    rw [this]; exact (integrable_sq_of_memLp hh_memLp).const_mul _
+  have hkey_eq : ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂stdGaussian =
+      a ^ 2 * ∫ x, h x ^ 2 * Real.log (h x ^ 2) ∂stdGaussian +
+      a ^ 2 * Real.log (a ^ 2) := by
+    rw [integral_congr_ae (ae_of_all _ hpw), integral_add hint1 hint2,
+        integral_const_mul, integral_const_mul]
+    congr 1
+    rw [show (fun x => h x ^ 2 * Real.log (a ^ 2)) = fun x => Real.log (a ^ 2) * h x ^ 2 from by
+          ext x; ring]
+    rw [integral_const_mul, hh_norm, mul_one]
+  -- ∫h'² = (1/a²)·∫g'²
+  have hh'_sq_eq : a ^ 2 * ∫ x, h' x ^ 2 ∂stdGaussian =
+      ∫ x, g' x ^ 2 ∂stdGaussian := by
+    have : ∀ x, h' x ^ 2 = g' x ^ 2 / a ^ 2 := by
+      intro x; simp only [h', div_pow]
+    rw [integral_congr_ae (ae_of_all _ this), integral_div, mul_div_cancel₀]
+    exact ne_of_gt ha2_pos
+  -- Chain
+  calc ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂stdGaussian
+      = a ^ 2 * ∫ x, h x ^ 2 * Real.log (h x ^ 2) ∂stdGaussian +
+        a ^ 2 * Real.log (a ^ 2) := hkey_eq
+    _ ≤ a ^ 2 * (2 * ∫ x, h' x ^ 2 ∂stdGaussian) +
+        a ^ 2 * Real.log (a ^ 2) := by
+        linarith [mul_le_mul_of_nonneg_left hlsi (le_of_lt ha2_pos)]
+    _ = 2 * ∫ x, g' x ^ 2 ∂stdGaussian +
+        a ^ 2 * Real.log (a ^ 2) := by
+        congr 1
+        have : a ^ 2 * (2 * ∫ x, h' x ^ 2 ∂stdGaussian) =
+            2 * (a ^ 2 * ∫ x, h' x ^ 2 ∂stdGaussian) := by ring
+        rw [this, hh'_sq_eq]
+    _ = 2 * ∫ x, g' x ^ 2 ∂stdGaussian +
+        (∫ x, g x ^ 2 ∂stdGaussian) * Real.log (∫ x, g x ^ 2 ∂stdGaussian) := by
+        congr 1; rw [← ha2]
+
 private lemma lsi_approximation_from_bounded
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
@@ -1708,7 +1877,33 @@ private lemma lsi_approximation_from_bounded
         2 * ∫ x, g' x ^ 2 ∂stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  sorry
+  -- Strategy: Get bounded C¹ approximations, apply unnormalized LSI to each,
+  -- take limit using entropy convergence from the approximation lemma.
+  obtain ⟨g, g', hg_bdd, hg'_bdd, hg_deriv, hg_dom, hg'_energy, hg_memLp,
+    hg'_memLp, hg_ent_int, hg_pos, hg_ent_conv⟩ :=
+    exists_bounded_C1_approx f f' hf hf' hderiv hnorm
+  -- For each n: ∫ g_n² ≤ ∫ f² = 1 (by pointwise domination), so log(∫ g_n²) ≤ 0.
+  -- The unnormalized LSI gives ∫ g_n² log g_n² ≤ 2∫ g_n'² + (∫ g_n²)·log(∫ g_n²) ≤ 2∫ g_n'².
+  have hbound : ∀ n, ∫ x, (g n x) ^ 2 * Real.log ((g n x) ^ 2) ∂stdGaussian ≤
+      2 * ∫ x, (g' n x) ^ 2 ∂stdGaussian := by
+    intro n
+    have hunorm := lsi_bdd_unnormalized (g n) (g' n) (hg_memLp n) (hg'_memLp n)
+      (hg_deriv n) (hg_bdd n) (hg'_bdd n) (hg_pos n) hlsi_bdd
+    -- ∫ g_n² ≤ ∫ f² = 1
+    have hle1 : ∫ x, (g n x) ^ 2 ∂stdGaussian ≤ 1 := by
+      rw [← hnorm]
+      exact integral_mono (integrable_sq_of_memLp (hg_memLp n))
+        (integrable_sq_of_memLp hf) (fun x => hg_dom n x)
+    have hlog_neg : (∫ x, (g n x) ^ 2 ∂stdGaussian) *
+        Real.log (∫ x, (g n x) ^ 2 ∂stdGaussian) ≤ 0 :=
+      mul_nonpos_of_nonneg_of_nonpos
+        (le_of_lt (hg_pos n))
+        (Real.log_nonpos (le_of_lt (hg_pos n)) hle1)
+    linarith
+  -- ∫ g_n² log g_n² → ∫ f² log f² and 2∫ g_n'² → 2∫ f'² with ∀ n, LHS n ≤ RHS n.
+  -- By le_of_tendsto_of_tendsto, the limits satisfy the same inequality.
+  exact le_of_tendsto_of_tendsto hg_ent_conv (hg'_energy.const_mul 2)
+    (Filter.Eventually.of_forall hbound)
 
 private lemma gaussian_lsi_normalized_of_integrable
     (f f' : ℝ → ℝ)
