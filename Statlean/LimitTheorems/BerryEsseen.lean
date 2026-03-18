@@ -974,36 +974,37 @@ private lemma levy_cdf_diff_fourier_bound
                   field_simp
                 linarith
               linarith
-      · -- I < π - 24/T: genuinely hard case requiring Fourier inversion.
+      · -- I < π - 24/T: use Fejér bracket approach (Esseen 1945 / Feller XV.3).
         --
-        -- PROOF OUTLINE (Esseen 1945, Feller Vol II Ch XV.3 Theorem 2):
+        -- PROOF (Fejér bracket + Fourier identity):
         --
-        -- For ν with bounded density g ≤ M, the Fourier inversion formula gives:
-        --   G(y) = 1/2 + (1/π) ∫₀^∞ Im(e^{-ity} γ(t))/t dt
-        -- where γ = charFun ν. The truncation error satisfies:
-        --   |G(y) - [1/2 + (1/π) ∫₀^T Im(e^{-ity} γ(t))/t dt]| ≤ C·M/T
-        -- (from the conditional convergence of the integral and |γ(t)| ≤ 1).
+        -- Define Fejér CDF: Ψ(u) = 1/2 + (1/π) ∫₀ᵀ (1-t/T) sin(ut)/t dt
+        -- Key properties (from d/du Ψ = (2sin²(uT/2))/(πTu²) ≥ 0):
+        --   (a) Ψ non-decreasing
+        --   (b) Ψ ∈ [0,1] (C(R) = ∫₀ᴿ(1-s/R)sin(s)/s ds is monotone ≤ π/2)
+        --   (c) 1-Ψ(a) ≤ 4/(πaT) (from |Si(R)-π/2| ≤ 2/R via IBP)
         --
-        -- For F (no density assumption), the integral ∫₀^T Im(e^{-ity}φ(t))/t dt
-        -- is bounded using the Dirichlet integral: |∫_δ^T sin(at)/t dt| ≤ π.
-        -- The Fubini step (truncated_fubini_sinc) gives:
-        --   ∫_μ ∫_δ^T sin((x-y)t)/t dt = ∫_δ^T (∫_μ sin((x-y)t))/t dt
+        -- Bracket: for a > 0,
+        --   F(y) ≤ E_μ[Ψ(y+a-X)] + (1-Ψ(a))
+        --   G(y) ≥ E_ν[Ψ(y-a-X)] - (1-Ψ(a))
         --
-        -- Combining via Im(e^{-ity}Δ(t)) = Im(e^{-ity}φ(t)) - Im(e^{-ity}γ(t)):
-        --   |D(y) - (1/π) ∫₀^T Im(e^{-ity}Δ(t))/t dt| ≤ C·M/T
-        -- and |∫₀^T Im(e^{-ity}Δ(t))/t dt| ≤ ∫₀^T |Δ(t)|/t dt = I/2.
+        -- Fourier identity (Fubini on bounded integrand × prob measure):
+        --   E_μ[Ψ(y-X)] - E_ν[Ψ(y-X)] = -(1/π)∫₀ᵀ(1-t/T)Im(Δe^{-ity})/t dt
+        --   |...| ≤ I/(2π)
         --
-        -- Therefore: |D(y)| ≤ I/(2π) + C·M/T ≤ I/π + 24/(πT)
-        -- when C·M ≤ 24/π (satisfied for M ≤ 1 with suitable C).
+        -- Density bound on ν (M-Lipschitz CDF):
+        --   E_ν[Ψ(y+a-X) - Ψ(y-a-X)] ≤ 2aM
         --
-        -- FORMALIZATION BLOCKER: The truncation error bound for G requires:
-        -- 1. The Fourier inversion formula for CDFs with bounded density
-        --    (not in Mathlib as of v4.28)
-        -- 2. The truncation error estimate via Abel summation / IBP
-        -- 3. Fubini for the Cesàro-weighted sinc integral (adapting
-        --    truncated_fubini_sinc with the (1-t/T) weight)
+        -- Combine: |F-G| ≤ I/(2π) + 2aM + 2(1-Ψ(a)) ≤ I/(2π) + 2aM + 8/(πaT)
+        -- With a = 2/(√π·T): I/(2π) + 4M/(√πT) + 4/(√πT) = I/(2π) + 4(M+1)/(√πT)
+        -- For M = 1: I/(2π) + 8/(√πT) ≤ I/π + 24/(πT) since 8/√π < 24/π.
         --
-        -- Estimated: ~150 lines of Fourier analysis infrastructure.
+        -- FORMALIZATION STATUS: Requires ~150 lines of Fejér CDF infrastructure:
+        -- 1. ∫₀ᵀ(1-t/T)cos(ut)dt = (1-cos(uT))/(Tu²) — IBP computation
+        -- 2. Monotonicity of Fejér CDF — from sin² ≥ 0
+        -- 3. C(R) = ∫₀ᴿ(1-s/R)sin(s)/s ds monotone ≤ π/2 — from C'=(1-cos)/R² ≥ 0
+        -- 4. Tail bound 1-Ψ(a) ≤ 4/(πaT) — from |Si(R)-π/2| ≤ 2/R
+        -- 5. Fubini for Cesàro-weighted sinc — bounded integrand on [0,T] × μ
         -- The only caller uses M = 1 (Gaussian density).
         push_neg at hI_near_pi
         sorry
