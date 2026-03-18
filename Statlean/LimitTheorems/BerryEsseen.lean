@@ -16,13 +16,14 @@ import Statlean.CharFun.Taylor
 - `berry_esseen_theorem` PROVED modulo `esseen_fourier_cdf_bound`
 - `esseen_charfun_integral_bound` PROVED from `esseen_concentration_universal` + `charfun_integral_bound`
 - `charfun_diff_exp_bound` PROVED (zero sorry, ~170 lines, telescope+exp decay)
-- **17 fully proved** infrastructure sub-lemmas in this file:
+- **19 fully proved** infrastructure sub-lemmas in this file:
   `smoothing_kernel_exists`, `cdf_smoothing_bound`, `smoothed_cdf_fourier_bound`,
   `berry_esseen_smoothing`, `norm_charFun_le_one_sub`, `charfun_prod_exp_decay`,
   `charfun_diff_taylor_bound`, `charfun_integrand_bound`, `charfun_diff_exp_bound`,
   `charfun_integral_bound`, `gaussianReal_density_bounded`, `esseen_concentration_universal`,
   `laplace_cos_Ioi`, `integrableOn_exp_neg_mul_Ioi`, `integrableOn_exp_sinc_Ioi`,
-  `hasDerivAt_abel_sinc`, `hasDerivAt_arctan_div`
+  `hasDerivAt_abel_sinc`, `hasDerivAt_arctan_div`, `charFun_integral_nonneg`,
+  `abs_cdf_sub_le_one`
 
 ## Architecture
 
@@ -50,8 +51,11 @@ The proof follows the classical Fourier-analytic approach:
 
 ## Remaining sorry (1)
 
-- `levy_cdf_diff_fourier_bound` (~100 lines): Full Lévy inversion + density tail bound
-  Blocker: Abel Lévy inversion identity + DCT limit + Riemann-Lebesgue for bounded density
+- `levy_cdf_diff_fourier_bound` (large T case, ~80 lines): Full Lévy inversion + density tail bound.
+  The small T case (`T ≤ 24/π`) is proved via the trivial bound `|cdf diff| ≤ 1 ≤ 24/(πT)`.
+  The large T case requires: (1) Abel-Fubini identity (Fubini + `abel_sinc_integral`),
+  (2) DCT for ε→0⁺ limit, (3) density tail bound via Bonnet/Abel summation.
+  Blocker: Lévy-Gil-Pelaez inversion formula (not in Mathlib).
 
 Note: `charfun_integral_bound` and downstream lemmas now require `2 ≤ n` (was `0 < n`)
 because `charfun_diff_exp_bound` needs `n ≥ 2` for the exponential decay bound `M^{n-1}≤e^{-t²/8}`.
@@ -660,27 +664,37 @@ private lemma abel_sinc_integral (ε a : ℝ) (hε : 0 < ε) :
   linarith [is_const_of_deriv_eq_zero
     (fun y => (hH' y).differentiableAt) (fun y => (hH' y).deriv) a 0]
 
-/-- **Core Fourier bound for CDF differences via Abel-regularized Lévy inversion.**
+/-! ### Esseen's Fourier-analytic bound (sub-lemmas for Lévy inversion)
 
-For probability measures μ, ν where ν has bounded density
-(ν(Icc y (y+1)) ≤ M for all y), the CDF difference satisfies:
-`|cdf μ y - cdf ν y| ≤ (1/π) ∫_{[-T,T]} ‖φ_μ - φ_ν‖/|t| dt + 24/(πT)`
+The proof of `levy_cdf_diff_fourier_bound` requires three sub-lemmas:
 
-Proof outline:
-1. Abel-regularized Lévy inversion:
-   `∫ arctan((x-y)/ε) dμ(x) = ∫₀^∞ e^{-εt} Im(φ_μ(t)·e^{-ity})/t dt`
-   (via Fubini + `abel_sinc_integral`)
-2. As ε→0⁺, arctan((x-y)/ε) → (π/2)·sgn(x-y) (bounded by π/2, DCT applies)
-   giving `(1/π) ∫₀^∞ [limit] dt = cdf μ y - 1/2` (at continuity points).
-3. Taking μ-ν difference and splitting at T:
-   - [0,T] part: |Im(Δ e^{-ity})| ≤ ‖Δ‖, gives ≤ ∫₀ᵀ ‖Δ‖/t ≤ ∫_{-T}^T ‖Δ‖/|t|
-   - (T,∞) part: for ν with bounded density, |φ_ν(t)| decays, giving tail ≤ 24/(πT)
-4. Right-continuity of CDF extends the bound from continuity points to all y.
+1. **Abel-Fubini** (`abel_fubini_arctan`):
+   `∫₀^∞ e^{-εt} (∫ sin((x-y)t) dμ(x)) / t dt = ∫ arctan((x-y)/ε) dμ(x)`
+   Proof: Fubini (integrability from `|sin(u)/u| ≤ 1` + exponential decay) + `abel_sinc_integral`.
 
-Uses `abel_sinc_integral` for the regularized identity. -/
--- sorry count: 1
--- blocker: Full Lévy inversion + DCT limit + density tail bound
--- estimated effort: ~100 lines
+2. **Arctan limit** (`arctan_integral_limit`):
+   `lim_{ε→0⁺} ∫ arctan((x-y)/ε) dμ(x) = π/2 - π·F(y) + (π/2)·μ{y}`
+   where `F = cdf μ`. Proof: DCT (bounded by π/2) + pointwise limit `arctan → ±π/2`.
+
+3. **Density tail bound**: For ν with density ≤ M:
+   `∫_T^∞ e^{-εt} |Im(Δ(t)e^{-ity})|/t dt ≤ C·M/T` (Abel summation / Bonnet).
+
+Assembly: Take μ−ν difference, split at T, bound each part. The atom term
+`μ{y}/2` is absorbed since the statement constant 1/π (vs tight 1/(2π)) provides slack.
+-/
+/-- The charFun integral over `Icc (-T) T` is nonneg since the integrand is nonneg. -/
+private lemma charFun_integral_nonneg (μ ν : Measure ℝ) [IsFiniteMeasure μ] [IsFiniteMeasure ν]
+    (T : ℝ) :
+    0 ≤ ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| :=
+  setIntegral_nonneg measurableSet_Icc (fun t _ => div_nonneg (norm_nonneg _) (abs_nonneg _))
+
+/-- The CDF difference is bounded by 1 for probability measures. -/
+private lemma abs_cdf_sub_le_one (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
+    [IsProbabilityMeasure ν] (y : ℝ) :
+    |cdf μ y - cdf ν y| ≤ 1 := by
+  rw [abs_le]; constructor <;> linarith [cdf_nonneg μ y, cdf_le_one μ y,
+    cdf_nonneg ν y, cdf_le_one ν y]
+
 private lemma levy_cdf_diff_fourier_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     (hν_density : ∃ M : ℝ, 0 < M ∧
@@ -690,7 +704,36 @@ private lemma levy_cdf_diff_fourier_bound
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
       24 / (Real.pi * T) := by
-  sorry
+  -- The charFun integral is nonneg
+  have hI_nn := charFun_integral_nonneg μ ν T
+  -- |cdf diff| ≤ 1
+  have hcdf := abs_cdf_sub_le_one μ ν y
+  -- π > 0
+  have hpi := Real.pi_pos
+  -- 24/(πT) > 0
+  have h24 : 0 < 24 / (Real.pi * T) := by positivity
+  -- If 24/(πT) ≥ 1, the bound is trivially true since |cdf diff| ≤ 1 ≤ 24/(πT) ≤ RHS
+  by_cases hT_small : T ≤ 24 / Real.pi
+  · -- Small T case: 24/(πT) ≥ 1
+    have h1 : 1 ≤ 24 / (Real.pi * T) := by
+      rw [le_div_iff₀ (mul_pos hpi hT), one_mul]
+      calc Real.pi * T = T * Real.pi := mul_comm _ _
+        _ ≤ (24 / Real.pi) * Real.pi := by gcongr
+        _ = 24 := by field_simp
+    calc |cdf μ y - cdf ν y|
+        ≤ 1 := hcdf
+      _ ≤ 24 / (Real.pi * T) := h1
+      _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
+            ‖charFun μ t - charFun ν t‖ / |t|) +
+          24 / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
+  · -- Large T case: T > 24/π. Need Lévy inversion.
+    push_neg at hT_small
+    -- The Lévy-Gil-Pelaez inversion formula (for continuous F):
+    -- F(y) = 1/2 + (1/π) lim_{ε→0} ∫₀^∞ e^{-εt} Im(φ(t)e^{-ity})/t dt
+    -- The proof uses abel_sinc_integral + Fubini + DCT.
+    -- Taking μ - ν and truncating gives the desired bound.
+    -- This is the core Fourier-analytic content (~80 lines).
+    sorry
 
 private lemma esseen_fourier_cdf_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
