@@ -1611,6 +1611,55 @@ private lemma lsi_of_bounded_C1
         (hPt_pw x)
   exact le_of_tendsto htendsto (Filter.Eventually.of_forall hbound_Fn)
 
+/-! ### Infrastructure for kernel differentiation (Cameron-Martin approach) -/
+
+/-- Gaussian tilt identity: ∫ h d(gaussianReal v 1) = ∫ h(y)·exp(vy-v²/2) dγ(y).
+    This is the Radon-Nikodym derivative d(gaussianReal v 1)/d(gaussianReal 0 1). -/
+private lemma gaussianReal_tilt (h : ℝ → ℝ) (v : ℝ)
+    (hh : Integrable h (gaussianReal v 1)) :
+    ∫ y, h y ∂(gaussianReal v 1) =
+    ∫ y, h y * exp (v * y - v ^ 2 / 2) ∂stdGaussian := by
+  rw [show (stdGaussian : Measure ℝ) = gaussianReal 0 1 from rfl,
+      integral_gaussianReal_eq_integral_smul (μ := v) (by norm_num : (1 : NNReal) ≠ 0),
+      integral_gaussianReal_eq_integral_smul (μ := 0) (by norm_num : (1 : NNReal) ≠ 0)]
+  congr 1; ext y
+  simp only [smul_eq_mul, gaussianPDFReal, NNReal.coe_one, sub_zero, mul_one]
+  rw [show -(y - v) ^ 2 / 2 = -y ^ 2 / 2 + (v * y - v ^ 2 / 2) from by ring, exp_add]; ring
+
+/-- Cameron-Martin representation of the OU semigroup:
+    P_t g(x₀ + δ) = ∫ g(ax₀+by) · exp(vy - v²/2) dγ(y) where v = aδ/b.
+    This rewrites the shift in the argument of g as an exponential tilt of the measure. -/
+private lemma ouSemigroup_cameron_martin (t δ x₀ : ℝ) (ht : 0 < t) (g : ℝ → ℝ)
+    (hg_meas : Measurable g) (M : ℝ) (hM : ∀ x, ‖g x‖ ≤ M) :
+    ouSemigroup t g (x₀ + δ) =
+      ∫ y, g (exp (-t) * x₀ + √(1 - exp (-2 * t)) * y) *
+        exp (exp (-t) * δ / √(1 - exp (-2 * t)) * y -
+             (exp (-t) * δ / √(1 - exp (-2 * t))) ^ 2 / 2) ∂stdGaussian := by
+  set a := exp (-t); set b := √(1 - exp (-2 * t)); set v := a * δ / b
+  have hexp_lt : exp (-2 * t) < 1 := by rw [exp_lt_one_iff]; linarith
+  have h1me : 0 < 1 - exp (-2 * t) := by linarith
+  have hb_pos : 0 < b := sqrt_pos_of_pos h1me
+  have hb_ne : b ≠ 0 := ne_of_gt hb_pos
+  have hbv : b * v = a * δ := by simp only [v]; field_simp
+  show ∫ y, g (a * (x₀ + δ) + b * y) ∂stdGaussian = _
+  have h1 : ∀ y, g (a * (x₀ + δ) + b * y) = g (a * x₀ + b * (y + v)) := by
+    intro y; congr 1; linarith
+  simp_rw [h1]
+  set ψ := fun z => g (a * x₀ + b * z)
+  have hψ_gv : Integrable ψ (gaussianReal v 1) :=
+    Integrable.of_bound
+      (hg_meas.comp (measurable_const.add (measurable_const.mul measurable_id))).aestronglyMeasurable
+      M (ae_of_all _ (fun y => hM _))
+  have hmap : Measure.map (· + v) stdGaussian = gaussianReal v 1 := by
+    rw [show (stdGaussian : Measure ℝ) = gaussianReal 0 1 from rfl,
+        gaussianReal_map_add_const, zero_add]
+  have hstep1 : ∫ y, ψ (y + v) ∂stdGaussian = ∫ z, ψ z ∂(gaussianReal v 1) := by
+    rw [show (fun y => ψ (y + v)) = ψ ∘ (· + v) from rfl, ← hmap]
+    exact (integral_map (measurable_id.add_const v).aemeasurable
+      (hmap ▸ hψ_gv.aestronglyMeasurable)).symm
+  rw [show (fun y => g (a * x₀ + b * (y + v))) = (fun y => ψ (y + v)) from rfl,
+      hstep1, gaussianReal_tilt ψ v hψ_gv]
+
 /-- **Approximation lemma**: From MemLp 2 + C¹ to bounded via smooth truncation.
 Given f ∈ W^{1,2}(γ), construct f_n bounded with |f_n| ≤ |f|, f_n → f in L²,
 and ∫f_n'² ≤ ∫f'², such that ∫f_n²·log(f_n²) → ∫f²·log(f²). -/
@@ -1631,21 +1680,28 @@ private lemma lsi_approximation_from_bounded
         2 * ∫ x, g' x ^ 2 ∂stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  -- Strategy: arctan truncation + OU kernel differentiation.
-  -- Step 1: f_n = (n+1)·arctan(f/(n+1)) — bounded by (n+1)π/2, |f_n'| ≤ |f'|.
-  -- Step 2: H_n = P_{1/n}(f_n) — bounded, and HasDerivAt with BOUNDED derivative
-  --   via kernel differentiation: d/dx P_t(g)(x) = (a/b)·∫ y·g(ax+by) dγ(y),
-  --   which is bounded by (a/b)·‖g‖_∞·√(2/π) for bounded g.
-  --   (Differentiates the Gaussian kernel, not g — avoids needing g' bounded.)
-  -- Step 3: Normalize H_n, apply hlsi_bdd, take double limit (n→∞, then t→0).
+  -- Strategy: Apply hlsi_bdd to P_t(f) for bounded f (i.e., replicate the structure
+  -- of lsi_of_bounded_C1 which is passed as hlsi_bdd). Since f itself is NOT bounded,
+  -- we use the OU semigroup to produce bounded approximations with bounded derivatives.
   --
-  -- Blocker: Step 2 requires proving HasDerivAt for P_t of bounded measurable
-  -- functions via Lebesgue-integral kernel differentiation. This needs:
-  --   ouSemigroup t f x = ∫ f(u)·K_t(x,u) du  [change of variable to Lebesgue]
-  --   d/dx K_t(x,u) = K_t(x,u)·a(u-ax)/b²     [differentiate Gaussian kernel]
-  --   hasDerivAt_integral_of_dominated_loc_of_deriv_le  [Mathlib Leibniz rule]
-  -- with bound(u) = M·(a/b²)·|u-ax₀+a|·K_t(x₀-1,u) ∈ L¹(Lebesgue).
-  -- Estimated effort: ~80 lines (change of variable + Leibniz rule application).
+  -- Key insight: P_t(f) for t > 0 is bounded (by ouSemigroup_bound_norm) and has HasDerivAt
+  -- with bounded derivative when f has bounded derivative. But f' is NOT bounded.
+  -- So we use kernel differentiation: for bounded measurable g and t > 0,
+  -- d/dx P_t g(x) = (a/b) ∫ y·g(ax+by) dγ(y), bounded by (a/b)·‖g‖_∞·E[|Y|].
+  --
+  -- Infrastructure available: `gaussianReal_tilt` and `ouSemigroup_cameron_martin`
+  -- (above) express P_t g(x₀+δ) as a γ-integral with exponential tilt weight.
+  -- Remaining steps for full proof:
+  -- (a) Apply `hasDerivAt_integral_of_dominated_loc_of_deriv_le` with μ=stdGaussian
+  --     to the tilted representation. The HasDerivAt of the exponential tilt in δ
+  --     is standard (exp ∘ quadratic). The domination bound uses
+  --     `integrable_exp_abs_stdGaussian` (~30 lines).
+  -- (b) Identify the kernel derivative (a/b)·∫y·g(ax+by)dγ with a·P_t(g') via
+  --     `stein_identity` for differentiable g, giving the energy bound
+  --     ∫(P_t g)'^2 ≤ ∫g'^2 (~20 lines).
+  -- (c) Take limits: P_t(φ_n(f)) → f as t→0, n→∞ (~40 lines, pattern from
+  --     lsi_of_bounded_C1 above).
+  -- Estimated total: ~90 additional lines on top of existing infrastructure.
   sorry
 
 private lemma gaussian_lsi_normalized_of_integrable
