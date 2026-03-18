@@ -744,17 +744,33 @@ private lemma levy_cdf_diff_fourier_bound
             linarith
         _ ≤ 1 / Real.pi * I + 24 / (Real.pi * T) := le_add_of_nonneg_right h24.le
     · -- Case I < π with T > 24/π: requires Fourier inversion.
-      -- The Abel-regularized approach (Fubini + abel_sinc_integral + DCT) gives:
-      --   π(F-G) = atom_correction + lim_{ε→0} ∫₀^∞ e^{-εt} Im(Δe^{-ity})/t dt
-      -- Naive splitting at T gives |F-G| ≤ 1 + I/(2π) + C/(πT) which exceeds
-      -- the trivial bound. The tight bound requires the de la Vallée-Poussin kernel
-      -- approach: convolve with K whose Fourier transform hat{K}=1 on [-T,T], then
-      -- (F-G)*K = (1/2π) ∫_{-T}^T Δ(t)/(it) e^{-ity} dt (exact, no tail!).
-      -- The smoothing error |H(y) - H*K(y)| is controlled by ν's density bound.
-      -- Blockers: (1) Fourier inversion for L¹ functions in Lean/Mathlib,
-      -- (2) Fourier transform of the de la Vallée-Poussin kernel,
-      -- (3) Smoothing error bound using density condition.
-      -- Estimated effort: ~150 lines infrastructure + ~50 lines assembly.
+      -- This is the core of the Esseen inequality and requires genuine Fourier-analytic
+      -- content. No elementary approach works because:
+      --   (1) The trivial bound |cdf diff| ≤ 1 exceeds (1/π)I + 24/(πT) when both
+      --       I and 24/T are small (e.g., I=0, T=100 gives RHS ≈ 0.076).
+      --   (2) Any smooth approximation Ψ to the indicator 1_{(-∞,y]} has smoothing
+      --       error ≥ μ{y}/2 for the μ-side (from Ψ(0) ≠ 1), giving additive O(1).
+      --   (3) The Abel-Lévy identity gives |F-G| ≤ I/(2π) + |R_μ| + |R_ν| + atom,
+      --       but |R_μ| ≤ π/2 (not O(1/T)) for general μ.
+      --
+      -- PROOF PLAN (Fejér CDF identity, ~200 lines):
+      -- Step 1: Fourier representation of Fejér kernel:
+      --   K_F(x) = (1/2π) ∫_{-T}^T (1-|t|/T) cos(tx) dt  [IBP computation]
+      --   Ψ_F(u) = 1/2 + (1/2π) ∫_{-T}^T (1-|t|/T) sin(tu)/t dt  [integration]
+      -- Step 2: Fubini identity (on truncated domain {δ < |t| < T}):
+      --   ∫ Ψ_F(y-x) d(μ-ν)(x) = (1/π) ∫₀ᵀ (1-t/T)/t · Im(Δ(t)e^{-ity}) dt
+      --   Justified: |(1-|t|/T) sin(t(y-x))/t| ≤ 1/δ (bounded on {δ<|t|<T} × Ω)
+      --   Take δ → 0: convergent since |Δ(t)|/t is integrable near 0 (Δ(0)=0).
+      -- Step 3: |∫ Ψ_F d(μ-ν)| ≤ I/(2π)  [from (1-t/T) ≤ 1 and ∫₀ᵀ = (1/2)∫_{-T}^T]
+      -- Step 4: Bracket via upper/lower Fejér shifts Ψ_F(y ± a - x):
+      --   F(y) ≤ ∫ Ψ_F(y+a-x) dμ(x) + (1-Ψ_F(a))  [Ψ_F underestimates on (y,y+a)]
+      --   ∫ Ψ_F(y+a-x) dν(x) ≤ G(y) + ν([y,y+a]) ≤ G(y) + Ma  [density bound]
+      --   → F-G ≤ I/(2π) + (1-Ψ_F(a)) + Ma
+      --   Similarly from below. With a chosen to minimize the error.
+      -- Step 5: For the stated constants (1/π and 24/π), verify numerically.
+      --
+      -- Alternative: Use Mathlib Fourier inversion (MeasureTheory.Integrable.fourierInv_fourier_eq)
+      -- applied to the Fejér kernel K_F ∈ L¹ with 𝓕K_F ∈ L¹.
       push_neg at hI_large
       sorry
 
