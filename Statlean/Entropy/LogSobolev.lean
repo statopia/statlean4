@@ -1866,6 +1866,7 @@ private lemma exists_bounded_C1_approx
     (hf : MemLp f 2 stdGaussian)
     (hf' : MemLp f' 2 stdGaussian)
     (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hf'_cont : Continuous f')
     (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1) :
     ∃ (g g' : ℕ → ℝ → ℝ),
       (∀ n, ∃ C, ∀ x, ‖g n x‖ ≤ C) ∧
@@ -1888,9 +1889,59 @@ private lemma exists_bounded_C1_approx
   · exact fun n => spatialTrunc_bounded f hf_cont n
   -- (2) g_n' bounded
   · intro n
-    -- f' is continuous (from HasDerivAt), cutoff and cutoff' bounded
-    -- On compact support [-(n+1), n+1], f'·cutoff + f·cutoff' is bounded
-    sorry
+    -- spatialTruncDeriv = f'·cutoff + f·cutoff'. Both terms vanish for |x| ≥ n+1.
+    -- On [-(n+1), n+1], f' and f are bounded (continuous on compact), cutoff ≤ 1,
+    -- and |cutoff'| ≤ 3/2 (6t(1-t) ≤ 3/2 for t ∈ [0,1]).
+    have hK : IsCompact (Set.Icc (-(↑n + 1 : ℝ)) (↑n + 1)) := isCompact_Icc
+    obtain ⟨Mf', hMf'⟩ := hK.exists_bound_of_continuousOn hf'_cont.continuousOn
+    obtain ⟨Mf, hMf⟩ := hK.exists_bound_of_continuousOn hf_cont.continuousOn
+    refine ⟨max (Mf' + Mf * 2) 0, fun x => ?_⟩
+    by_cases hx : |x| ≤ (n : ℝ) + 1
+    · have hx_mem : x ∈ Set.Icc (-(↑n + 1 : ℝ)) (↑n + 1) := by
+        rw [Set.mem_Icc]; constructor <;> linarith [abs_le.mp hx]
+      have hf'_bdd : ‖f' x‖ ≤ Mf' := hMf' x hx_mem
+      have hf_bdd : ‖f x‖ ≤ Mf := hMf x hx_mem
+      -- |smoothCutoffDeriv| ≤ 3/2 ≤ 2 by AM-GM on 6t(1-t) where t ∈ [0,1]
+      have hcutD_bdd : ‖smoothCutoffDeriv n x‖ ≤ 2 := by
+        have ht0 := hatFun_nonneg n x
+        have ht1 := hatFun_le_one n x
+        simp only [smoothCutoffDeriv, Real.norm_eq_abs]
+        split_ifs with h hx
+        · -- transition + x ≥ 0: value = -6t(1-t)
+          rw [show 6 * hatFun n x * (1 - hatFun n x) * (-1) =
+            -(6 * hatFun n x * (1 - hatFun n x)) from by ring,
+            abs_neg, abs_of_nonneg (by nlinarith)]
+          nlinarith [sq_nonneg (hatFun n x - 1/2)]
+        · -- transition + x < 0: value = 6t(1-t)
+          rw [show 6 * hatFun n x * (1 - hatFun n x) * 1 =
+            6 * hatFun n x * (1 - hatFun n x) from by ring,
+            abs_of_nonneg (by nlinarith)]
+          nlinarith [sq_nonneg (hatFun n x - 1/2)]
+        · -- flat region: value = 0
+          simp
+      show ‖spatialTruncDeriv f f' n x‖ ≤ _
+      simp only [spatialTruncDeriv]
+      calc ‖f' x * smoothCutoff n x + f x * smoothCutoffDeriv n x‖
+          ≤ ‖f' x * smoothCutoff n x‖ + ‖f x * smoothCutoffDeriv n x‖ := norm_add_le _ _
+        _ = ‖f' x‖ * ‖smoothCutoff n x‖ + ‖f x‖ * ‖smoothCutoffDeriv n x‖ := by
+            rw [norm_mul, norm_mul]
+        _ ≤ Mf' * 1 + Mf * 2 := by
+            apply add_le_add
+            · apply mul_le_mul hf'_bdd _ (norm_nonneg _) (by linarith [norm_nonneg (f' x)])
+              rw [Real.norm_eq_abs, abs_le]
+              exact ⟨by linarith [smoothCutoff_nonneg n x], smoothCutoff_le_one n x⟩
+            · exact mul_le_mul hf_bdd hcutD_bdd (norm_nonneg _) (by linarith [norm_nonneg (f x)])
+        _ = Mf' + Mf * 2 := by ring
+        _ ≤ max (Mf' + Mf * 2) 0 := le_max_left _ _
+    · push_neg at hx
+      show ‖spatialTruncDeriv f f' n x‖ ≤ _
+      simp only [spatialTruncDeriv]
+      have hcut0 : smoothCutoff n x = 0 := smoothCutoff_eq_zero_of_abs_ge n x hx.le
+      have hcutD0 : smoothCutoffDeriv n x = 0 := by
+        simp only [smoothCutoffDeriv]
+        exact if_neg (by push_neg; intro h; linarith)
+      rw [hcut0, hcutD0, mul_zero, mul_zero, add_zero, norm_zero]
+      exact le_max_right _ _
   -- (3) HasDerivAt
   · intro n x
     -- Chain rule: d/dx[f(x)·cutoff(x)] = f'(x)·cutoff(x) + f(x)·cutoff'(x)
@@ -2106,6 +2157,7 @@ private lemma lsi_approximation_from_bounded
     (hf : MemLp f 2 stdGaussian)
     (hf' : MemLp f' 2 stdGaussian)
     (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hf'_cont : Continuous f')
     (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
     (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian)
     (hlsi_bdd : ∀ (g g' : ℝ → ℝ),
@@ -2122,7 +2174,7 @@ private lemma lsi_approximation_from_bounded
   -- take limit using entropy convergence from the approximation lemma.
   obtain ⟨g, g', hg_bdd, hg'_bdd, hg_deriv, hg_dom, hg'_energy, hg_memLp,
     hg'_memLp, hg_ent_int, hg_pos, hg_ent_conv⟩ :=
-    exists_bounded_C1_approx f f' hf hf' hderiv hnorm
+    exists_bounded_C1_approx f f' hf hf' hderiv hf'_cont hnorm
   -- For each n: ∫ g_n² ≤ ∫ f² = 1 (by pointwise domination), so log(∫ g_n²) ≤ 0.
   -- The unnormalized LSI gives ∫ g_n² log g_n² ≤ 2∫ g_n'² + (∫ g_n²)·log(∫ g_n²) ≤ 2∫ g_n'².
   have hbound : ∀ n, ∫ x, (g n x) ^ 2 * Real.log ((g n x) ^ 2) ∂stdGaussian ≤
@@ -2151,6 +2203,7 @@ private lemma gaussian_lsi_normalized_of_integrable
     (hf : MemLp f 2 stdGaussian)
     (hf' : MemLp f' 2 stdGaussian)
     (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hf'_cont : Continuous f')
     (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1)
     (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
@@ -2158,7 +2211,7 @@ private lemma gaussian_lsi_normalized_of_integrable
   -- Decomposition: bounded C¹ case + approximation from general to bounded.
   -- Step 1: The bounded case is handled by `lsi_of_bounded_C1`.
   -- Step 2: The general case reduces to bounded via `lsi_approximation_from_bounded`.
-  exact lsi_approximation_from_bounded f f' hf hf' hderiv hnorm hint
+  exact lsi_approximation_from_bounded f f' hf hf' hderiv hf'_cont hnorm hint
     (fun g g' hg hg' hgd hgb hg'b hgn hgi =>
       lsi_of_bounded_C1 g g' hg hg' hgd hgb hg'b hgn hgi)
 
@@ -2167,6 +2220,7 @@ lemma gaussian_lsi_normalized
     (hf : MemLp f 2 stdGaussian)
     (hf' : MemLp f' 2 stdGaussian)
     (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hf'_cont : Continuous f')
     (hnorm : ∫ x, f x ^ 2 ∂stdGaussian = 1) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
@@ -2174,7 +2228,7 @@ lemma gaussian_lsi_normalized
   -- When NOT integrable: Lean's Bochner integral returns 0, and 0 ≤ 2∫f'² is trivial.
   -- When integrable: use the full Gross regularization argument.
   by_cases hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian
-  · exact gaussian_lsi_normalized_of_integrable f f' hf hf' hderiv hnorm hint
+  · exact gaussian_lsi_normalized_of_integrable f f' hf hf' hderiv hf'_cont hnorm hint
   · rw [integral_undef hint]
     apply mul_nonneg (by norm_num : (0 : ℝ) ≤ 2)
     exact integral_nonneg (fun _ => sq_nonneg _)
@@ -2189,7 +2243,8 @@ lemma gaussian_lsi_1d_ibp_core
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
     (hf' : MemLp f' 2 stdGaussian)
-    (hderiv : ∀ x, HasDerivAt f (f' x) x) :
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hf'_cont : Continuous f') :
     entropy stdGaussian (fun x => f x ^ 2) ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
   -- Case split: is ∫ f² > 0 or ∫ f² = 0?
@@ -2240,7 +2295,10 @@ lemma gaussian_lsi_1d_ibp_core
         rw [mul_pow, inv_pow, Real.sq_sqrt hA_pos.le]
       rw [hfg, integral_mul_const, hAdef, mul_inv_cancel₀ hA_ne]
     -- Apply normalized LSI
-    have hkey := gaussian_lsi_normalized g g' hg hg' hg_deriv hg_norm
+    -- g' = f'/√A is continuous since f' is continuous
+    have hg'_cont : Continuous g' := by
+      rw [hg'def]; exact hf'_cont.div_const (√A)
+    have hkey := gaussian_lsi_normalized g g' hg hg' hg_deriv hg'_cont hg_norm
     -- Now relate back to f:
     -- entropy(f²) = A · ∫ g² log(g²) and 2∫f'² = 2A · ∫g'²
     -- Step 1: entropy(f²) = ∫ f² log(f²) - A log A
@@ -2320,10 +2378,11 @@ theorem tensorization_lsi
     (hf : MemLp f 2 (stdGaussianPi n))
     (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n))
     (hgrad : ∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i))
+    (hgrad_cont : ∀ x i, Continuous (fun t => gradf i (Function.update x i t)))
     (hTensorAt : TensorizationLSIAt n c) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       c * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
-  exact hTensorAt h f gradf hf hgradf hgrad
+  exact hTensorAt h f gradf hf hgradf hgrad hgrad_cont
 
 theorem tensorization_lsi_of_at
     (n : ℕ) (c : ℝ)
@@ -2333,10 +2392,11 @@ theorem tensorization_lsi_of_at
     (gradf : Fin n → (Fin n → ℝ) → ℝ)
     (hf : MemLp f 2 (stdGaussianPi n))
     (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n))
-    (hgrad : ∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i)) :
+    (hgrad : ∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i))
+    (hgrad_cont : ∀ x i, Continuous (fun t => gradf i (Function.update x i t))) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       c * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
-  exact tensorization_lsi n c h f gradf hf hgradf hgrad hTensorAt
+  exact tensorization_lsi n c h f gradf hf hgradf hgrad hgrad_cont hTensorAt
 
 lemma tensorization_lsi_at_of_universal
     (hTensor : UniversalTensorizationLSI) (n : ℕ) (c : ℝ) :
@@ -2349,11 +2409,12 @@ theorem gaussian_log_sobolev_of_tensorization_at
     (hf : MemLp f 2 (stdGaussianPi n))
     (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n))
     (hgrad : ∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i))
+    (hgrad_cont : ∀ x i, Continuous (fun t => gradf i (Function.update x i t)))
     (hLSI1d : SatisfiesLSI stdGaussian 2)
     (hTensorAt : TensorizationLSIAt n 2) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       2 * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
-  exact tensorization_lsi_of_at n 2 hLSI1d hTensorAt f gradf hf hgradf hgrad
+  exact tensorization_lsi_of_at n 2 hLSI1d hTensorAt f gradf hf hgradf hgrad hgrad_cont
 
 theorem gaussian_log_sobolev_of_universal_tensorization
     (n : ℕ) (f : (Fin n → ℝ) → ℝ)
@@ -2361,34 +2422,37 @@ theorem gaussian_log_sobolev_of_universal_tensorization
     (hf : MemLp f 2 (stdGaussianPi n))
     (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n))
     (hgrad : ∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i))
+    (hgrad_cont : ∀ x i, Continuous (fun t => gradf i (Function.update x i t)))
     (hLSI1d : SatisfiesLSI stdGaussian 2)
     (hTensor : UniversalTensorizationLSI) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       2 * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
-  exact gaussian_log_sobolev_of_tensorization_at n f gradf hf hgradf hgrad hLSI1d
+  exact gaussian_log_sobolev_of_tensorization_at n f gradf hf hgradf hgrad hgrad_cont hLSI1d
     (tensorization_lsi_at_of_universal hTensor n 2)
 
 theorem gaussian_log_sobolev_structured_of_tensorization_at
     (n : ℕ) (f : (Fin n → ℝ) → ℝ)
     (gradf : Fin n → (Fin n → ℝ) → ℝ)
     (hReg : GaussianSobolevRegularity n f gradf)
+    (hgrad_cont : ∀ x i, Continuous (fun t => gradf i (Function.update x i t)))
     (hLSI1d : SatisfiesLSI stdGaussian 2)
     (hTensorAt : TensorizationLSIAt n 2) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       2 * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
   exact gaussian_log_sobolev_of_tensorization_at n f gradf hReg.hf hReg.hgradf hReg.hgrad
-    hLSI1d hTensorAt
+    hgrad_cont hLSI1d hTensorAt
 
 theorem gaussian_log_sobolev_structured_of_universal_tensorization
     (n : ℕ) (f : (Fin n → ℝ) → ℝ)
     (gradf : Fin n → (Fin n → ℝ) → ℝ)
     (hReg : GaussianSobolevRegularity n f gradf)
+    (hgrad_cont : ∀ x i, Continuous (fun t => gradf i (Function.update x i t)))
     (hLSI1d : SatisfiesLSI stdGaussian 2)
     (hTensor : UniversalTensorizationLSI) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       2 * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
   exact gaussian_log_sobolev_of_universal_tensorization n f gradf hReg.hf hReg.hgradf hReg.hgrad
-    hLSI1d hTensor
+    hgrad_cont hLSI1d hTensor
 
 /-! ## Sorry-bearing declarations -/
 
@@ -2403,8 +2467,8 @@ where `Ent_γ(g) = ∫ g·log(g) dγ - (∫ g dγ)·log(∫ g dγ)`.
 
 **Proof route**: Reduce to `gaussian_lsi_1d_ibp_core` which is the per-function version. -/
 theorem gaussian_lsi_1d_core : SatisfiesLSI stdGaussian 2 := by
-  intro f f' hf hf' hderiv
-  exact gaussian_lsi_1d_ibp_core f f' hf hf' hderiv
+  intro f f' hf hf' hderiv hf'_cont
+  exact gaussian_lsi_1d_ibp_core f f' hf hf' hderiv hf'_cont
 
 theorem gaussian_lsi_1d : SatisfiesLSI stdGaussian 2 :=
   gaussian_lsi_1d_core
@@ -2452,13 +2516,15 @@ private lemma condEntropyAt_le_of_satisfiesLSI {n : ℕ}
     (gradf : Fin n → (Fin n → ℝ) → ℝ)
     (hgrad : ∀ x' (i' : Fin n),
       HasDerivAt (fun t => f (Function.update x' i' t)) (gradf i' x') (x' i'))
+    (hgrad_cont : ∀ (x' : Fin n → ℝ) (i' : Fin n),
+      Continuous (fun t => gradf i' (Function.update x' i' t)))
     (x : Fin n → ℝ) (i : Fin n)
     (hf_slice : MemLp (fun t => f (Function.update x i t)) 2 stdGaussian)
     (hg_slice : MemLp (fun t => gradf i (Function.update x i t)) 2 stdGaussian) :
     condEntropyAt stdGaussian (fun y => f y ^ 2) i x ≤
       c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian := by
   rw [condEntropyAt_eq]
-  exact hLSI _ _ hf_slice hg_slice (hasDerivAt_slice f gradf hgrad x i)
+  exact hLSI _ _ hf_slice hg_slice (hasDerivAt_slice f gradf hgrad x i) (hgrad_cont x i)
 
 /-- **MemLp for coordinate slices** (ae version, zero sorry).
 
@@ -4213,6 +4279,8 @@ private lemma integral_condEntropyAt_le {n : ℕ}
     (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n))
     (hgrad : ∀ x (i : Fin n),
       HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i))
+    (hgrad_cont : ∀ (x : Fin n → ℝ) (i : Fin n),
+      Continuous (fun t => gradf i (Function.update x i t)))
     (i : Fin n) :
     ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x ∂(stdGaussianPi n) ≤
     ∫ x, (c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian) ∂(stdGaussianPi n) := by
@@ -4224,7 +4292,7 @@ private lemma integral_condEntropyAt_le {n : ℕ}
       condEntropyAt stdGaussian (fun y => f y ^ 2) i x ≤
       c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian := by
     filter_upwards [hf_slice, hg_slice] with x hfx hgx
-    exact condEntropyAt_le_of_satisfiesLSI c hLSI f gradf hgrad x i hfx hgx
+    exact condEntropyAt_le_of_satisfiesLSI c hLSI f gradf hgrad hgrad_cont x i hfx hgx
   -- The upper bound is integrable
   have hint_ub := integrable_condGrad c gradf hgradf i
   -- Case split on integrability of condEntropyAt
@@ -4258,7 +4326,7 @@ Note: `integral_condEntropyAt_le` handles the non-integrable case via `integral_
 - `integrable_condGrad` — integrability of conditional gradient
 - `integral_condEntropyAt_le` — integral monotonicity (case-splits on integrability) -/
 theorem tensorization_lsi_core (n : ℕ) (c : ℝ) (hc : 0 ≤ c) : TensorizationLSIAt n c := by
-  intro hLSI f gradf hf hgradf hgrad
+  intro hLSI f gradf hf hgradf hgrad hgrad_cont
   calc entropyPi (stdGaussianPi n) (fun x => f x ^ 2)
       ≤ ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
           ∂(stdGaussianPi n) :=
@@ -4267,7 +4335,7 @@ theorem tensorization_lsi_core (n : ℕ) (c : ℝ) (hc : 0 ≤ c) : Tensorizatio
           (c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
           ∂(stdGaussianPi n) := by
         apply Finset.sum_le_sum; intro i _
-        exact integral_condEntropyAt_le c hc hLSI f gradf hf hgradf hgrad i
+        exact integral_condEntropyAt_le c hc hLSI f gradf hf hgradf hgrad hgrad_cont i
     _ = c * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
         simp_rw [integral_const_mul]
         rw [← Finset.mul_sum]
@@ -4280,10 +4348,11 @@ theorem gaussian_log_sobolev
     (gradf : Fin n → (Fin n → ℝ) → ℝ)
     (hf : MemLp f 2 (stdGaussianPi n))
     (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n))
-    (hgrad : ∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i)) :
+    (hgrad : ∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i))
+    (hgrad_cont : ∀ x i, Continuous (fun t => gradf i (Function.update x i t))) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       2 * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) :=
-  gaussian_log_sobolev_of_tensorization_at n f gradf hf hgradf hgrad
+  gaussian_log_sobolev_of_tensorization_at n f gradf hf hgradf hgrad hgrad_cont
     gaussian_lsi_1d_core
     (tensorization_lsi_core n 2 (by norm_num))
 

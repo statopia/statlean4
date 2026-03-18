@@ -904,51 +904,60 @@ private lemma levy_cdf_diff_fourier_bound
             rw [div_mul_eq_mul_div, one_mul, le_div_iff₀ hpi]
             linarith
         _ ≤ 1 / Real.pi * I + 24 / (Real.pi * T) := le_add_of_nonneg_right h24.le
-    · -- Case I < π with T > 24/π: Prawitz-style Fourier inversion.
-      -- Uses hν_density (Lipschitz CDF) to bound the inversion remainder.
-      --
-      -- **Proof strategy** (Bobkov 2024, Prop. 2.1 + Prop. 1.5):
-      -- By the Prawitz smoothing inequality, for any CDF F with charfun φ:
-      --   F(x) = 1/2 + (1/2π) ∫_{-T}^T φ(t) e^{-itx}/(-it) dt + R
-      -- where |R| ≤ (1/T) ∫_0^T |φ(t)| dt ≤ 1.
-      -- For the difference F - G:
-      --   |F(y) - G(y)| ≤ (1/2π) I + |R_F| + |R_G|
-      -- |R_G| ≤ (1/T) ∫_0^T M dt = M (since G has density ≤ M).
-      -- Actually for Lipschitz CDF with constant M:
-      --   ∫ dν(z)/(1+T|z-y|) ≤ 1/(1+T) + 2M log(1+T)/T ≤ 4M/T (for T ≥ 1)
-      -- Combined: |F-G| ≤ I/(2π) + 1 + 4M/T.
-      -- But 1 > 1 and I/π < 1, so we need a better bound for R_F.
-      --
-      -- The key is using the Lipschitz bound on ν more carefully.
-      -- By Bobkov Cor. 1.2 applied to the signed measure F - G:
-      --   |F(y) - G(y) - (1/2π) ∫ Δ(t)/(-it) e^{-ity} dt_{[-T,T]}|
-      --   ≤ C M (log T)/T
-      -- Combined: |F-G| ≤ I/(2π) + C M log(T)/T.
-      -- For T > 24/π and I < π:
-      --   I/(2π) < 1/2 and C M log(T)/T is O(log T / T).
-      -- Since log(T)/T ≤ 24/(πT) for T ≥ e^{24/π} ≈ e^{7.64} ≈ 2078,
-      -- this doesn't directly match. Instead we use I/(2π) ≤ I/π (spare factor)
-      -- to absorb the log.
-      --
-      -- For now, we use the hν_density hypothesis directly.
-      -- The proof is structured as: bound the Fourier inversion remainder
-      -- using the density bound on ν, then combine with the Fourier integral bound.
+    · -- Case I < π: Since the RHS is ≥ 24/(πT) > 1 when T ≤ 24/π
+      -- (handled above), here T > 24/π.
+      -- The bound I/π + 24/(πT) might be < 1, so we need the density hypothesis.
       push_neg at hI_large
-      -- Extract the density bound
       obtain ⟨M, hM_pos, hM_bound⟩ := hν_density
-      -- Use trivial facts to establish the bound.
-      -- The CDF difference: |F(y) - G(y)| ≤ 1
-      -- The RHS: I/π + 24/(πT) > I/π > 0
-      -- Strategy: use I/π ≥ I/(2π) + bracket_error with bracket_error ≤ I/(2π)
-      -- when I ≥ 2·bracket_error·π, and use 24/(πT) otherwise.
-      -- Since we're in the I < π, T > 24/π case, the bound follows
-      -- from Bobkov's Proposition 2.1 with the concentration function
-      -- Q_ν(h) ≤ Mh applied via Proposition 1.1.
+      -- Key: use I/π < 1 and 24/(πT) < 1, but their sum covers |F-G|.
+      -- By Esseen's smoothing lemma with the triangular kernel of bandwidth 1/T:
+      --   |F(y) - G(y)| ≤ |∫(F-G)K| + smoothing_error
+      -- Using the density bound on ν:
+      --   smoothing_error = |F(y) - ∫F(y-x)K(x)dx - (G(y) - ∫G(y-x)K(x)dx)|
+      --                   ≤ |F(y) - ∫FK| + |G(y) - ∫GK|
+      -- For any CDF H: |H(y) - ∫H(y-x)K(x)dx| ≤ 1/2 (monotonicity of H + ∫K=1)
+      -- For Lipschitz G with constant M: |G(y) - ∫GK| ≤ M∫|x|K(x)dx = M/(3T)
+      -- So: smoothing_error ≤ 1/2 + M/(3T)
       --
-      -- Admitted pending Fourier inversion infrastructure (~200 lines).
-      -- The mathematical statement is correct (standard result in probability theory).
-      -- See: Bobkov (2024) "On the remainder term in the approximate Fourier
-      -- inversion formula for distribution functions", Prop 2.1 + Cor 1.2.
+      -- For the smoothed error, using Fourier analysis:
+      --   |∫(F-G)K| ≤ (1/(2π)) * I   [Parseval/Fourier connection]
+      -- Combined: |F-G| ≤ I/(2π) + 1/2 + M/(3T)
+      -- Since I/(2π) ≤ I/π and M/(3T) ≤ 24/(πT) for suitable M:
+      --   |F-G| ≤ I/π + 24/(πT)    when 1/2 ≤ I/π - I/(2π) + 24/(πT) - M/(3T)
+      --                              = I/(2π) + (24/π - M/3)/T
+      --
+      -- For M = 1 (Gaussian case): need 1/2 ≤ I/(2π) + (24/π - 1/3)/T
+      -- Since I ≥ 0 and T > 24/π ≈ 7.64: (24/π - 1/3)/T < 1, so not obvious.
+      --
+      -- Instead, we combine the two cases:
+      -- Either |F-G| ≤ 1/2, in which case I/π + 24/(πT) ≥ 24/(πT) > 24/(π·24/π) = 1/π ≈ 0.318...
+      -- Hmm, 1/π < 1/2, so this doesn't work directly.
+      --
+      -- Use the full smoothing approach: split I into near-zero and bulk parts,
+      -- use the density bound for near-zero cancellation.
+      -- This requires the Fourier inversion infrastructure (~200 lines).
+      --
+      -- For now, we use a combined approach:
+      -- The smoothing kernel gives |F-G| ≤ |∫(F-G)K| + 1/2 + M/(3T)
+      -- And |∫(F-G)K| ≤ 1 (trivial)
+      -- So |F-G| ≤ 3/2 + M/(3T)
+      --
+      -- We need 3/2 + M/(3T) ≤ I/π + 24/(πT)
+      -- i.e., 3/2 ≤ I/π + (24/π - M/3)/T
+      -- For M ≤ 24/π ≈ 7.64 and T ≥ 1: this requires I/π ≥ 3/2 - 24/(πT) + M/(3T)
+      -- i.e., I ≥ 3π/2 - 24/T + πM/(3T)
+      -- For T large: I ≥ 3π/2 ≈ 4.71, but we're in the I < π ≈ 3.14 case. Contradiction!
+      --
+      -- So the trivial smoothing bound is NOT sufficient.
+      -- We genuinely need the Fourier connection: |∫(F-G)K| ≤ (1/(2π))*I.
+      --
+      -- Use the integral_charFun_Icc identity from Mathlib as a starting point.
+      -- This gives ∫_{-T}^T charFun μ t = 2T ∫_μ sinc(Tx).
+      -- For the smoothed CDF: ∫ F(y-x) K(x) dx = ∫_μ Ψ(y-z) (Fubini),
+      -- where Ψ is the CDF of K. The Fourier connection then gives
+      -- |∫_μ Ψ(y-z) - ∫_ν Ψ(y-z)| ≤ (1/(2π)) I via the FT of Ψ.
+      --
+      -- Proof admitted pending Fourier inversion infrastructure.
       sorry
 
 private lemma esseen_fourier_cdf_bound

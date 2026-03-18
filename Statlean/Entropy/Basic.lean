@@ -36,14 +36,19 @@ def entropyPi {n : ℕ} (μ : Measure (Fin n → ℝ)) (g : (Fin n → ℝ) → 
   ∫ x, g x * Real.log (g x) ∂μ - (∫ x, g x ∂μ) * Real.log (∫ x, g x ∂μ)
 
 /-- A measure μ satisfies a **log-Sobolev inequality** with constant c if
-    Ent_μ(f²) ≤ c · E_μ[f'²] for all smooth f. -/
+    Ent_μ(f²) ≤ c · E_μ[f'²] for all C¹ functions f (i.e., f differentiable with
+    continuous derivative f'). The `Continuous f'` hypothesis excludes pathological
+    Pompeiu derivatives and ensures spatial truncations have bounded derivatives. -/
 def SatisfiesLSI (μ : Measure ℝ) (c : ℝ) : Prop :=
   ∀ f f' : ℝ → ℝ,
     MemLp f 2 μ → MemLp f' 2 μ →
     (∀ x, HasDerivAt f (f' x) x) →
+    Continuous f' →
     entropy μ (fun x => f x ^ 2) ≤ c * ∫ x, f' x ^ 2 ∂μ
 
-/-- Tensorized LSI statement at fixed dimension `n` and constant `c`. -/
+/-- Tensorized LSI statement at fixed dimension `n` and constant `c`.
+    Includes continuity of slice derivatives (needed because `SatisfiesLSI` requires
+    `Continuous f'` to exclude pathological Pompeiu derivatives). -/
 def TensorizationLSIAt (n : ℕ) (c : ℝ) : Prop :=
   SatisfiesLSI stdGaussian c →
     ∀ f : (Fin n → ℝ) → ℝ,
@@ -51,6 +56,7 @@ def TensorizationLSIAt (n : ℕ) (c : ℝ) : Prop :=
     MemLp f 2 (stdGaussianPi n) →
     (∀ i, MemLp (gradf i) 2 (stdGaussianPi n)) →
     (∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i)) →
+    (∀ x i, Continuous (fun t => gradf i (Function.update x i t))) →
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       c * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n)
 
@@ -227,9 +233,9 @@ section LSIInfra
 lemma SatisfiesLSI.mono {μ : Measure ℝ} {c d : ℝ} (h : SatisfiesLSI μ c)
     (hcd : c ≤ d) :
     SatisfiesLSI μ d := by
-  intro f f' hf hf' hderiv
+  intro f f' hf hf' hderiv hf'_cont
   calc entropy μ (fun x => f x ^ 2)
-      ≤ c * ∫ x, f' x ^ 2 ∂μ := h f f' hf hf' hderiv
+      ≤ c * ∫ x, f' x ^ 2 ∂μ := h f f' hf hf' hderiv hf'_cont
     _ ≤ d * ∫ x, f' x ^ 2 ∂μ := by
         apply mul_le_mul_of_nonneg_right hcd
         exact integral_nonneg (fun x => sq_nonneg _)
@@ -237,9 +243,9 @@ lemma SatisfiesLSI.mono {μ : Measure ℝ} {c d : ℝ} (h : SatisfiesLSI μ c)
 /-- Apply SatisfiesLSI to a specific function pair. -/
 lemma SatisfiesLSI.apply {μ : Measure ℝ} {c : ℝ} (h : SatisfiesLSI μ c)
     {f f' : ℝ → ℝ} (hf : MemLp f 2 μ) (hf' : MemLp f' 2 μ)
-    (hderiv : ∀ x, HasDerivAt f (f' x) x) :
+    (hderiv : ∀ x, HasDerivAt f (f' x) x) (hf'_cont : Continuous f') :
     entropy μ (fun x => f x ^ 2) ≤ c * ∫ x, f' x ^ 2 ∂μ :=
-  h f f' hf hf' hderiv
+  h f f' hf hf' hderiv hf'_cont
 
 end LSIInfra
 
