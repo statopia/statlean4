@@ -51,11 +51,16 @@ The proof follows the classical Fourier-analytic approach:
 
 ## Remaining sorry (1)
 
-- `levy_cdf_diff_fourier_bound` (large T case, ~80 lines): Full Lévy inversion + density tail bound.
-  The small T case (`T ≤ 24/π`) is proved via the trivial bound `|cdf diff| ≤ 1 ≤ 24/(πT)`.
-  The large T case requires: (1) Abel-Fubini identity (Fubini + `abel_sinc_integral`),
-  (2) DCT for ε→0⁺ limit, (3) density tail bound via Bonnet/Abel summation.
-  Blocker: Lévy-Gil-Pelaez inversion formula (not in Mathlib).
+- `levy_cdf_diff_fourier_bound` (large T, I < π case): Esseen's smoothing inequality.
+  Proved cases: (1) T ≤ 24/π (trivial: 24/(πT) ≥ 1 ≥ |cdf diff|).
+  (2) T > 24/π with I ≥ π (trivial: (1/π)I ≥ 1 ≥ |cdf diff|).
+  Remaining: T > 24/π with I < π. Requires Fourier inversion (not smoothing alone).
+  The naive Abel-regularized approach gives |F-G| ≤ 1 + I/(2π) + C/(πT) which is
+  too weak (exceeds the trivial bound |F-G| ≤ 1). The tight bound requires the
+  de la Vallée-Poussin kernel approach with hat{K}=1 on [-T,T], which needs:
+  (a) Fourier inversion for L¹ functions (not in Mathlib), (b) Fourier transform
+  of the kernel, (c) smoothing error bound using ν's density condition.
+  Estimated: ~200 lines of Lean infrastructure.
 
 Note: `charfun_integral_bound` and downstream lemmas now require `2 ≤ n` (was `0 < n`)
 because `charfun_diff_exp_bound` needs `n ≥ 2` for the exponential decay bound `M^{n-1}≤e^{-t²/8}`.
@@ -726,14 +731,32 @@ private lemma levy_cdf_diff_fourier_bound
       _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
             ‖charFun μ t - charFun ν t‖ / |t|) +
           24 / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
-  · -- Large T case: T > 24/π. Need Lévy inversion.
+  · -- Large T case: T > 24/π. Use Lévy-Gil-Pelaez inversion.
     push_neg at hT_small
-    -- The Lévy-Gil-Pelaez inversion formula (for continuous F):
-    -- F(y) = 1/2 + (1/π) lim_{ε→0} ∫₀^∞ e^{-εt} Im(φ(t)e^{-ity})/t dt
-    -- The proof uses abel_sinc_integral + Fubini + DCT.
-    -- Taking μ - ν and truncating gives the desired bound.
-    -- This is the core Fourier-analytic content (~80 lines).
-    sorry
+    -- Case split: if charFun integral ≥ π, trivially true
+    set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| with hI_def
+    by_cases hI_large : Real.pi ≤ I
+    · -- Case I ≥ π: (1/π)*I ≥ 1 ≥ |cdf diff|
+      calc |cdf μ y - cdf ν y|
+          ≤ 1 := hcdf
+        _ ≤ 1 / Real.pi * I := by
+            rw [div_mul_eq_mul_div, one_mul, le_div_iff₀ hpi]
+            linarith
+        _ ≤ 1 / Real.pi * I + 24 / (Real.pi * T) := le_add_of_nonneg_right h24.le
+    · -- Case I < π with T > 24/π: requires Fourier inversion.
+      -- The Abel-regularized approach (Fubini + abel_sinc_integral + DCT) gives:
+      --   π(F-G) = atom_correction + lim_{ε→0} ∫₀^∞ e^{-εt} Im(Δe^{-ity})/t dt
+      -- Naive splitting at T gives |F-G| ≤ 1 + I/(2π) + C/(πT) which exceeds
+      -- the trivial bound. The tight bound requires the de la Vallée-Poussin kernel
+      -- approach: convolve with K whose Fourier transform hat{K}=1 on [-T,T], then
+      -- (F-G)*K = (1/2π) ∫_{-T}^T Δ(t)/(it) e^{-ity} dt (exact, no tail!).
+      -- The smoothing error |H(y) - H*K(y)| is controlled by ν's density bound.
+      -- Blockers: (1) Fourier inversion for L¹ functions in Lean/Mathlib,
+      -- (2) Fourier transform of the de la Vallée-Poussin kernel,
+      -- (3) Smoothing error bound using density condition.
+      -- Estimated effort: ~150 lines infrastructure + ~50 lines assembly.
+      push_neg at hI_large
+      sorry
 
 private lemma esseen_fourier_cdf_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
