@@ -46,9 +46,12 @@ the approximation argument bridging from general MemLp 2 + C¹:
   **Effort**: ~80 lines (HasDerivAt for h and h', boundedness, normalization, algebra).
 
 - `lsi_of_bounded_C1` — bridges from C¹ to C² via OU smoothing.
-  **Strategy**: P_t f is C^∞ bounded for t > 0 (needs ContDiff proof for OU).
-  Apply `lsi_of_bounded_C2`, take t → 0.
-  **Effort**: ~50 lines (OU second derivative + DCT).
+  **Strategy**: For t > 0, P_t f is C² because Gaussian convolution smooths
+  bounded continuous f' to differentiable P_t(f'). Key sub-lemma:
+  d/dx P_t(f')(x) = (e^{-t}/b) ∫ f'(ax+by)·y dγ(y) exists by DCT on kernel.
+  Apply `lsi_of_bounded_C2` to P_t f, take t → 0.
+  **New infrastructure**: `ouSemigroup_bound_norm` (L^∞ contraction, proved).
+  **Effort**: ~140 lines (C1→C2 sub-lemma: ~60 + limit argument: ~80).
 
 - `lsi_approximation_from_bounded` — general W^{1,2}(γ) → bounded via truncation.
   **Strategy**: Smooth truncation φ_n ∘ f with |φ_n'| ≤ 1, apply bounded case,
@@ -90,7 +93,7 @@ The main theorem `gaussian_lsi_1d_ibp_core` (Ent_γ(f²) ≤ 2·∫f'²) is prov
 This avoids the semigroup but needs the CLT transfer for entropy.
 -/
 
-open MeasureTheory ProbabilityTheory Real
+open MeasureTheory ProbabilityTheory Real Statlean.Gaussian
 
 noncomputable section
 
@@ -829,10 +832,22 @@ private lemma lsi_of_bounded_C2
   have h_cancel := (div_le_div_iff_of_pos_right h1ε_pos).mp h_chain
   linarith
 
-/-- **LSI for bounded C¹ functions** — bridges from C¹ to C² via OU smoothing.
-For bounded f with ∀ x, HasDerivAt f (f' x) x, the OU semigroup P_t f
-is C^∞ and bounded for t > 0. Apply `lsi_of_bounded_C2` to P_t f and
-take t → 0⁺ via dominated convergence (f bounded → P_t f bounded by same). -/
+/-- **OU semigroup L^∞ contraction**: P_t f is bounded by the same constant as f. -/
+private lemma ouSemigroup_bound_norm (f : ℝ → ℝ) (t : ℝ)
+    (C : ℝ) (hC_nn : 0 ≤ C) (hC : ∀ x, ‖f x‖ ≤ C) :
+    ∀ x, ‖ouSemigroup t f x‖ ≤ C := by
+  intro x
+  simp only [ouSemigroup]
+  calc ‖∫ y, f (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y) ∂stdGaussian‖
+      ≤ ∫ y, ‖f (exp (-t) * x + sqrt (1 - exp (-2 * t)) * y)‖ ∂stdGaussian :=
+        norm_integral_le_integral_norm _
+    _ ≤ ∫ _, C ∂stdGaussian := by
+        apply integral_mono_of_nonneg
+          (ae_of_all _ (fun _ => norm_nonneg _))
+          (integrable_const C)
+          (ae_of_all _ (fun _ => hC _))
+    _ = C := by simp [measure_univ]
+
 private lemma lsi_of_bounded_C1
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
@@ -844,11 +859,34 @@ private lemma lsi_of_bounded_C1
     (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  -- Strategy: Apply OU semigroup to get C^∞ approximation.
-  -- P_t f satisfies: ‖P_t f‖_∞ ≤ ‖f‖_∞, (P_t f)' = e^{-t} P_t f',
-  -- P_t f → f pointwise as t → 0+ (f bounded continuous).
-  -- For t > 0, P_t f is C^∞ with bounded derivatives (by `ouSemigroup_hasDerivAt`).
-  -- Apply `lsi_of_bounded_C2` to P_t f for t = 1/n, take limit.
+  -- Strategy: For each t > 0, set g_t = P_t f (OU semigroup).
+  -- g_t is bounded C² (from ouSemigroup_hasDerivAt + C1_gives_C2 sub-lemma below).
+  -- Apply lsi_of_bounded_C2 to g_t, then take t → 0.
+  --
+  -- Sub-lemma: OU semigroup smoothing C¹ → C²
+  -- P_t(f')(x) = ∫ f'(ax+by) dγ(y) is differentiable in x for t > 0
+  -- because the Gaussian convolution smooths bounded continuous functions.
+  -- Write as kernel form: P_t(f')(x) = (1/b) ∫ f'(z) · φ((z-ax)/b) dz
+  -- Then d/dx = (a/b) ∫ f'(ax+by) · y dγ(y), bounded by (a/b)·‖f'‖_∞·E[|Z|].
+  -- Estimated effort: ~60 lines (kernel change of variables + DCT + bound).
+  --
+  -- Key properties of g_t:
+  -- 1. g_t' = e^{-t} · P_t(f'), bounded by ‖f'‖_∞ (contraction)
+  -- 2. g_t'' exists and is bounded (C1_gives_C2 sub-lemma)
+  -- 3. ‖g_t‖_∞ ≤ ‖f‖_∞ (L^∞ contraction, proved in ouSemigroup_bound_norm)
+  -- 4. g_t(x) → f(x) as t → 0 (f bounded continuous → ouSemigroup_zero)
+  -- 5. ∫(g_t')² = e^{-2t} · ∫(P_t f')² ≤ ∫f'² (contraction in L²)
+  --
+  -- Apply lsi_of_bounded_C2 to g_t / √(∫g_t²):
+  --   ∫(g_t/a_t)² · log((g_t/a_t)²) ≤ 2 · ∫(g_t'/a_t)²
+  -- where a_t = √(∫g_t²). As t → 0, a_t → 1, and the inequality converges to LSI for f.
+  --
+  -- Limit argument (DCT, bounded pointwise convergence):
+  -- - ∫g_t² → ∫f² = 1
+  -- - ∫g_t² · log(g_t²) → ∫f² · log(f²)
+  -- - ∫(g_t')² ≤ ∫f'² (L² contraction of OU semigroup)
+  --
+  -- Total estimated effort: ~140 lines (C1→C2: ~60, limit: ~80).
   sorry
 
 /-- **Approximation lemma**: From MemLp 2 + C¹ to bounded via smooth truncation.
