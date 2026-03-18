@@ -32,7 +32,7 @@ import Mathlib.MeasureTheory.Measure.Prod
   `mul_log_superadditive` (pointwise), `le_of_forall_pos_lt_add` (limit),
   and continuity of t·log(t) at 0.
 
-## Sorry gaps (5 sorry lines in this file, 5 sorry-using declarations)
+## Sorry gaps (4 sorry lines in this file — was 5, closed gaussian_lsi_1d_ibp_core vacuous case)
 
 ### LSI bridge (3 sorry declarations, was 1 monolithic)
 The C² bounded ae-positive case is PROVED via `lsi_of_bounded_C2_ae_pos`
@@ -78,7 +78,7 @@ The main theorem `gaussian_lsi_1d_ibp_core` (Ent_γ(f²) ≤ 2·∫f'²) is prov
   - Integrable: algebraic decomposition Ent(f²) = A·∫g²·log(g²) ≤ A·2∫g'² = 2∫f'². **PROVED.**
   - Non-integrable: entropy = -A·logA.
     - A ≥ 1: -A·logA ≤ 0 ≤ 2∫f'². **PROVED.**
-    - 0 < A < 1: sorry (likely vacuous — needs hypercontractivity to prove f²·log(f²) ∈ L¹).
+    - 0 < A < 1: **PROVED** (vacuous: spatial truncation + bounded LSI + AECover → f²·log(f²) ∈ L¹).
 
 ### Strategy for closing the sorry (recommended: Bakry-Emery)
 
@@ -233,8 +233,8 @@ gaussian_lsi_1d_ibp_core
 ```
 
 The circular dependency with `integrable_sq_mul_log_sq_of_memLp` is eliminated.
-The remaining sorry is in a likely-vacuous edge case (non-integrable f²·log(f²)
-with 0 < ∫f² < 1, which would require Nelson's hypercontractivity to rule out).
+The vacuous edge case (non-integrable f²·log(f²) with 0 < ∫f² < 1) is now PROVED
+via spatial truncation + bounded LSI + Fatou/AECover argument.
 
 ### Gross regularization infrastructure (proved, zero sorry)
 
@@ -336,7 +336,7 @@ lemma integrable_neg_part_sq_mul_log {μ : Measure ℝ} [IsFiniteMeasure μ]
 -- with `gaussian_lsi_1d_ibp_core`. The integrability of f²·log(f²) is now handled
 -- by a by_cases split inside `gaussian_lsi_1d_ibp_core` itself:
 -- - Integrable case: integrability is assumed as hypothesis, proof proceeds algebraically.
--- - Non-integrable case: entropy = -A·logA, handled directly (A≥1 trivial, 0<A<1 sorry).
+-- - Non-integrable case: entropy = -A·logA, handled directly (A≥1 trivial, 0<A<1 PROVED vacuous).
 -- The 0<A<1 non-integrable case is likely vacuous (would need hypercontractivity to prove).
 
 /-! ### Regularized Stein IBP infrastructure (proved, supporting Gross's argument)
@@ -2716,13 +2716,327 @@ lemma gaussian_lsi_1d_ibp_core
         have : 0 ≤ ∫ x, f' x ^ 2 ∂stdGaussian :=
           integral_nonneg (fun x => sq_nonneg (f' x))
         linarith
-      · -- 0 < A < 1: -A·logA > 0.
-        -- This case is likely vacuous: f ∈ W^{1,2}(γ) with continuous f' and
-        -- ∫f² < 1 should imply f²·log(f²) ∈ L¹(γ), but the proof requires
-        -- Nelson's hypercontractivity (not in Mathlib).
-        -- Bound: -A·logA ≤ 1/e ≈ 0.368, so this is a very mild condition.
+      · -- 0 < A < 1: This case is VACUOUS.
         push_neg at hA1
-        sorry
+        exfalso; apply hflog
+        have hf_cont : Continuous f :=
+          Differentiable.continuous (fun x => (hderiv x).differentiableAt)
+        have hf_meas : Measurable f := hf_cont.measurable
+        -- Negative part: bounded by 1, always integrable.
+        have hneg_int : Integrable (fun x => max (0 : ℝ)
+            (-(f x ^ 2 * Real.log (f x ^ 2)))) stdGaussian :=
+          integrable_neg_part_sq_mul_log f hf_meas
+        -- Positive part φ
+        set φ := fun x => max (0 : ℝ) (f x ^ 2 * Real.log (f x ^ 2))
+        have hφ_nn : 0 ≤ᵐ[stdGaussian] φ := ae_of_all _ fun x => le_max_left 0 _
+        have hφ_cont : Continuous φ :=
+          continuous_const.max (Real.continuous_mul_log.comp (hf_cont.pow 2))
+        -- AE cover
+        have hcover : MeasureTheory.AECover stdGaussian Filter.atTop
+            (fun n : ℕ => Set.Icc (-(n : ℝ)) n) :=
+          aecover_Icc (Filter.tendsto_neg_atTop_atBot.comp tendsto_natCast_atTop_atTop)
+            tendsto_natCast_atTop_atTop
+        -- IntegrableOn on each Icc: continuous + bounded on compact
+        have hφ_loc : ∀ n : ℕ, IntegrableOn φ (Set.Icc (-(n : ℝ)) n) stdGaussian := by
+          intro n
+          have hK : IsCompact (Set.Icc (-(n : ℝ)) n) := isCompact_Icc
+          obtain ⟨M, hM⟩ := hK.exists_bound_of_continuousOn hφ_cont.continuousOn
+          apply Integrable.mono' (integrable_const M |>.integrableOn)
+            hφ_cont.aestronglyMeasurable.restrict
+          exact (ae_restrict_iff' measurableSet_Icc).mpr (ae_of_all _ fun x hx => hM x hx)
+        -- Energy convergence: ∫(g_n')² → ∫f'²
+        have henergy_conv : Filter.Tendsto
+            (fun n : ℕ => ∫ x, (spatialTruncDeriv f f' n x) ^ 2 ∂stdGaussian)
+            Filter.atTop (nhds (∫ x, f' x ^ 2 ∂stdGaussian)) := by
+          apply tendsto_integral_of_dominated_convergence
+            (fun x => 2 * (f' x) ^ 2 + 8 * (f x) ^ 2)
+          · intro n
+            have heq : (fun x => (spatialTruncDeriv f f' n x) ^ 2) =
+                (fun x => (deriv (spatialTrunc f n) x) ^ 2) := by
+              ext x; congr 1
+              exact (((hderiv x).mul (hasDerivAt_smoothCutoff n x)).deriv).symm
+            rw [heq]; exact ((measurable_deriv _).pow_const 2).aestronglyMeasurable
+          · exact (integrable_sq_of_memLp hf').const_mul 2 |>.add
+              ((integrable_sq_of_memLp hf).const_mul 8)
+          · intro n; exact ae_of_all _ fun x => by
+              rw [Real.norm_eq_abs, abs_of_nonneg (sq_nonneg _)]
+              simp only [spatialTruncDeriv]
+              have h0 := smoothCutoff_nonneg n x
+              have h1 := smoothCutoff_le_one n x
+              have ht0 := hatFun_nonneg n x; have ht1 := hatFun_le_one n x
+              have hcutD_le : |smoothCutoffDeriv n x| ≤ 2 := by
+                simp only [smoothCutoffDeriv, Real.norm_eq_abs]
+                split_ifs with htr hx'
+                · rw [show 6 * hatFun n x * (1 - hatFun n x) * (-1) =
+                    -(6 * hatFun n x * (1 - hatFun n x)) from by ring,
+                    abs_neg, abs_of_nonneg (by nlinarith)]
+                  nlinarith [sq_nonneg (hatFun n x - 1/2)]
+                · rw [show 6 * hatFun n x * (1 - hatFun n x) * 1 =
+                    6 * hatFun n x * (1 - hatFun n x) from by ring,
+                    abs_of_nonneg (by nlinarith)]
+                  nlinarith [sq_nonneg (hatFun n x - 1/2)]
+                · simp
+              -- Goal: (f'·c + f·c')² ≤ 2f'² + 8f² where |c|≤1, |c'|≤2
+              -- (a+b)² ≤ 2a² + 2b² and a²=f'²c²≤f'², b²=f²c'²≤4f²
+              have hab := sq_nonneg (f' x * smoothCutoff n x - f x * smoothCutoffDeriv n x)
+              have hc2 : (smoothCutoff n x) ^ 2 ≤ 1 := by nlinarith [h0, h1]
+              have hcd2 : (smoothCutoffDeriv n x) ^ 2 ≤ 4 := by
+                have := sq_abs (smoothCutoffDeriv n x)
+                nlinarith [hcutD_le, abs_nonneg (smoothCutoffDeriv n x)]
+              nlinarith [sq_nonneg (f' x), sq_nonneg (f x)]
+          · exact ae_of_all _ fun x => by
+              have hcut_ev : ∀ᶠ n in Filter.atTop, smoothCutoff n x = 1 :=
+                Filter.mem_atTop_sets.mpr ⟨Nat.ceil |x|, fun n hn =>
+                  smoothCutoff_eq_one_of_abs_le n x (by
+                    calc |x| ≤ ↑(Nat.ceil |x|) := Nat.le_ceil _
+                      _ ≤ ↑n := Nat.cast_le.mpr hn)⟩
+              have hcutD_ev : ∀ᶠ n in Filter.atTop, smoothCutoffDeriv n x = 0 :=
+                Filter.mem_atTop_sets.mpr ⟨Nat.ceil |x|, fun n hn => by
+                  simp only [smoothCutoffDeriv]
+                  have hle : (Nat.ceil |x| : ℝ) ≤ (n : ℝ) := Nat.cast_le.mpr hn
+                  exact if_neg (by push_neg; intro h; linarith [Nat.le_ceil |x|])⟩
+              simp only [spatialTruncDeriv]
+              have h1 := (Filter.Tendsto.const_mul (f' x)
+                (tendsto_nhds_of_eventually_eq hcut_ev)).add
+                (Filter.Tendsto.const_mul (f x)
+                (tendsto_nhds_of_eventually_eq hcutD_ev))
+              simp only [mul_one, mul_zero, add_zero] at h1
+              exact h1.pow 2
+        -- ∫g_n² → A
+        have hL2_conv : Filter.Tendsto
+            (fun n : ℕ => ∫ x, (spatialTrunc f n x) ^ 2 ∂stdGaussian)
+            Filter.atTop (nhds A) := by
+          rw [hAdef]
+          apply tendsto_integral_of_dominated_convergence (fun x => (f x) ^ 2)
+          · intro n
+            exact ((hf_cont.mul (continuous_smoothCutoff n)).pow 2).aestronglyMeasurable
+          · exact integrable_sq_of_memLp hf
+          · intro n; exact ae_of_all _ fun x => by
+              rw [Real.norm_eq_abs, abs_of_nonneg (sq_nonneg _)]
+              exact spatialTrunc_sq_le f n x
+          · exact ae_of_all _ fun x => by
+              have hcut_tendsto : Filter.Tendsto (fun n => smoothCutoff n x)
+                  Filter.atTop (nhds 1) :=
+                tendsto_nhds_of_eventually_eq (Filter.mem_atTop_sets.mpr ⟨Nat.ceil |x|, fun n hn =>
+                  smoothCutoff_eq_one_of_abs_le n x (by
+                    calc |x| ≤ ↑(Nat.ceil |x|) := Nat.le_ceil _
+                      _ ≤ ↑n := Nat.cast_le.mpr hn)⟩)
+              simp only [spatialTrunc]
+              have h := Filter.Tendsto.const_mul (f x) hcut_tendsto
+              simp only [mul_one] at h
+              exact h.pow 2
+        -- Eventually ∫g_n² > 0
+        have hpos_ev : ∀ᶠ n in Filter.atTop,
+            0 < ∫ x, (spatialTrunc f n x) ^ 2 ∂stdGaussian :=
+          (hL2_conv.eventually (Ioi_mem_nhds hA_pos)).mono fun n hn => Set.mem_Ioi.mp hn
+        -- ∫g_n² ≤ A for all n
+        have hle_A : ∀ n, ∫ x, (spatialTrunc f n x) ^ 2 ∂stdGaussian ≤ A := by
+          intro n; rw [hAdef]
+          apply integral_mono
+          · obtain ⟨C, hC⟩ := spatialTrunc_bounded f hf_cont n
+            exact (memLp_top_of_bound
+              ((hf_cont.mul (continuous_smoothCutoff n)).pow 2).aestronglyMeasurable
+              (C ^ 2) (ae_of_all _ fun x => by
+                rw [Real.norm_eq_abs, abs_of_nonneg (sq_nonneg _)]
+                have habs := hC x; rw [Real.norm_eq_abs] at habs
+                have hC_nn : 0 ≤ C := le_trans (abs_nonneg _) habs
+                calc (spatialTrunc f n x) ^ 2 = |spatialTrunc f n x| ^ 2 := (sq_abs _).symm
+                  _ ≤ C ^ 2 := pow_le_pow_left₀ (abs_nonneg _) habs 2
+              )).integrable le_top
+          · exact integrable_sq_of_memLp hf
+          · exact fun x => spatialTrunc_sq_le f n x
+        -- Callback for bounded LSI
+        have hlsi_callback : ∀ (h h' : ℝ → ℝ),
+            MemLp h 2 stdGaussian → MemLp h' 2 stdGaussian →
+            (∀ x, HasDerivAt h (h' x) x) →
+            (∃ C, ∀ x, ‖h x‖ ≤ C) → (∃ C, ∀ x, ‖h' x‖ ≤ C) →
+            ∫ x, h x ^ 2 ∂stdGaussian = 1 →
+            Integrable (fun x => h x ^ 2 * Real.log (h x ^ 2)) stdGaussian →
+            ∫ x, h x ^ 2 * Real.log (h x ^ 2) ∂stdGaussian ≤
+              2 * ∫ x, h' x ^ 2 ∂stdGaussian :=
+          fun h h' hm hm' hd hb hb' hn hi => lsi_of_bounded_C1 h h' hm hm' hd hb hb' hn hi
+        -- Bound: ∫_{Icc (-n) n} φ ≤ I for large n
+        have hrestrict_bound : ∀ᶠ (n : ℕ) in Filter.atTop,
+            ∫ x in Set.Icc (-(n : ℝ)) n, φ x ∂stdGaussian ≤
+            2 * ∫ x, f' x ^ 2 ∂stdGaussian + 2 := by
+          have henergy_ev : ∀ᶠ n in Filter.atTop,
+              ∫ x, (spatialTruncDeriv f f' n x) ^ 2 ∂stdGaussian ≤
+              ∫ x, f' x ^ 2 ∂stdGaussian + 1 / 2 := by
+            have := henergy_conv.eventually
+              (Metric.ball_mem_nhds (∫ x, f' x ^ 2 ∂stdGaussian) (by norm_num : (0:ℝ) < 1/2))
+            exact this.mono fun n (hn : dist _ _ < _) => by
+              rw [Real.dist_eq] at hn
+              linarith [le_abs_self (∫ x, (spatialTruncDeriv f f' n x) ^ 2 ∂stdGaussian -
+                ∫ x, f' x ^ 2 ∂stdGaussian)]
+          filter_upwards [hpos_ev, henergy_ev] with n hn_pos hen
+          -- On Icc (-n) n, spatialTrunc = f
+          have hφ_eq : ∀ x ∈ Set.Icc (-(n : ℝ)) n,
+              φ x = max (0 : ℝ) ((spatialTrunc f n x) ^ 2 *
+                Real.log ((spatialTrunc f n x) ^ 2)) := by
+            intro x hx
+            have habs : |x| ≤ n := abs_le.mpr ⟨by linarith [hx.1], by linarith [hx.2]⟩
+            simp only [φ, spatialTrunc, smoothCutoff_eq_one_of_abs_le n x habs, mul_one]
+          -- g_n bounded
+          have hgn_bdd := spatialTrunc_bounded f hf_cont n
+          -- g_n' bounded
+          have hgn'_bdd : ∃ C, ∀ x, ‖spatialTruncDeriv f f' n x‖ ≤ C := by
+            obtain ⟨Mf', hMf'⟩ :=
+              (isCompact_Icc : IsCompact (Set.Icc (-(↑n+1:ℝ)) (↑n+1))).exists_bound_of_continuousOn
+                hf'_cont.continuousOn
+            obtain ⟨Mf, hMf⟩ :=
+              (isCompact_Icc : IsCompact (Set.Icc (-(↑n+1:ℝ)) (↑n+1))).exists_bound_of_continuousOn
+                hf_cont.continuousOn
+            refine ⟨max (Mf' + Mf * 2) 0, fun x => ?_⟩
+            by_cases hx : |x| ≤ (n : ℝ) + 1
+            · have hx_mem : x ∈ Set.Icc (-(↑n + 1 : ℝ)) (↑n + 1) := by
+                rw [Set.mem_Icc]; constructor <;> linarith [abs_le.mp hx]
+              simp only [spatialTruncDeriv]
+              have hcutD : ‖smoothCutoffDeriv n x‖ ≤ 2 := by
+                have ht0 := hatFun_nonneg n x; have ht1 := hatFun_le_one n x
+                simp only [smoothCutoffDeriv, Real.norm_eq_abs]
+                split_ifs with h hx'
+                · rw [show 6 * hatFun n x * (1 - hatFun n x) * (-1) =
+                    -(6 * hatFun n x * (1 - hatFun n x)) from by ring,
+                    abs_neg, abs_of_nonneg (by nlinarith)]
+                  nlinarith [sq_nonneg (hatFun n x - 1/2)]
+                · rw [show 6 * hatFun n x * (1 - hatFun n x) * 1 =
+                    6 * hatFun n x * (1 - hatFun n x) from by ring,
+                    abs_of_nonneg (by nlinarith)]
+                  nlinarith [sq_nonneg (hatFun n x - 1/2)]
+                · simp
+              calc ‖f' x * smoothCutoff n x + f x * smoothCutoffDeriv n x‖
+                  ≤ ‖f' x‖ * ‖smoothCutoff n x‖ + ‖f x‖ * ‖smoothCutoffDeriv n x‖ := by
+                    calc ‖f' x * smoothCutoff n x + f x * smoothCutoffDeriv n x‖
+                        ≤ ‖f' x * smoothCutoff n x‖ + ‖f x * smoothCutoffDeriv n x‖ :=
+                          norm_add_le _ _
+                      _ = _ := by rw [norm_mul, norm_mul]
+                _ ≤ Mf' * 1 + Mf * 2 := by
+                    apply add_le_add
+                    · apply mul_le_mul (hMf' x hx_mem) _ (norm_nonneg _)
+                        (le_trans (norm_nonneg (f' x)) (hMf' x hx_mem))
+                      rw [Real.norm_eq_abs, abs_le]
+                      exact ⟨by linarith [smoothCutoff_nonneg n x], smoothCutoff_le_one n x⟩
+                    · exact mul_le_mul (hMf x hx_mem) hcutD (norm_nonneg _)
+                        (le_trans (norm_nonneg (f x)) (hMf x hx_mem))
+                _ = Mf' + Mf * 2 := by ring
+                _ ≤ max (Mf' + Mf * 2) 0 := le_max_left _ _
+            · push_neg at hx
+              simp only [spatialTruncDeriv,
+                smoothCutoff_eq_zero_of_abs_ge n x hx.le]
+              have hcutD0 : smoothCutoffDeriv n x = 0 := by
+                simp only [smoothCutoffDeriv]
+                exact if_neg (by push_neg; intro h; linarith)
+              rw [mul_zero, hcutD0, mul_zero, add_zero, norm_zero]
+              exact le_max_right _ _
+          -- MemLp
+          have hgn_memLp : MemLp (spatialTrunc f n) 2 stdGaussian := by
+            obtain ⟨C, hC⟩ := hgn_bdd
+            exact (memLp_top_of_bound (hf_cont.mul (continuous_smoothCutoff n)).aestronglyMeasurable
+              C (ae_of_all _ hC)).mono_exponent (by norm_num)
+          have hgn'_memLp : MemLp (spatialTruncDeriv f f' n) 2 stdGaussian := by
+            obtain ⟨C, hC⟩ := hgn'_bdd
+            exact (memLp_top_of_bound (by
+              have : spatialTruncDeriv f f' n = deriv (spatialTrunc f n) := by
+                ext x; exact ((hderiv x).mul (hasDerivAt_smoothCutoff n x)).deriv.symm
+              rw [this]; exact (measurable_deriv _).aestronglyMeasurable)
+              C (ae_of_all _ hC)).mono_exponent (by norm_num)
+          have hgn_deriv : ∀ x, HasDerivAt (spatialTrunc f n) (spatialTruncDeriv f f' n x) x :=
+            fun x => (hderiv x).mul (hasDerivAt_smoothCutoff n x)
+          -- g_n²·log(g_n²) integrable (bounded)
+          have hgn_ent_int : Integrable
+              (fun x => (spatialTrunc f n x) ^ 2 *
+                Real.log ((spatialTrunc f n x) ^ 2)) stdGaussian := by
+            obtain ⟨C, hC⟩ := hgn_bdd
+            exact (memLp_top_of_bound
+              (Real.continuous_mul_log.comp
+                ((hf_cont.mul (continuous_smoothCutoff n)).pow 2)).aestronglyMeasurable
+              (C ^ 4 + 1) (ae_of_all _ fun x => by
+                have habs : |spatialTrunc f n x| ≤ C := by
+                  have := hC x; rwa [Real.norm_eq_abs] at this
+                calc ‖(spatialTrunc f n x) ^ 2 * Real.log ((spatialTrunc f n x) ^ 2)‖
+                    ≤ ((spatialTrunc f n x) ^ 2) ^ 2 + 1 := by
+                      rw [Real.norm_eq_abs]
+                      exact abs_mul_log_le_sq_add_one _ (sq_nonneg _)
+                  _ ≤ (C ^ 2) ^ 2 + 1 := by
+                      have hC_nn : 0 ≤ C := le_trans (abs_nonneg _) habs
+                      have hsq : spatialTrunc f n x ^ 2 ≤ C ^ 2 := by
+                        calc spatialTrunc f n x ^ 2 = |spatialTrunc f n x| ^ 2 := (sq_abs _).symm
+                          _ ≤ C ^ 2 := pow_le_pow_left₀ (abs_nonneg _) habs 2
+                      nlinarith [sq_nonneg (spatialTrunc f n x ^ 2)]
+                  _ = C ^ 4 + 1 := by ring_nf)).integrable le_top
+          -- Unnormalized LSI
+          have hunorm := lsi_bdd_unnormalized (spatialTrunc f n) (spatialTruncDeriv f f' n)
+            hgn_memLp hgn'_memLp hgn_deriv hgn_bdd hgn'_bdd hn_pos hlsi_callback
+          -- (∫g_n²)·log(∫g_n²) ≤ 0
+          have hlog_nonpos : (∫ x, (spatialTrunc f n x) ^ 2 ∂stdGaussian) *
+              Real.log (∫ x, (spatialTrunc f n x) ^ 2 ∂stdGaussian) ≤ 0 :=
+            mul_nonpos_of_nonneg_of_nonpos hn_pos.le
+              (Real.log_nonpos hn_pos.le (hle_A n |>.trans hA1.le))
+          -- neg part of g_n²·log(g_n²) bounded by 1
+          have hgn_meas : Measurable (spatialTrunc f n) :=
+            (hf_cont.mul (continuous_smoothCutoff n)).measurable
+          have hneg_bound : ∫ x, max (0 : ℝ) (-((spatialTrunc f n x) ^ 2 *
+              Real.log ((spatialTrunc f n x) ^ 2))) ∂stdGaussian ≤ 1 := by
+            calc _ ≤ ∫ _, (1 : ℝ) ∂stdGaussian := by
+                  apply integral_mono_ae (integrable_neg_part_sq_mul_log _ hgn_meas)
+                    (integrable_const 1)
+                  exact ae_of_all _ fun x =>
+                    max_le zero_le_one (neg_mul_log_le_one _ (sq_nonneg _))
+              _ = 1 := by simp [MeasureTheory.IsProbabilityMeasure.measure_univ]
+          -- Combine: ∫pos_part(g_n) = ∫g_n²·log(g_n²) + ∫neg_part ≤ 2∫(g_n')² + 1
+          -- Key identity: max(0, h) = h + max(0, -h)
+          have hmax_split : ∀ a : ℝ, max 0 a = a + max 0 (-a) := by
+            intro a
+            by_cases h : 0 ≤ a
+            · simp [max_eq_right h, max_eq_left (by linarith : -a ≤ 0)]
+            · push_neg at h
+              simp [max_eq_left (le_of_lt h), max_eq_right (by linarith : 0 ≤ -a)]
+          have hpos_eq : ∫ x, max (0 : ℝ) ((spatialTrunc f n x) ^ 2 *
+              Real.log ((spatialTrunc f n x) ^ 2)) ∂stdGaussian =
+              ∫ x, (spatialTrunc f n x) ^ 2 *
+                Real.log ((spatialTrunc f n x) ^ 2) ∂stdGaussian +
+              ∫ x, max (0 : ℝ) (-((spatialTrunc f n x) ^ 2 *
+                Real.log ((spatialTrunc f n x) ^ 2))) ∂stdGaussian := by
+            rw [← integral_add hgn_ent_int (integrable_neg_part_sq_mul_log _ hgn_meas)]
+            exact integral_congr_ae (ae_of_all _ fun x => hmax_split _)
+          -- Now chain the bounds
+          calc ∫ x in Set.Icc (-(n : ℝ)) n, φ x ∂stdGaussian
+              = ∫ x in Set.Icc (-(n : ℝ)) n,
+                max (0 : ℝ) ((spatialTrunc f n x) ^ 2 *
+                  Real.log ((spatialTrunc f n x) ^ 2)) ∂stdGaussian :=
+                setIntegral_congr_fun measurableSet_Icc hφ_eq
+            _ ≤ ∫ x, max (0 : ℝ) ((spatialTrunc f n x) ^ 2 *
+                  Real.log ((spatialTrunc f n x) ^ 2)) ∂stdGaussian := by
+                apply setIntegral_le_integral
+                · -- Integrability of max(0, g_n²·log(g_n²))
+                  have heq : (fun x => max (0 : ℝ) ((spatialTrunc f n x) ^ 2 *
+                      Real.log ((spatialTrunc f n x) ^ 2))) =
+                    fun x => (spatialTrunc f n x) ^ 2 * Real.log ((spatialTrunc f n x) ^ 2) +
+                      max (0 : ℝ) (-((spatialTrunc f n x) ^ 2 *
+                        Real.log ((spatialTrunc f n x) ^ 2))) :=
+                    funext fun x => hmax_split _
+                  rw [heq]
+                  exact hgn_ent_int.add (integrable_neg_part_sq_mul_log _ hgn_meas)
+                · exact ae_of_all _ fun x => le_max_left 0 _
+            _ = _ := hpos_eq
+            _ ≤ 2 * ∫ x, (spatialTruncDeriv f f' n x) ^ 2 ∂stdGaussian + 1 := by linarith
+            _ ≤ 2 * (∫ x, f' x ^ 2 ∂stdGaussian + 1 / 2) + 1 := by linarith
+            _ = 2 * ∫ x, f' x ^ 2 ∂stdGaussian + 2 := by ring
+        -- Apply AECover
+        have hφ_int : Integrable φ stdGaussian :=
+          hcover.integrable_of_integral_bounded_of_nonneg_ae
+            (2 * ∫ x, f' x ^ 2 ∂stdGaussian + 2) hφ_loc hφ_nn hrestrict_bound
+        -- f²·log(f²) = pos_part - neg_part
+        -- f²·log(f²) = pos_part - neg_part
+        exact (hφ_int.sub hneg_int).congr (ae_of_all _ fun x => by
+          simp only [Pi.sub_apply]
+          change φ x - max 0 (-(f x ^ 2 * Real.log (f x ^ 2))) =
+            f x ^ 2 * Real.log (f x ^ 2)
+          set a := f x ^ 2 * Real.log (f x ^ 2)
+          show max 0 a - max 0 (-a) = a
+          rcases le_or_gt 0 a with ha | ha
+          · simp [max_eq_right ha, max_eq_left (by linarith : -a ≤ 0)]
+          · simp [max_eq_left ha.le, max_eq_right (by linarith : 0 ≤ -a)])
 
 end LSI_Decomposition
 
