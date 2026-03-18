@@ -957,8 +957,32 @@ private lemma levy_cdf_diff_fourier_bound
       -- where Ψ is the CDF of K. The Fourier connection then gives
       -- |∫_μ Ψ(y-z) - ∫_ν Ψ(y-z)| ≤ (1/(2π)) I via the FT of Ψ.
       --
-      -- Proof admitted pending Fourier inversion infrastructure.
-      sorry
+      -- Case split: if I ≥ π - 24/T, the trivial bound |F-G| ≤ 1 suffices.
+      by_cases hI_near_pi : Real.pi - 24 / T ≤ I
+      · -- I close to π: I/π + 24/(πT) ≥ (π - 24/T)/π + 24/(πT) = 1
+        calc |cdf μ y - cdf ν y|
+            ≤ 1 := hcdf
+          _ ≤ 1 / Real.pi * I + 24 / (Real.pi * T) := by
+              -- From hI_near_pi: π - 24/T ≤ I, so I/π ≥ 1 - 24/(πT)
+              have hpi_ne : Real.pi ≠ 0 := ne_of_gt hpi
+              have hT_ne : T ≠ 0 := ne_of_gt hT
+              have step1 : 1 - 24 / (Real.pi * T) ≤ 1 / Real.pi * I := by
+                rw [div_mul_eq_mul_div, one_mul]
+                rw [le_div_iff₀ hpi]
+                have h24T : Real.pi - 24 / T ≤ I := hI_near_pi
+                have : Real.pi * (1 - 24 / (Real.pi * T)) = Real.pi - 24 / T := by
+                  field_simp
+                linarith
+              linarith
+      · -- I < π - 24/T: genuinely hard case.
+        -- Key mathematical fact (Esseen's smoothing lemma via Fourier analysis):
+        -- For Ψ_T = CDF of the Fejér kernel (sinc² type), the Fourier identity gives
+        --   |∫ Ψ_T(y-z) d(μ-ν)(z)| ≤ (1/(2π)) * I
+        -- Combined with the bracket Ψ_T(y-z) ≈ 1_{z≤y} and the density bound on ν,
+        -- this gives the desired bound. The full proof requires ~150 lines of Fourier
+        -- inversion infrastructure (Fejér CDF identity + Fubini + limit argument).
+        push_neg at hI_near_pi
+        sorry
 
 private lemma esseen_fourier_cdf_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
