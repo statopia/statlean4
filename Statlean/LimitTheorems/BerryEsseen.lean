@@ -704,6 +704,138 @@ private lemma abs_cdf_sub_le_one (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
   rw [abs_le]; constructor <;> linarith [cdf_nonneg μ y, cdf_le_one μ y,
     cdf_nonneg ν y, cdf_le_one ν y]
 
+/-- `d/dx[-cos(x)/x] = sin(x)/x + cos(x)/x²` for `x ≠ 0`. -/
+private lemma hasDerivAt_neg_cos_div (x : ℝ) (hx : x ≠ 0) :
+    HasDerivAt (fun y => -Real.cos y / y) (Real.sin x / x + Real.cos x / x ^ 2) x := by
+  have h1 : HasDerivAt (fun y => -Real.cos y) (Real.sin x) x := by
+    have := (Real.hasDerivAt_cos x).neg; simp [neg_neg] at this; exact this
+  have h3 := h1.div (hasDerivAt_id x) hx
+  simp only [id] at h3; convert h3 using 1; field_simp; ring
+
+/-- `|∫_t^R cos(u)/u² du| ≤ ∫_t^R 1/u² du = 1/t - 1/R` on `[t,R]`. -/
+private lemma cos_div_sq_integral_bound (t R : ℝ) (ht : 0 < t) (hR : t ≤ R) :
+    |∫ u in t..R, Real.cos u / u ^ 2| ≤ 1 / t - 1 / R := by
+  have hne : ∀ x ∈ Set.uIcc t R, x ≠ 0 := by
+    intro x hx; rw [Set.uIcc_of_le hR] at hx; linarith [hx.1]
+  have h1 : ‖∫ u in t..R, Real.cos u / u ^ 2‖ ≤ ∫ u in t..R, (1 : ℝ) / u ^ 2 := by
+    apply intervalIntegral.norm_integral_le_of_norm_le hR
+    · filter_upwards with u
+      intro hu_mem
+      have hu_pos : 0 < u := by rw [Set.mem_Ioc] at hu_mem; linarith [hu_mem.1]
+      rw [Real.norm_eq_abs, abs_div, abs_of_pos (sq_pos_of_pos hu_pos)]
+      exact div_le_div_of_nonneg_right (Real.abs_cos_le_one _) (sq_nonneg _)
+    · exact (ContinuousOn.div continuousOn_const (continuousOn_pow 2)
+        (fun x hx => pow_ne_zero 2 (hne x hx))).intervalIntegrable
+  have hconv : (fun u => (1 : ℝ) / u ^ 2) = (fun u => (u ^ 2)⁻¹) := by ext u; simp [one_div]
+  have h2 : ∫ u in t..R, (1 : ℝ) / u ^ 2 = 1 / t - 1 / R := by
+    have hderiv : ∀ x ∈ Set.uIcc t R,
+        HasDerivAt (fun y => -(y : ℝ)⁻¹) ((x : ℝ) ^ 2)⁻¹ x := by
+      intro x hx
+      exact ((hasDerivAt_inv (hne x hx)).neg).congr_deriv (by simp [neg_neg])
+    rw [hconv, intervalIntegral.integral_eq_sub_of_hasDerivAt hderiv (hconv ▸
+      (ContinuousOn.div continuousOn_const (continuousOn_pow 2)
+        (fun x hx => pow_ne_zero 2 (hne x hx))).intervalIntegrable)]
+    field_simp; linarith
+  rw [Real.norm_eq_abs] at h1; linarith
+
+/-- **Sine integral remainder bound (interval version).**
+For `0 < t ≤ R`: `|∫_t^R sin(u)/u du| ≤ 2/t`.
+
+Proof by integration by parts: `sin(u)/u = d/du[-cos(u)/u] - cos(u)/u²`, so
+`∫_t^R sin(u)/u = [-cos(R)/R + cos(t)/t] - ∫_t^R cos(u)/u²`.
+Then `|...| ≤ 1/R + 1/t + 1/t - 1/R = 2/t`. -/
+private lemma sine_interval_integral_bound (t R : ℝ) (ht : 0 < t) (hR : t ≤ R) :
+    |∫ u in t..R, Real.sin u / u| ≤ 2 / t := by
+  have hne : ∀ x ∈ Set.uIcc t R, x ≠ 0 := by
+    intro x hx; rw [Set.uIcc_of_le hR] at hx; linarith [hx.1]
+  have hR_pos : 0 < R := lt_of_lt_of_le ht hR
+  -- Continuity
+  have hcont_cos_sq : ContinuousOn (fun u => Real.cos u / u ^ 2) (Set.uIcc t R) :=
+    Real.continuous_cos.continuousOn.div (continuousOn_pow 2)
+      (fun x hx => pow_ne_zero 2 (hne x hx))
+  have hcont_sum : ContinuousOn (fun u => Real.sin u / u + Real.cos u / u ^ 2)
+      (Set.uIcc t R) :=
+    (Real.continuous_sin.continuousOn.div continuousOn_id
+      (fun x hx => hne x hx)).add hcont_cos_sq
+  -- Integrability
+  have hint_cos : IntervalIntegrable (fun u => Real.cos u / u ^ 2) volume t R :=
+    hcont_cos_sq.intervalIntegrable
+  have hint_sum : IntervalIntegrable (fun u => Real.sin u / u + Real.cos u / u ^ 2)
+      volume t R :=
+    hcont_sum.intervalIntegrable
+  -- FTC: ∫ d/dx[-cos(x)/x] dx = [-cos(R)/R] - [-cos(t)/t]
+  have hftc := intervalIntegral.integral_eq_sub_of_hasDerivAt
+    (fun x hx => hasDerivAt_neg_cos_div x (hne x hx)) hint_sum
+  -- Decompose: ∫ sin/u = ∫ (sin/u + cos/u²) - ∫ cos/u²
+  have hsub := intervalIntegral.integral_sub hint_sum hint_cos
+  simp_rw [show ∀ u, (Real.sin u / u + Real.cos u / u ^ 2) - Real.cos u / u ^ 2 =
+      Real.sin u / u from by intro u; ring] at hsub
+  -- ∫ sin/u = (-cos R/R + cos t/t) - ∫ cos/u²
+  have hval : ∫ u in t..R, Real.sin u / u =
+      (-Real.cos R / R + Real.cos t / t) - ∫ u in t..R, Real.cos u / u ^ 2 := by
+    rw [hsub, hftc]; ring
+  rw [hval]
+  -- |(-cos R/R + cos t/t)| ≤ 1/R + 1/t
+  have hterm_bound : |(-Real.cos R / R + Real.cos t / t)| ≤ 1 / R + 1 / t :=
+    (abs_add_le _ _).trans (add_le_add
+      (by rw [show (-Real.cos R / R) = -(Real.cos R / R) from by ring, abs_neg,
+            abs_div, abs_of_pos hR_pos]
+          exact div_le_div_of_nonneg_right (Real.abs_cos_le_one _) hR_pos.le)
+      (by rw [abs_div, abs_of_pos ht]
+          exact div_le_div_of_nonneg_right (Real.abs_cos_le_one _) ht.le))
+  have hcos_bound := cos_div_sq_integral_bound t R ht hR
+  calc |(-Real.cos R / R + Real.cos t / t) - ∫ u in t..R, Real.cos u / u ^ 2|
+      ≤ |(-Real.cos R / R + Real.cos t / t)| + |∫ u in t..R, Real.cos u / u ^ 2| :=
+        abs_sub _ _
+    _ ≤ (1 / R + 1 / t) + (1 / t - 1 / R) := add_le_add hterm_bound hcos_bound
+    _ = 2 / t := by ring
+
+set_option maxHeartbeats 800000 in
+/-- Product integrability of `sin((x-y)·t)/t` on `μ × volume.restrict(Icc δ R)`.
+Bounded by `1/δ` (since `|sin|≤1` and `t ≥ δ`), finite product measure. -/
+private lemma integrable_sinc_product
+    (μ : Measure ℝ) [IsProbabilityMeasure μ]
+    (δ R y : ℝ) (hδ : 0 < δ) (_hR : δ < R) :
+    Integrable (Function.uncurry fun (x t : ℝ) => Real.sin ((x - y) * t) / t)
+      (μ.prod ((volume : Measure ℝ).restrict (Icc δ R))) := by
+  set ν := (volume : Measure ℝ).restrict (Icc δ R)
+  haveI : IsFiniteMeasure ν := isFiniteMeasure_restrict.mpr measure_Icc_lt_top.ne
+  have hmeas : Measurable (Function.uncurry fun (x t : ℝ) =>
+      Real.sin ((x - y) * t) / t) :=
+    (Real.measurable_sin.comp ((measurable_fst.sub measurable_const).mul
+      measurable_snd)).div measurable_snd
+  have hbd_ν : ∀ᵐ t ∂ν, ∀ x : ℝ, ‖Real.sin ((x - y) * t) / t‖ ≤ 1 / δ := by
+    filter_upwards [ae_restrict_mem measurableSet_Icc] with t ht x
+    have ht_pos : 0 < t := lt_of_lt_of_le hδ ht.1
+    rw [Real.norm_eq_abs, abs_div, abs_of_pos ht_pos]
+    calc |Real.sin ((x - y) * t)| / t
+        ≤ 1 / t := div_le_div_of_nonneg_right (Real.abs_sin_le_one _) ht_pos.le
+      _ ≤ 1 / δ := div_le_div_of_nonneg_left one_pos.le hδ ht.1
+  have hbound : ∀ᵐ p ∂(μ.prod ν), ‖Function.uncurry (fun (x t : ℝ) =>
+      Real.sin ((x - y) * t) / t) p‖ ≤ 1 / δ := by
+    rw [Measure.ae_prod_iff_ae_ae (measurableSet_le hmeas.norm measurable_const)]
+    filter_upwards with x
+    filter_upwards [hbd_ν] with t ht; exact ht x
+  exact Integrable.of_bound hmeas.aestronglyMeasurable (1 / δ) hbound
+
+set_option maxHeartbeats 800000 in
+/-- **Truncated Fubini identity for sinc integrand.**
+For `0 < δ < R` and a probability measure `μ`, the order of integration can be swapped:
+`∫_μ ∫_{[δ,R]} sin((x-y)t)/t dt = ∫_{[δ,R]} (∫_μ sin((x-y)t) dx) / t dt`.
+
+The integrand `sin((x-y)t)/t` is bounded by `1/δ` on the product space (since `|sin| ≤ 1`
+and `t ≥ δ`), so Fubini applies on this finite product measure. -/
+private lemma truncated_fubini_sinc
+    (μ : Measure ℝ) [IsProbabilityMeasure μ]
+    (δ R y : ℝ) (hδ : 0 < δ) (hR : δ < R) :
+    ∫ x, (∫ t in Icc δ R, Real.sin ((x - y) * t) / t) ∂μ =
+    ∫ t in Icc δ R, (∫ x, Real.sin ((x - y) * t) ∂μ) / t := by
+  haveI : IsFiniteMeasure ((volume : Measure ℝ).restrict (Icc δ R)) :=
+    isFiniteMeasure_restrict.mpr measure_Icc_lt_top.ne
+  rw [integral_integral_swap (integrable_sinc_product μ δ R y hδ hR)]
+  congr 1; ext t
+  exact integral_div t (fun x => Real.sin ((x - y) * t))
+
 /-- **Esseen's Fourier-analytic CDF bound.**
 
 For probability measures `μ`, `ν` where `ν` has bounded density (CDF is `M`-Lipschitz),
