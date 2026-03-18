@@ -1154,6 +1154,44 @@ private lemma ouSemigroup_sq_integral_le (t : ℝ) (ht : 0 ≤ t)
     _ = ∫ x, f x ^ 2 ∂stdGaussian := by
         rw [integral_ouSemigroup t ht _ (integrable_sq_of_memLp hf)]
 
+/-- L² contraction for measurable bounded functions (variant of ouSemigroup_sq_integral_le
+    that doesn't require Continuous f, only Measurable f). -/
+private lemma ouSemigroup_sq_integral_le_of_measurable (t : ℝ) (ht : 0 ≤ t)
+    (f : ℝ → ℝ) (hf_meas : Measurable f) (hf : MemLp f 2 stdGaussian)
+    (hf_bound : ∃ C, ∀ x, ‖f x‖ ≤ C) :
+    ∫ x, (ouSemigroup t f x) ^ 2 ∂stdGaussian ≤
+      ∫ x, f x ^ 2 ∂stdGaussian := by
+  obtain ⟨C, hC⟩ := hf_bound
+  have hC_nn : 0 ≤ C := le_trans (norm_nonneg _) (hC 0)
+  -- Jensen pointwise: (P_t f x)² ≤ P_t(f²) x
+  have hpw : ∀ x, (ouSemigroup t f x) ^ 2 ≤
+      ouSemigroup t (fun y => f y ^ 2) x := by
+    intro x; simp only [ouSemigroup]
+    exact sq_integral_le_integral_sq stdGaussian _
+      (MemLp.mono_exponent
+        (memLp_top_of_bound
+          (hf_meas.comp (measurable_const.add (measurable_const.mul measurable_id))).aestronglyMeasurable
+          C (ae_of_all _ (fun y => hC _)))
+        (by norm_num))
+  -- f² is measurable and bounded
+  have hf2_meas : Measurable (fun y => f y ^ 2) := hf_meas.pow_const 2
+  have hf2_bound : ∀ y, ‖(fun z => f z ^ 2) y‖ ≤ C ^ 2 := fun y => by
+    rw [norm_pow]; exact pow_le_pow_left₀ (norm_nonneg _) (hC y) 2
+  -- MemLp for ouSemigroup t (f²) via measurability
+  have hasm_f2 : AEStronglyMeasurable (ouSemigroup t (fun y => f y ^ 2)) stdGaussian :=
+    (hf2_meas.comp (measurable_const.mul measurable_fst |>.add
+      (measurable_const.mul measurable_snd))).aestronglyMeasurable.integral_prod_right'
+  calc ∫ x, (ouSemigroup t f x) ^ 2 ∂stdGaussian
+      ≤ ∫ x, ouSemigroup t (fun y => f y ^ 2) x ∂stdGaussian := by
+        apply integral_mono_of_nonneg (ae_of_all _ (fun x => sq_nonneg _))
+        · exact (MemLp.mono_exponent
+            (memLp_top_of_bound hasm_f2 (C ^ 2) (ae_of_all _ (fun x =>
+              ouSemigroup_bound_norm _ t (C ^ 2) (sq_nonneg _) hf2_bound x)))
+            (by norm_num)).integrable one_le_two
+        · exact ae_of_all _ hpw
+    _ = ∫ x, f x ^ 2 ∂stdGaussian := by
+        rw [integral_ouSemigroup t ht _ (integrable_sq_of_memLp hf)]
+
 private lemma lsi_of_bounded_C1
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
@@ -1195,9 +1233,235 @@ private lemma lsi_of_bounded_C1
   -- - |x²·log(x²)| ≤ D for |x| ≤ Cf (bounded continuous on compact)
   -- - tendsto_integral_of_dominated_convergence with constant bound D
   --
-  -- Both steps are technically sound but involve ~50 lines each of measurability
-  -- and integrability bookkeeping. The mathematical content is standard.
-  sorry
+  -- Key helper facts
+  have hf_diff : Differentiable ℝ f := fun z => (hderiv z).differentiableAt
+  have hf_int_sq' : Integrable (fun x => f' x ^ 2) stdGaussian :=
+    integrable_sq_of_memLp hf'
+  -- Helper: for any t, ouSemigroup t f is bounded by Cf
+  have hPt_bound : ∀ t x, ‖ouSemigroup t f x‖ ≤ Cf :=
+    fun t x => ouSemigroup_bound_norm f t Cf hCf_nn hCf x
+  have hf'_eq : f' = deriv f := funext fun z => (hderiv z).deriv.symm
+  have hf'_meas : Measurable f' := hf'_eq ▸ measurable_deriv f
+  -- Helper: integrability of f' slices (needed for ouSemigroup_hasDerivAt)
+  have hf'_slice_int : ∀ t x, Integrable
+      (fun y => f' (exp (-t) * x + √(1 - exp (-2 * t)) * y)) stdGaussian :=
+    fun t x => Integrable.of_bound
+      (hf'_meas.comp (measurable_const.add
+        (measurable_const.mul measurable_id))).aestronglyMeasurable
+      Cf' (ae_of_all _ (fun y => hCf' _))
+  -- Bound: ‖y²·log(y²)‖ ≤ Cf²·|log(Cf²)| + 1 for ‖y‖ ≤ Cf
+  have hbound_sq_log_local : ∀ (y : ℝ), ‖y‖ ≤ Cf →
+      ‖y ^ 2 * log (y ^ 2)‖ ≤ Cf ^ 2 * |log (Cf ^ 2)| + 1 := by
+    intro y hy
+    have hy_abs : |y| ≤ Cf := by rwa [Real.norm_eq_abs] at hy
+    have hy2_nn : 0 ≤ y ^ 2 := sq_nonneg y
+    rw [show ‖y ^ 2 * log (y ^ 2)‖ = |y ^ 2 * log (y ^ 2)| from rfl,
+        abs_mul, abs_of_nonneg hy2_nn]
+    have hy2 : y ^ 2 ≤ Cf ^ 2 :=
+      sq_le_sq' (by linarith [neg_abs_le y]) (abs_le.mp hy_abs).2
+    by_cases h1 : y ^ 2 ≤ 1
+    · calc y ^ 2 * |log (y ^ 2)|
+          = |log (y ^ 2) * (y ^ 2)| := by rw [abs_mul, abs_of_nonneg hy2_nn]; ring_nf
+        _ ≤ 1 := by
+            by_cases hy0 : y ^ 2 = 0; · simp [hy0]
+            · exact le_of_lt (Real.abs_log_mul_self_lt _
+                (lt_of_le_of_ne hy2_nn (Ne.symm hy0)) h1)
+        _ ≤ _ := le_add_of_nonneg_left (by positivity)
+    · push_neg at h1
+      rw [abs_of_nonneg (Real.log_nonneg (le_of_lt h1))]
+      calc y ^ 2 * log (y ^ 2)
+          ≤ Cf ^ 2 * log (Cf ^ 2) := mul_le_mul hy2
+            (Real.log_le_log (lt_trans zero_lt_one h1) hy2)
+            (Real.log_nonneg (le_of_lt h1)) (sq_nonneg _)
+        _ ≤ Cf ^ 2 * |log (Cf ^ 2)| :=
+            mul_le_mul_of_nonneg_left (le_abs_self _) (sq_nonneg _)
+        _ ≤ _ := le_add_of_nonneg_right (by norm_num)
+  -- Step 1: For t > 0, ∫(P_t f)²·log((P_t f)²) ≤ 2∫f'²
+  have hstep1 : ∀ (t : ℝ), 0 < t →
+      ∫ x, (ouSemigroup t f x) ^ 2 * log ((ouSemigroup t f x) ^ 2) ∂stdGaussian ≤
+        2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
+    intro t ht
+    set g := ouSemigroup t f
+    -- g' = e^{-t} · P_t f' is the derivative of g
+    -- Integrability of f slices (for ouSemigroup_hasDerivAt)
+    have hf_slice_int : ∀ x, Integrable
+        (fun y => f (exp (-t) * x + √(1 - exp (-2 * t)) * y)) stdGaussian :=
+      fun x => ouSemigroup_integrable_of_bound t f hf_cont Cf hCf x
+    have hg_deriv : ∀ x, HasDerivAt g (exp (-t) * ouSemigroup t f' x) x :=
+      fun x => ouSemigroup_hasDerivAt t f f' hderiv ⟨Cf', hCf'⟩ hf_slice_int x
+    obtain ⟨g'', hg''_deriv, hg''_bound⟩ :=
+      ouSemigroup_hasSecondDeriv t ht f f' hderiv ⟨Cf, hCf⟩ ⟨Cf', hCf'⟩
+    have hg_bound : ∀ x, ‖g x‖ ≤ Cf := hPt_bound t
+    have hg_memLp : MemLp g 2 stdGaussian :=
+      ouSemigroup_memLp_of_bound t f hf_cont Cf hCf_nn hCf
+    -- MemLp for P_t f' via measurability (f' is measurable but not necessarily continuous)
+    have hPtf'_asm : AEStronglyMeasurable (ouSemigroup t f') stdGaussian :=
+      (hf'_meas.comp (measurable_const.mul measurable_fst |>.add
+        (measurable_const.mul measurable_snd))).aestronglyMeasurable.integral_prod_right'
+    have hPtf'_memLp : MemLp (ouSemigroup t f') 2 stdGaussian :=
+      MemLp.mono_exponent
+        (memLp_top_of_bound hPtf'_asm Cf' (ae_of_all _ (fun x =>
+          ouSemigroup_bound_norm f' t Cf' hCf'_nn hCf' x)))
+        (by norm_num)
+    -- L² contraction for derivative: ∫(e^{-t} P_t f')² ≤ ∫f'²
+    have hderiv_sq_le : ∫ x, (exp (-t) * ouSemigroup t f' x) ^ 2 ∂stdGaussian ≤
+        ∫ x, f' x ^ 2 ∂stdGaussian := by
+      simp only [mul_pow]
+      rw [integral_const_mul]
+      calc exp (-t) ^ 2 * ∫ x, (ouSemigroup t f' x) ^ 2 ∂stdGaussian
+          ≤ 1 * ∫ x, f' x ^ 2 ∂stdGaussian := by
+            apply mul_le_mul
+            · rw [sq]; exact mul_le_one₀ (Real.exp_le_one_iff.mpr (by linarith))
+                (exp_pos _).le (Real.exp_le_one_iff.mpr (by linarith))
+            · exact ouSemigroup_sq_integral_le_of_measurable t (le_of_lt ht) f' hf'_meas hf'
+                ⟨Cf', hCf'⟩
+            · exact integral_nonneg (fun x => sq_nonneg _)
+            · norm_num
+        _ = ∫ x, f' x ^ 2 ∂stdGaussian := one_mul _
+    -- Case split on ∫g² = 0 or > 0
+    by_cases hint_zero : ∫ x, g x ^ 2 ∂stdGaussian = 0
+    · -- g = 0 ae → entropy = 0 ≤ 2∫f'²
+      have : (fun x => g x ^ 2) =ᶠ[ae stdGaussian] 0 := by
+        rwa [integral_eq_zero_iff_of_nonneg_ae (ae_of_all _ (fun x => sq_nonneg (g x)))
+          (integrable_sq_of_memLp hg_memLp)] at hint_zero
+      have hzero : ∫ x, g x ^ 2 * log (g x ^ 2) ∂stdGaussian = 0 :=
+        integral_eq_zero_of_ae (this.mono (fun x hx => by
+          have : g x ^ 2 = 0 := hx; simp [this]))
+      rw [hzero]; exact mul_nonneg (by norm_num) (integral_nonneg (fun x => sq_nonneg _))
+    · -- ∫g² > 0: normalize h = g/a, apply lsi_of_bounded_C2, unwind
+      have hint_pos : 0 < ∫ x, g x ^ 2 ∂stdGaussian :=
+        lt_of_le_of_ne (integral_nonneg (fun x => sq_nonneg (g x))) (Ne.symm hint_zero)
+      set a := √(∫ x, g x ^ 2 ∂stdGaussian)
+      have ha_pos : 0 < a := Real.sqrt_pos_of_pos hint_pos
+      have ha_ne : a ≠ 0 := ne_of_gt ha_pos
+      have ha_sq : a ^ 2 = ∫ x, g x ^ 2 ∂stdGaussian := sq_sqrt (le_of_lt hint_pos)
+      have ha2_le : a ^ 2 ≤ 1 :=
+        ha_sq ▸ (ouSemigroup_sq_integral_le t (le_of_lt ht) f hf_cont hf
+          ⟨Cf, hCf⟩).trans (le_of_eq hnorm)
+      -- Normalize h = g/a, h' = g'/a, apply lsi_of_bounded_C2, unwind.
+      -- h is bounded C² with ∫h²=1, so lsi_of_bounded_C2 gives ∫h²·log(h²) ≤ 2∫h'².
+      -- Pointwise: (g x/a)²·log((g x/a)²) = (1/a²)(g x²·log(g x²) - g x²·log(a²))
+      -- Integrating: ∫h²·log(h²) = (1/a²)(∫g²·log(g²) - a²·log(a²))
+      -- So: ∫g²·log(g²) = a²·∫h²·log(h²) + a²·log(a²)
+      --                   ≤ 2a²·∫h'² + a²·log(a²)    [by lsi_of_bounded_C2]
+      --                   = 2∫g'² + a²·log(a²)        [since a²·∫h'² = ∫g'²]
+      --                   ≤ 2∫g'²                      [since a²·log(a²) ≤ 0]
+      --                   ≤ 2∫f'²                      [by hderiv_sq_le]
+      -- All ingredients are available (hg_deriv, hg''_deriv, hg_bound, etc.)
+      -- The remaining work is API bookkeeping (MemLp.mul_const, norm_div, etc.)
+      sorry
+  -- Step 2: DCT convergence
+  -- Bound: |x² * log(x²)| ≤ Cf² * |log(Cf²)| + 1 for |x| ≤ Cf
+  set D := Cf ^ 2 * |log (Cf ^ 2)| + 1 with hD_def
+  have hbound_sq_log : ∀ (y : ℝ), ‖y‖ ≤ Cf →
+      ‖y ^ 2 * log (y ^ 2)‖ ≤ D := by
+    intro y hy
+    have hy_abs : |y| ≤ Cf := by rwa [Real.norm_eq_abs] at hy
+    have hy2_nn : 0 ≤ y ^ 2 := sq_nonneg y
+    have hCf2_nn : 0 ≤ Cf ^ 2 := sq_nonneg Cf
+    rw [show ‖y ^ 2 * log (y ^ 2)‖ = |y ^ 2 * log (y ^ 2)| from rfl,
+        abs_mul, abs_of_nonneg hy2_nn]
+    have hy2 : y ^ 2 ≤ Cf ^ 2 :=
+      sq_le_sq' (by linarith [neg_abs_le y]) (abs_le.mp hy_abs).2
+    by_cases h1 : y ^ 2 ≤ 1
+    · calc y ^ 2 * |log (y ^ 2)|
+          = |log (y ^ 2) * (y ^ 2)| := by
+            rw [abs_mul, abs_of_nonneg hy2_nn]; ring_nf
+        _ ≤ 1 := by
+            by_cases hy0 : y ^ 2 = 0
+            · simp [hy0]
+            · exact le_of_lt (Real.abs_log_mul_self_lt _
+                (lt_of_le_of_ne hy2_nn (Ne.symm hy0)) h1)
+        _ ≤ D := le_add_of_nonneg_left (by positivity)
+    · push_neg at h1
+      have hy2_pos : 0 < y ^ 2 := lt_trans zero_lt_one h1
+      have hlog_nn : 0 ≤ log (y ^ 2) := Real.log_nonneg (le_of_lt h1)
+      rw [abs_of_nonneg hlog_nn]
+      calc y ^ 2 * log (y ^ 2)
+          ≤ Cf ^ 2 * log (Cf ^ 2) :=
+            mul_le_mul hy2 (Real.log_le_log hy2_pos hy2) hlog_nn hCf2_nn
+        _ ≤ Cf ^ 2 * |log (Cf ^ 2)| :=
+            mul_le_mul_of_nonneg_left (le_abs_self _) hCf2_nn
+        _ ≤ D := le_add_of_nonneg_right (by norm_num)
+  -- Define the sequence t_n = 1/(n+1)
+  set F : ℕ → ℝ → ℝ := fun n x => (ouSemigroup (1 / (↑n + 1)) f x) ^ 2 *
+    log ((ouSemigroup (1 / (↑n + 1)) f x) ^ 2)
+  -- Use le_of_tendsto: if F_n → L and F_n ≤ B, then L ≤ B
+  -- Key fact: F n x = (ouSemigroup t_n f x)² · log((ouSemigroup t_n f x)²) where t_n = 1/(n+1)
+  -- We need: (1) ∫ F n → ∫ f²·log(f²), and (2) ∫ F n ≤ 2∫f'² for all n.
+  -- Part 2: bound
+  have hbound_Fn : ∀ n, ∫ x, F n x ∂stdGaussian ≤ 2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
+    intro n; exact hstep1 (1 / ((n : ℝ) + 1)) (by positivity)
+  -- Part 1: convergence
+  -- Helper: ouSemigroup t f is continuous for bounded continuous f
+  have hPt_cont : ∀ t, Continuous (ouSemigroup t f) := by
+    intro t
+    show Continuous fun x => ∫ y, f (exp (-t) * x + √(1 - exp (-2 * t)) * y) ∂stdGaussian
+    set a := exp (-t); set b := √(1 - exp (-2 * t))
+    exact continuous_of_dominated (F := fun x y => f (a * x + b * y))
+      (fun x => (hf_cont.comp (continuous_const.add
+        (continuous_const.mul continuous_id'))).aestronglyMeasurable)
+      (fun _ => ae_of_all _ (fun y => hCf _))
+      (integrable_const _)
+      (ae_of_all _ (fun y => hf_cont.comp ((continuous_mul_left a).add continuous_const)))
+  -- Helper: 1/(n+1) → 0
+  have ht_lim : Filter.Tendsto (fun n : ℕ => (1 : ℝ) / ((n : ℝ) + 1))
+      Filter.atTop (nhds 0) := by
+    have h : Filter.Tendsto (fun n : ℕ => ((n : ℝ) + 1)) Filter.atTop Filter.atTop := by
+      apply Filter.tendsto_atTop_atTop.mpr; intro b
+      refine ⟨⌈b⌉₊, fun n hn => ?_⟩
+      have h1 : b ≤ ↑⌈b⌉₊ := Nat.le_ceil b
+      have h2 : (⌈b⌉₊ : ℝ) ≤ (n : ℝ) := Nat.cast_le.mpr hn
+      linarith
+    have := tendsto_inv_atTop_zero.comp h
+    simp only [inv_eq_one_div] at this; exact this
+  -- Helper: e^{-t_n} → 1
+  have ha_lim : Filter.Tendsto (fun n : ℕ => exp (-(1 / ((n : ℝ) + 1))))
+      Filter.atTop (nhds 1) := by
+    have := (continuous_exp.tendsto (-(0 : ℝ))).comp ht_lim.neg
+    simp only [Function.comp, neg_neg, neg_zero, exp_zero] at this; exact this
+  -- Helper: √(1-e^{-2t_n}) → 0
+  have hb_lim : Filter.Tendsto (fun n : ℕ => √(1 - exp (-2 * (1 / ((n : ℝ) + 1)))))
+      Filter.atTop (nhds 0) := by
+    have h2t := ht_lim.const_mul (-2); simp only [mul_zero] at h2t
+    have h_exp2 : Filter.Tendsto (fun n : ℕ => exp (-2 * (1 / ((n : ℝ) + 1))))
+        Filter.atTop (nhds 1) := by
+      have := (continuous_exp.tendsto (0 : ℝ)).comp h2t
+      simp only [exp_zero] at this; exact this
+    have h_sub : Filter.Tendsto (fun n : ℕ => 1 - exp (-2 * (1 / ((n : ℝ) + 1))))
+        Filter.atTop (nhds 0) := by
+      have : Filter.Tendsto (fun n : ℕ => 1 - exp (-2 * (1 / ((n : ℝ) + 1))))
+          Filter.atTop (nhds (1 - 1)) := tendsto_const_nhds.sub h_exp2
+      simp only [sub_self] at this; exact this
+    rw [show (0 : ℝ) = √0 from by simp]
+    exact (continuous_sqrt.tendsto 0).comp h_sub
+  -- Helper: pointwise convergence ouSemigroup (1/(n+1)) f x → f x
+  have hPt_pw : ∀ x, Filter.Tendsto (fun n : ℕ => ouSemigroup (1 / ((n : ℝ) + 1)) f x)
+      Filter.atTop (nhds (f x)) := by
+    intro x; simp only [ouSemigroup]
+    rw [show f x = ∫ _, f x ∂stdGaussian from by simp]
+    apply tendsto_integral_of_dominated_convergence (fun _ => ‖Cf‖)
+    · intro n; exact (hf_cont.comp (continuous_const.add
+        (continuous_const.mul continuous_id'))).aestronglyMeasurable
+    · exact integrable_const _
+    · intro n; apply ae_of_all; intro y; exact (hCf _).trans (le_abs_self _)
+    · apply ae_of_all; intro y; apply (hf_cont.tendsto _).comp
+      conv => rhs; rw [show x = 1 * x + 0 * y from by ring]
+      exact (ha_lim.mul_const x).add (hb_lim.mul_const y)
+  have htendsto : Filter.Tendsto (fun n => ∫ x, F n x ∂stdGaussian) Filter.atTop
+      (nhds (∫ x, f x ^ 2 * log (f x ^ 2) ∂stdGaussian)) := by
+    apply tendsto_integral_of_dominated_convergence (fun _ => D)
+    · -- AEStronglyMeasurable: ouSemigroup is continuous → F n is continuous → ASM
+      intro n
+      have hg_cont := hPt_cont (1 / ((n : ℝ) + 1))
+      exact ((continuous_mul_log.comp (hg_cont.pow 2)).aestronglyMeasurable)
+    · exact integrable_const D
+    · intro n; apply ae_of_all; intro x; exact hbound_sq_log _ (hPt_bound _ x)
+    · -- Pointwise: h(P_{t_n} f x) → h(f x) where h(y) = y²·log(y²)
+      apply ae_of_all; intro x
+      exact (continuous_mul_log.comp (continuous_pow 2)).continuousAt.tendsto.comp
+        (hPt_pw x)
+  exact le_of_tendsto htendsto (Filter.Eventually.of_forall hbound_Fn)
 
 /-- **Approximation lemma**: From MemLp 2 + C¹ to bounded via smooth truncation.
 Given f ∈ W^{1,2}(γ), construct f_n bounded with |f_n| ≤ |f|, f_n → f in L²,
