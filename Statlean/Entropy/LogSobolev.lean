@@ -919,6 +919,241 @@ private lemma ouSemigroup_bound_norm (f : ℝ → ℝ) (t : ℝ)
           (ae_of_all _ (fun _ => hC _))
     _ = C := by simp [measure_univ]
 
+/-- **Stein representation of OU semigroup derivative**: For bounded f with bounded f',
+    ouSemigroup t f' x = (1/b) * ∫ y * f(ax+by) dγ(y) where a=e^{-t}, b=√(1-e^{-2t}).
+    This follows from the Stein identity ∫ y*h(y) dγ = ∫ h'(y) dγ applied to
+    h(y) = f(ax+by), h'(y) = b*f'(ax+by). -/
+private lemma ouSemigroup_stein_repr (t : ℝ) (ht : 0 < t) (f f' : ℝ → ℝ)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hf_bound : ∃ C, ∀ x, ‖f x‖ ≤ C)
+    (hf'_bound : ∃ C, ∀ x, ‖f' x‖ ≤ C) (x : ℝ) :
+    ouSemigroup t f' x =
+      (1 / √(1 - exp (-2 * t))) *
+        ∫ y, y * f (exp (-t) * x + √(1 - exp (-2 * t)) * y) ∂stdGaussian := by
+  set a := exp (-t)
+  set b := √(1 - exp (-2 * t))
+  have h1me : 0 < 1 - exp (-2 * t) := by
+    have : exp (-2 * t) < 1 := by rw [exp_lt_one_iff]; linarith
+    linarith
+  have hb_pos : 0 < b := Real.sqrt_pos_of_pos h1me
+  have hb_ne : b ≠ 0 := ne_of_gt hb_pos
+  obtain ⟨Cf, hCf⟩ := hf_bound
+  obtain ⟨Cf', hCf'⟩ := hf'_bound
+  have hCf_nn : 0 ≤ Cf := le_trans (norm_nonneg _) (hCf 0)
+  -- Apply Stein identity to h(y) = f(ax + by), h'(y) = b * f'(ax + by)
+  have hslice_deriv : ∀ y, HasDerivAt (fun y => f (a * x + b * y))
+      (b * f' (a * x + b * y)) y := by
+    intro y
+    have hinner : HasDerivAt (fun u => a * x + b * u) b y := by
+      have := (hasDerivAt_id y).const_mul b
+      simp only [mul_one] at this; exact this.const_add _
+    have hcomp := (hderiv (a * x + b * y)).comp y hinner
+    simp only [mul_comm (f' _) b] at hcomp
+    exact hcomp
+  -- MemLp conditions for Stein identity
+  have hf_diff : Differentiable ℝ f := fun z => (hderiv z).differentiableAt
+  have hf_cont : Continuous f := hf_diff.continuous
+  have hslice_aesm : AEStronglyMeasurable (fun y => f (a * x + b * y)) stdGaussian :=
+    (hf_cont.comp (continuous_const.add (continuous_const.mul continuous_id'))).aestronglyMeasurable
+  have hslice_memLp : MemLp (fun y => f (a * x + b * y)) 2 stdGaussian :=
+    MemLp.mono_exponent
+      (memLp_top_of_bound hslice_aesm Cf (ae_of_all _ (fun y => hCf _)))
+      (by norm_num)
+  -- f' = deriv f, which is Measurable, hence compositions are AEStronglyMeasurable
+  have hf'_eq : f' = deriv f := funext fun z => (hderiv z).deriv.symm
+  have hf'_meas : Measurable f' := hf'_eq ▸ measurable_deriv f
+  have hslice_d_aesm : AEStronglyMeasurable (fun y => b * f' (a * x + b * y)) stdGaussian :=
+    (hf'_meas.comp (measurable_const.add (measurable_const.mul measurable_id))).aestronglyMeasurable.const_mul _
+  have hslice_d_memLp : MemLp (fun y => b * f' (a * x + b * y)) 2 stdGaussian :=
+    MemLp.mono_exponent
+      (memLp_top_of_bound hslice_d_aesm (‖b‖ * Cf') (ae_of_all _ (fun y => by
+        rw [norm_mul]; exact mul_le_mul_of_nonneg_left (hCf' _) (norm_nonneg _))))
+      (by norm_num)
+  -- Apply Stein identity: ∫ y * f(ax+by) dγ = ∫ b * f'(ax+by) dγ = b * P_t f' x
+  have hstein := stein_identity
+    (fun y => f (a * x + b * y)) (fun y => b * f' (a * x + b * y))
+    hslice_memLp hslice_d_memLp hslice_deriv
+  -- Simplify Stein result
+  simp only at hstein
+  rw [integral_const_mul] at hstein
+  -- hstein : ∫ y * f(ax+by) = b * ∫ f'(ax+by)
+  -- Goal: ouSemigroup t f' x = (1/b) * ∫ y * f(ax+by)
+  show ∫ y, f' (a * x + b * y) ∂stdGaussian =
+    1 / b * ∫ y, y * f (a * x + b * y) ∂stdGaussian
+  rw [div_mul_eq_mul_div, one_mul, eq_div_iff hb_ne]
+  linarith
+
+/-- **Second derivative of OU semigroup via Leibniz on Stein representation**:
+    For t > 0, bounded f with bounded f', the first derivative of ouSemigroup t f
+    (which is e^{-t} * ouSemigroup t f') has a derivative, i.e., ouSemigroup t f
+    is twice differentiable with bounded second derivative. -/
+private lemma ouSemigroup_hasSecondDeriv (t : ℝ) (ht : 0 < t)
+    (f f' : ℝ → ℝ)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hf_bound : ∃ C, ∀ x, ‖f x‖ ≤ C)
+    (hf'_bound : ∃ C, ∀ x, ‖f' x‖ ≤ C) :
+    ∃ g'' : ℝ → ℝ,
+      (∀ x, HasDerivAt (fun z => exp (-t) * ouSemigroup t f' z) (g'' x) x) ∧
+      (∃ B, ∀ x, ‖g'' x‖ ≤ B) := by
+  set a := exp (-t)
+  set b := √(1 - exp (-2 * t))
+  have h1me : 0 < 1 - exp (-2 * t) := by
+    have : exp (-2 * t) < 1 := by rw [exp_lt_one_iff]; linarith
+    linarith
+  have hb_pos : 0 < b := Real.sqrt_pos_of_pos h1me
+  have hb_ne : b ≠ 0 := ne_of_gt hb_pos
+  obtain ⟨Cf, hCf⟩ := hf_bound
+  obtain ⟨Cf', hCf'⟩ := hf'_bound
+  have hCf_nn : 0 ≤ Cf := le_trans (norm_nonneg _) (hCf 0)
+  have hCf'_nn : 0 ≤ Cf' := le_trans (norm_nonneg _) (hCf' 0)
+  -- Define g''(x) = (a²/b) * ∫ y * f'(ax+by) dγ(y)
+  set g'' := fun x => (a ^ 2 / b) *
+    ∫ y, y * f' (a * x + b * y) ∂stdGaussian
+  refine ⟨g'', ?_, ?_⟩
+  · -- HasDerivAt: use Stein repr to rewrite a * P_t f' z = (a/b) * ∫ y * f(az+by) dγ(y)
+    -- then apply Leibniz to get d/dx[(a/b) * ∫ y * f(az+by) dγ] = (a²/b) * ∫ y * f'(ax+by) dγ
+    intro x
+    -- Leibniz rule for ∫ y * f(ax'+by) dγ(y) in x'
+    have hleib : HasDerivAt (fun x' => ∫ y, y * f (a * x' + b * y) ∂stdGaussian)
+        (∫ y, y * (a * f' (a * x + b * y)) ∂stdGaussian) x := by
+      exact (hasDerivAt_integral_of_dominated_loc_of_deriv_le
+        (F := fun x' y => y * f (a * x' + b * y))
+        (F' := fun x' y => y * (a * f' (a * x' + b * y)))
+        (bound := fun y => ‖y‖ * (‖a‖ * Cf'))
+        (s := Set.univ)
+        (Filter.univ_mem' (fun _ => Set.mem_univ _))
+        (Filter.Eventually.of_forall fun x' => by
+          have hf_cont : Continuous f :=
+            (Differentiable.continuous (fun z => (hderiv z).differentiableAt))
+          exact (aestronglyMeasurable_id.mul
+            (hf_cont.comp (continuous_const.add (continuous_const.mul continuous_id'))).aestronglyMeasurable))
+        (by -- integrability of F x₀: y * f(ax+by) integrable
+          have hf_cont : Continuous f :=
+            (Differentiable.continuous (fun z => (hderiv z).differentiableAt))
+          exact ((memLp_id_gaussianReal' 2 (by norm_num)).integrable one_le_two).mul_bdd
+            (hf_cont.comp (continuous_const.add (continuous_const.mul continuous_id'))).aestronglyMeasurable
+            (ae_of_all _ (fun y => hCf _)))
+        (by -- ae strong measurability of F' x₀
+          have hf'_eq : f' = deriv f := funext fun z => (hderiv z).deriv.symm
+          have hf'_meas : Measurable f' := hf'_eq ▸ measurable_deriv f
+          exact aestronglyMeasurable_id.mul
+            ((hf'_meas.comp (measurable_const.add (measurable_const.mul measurable_id))).aestronglyMeasurable.const_mul a))
+        (by -- uniform bound: |y * a * f'(ax'+by)| ≤ |y| * |a| * Cf'
+          filter_upwards with y; intro x' _
+          simp only [norm_mul]
+          exact mul_le_mul_of_nonneg_left
+            (mul_le_mul_of_nonneg_left (hCf' _) (norm_nonneg _)) (norm_nonneg _))
+        (by -- bound integrable: |y| * |a| * Cf' integrable
+          exact (((memLp_id_gaussianReal' 2 (by norm_num)).integrable
+            one_le_two).norm).mul_const _)
+        (by -- pointwise HasDerivAt
+          filter_upwards with y; intro x' _
+          have hinner : HasDerivAt (fun u => a * u + b * y) a x' := by
+            have h1 : HasDerivAt (fun u => a * u) a x' := by
+              have := (hasDerivAt_id x').const_mul a; simp only [mul_one] at this; exact this
+            exact h1.add_const _
+          have hcomp := (hderiv (a * x' + b * y)).comp x' hinner
+          show HasDerivAt (fun x' => y * f (a * x' + b * y))
+              (y * (a * f' (a * x' + b * y))) x'
+          have := hcomp.const_mul y
+          convert this using 1 <;> ring)).2
+    -- Now compose: a * P_t f' z = (a/b) * ∫ y * f(az+by) dγ(y) by Stein repr
+    have hstein_z : ∀ z, a * ouSemigroup t f' z =
+        (a / b) * ∫ y, y * f (a * z + b * y) ∂stdGaussian := by
+      intro z
+      rw [ouSemigroup_stein_repr t ht f f' hderiv ⟨Cf, hCf⟩ ⟨Cf', hCf'⟩ z]
+      ring
+    have hfun_eq : (fun z => a * ouSemigroup t f' z) =
+        (fun z => (a / b) * ∫ y, y * f (a * z + b * y) ∂stdGaussian) :=
+      funext hstein_z
+    rw [hfun_eq]
+    have hscale := hleib.const_mul (a / b)
+    convert hscale using 1
+    simp only [g'']
+    rw [show a ^ 2 / b * ∫ y, y * f' (a * x + b * y) ∂stdGaussian =
+        (a / b) * (a * ∫ y, y * f' (a * x + b * y) ∂stdGaussian) from by ring]
+    congr 1
+    rw [show a * ∫ y, y * f' (a * x + b * y) ∂stdGaussian =
+        ∫ y, a * (y * f' (a * x + b * y)) ∂stdGaussian from (integral_const_mul a _).symm]
+    congr 1; ext y; ring
+  · -- Boundedness of g''
+    refine ⟨‖a ^ 2 / b‖ * (Cf' * ∫ y, ‖y‖ ∂stdGaussian), fun x => ?_⟩
+    simp only [g'', norm_mul]
+    apply mul_le_mul_of_nonneg_left _ (norm_nonneg _)
+    calc ‖∫ y, y * f' (a * x + b * y) ∂stdGaussian‖
+        ≤ ∫ y, ‖y * f' (a * x + b * y)‖ ∂stdGaussian := norm_integral_le_integral_norm _
+      _ = ∫ y, ‖y‖ * ‖f' (a * x + b * y)‖ ∂stdGaussian := by
+          congr 1; ext y; exact norm_mul _ _
+      _ ≤ ∫ y, ‖y‖ * Cf' ∂stdGaussian := by
+          apply integral_mono_of_nonneg
+            (ae_of_all _ (fun y => by positivity))
+            ((((memLp_id_gaussianReal' 2 (by norm_num)).integrable one_le_two).norm).mul_const Cf')
+            (ae_of_all _ (fun y => mul_le_mul_of_nonneg_left (hCf' _) (norm_nonneg _)))
+      _ = Cf' * ∫ y, ‖y‖ ∂stdGaussian := by rw [integral_mul_const]; ring
+
+/-- For bounded continuous f, the ouSemigroup integrand is integrable. -/
+private lemma ouSemigroup_integrable_of_bound (t : ℝ) (f : ℝ → ℝ) (hf_cont : Continuous f)
+    (C : ℝ) (hC : ∀ x, ‖f x‖ ≤ C) (x : ℝ) :
+    Integrable (fun y => f (exp (-t) * x + √(1 - exp (-2 * t)) * y)) stdGaussian :=
+  Integrable.of_bound
+    (hf_cont.comp (continuous_const.add (continuous_const.mul continuous_id'))).aestronglyMeasurable
+    C (ae_of_all _ (fun y => hC _))
+
+/-- MemLp for ouSemigroup of bounded continuous function. -/
+private lemma ouSemigroup_memLp_of_bound (t : ℝ) (f : ℝ → ℝ) (hf_cont : Continuous f)
+    (C : ℝ) (hC_nn : 0 ≤ C) (hC : ∀ x, ‖f x‖ ≤ C) :
+    MemLp (ouSemigroup t f) 2 stdGaussian := by
+  -- ouSemigroup t f x = ∫ f(e^{-t}x + √(1-e^{-2t})y) dγ(y) is measurable in x
+  -- because f is continuous, so the integrand is jointly continuous
+  have hasm : AEStronglyMeasurable (ouSemigroup t f) stdGaussian := by
+    -- f ∘ (affine map) is jointly continuous in (x,y)
+    have hF_cont : Continuous (fun p : ℝ × ℝ => f (exp (-t) * p.1 + √(1 - exp (-2 * t)) * p.2)) :=
+      hf_cont.comp ((continuous_const.mul continuous_fst).add
+        (continuous_const.mul continuous_snd))
+    -- The integral over a product-measurable function is measurable in the remaining variable
+    have hF_aesm : AEStronglyMeasurable
+        (fun p : ℝ × ℝ => f (exp (-t) * p.1 + √(1 - exp (-2 * t)) * p.2))
+        (stdGaussian.prod stdGaussian) :=
+      hF_cont.aestronglyMeasurable
+    exact hF_aesm.integral_prod_right'
+  exact MemLp.mono_exponent
+    (memLp_top_of_bound hasm C
+      (ae_of_all _ (fun x => ouSemigroup_bound_norm f t C hC_nn hC x)))
+    (by norm_num)
+
+/-- **L² contraction** of OU semigroup: ∫(P_t f)² ≤ ∫f². This follows from
+    Jensen's inequality applied pointwise: (∫ f(ax+by) dγ(y))² ≤ ∫ f(ax+by)² dγ(y),
+    then integration in x and Fubini (using integral_ouSemigroup for f²). -/
+private lemma ouSemigroup_sq_integral_le (t : ℝ) (ht : 0 ≤ t)
+    (f : ℝ → ℝ) (hf_cont : Continuous f) (hf : MemLp f 2 stdGaussian)
+    (hf_bound : ∃ C, ∀ x, ‖f x‖ ≤ C) :
+    ∫ x, (ouSemigroup t f x) ^ 2 ∂stdGaussian ≤
+      ∫ x, f x ^ 2 ∂stdGaussian := by
+  obtain ⟨C, hC⟩ := hf_bound
+  have hC_nn : 0 ≤ C := le_trans (norm_nonneg _) (hC 0)
+  -- Jensen pointwise: (P_t f x)² ≤ P_t(f²) x
+  have hpw : ∀ x, (ouSemigroup t f x) ^ 2 ≤
+      ouSemigroup t (fun y => f y ^ 2) x := by
+    intro x; simp only [ouSemigroup]
+    exact sq_integral_le_integral_sq stdGaussian _
+      (MemLp.mono_exponent
+        (memLp_top_of_bound
+          (hf_cont.comp (continuous_const.add (continuous_const.mul continuous_id'))).aestronglyMeasurable
+          C (ae_of_all _ (fun y => hC _)))
+        (by norm_num))
+  -- f² is continuous, so ouSemigroup t (f²) has good properties
+  have hf2_cont : Continuous (fun y => f y ^ 2) := hf_cont.pow 2
+  -- Integrate and use ∫ P_t(f²) = ∫ f²
+  calc ∫ x, (ouSemigroup t f x) ^ 2 ∂stdGaussian
+      ≤ ∫ x, ouSemigroup t (fun y => f y ^ 2) x ∂stdGaussian := by
+        apply integral_mono_of_nonneg (ae_of_all _ (fun x => sq_nonneg _))
+        · exact (ouSemigroup_memLp_of_bound t _ hf2_cont (C ^ 2) (sq_nonneg _)
+            (fun y => by rw [norm_pow]; exact pow_le_pow_left₀ (norm_nonneg _) (hC y) 2)
+            |>.integrable one_le_two)
+        · exact ae_of_all _ hpw
+    _ = ∫ x, f x ^ 2 ∂stdGaussian := by
+        rw [integral_ouSemigroup t ht _ (integrable_sq_of_memLp hf)]
+
 private lemma lsi_of_bounded_C1
     (f f' : ℝ → ℝ)
     (hf : MemLp f 2 stdGaussian)
@@ -930,34 +1165,26 @@ private lemma lsi_of_bounded_C1
     (hint : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) stdGaussian) :
     ∫ x, f x ^ 2 * Real.log (f x ^ 2) ∂stdGaussian ≤
       2 * ∫ x, f' x ^ 2 ∂stdGaussian := by
-  -- Strategy: For each t > 0, set g_t = P_t f (OU semigroup).
-  -- g_t is bounded C² (from ouSemigroup_hasDerivAt + C1_gives_C2 sub-lemma below).
-  -- Apply lsi_of_bounded_C2 to g_t, then take t → 0.
-  --
-  -- Sub-lemma: OU semigroup smoothing C¹ → C²
-  -- P_t(f')(x) = ∫ f'(ax+by) dγ(y) is differentiable in x for t > 0
-  -- because the Gaussian convolution smooths bounded continuous functions.
-  -- Write as kernel form: P_t(f')(x) = (1/b) ∫ f'(z) · φ((z-ax)/b) dz
-  -- Then d/dx = (a/b) ∫ f'(ax+by) · y dγ(y), bounded by (a/b)·‖f'‖_∞·E[|Z|].
-  -- Estimated effort: ~60 lines (kernel change of variables + DCT + bound).
-  --
-  -- Key properties of g_t:
-  -- 1. g_t' = e^{-t} · P_t(f'), bounded by ‖f'‖_∞ (contraction)
-  -- 2. g_t'' exists and is bounded (C1_gives_C2 sub-lemma)
-  -- 3. ‖g_t‖_∞ ≤ ‖f‖_∞ (L^∞ contraction, proved in ouSemigroup_bound_norm)
-  -- 4. g_t(x) → f(x) as t → 0 (f bounded continuous → ouSemigroup_zero)
-  -- 5. ∫(g_t')² = e^{-2t} · ∫(P_t f')² ≤ ∫f'² (contraction in L²)
-  --
-  -- Apply lsi_of_bounded_C2 to g_t / √(∫g_t²):
-  --   ∫(g_t/a_t)² · log((g_t/a_t)²) ≤ 2 · ∫(g_t'/a_t)²
-  -- where a_t = √(∫g_t²). As t → 0, a_t → 1, and the inequality converges to LSI for f.
-  --
-  -- Limit argument (DCT, bounded pointwise convergence):
-  -- - ∫g_t² → ∫f² = 1
-  -- - ∫g_t² · log(g_t²) → ∫f² · log(f²)
-  -- - ∫(g_t')² ≤ ∫f'² (L² contraction of OU semigroup)
-  --
-  -- Total estimated effort: ~140 lines (C1→C2: ~60, limit: ~80).
+  -- Strategy: For t > 0, g_t = ouSemigroup t f is C² bounded.
+  -- Set a_t² = ∫g_t² (≤ 1 by L² contraction). Normalize: h_t = g_t/a_t.
+  -- Apply lsi_of_bounded_C2 to h_t: ∫h_t²·log(h_t²) ≤ 2∫(h_t')²
+  -- Unfold: ∫g_t²·log(g_t²) - a_t²·log(a_t²) ≤ 2∫(g_t')²
+  -- Since a_t² ≤ 1, log(a_t²) ≤ 0, so -a_t²·log(a_t²) ≥ 0.
+  -- Hence ∫g_t²·log(g_t²) ≤ 2∫(g_t')² ≤ 2∫f'² (L² contraction + e^{-2t} ≤ 1).
+  -- As t → 0+, g_t → f pointwise (bounded by Cf).
+  -- DCT with bound D = Cf²·(|log(Cf²)| + 1) gives the result.
+  obtain ⟨Cf, hCf⟩ := hf_bound
+  obtain ⟨Cf', hCf'⟩ := hf'_bound
+  have hCf_nn : 0 ≤ Cf := le_trans (norm_nonneg _) (hCf 0)
+  have hCf'_nn : 0 ≤ Cf' := le_trans (norm_nonneg _) (hCf' 0)
+  have hf_cont : Continuous f := Differentiable.continuous (fun x => (hderiv x).differentiableAt)
+  -- The proof uses ouSemigroup smoothing (C¹ → C²) + normalization + DCT limit.
+  -- Infrastructure proved above:
+  --   ouSemigroup_hasSecondDeriv: P_t f is C² for t > 0
+  --   ouSemigroup_sq_integral_le: ∫(P_t f)² ≤ ∫f² (L² contraction)
+  --   ouSemigroup_bound_norm: |P_t f| ≤ ‖f‖_∞
+  -- The remaining argument (normalization + apply lsi_of_bounded_C2 + DCT) is ~100 lines
+  -- of standard but technical Lean. See comments above for the complete strategy.
   sorry
 
 /-- **Approximation lemma**: From MemLp 2 + C¹ to bounded via smooth truncation.
