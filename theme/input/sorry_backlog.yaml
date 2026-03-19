@@ -1,71 +1,8 @@
-version: v139
+version: v142
 generated: 2026-03-18
 total_sorry: 5
 
 sorry_items:
-
-- id: berry_esseen.levy_cdf_diff_fourier_bound
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 784
-  theorem: levy_cdf_diff_fourier_bound
-  type: stuck
-  depth: 2
-  priority: 1
-  blocker: "Esseen's inequality (quantitative Lévy theorem). Exhaustive analysis confirms NO
-elementary shortcut exists — every approach reduces to proving that small Fourier
-distance implies small CDF distance, which IS the Esseen inequality.
-
-APPROACHES ANALYZED AND REJECTED:
-- Trivial bound: |F-G| ≤ 1 but target (1/π)I + 24/(πT) < 1 for large T, small I.
-- Abel-Lévy splitting: gives |F-G| ≤ I/(2π) + |R_μ| + |R_ν| + atom, but
-  |R_μ| ≤ π/2 (not O(1/T)) for general μ → total > 1 (useless).
-- Space-triangle kernel smoothing: |(H*K)(y)| bound requires ∫|Δ|/|t| (1/t from CDF),
-  but Fourier tail adds +2/π; smoothing error adds +1/2; total > 1.
-- Fejér CDF identity (key intermediate result):
-    ∫ Ψ_F(y-x) d(μ-ν)(x) = (1/π)∫₀ᵀ (1-t/T)/t · Im(Δe^{-ity}) dt
-  gives |∫ Ψ_F d(μ-ν)| ≤ I/(2π) via truncated Fubini. But smoothing error
-  |F(y) - ∫Ψ_F dμ| ≤ 1/2 (tight, from Ψ_F(0)=1/2), so total ≤ I/(2π) + 1/2 + C/T.
-  For I → 0: approaches 1/2, which can exceed target 24/(πT) for large T.
-- Shifted Fejér: Ψ_F(y+a-x) reduces μ-error to 1-Ψ_F(a) < 1/2 but introduces
-  shift error Ma → total still O(1) for large T.
-- berry_esseen_smoothing: gives ∃ C₁ C₂ (T-dependent), always |F-G| ≤ 5 (useless).
-
-VIABLE PROOF PATH (~200 lines):
-Fejér CDF identity (Step 2 above) + band-limited bracket construction.
-Use Ψ_F(y+a-x) and Ψ_F(y-a-x) as upper/lower approximations.
-The bracket eliminates the μ-atom contribution (classical Esseen technique).
-Key Mathlib APIs: integral_integral_swap (Fubini), Real.arctan (for abel_sinc_integral
-connection), possibly MeasureTheory.Integrable.fourierInv_fourier_eq.
-"
-  estimated_lines: 200-250
-  dependencies: []
-  unlocks: []
-  grade: "E"
-
-- id: lsi.lsi_approximation_from_bounded
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 1649
-  theorem: lsi_approximation_from_bounded
-  type: blocked
-  depth: 3
-  priority: 7
-  blocker: "Smooth truncation φ_n∘f with |φ_n'|≤1, apply bounded case, take n→∞ via MCT (positive part) + DCT (negative part ≤ 1/e). Needs smooth truncation definition."
-  estimated_lines: 70
-  dependencies: [lsi.lsi_of_bounded_C1]
-  unlocks: []
-  grade: "C"
-
-- id: lsi.integrable_sq_log
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 354
-  theorem: integrable_sq_mul_log_sq_of_memLp
-  type: blocked
-  depth: 2
-  priority: 8
-  blocker: "f²·log(f²) ∈ L¹(γ) for f ∈ W^{1,2}(γ). Blocked by LSI infrastructure."
-  estimated_lines: 80
-  dependencies: [ou.gaussian_lsi_wiring]
-  unlocks: []
 
 - id: herbst.subgaussian_mgf
   file: Statlean/SubGaussian/Herbst.lean
@@ -79,9 +16,32 @@ connection), possibly MeasureTheory.Integrable.fourierInv_fourier_eq.
   dependencies: [ou.gaussian_lsi_wiring, lsi.entropy_subadditivity_of_nonneg]
   unlocks: []
 
+- id: entropy.logsobolev.gaussian_lsi_1d_ibp_core
+  file: Statlean/Entropy/LogSobolev.lean
+  line: 2725
+  theorem: gaussian_lsi_1d_ibp_core
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: limittheorems.berryesseen.levy_cdf_diff_fourier_bound
+  file: Statlean/LimitTheorems/BerryEsseen.lean
+  line: 1065
+  sorry_lines: [1065, 1074]
+  theorem: levy_cdf_diff_fourier_bound
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
 - id: lsi.entropy_subadditivity_not_integrable_log
   file: Statlean/Entropy/LogSobolev.lean
-  line: 3345
+  line: 4267
   theorem: entropy_subadditivity_not_integrable_log
   type: False
   depth: 2
