@@ -4949,6 +4949,109 @@ private lemma integral_condEntropyAt_le {n : ℕ}
     rw [integral_undef hint]
     exact integral_nonneg (fun x => mul_nonneg hc (integral_nonneg (fun t => sq_nonneg _)))
 
+/-- Soft truncation: φ_M(s) = M·s/√(M²+s²).
+    Properties: |φ_M(s)| ≤ M, |φ_M(s)| ≤ |s|, φ_M'(s) = M³/(M²+s²)^{3/2} ∈ (0,1],
+    φ_M → id as M → ∞. Used to prove integrability of f²·log(f²). -/
+private noncomputable def softTrunc (M : ℝ) (s : ℝ) : ℝ :=
+  M * s / Real.sqrt (M ^ 2 + s ^ 2)
+
+/-- The derivative of softTrunc M at s when M > 0. -/
+private lemma hasDerivAt_softTrunc {M : ℝ} (hM : 0 < M) (s : ℝ) :
+    HasDerivAt (softTrunc M) (M ^ 3 / (M ^ 2 + s ^ 2) ^ (3/2 : ℝ)) s := by
+  sorry -- TODO: chain rule with sqrt; will be filled in next iteration
+
+private lemma softTrunc_le_abs {M : ℝ} (hM : 0 < M) (s : ℝ) :
+    |softTrunc M s| ≤ |s| := by
+  unfold softTrunc
+  have hpos : 0 < M ^ 2 + s ^ 2 := by positivity
+  have hsqrt_pos : 0 < Real.sqrt (M ^ 2 + s ^ 2) := Real.sqrt_pos_of_pos hpos
+  rw [abs_div, abs_mul, abs_of_pos hM, abs_of_nonneg hsqrt_pos.le]
+  rw [div_le_iff₀ hsqrt_pos]
+  calc M * |s| ≤ Real.sqrt (M ^ 2 + s ^ 2) * |s| := by
+        apply mul_le_mul_of_nonneg_right _ (abs_nonneg _)
+        calc M = Real.sqrt (M ^ 2) := (Real.sqrt_sq hM.le).symm
+          _ ≤ Real.sqrt (M ^ 2 + s ^ 2) :=
+            Real.sqrt_le_sqrt (le_add_of_nonneg_right (sq_nonneg _))
+    _ = |s| * Real.sqrt (M ^ 2 + s ^ 2) := by ring
+
+private lemma softTrunc_le_M {M : ℝ} (hM : 0 < M) (s : ℝ) :
+    |softTrunc M s| ≤ M := by
+  unfold softTrunc
+  have hpos : 0 < M ^ 2 + s ^ 2 := by positivity
+  have hsqrt_pos : 0 < Real.sqrt (M ^ 2 + s ^ 2) := Real.sqrt_pos_of_pos hpos
+  rw [abs_div, abs_mul, abs_of_pos hM, abs_of_nonneg hsqrt_pos.le]
+  rw [div_le_iff₀ hsqrt_pos]
+  calc M * |s| ≤ M * Real.sqrt (M ^ 2 + s ^ 2) := by
+        apply mul_le_mul_of_nonneg_left _ hM.le
+        calc |s| = Real.sqrt (|s| ^ 2) := (Real.sqrt_sq (abs_nonneg s)).symm
+          _ = Real.sqrt (s ^ 2) := by rw [sq_abs]
+          _ ≤ Real.sqrt (M ^ 2 + s ^ 2) :=
+            Real.sqrt_le_sqrt (le_add_of_nonneg_left (sq_nonneg M))
+    _ = M * Real.sqrt (M ^ 2 + s ^ 2) := by ring
+
+private lemma softTrunc_sq_le {M : ℝ} (hM : 0 < M) (s : ℝ) :
+    softTrunc M s ^ 2 ≤ s ^ 2 := by
+  have := softTrunc_le_abs hM s
+  calc softTrunc M s ^ 2 = |softTrunc M s| ^ 2 := (sq_abs _).symm
+    _ ≤ |s| ^ 2 := pow_le_pow_left₀ (abs_nonneg _) this 2
+    _ = s ^ 2 := sq_abs s
+
+private lemma softTrunc_deriv_le_one {M : ℝ} (hM : 0 < M) (s : ℝ) :
+    M ^ 3 / (M ^ 2 + s ^ 2) ^ (3/2 : ℝ) ≤ 1 := by
+  sorry -- TODO: M³ ≤ (M²+s²)^{3/2}
+
+private lemma softTrunc_tendsto (s : ℝ) :
+    Filter.Tendsto (fun M : ℕ => softTrunc (M : ℝ) s) Filter.atTop (nhds s) := by
+  sorry -- TODO: M·s/√(M²+s²) → s as M → ∞
+
+/-- Integrability of f²·log(f²) under the hypotheses of tensorization LSI.
+    Uses soft truncation g_M = φ_M ∘ f, applies the integrable case entropy bound
+    to g_M, and concludes by monotone convergence. -/
+private lemma integrable_sq_mul_log_of_C1_L2 (n : ℕ)
+    (f : (Fin n → ℝ) → ℝ) (gradf : Fin n → (Fin n → ℝ) → ℝ)
+    (hf : MemLp f 2 (stdGaussianPi n))
+    (hgradf : ∀ i, MemLp (gradf i) 2 (stdGaussianPi n))
+    (hgrad : ∀ x i, HasDerivAt (fun t => f (Function.update x i t)) (gradf i x) (x i))
+    (hgrad_cont : ∀ x i, Continuous (fun t => gradf i (Function.update x i t)))
+    (hA_lt : ∫ x, f x ^ 2 ∂(stdGaussianPi n) < 1) :
+    Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) (stdGaussianPi n) := by
+  -- Strategy: soft truncation g_M = softTrunc M ∘ f (bounded, |g_M| ≤ |f|, g_M → f).
+  -- Apply integrable-case entropy bound to g_M: entropyPi(g_M²) ≤ c·∑∫(∂_i g_M)² ≤ c·∑∫(gradf_i)²
+  -- Since ∫g_M² < 1: ∫g_M²·log(g_M²) ≤ c·∑∫(gradf_i)² (uniform bound)
+  -- Monotone convergence on positive part + neg part ≤ 1/e → f²·log(f²) integrable.
+  -- Split f²·log(f²) = pos - neg. Neg part always integrable.
+  -- For pos part: max(0, g_M²·log(g_M²)) ≤ max(0, f²·log(f²)) and is uniformly bounded.
+  -- The proof uses SatisfiesLSI stdGaussian 2 (= gaussian_lsi_1d_core) rather than
+  -- the general hLSI (which may have c = 0) to get the entropy bound for g_M.
+  -- This avoids circular dependency since gaussian_lsi_1d_core is already proved.
+  set A := ∫ x, f x ^ 2 ∂(stdGaussianPi n) with hA_def
+  -- Positive part and negative part
+  set ψ_pos := fun x => max (0 : ℝ) (f x ^ 2 * Real.log (f x ^ 2))
+  set ψ_neg := fun x => max (0 : ℝ) (-(f x ^ 2 * Real.log (f x ^ 2)))
+  -- f²·log(f²) = pos - neg
+  have hdecomp : ∀ x, f x ^ 2 * Real.log (f x ^ 2) = ψ_pos x - ψ_neg x := fun x => by
+    simp only [ψ_pos, ψ_neg]
+    rcases le_or_gt 0 (f x ^ 2 * Real.log (f x ^ 2)) with h | h
+    · rw [max_eq_right h, max_eq_left (by linarith), sub_zero]
+    · rw [max_eq_left h.le, max_eq_right (by linarith), zero_sub, neg_neg]
+  -- Neg part integrable: ψ_neg ≤ 1, integrable on probability measure
+  have hψ_neg_int : Integrable ψ_neg (stdGaussianPi n) := by
+    apply Integrable.mono' (integrable_const (1 : ℝ))
+    · sorry -- AEStronglyMeasurable for ψ_neg
+    · exact ae_of_all _ fun x => by
+        simp only [ψ_neg, norm_one]
+        rw [Real.norm_of_nonneg (le_max_left 0 _)]
+        exact max_le zero_le_one (neg_mul_log_le_one (f x ^ 2) (sq_nonneg _))
+  -- It suffices to show the positive part is integrable
+  suffices hψ_pos_int : Integrable ψ_pos (stdGaussianPi n) by
+    exact (hψ_pos_int.sub hψ_neg_int).congr (ae_of_all _ fun x => (hdecomp x).symm)
+  -- Bound on positive part via soft truncation + entropy.
+  -- For M = 1, 2, 3, ..., define g_M = softTrunc M ∘ f.
+  -- max(0, g_M²·log(g_M²)) ≤ ψ_pos (monotonicity for [0,1]-scaling)
+  -- ∫ max(0, g_M²·log(g_M²)) ≤ B (uniform bound from entropy)
+  -- By monotone convergence: ∫ ψ_pos ≤ B < ∞
+  sorry
+
 /-- **Tensorization of the log-Sobolev inequality**.
 
 If `μ` satisfies `LSI(c)`, then `μ^n` satisfies the multi-dimensional LSI:
@@ -5020,18 +5123,12 @@ theorem tensorization_lsi_core (n : ℕ) (c : ℝ) (hc : 0 ≤ c) : Tensorizatio
         have : 0 ≤ A * Real.log A := mul_nonneg hA_pos.le (Real.log_nonneg hA_ge)
         linarith
       · -- 0 < A < 1: This case is vacuous.
-        -- The non-integrability of f²·log(f²) contradicts having C¹ slices with L² regularity.
-        -- Proof: each 1D slice has f,f' ∈ L²(γ) → f²·log(f²) ∈ L¹(γ) by spatial truncation
-        -- + bounded LSI + AECover (see gaussian_lsi_1d_ibp_core vacuous case).
-        -- Then Fubini gives global integrability. Formal proof requires ~300 lines of
-        -- spatial truncation infrastructure + Sobolev embedding for the Fubini bound.
+        -- Non-integrability of f²·log(f²) contradicts C¹ + L² regularity.
+        -- Strategy: product spatial truncation g_m = f · ∏_i cutoff(m, x_i),
+        -- then max(0, g_m²·log(g_m²)) ↑ max(0, f²·log(f²)) with uniform entropy bound
+        -- from 1D LSI (lsi_bdd_unnormalized) applied to each coordinate slice.
         push_neg at hA_ge
-        exfalso; exact hf_log (by
-          -- TODO: prove integrability from 1D spatial truncation + Fubini.
-          -- This requires: (1) extracting 1D integrability from gaussian_lsi_1d_ibp_core's
-          -- vacuous case, (2) a Fubini argument with quantitative bounds
-          -- (needs f ∈ L⁴(γⁿ) from Gaussian Sobolev embedding / hypercontractivity).
-          sorry)
+        exfalso; exact hf_log (integrable_sq_mul_log_of_C1_L2 n f gradf hf hgradf hgrad hgrad_cont hA_ge)
 
 theorem gaussian_log_sobolev
     (n : ℕ) (f : (Fin n → ℝ) → ℝ)
