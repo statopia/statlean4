@@ -1230,12 +1230,26 @@ is bounded by the characteristic function integral plus a density error:
 
 **Proof strategy**: The cases `24M/(πT) ≥ 1` and `I ≥ π` and `I/π + 24M/(πT) ≥ 1`
 are all handled trivially by `|cdf diff| ≤ 1`. The hard case `I/π + 24M/(πT) < 1`
-requires the sup-norm Esseen bracket argument: find a point a₀ near sup(F-G),
-build a two-sided Lipschitz interval of width Δ̄/(3M) where F-G ≥ Δ̄/2,
-then bound the Fejér-smoothed discrepancy at the midpoint using
-`cesaro_fourier_bound` (giving ≤ I/(2π)) and the Fejér kernel tail bound
-(giving O(M/T)). The resulting sup-norm bound Δ̄ ≤ I/π + 24M/(πT) implies
-the pointwise bound.
+requires the Esseen regularity argument:
+
+1. Let `Δ̄ = sup_z |F(z)-G(z)|`. Since `G` has Lipschitz CDF (density ≤ M),
+   the discrepancy satisfies `D(a₀+t) ≥ D(a₀) - Mt` for `t ≥ 0`.
+2. Choose `a₀` near the supremum where `D(a₀) ≈ Δ̄`.
+3. `D` stays ≥ `Δ̄/2` on `[a₀, a₀ + Δ̄/(2M)]`.
+4. Smooth `D` against a **Schwartz-class kernel** `φ` with Fourier transform
+   compactly supported on `[-T, T]`:
+   `Δ_φ(a₀+c/2) = ∫ D(a₀+c/2+y) φ(y) dy`
+5. **Lower bound**: Since `D ≥ Δ̄/2` on the interval of width `c = Δ̄/(2M)` and
+   the Schwartz tails `∫_{|y|>c/2} φ ≤ C_φ/(c T)` are rapidly decaying:
+   `Δ_φ ≥ Δ̄/2 - O(M/T)`.
+6. **Upper bound**: From the Fourier connection (Fubini + compact frequency support):
+   `|Δ_φ| ≤ (1/(2π)) ∫_{-T}^T ‖Δ̂(t)‖/|t| dt = I/(2π)`.
+7. Combining: `Δ̄ ≤ I/π + C·M/T` with `C = 24`.
+
+**Note**: The hard case requires a Schwartz kernel with compact frequency support.
+The Fejér kernel `K_F(x) = 2sin²(Tx/2)/(πTx²)` has compact frequency support
+but only `O(1/x²)` spatial decay, yielding `O(√(M/T))` (insufficient for
+Berry-Esseen). The Schwartz kernel construction is deferred.
 -/
 private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
@@ -1277,14 +1291,17 @@ private lemma esseen_smoothing_ineq
       · exact hcdf.trans hsum
       · push_neg at hsum
         -- Hard case: I/π + 24M/(πT) < 1.
-        -- Use: |Δ(y)| ≤ sup|Δ| and sup|Δ| ≤ I/π + 24M/(πT).
-        -- The sup-norm bound follows the Esseen (1945) bracket approach:
-        -- Find a₀ near the supremum, build a Lipschitz interval where Δ≥Δ̄/2,
-        -- then use the Fejér-smoothed Δ (bounded by I/(2π) from cesaro_fourier_bound)
-        -- at the midpoint of the interval.
-        -- This is the heart of the Fourier-analytic smoothing inequality.
-        -- The proof requires: (1) DCT limit of cesaro_fourier_bound,
-        -- (2) Fejér kernel positivity (Ψ ∈ [0,1]), (3) Fejér tail bound.
+        -- BLOCKER: Requires Schwartz-class kernel with compact frequency support.
+        -- The Fejér bracket (cesaro_fourier_bound + Fejér CDF tail bound) gives
+        --   |D| ≤ I/(2π) + 2hM + 4/(πhT) = I/(2π) + O(√(M/T))
+        -- which is insufficient (Berry-Esseen needs O(M/T)).
+        -- The O(M/T) bound requires the Esseen regularity argument:
+        --   1. D stays ≥ D(y)/2 on interval [y, y + D(y)/(2M)] (Lipschitz of G)
+        --   2. Smooth D against Schwartz kernel φ with φ̂ supported on [-T,T]
+        --   3. The rapid tail decay ∫_{|u|>R} φ ≤ C/R^k gives O(M/T) error
+        --   4. The Fourier connection gives |smoothed D| ≤ I/(2π)
+        -- Schwartz function construction in Lean deferred to future work.
+        -- Reference: arxiv.org/html/2602.06234 Theorem 3.3 (Esseen 1945).
         sorry
 
 /-- **Esseen's Fourier-analytic CDF bound.**
