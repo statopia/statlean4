@@ -1228,19 +1228,14 @@ is bounded by the characteristic function integral plus a density error:
 
   `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24M/(πT)`
 
-**Proof strategy**: Fejér bracket approach via de la Vallée-Poussin kernel.
-The Fejér CDF `Ψ(u) = 1/2 + (1/π) C(uT)` (where `C` is the Cesàro mean of Si)
-satisfies `Ψ ∈ [0,1]`, `1-Ψ(a) ≤ 4/(πaT)`, and the bracket inequality
-`H(u) ≤ Ψ(u+a) + (1-Ψ(a))` where `H = 1_{[0,∞)}`.
-
-Combined with the Fourier identity (from `cesaro_fubini_truncated` + limit):
-  `|E_μ[Ψ(y-X)] - E_ν[Ψ(y-X)]| ≤ I/(2π)`
-and the density bound `E_ν[Ψ(y+a-X) - Ψ(y-a-X)] ≤ 2aM`:
-  `|F-G| ≤ I/(2π) + 2aM + 8/(πaT)`
-
-Choosing `a = 12/(πMT)` gives `2aM + 8/(πaT) = 24/(πT) + 2M/3`.
-For the full proof, the Gil-Pelaez conditional convergence argument is needed
-to remove the constant and achieve the `O(M/T)` rate.
+**Proof strategy**: The cases `24M/(πT) ≥ 1` and `I ≥ π` and `I/π + 24M/(πT) ≥ 1`
+are all handled trivially by `|cdf diff| ≤ 1`. The hard case `I/π + 24M/(πT) < 1`
+requires the sup-norm Esseen bracket argument: find a point a₀ near sup(F-G),
+build a two-sided Lipschitz interval of width Δ̄/(3M) where F-G ≥ Δ̄/2,
+then bound the Fejér-smoothed discrepancy at the midpoint using
+`cesaro_fourier_bound` (giving ≤ I/(2π)) and the Fejér kernel tail bound
+(giving O(M/T)). The resulting sup-norm bound Δ̄ ≤ I/π + 24M/(πT) implies
+the pointwise bound.
 -/
 private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
@@ -1251,7 +1246,46 @@ private lemma esseen_smoothing_ineq
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
       24 * M / (Real.pi * T) := by
-  sorry
+  -- Use berry_esseen_smoothing which proves ∃ C₁ C₂ with universal structure
+  -- We need specific constants 1/π and 24M/(πT). The proof proceeds by
+  -- case analysis + the sup-norm Fejér bracket argument.
+  have hI_nn := charFun_integral_nonneg μ ν T
+  have hcdf := abs_cdf_sub_le_one μ ν y
+  have hpi := Real.pi_pos
+  -- Case 1: If 24M/(πT) ≥ 1, the trivial bound |cdf diff| ≤ 1 ≤ RHS.
+  by_cases hcase : 1 ≤ 24 * M / (Real.pi * T)
+  · calc |cdf μ y - cdf ν y| ≤ 1 := hcdf
+      _ ≤ 24 * M / (Real.pi * T) := hcase
+      _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
+            ‖charFun μ t - charFun ν t‖ / |t|) +
+          24 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
+  · push_neg at hcase
+    -- Case 2: 24M/(πT) < 1, so T > 24M/π.
+    -- If I ≥ π, then I/π ≥ 1 ≥ |cdf diff|.
+    by_cases hI_large : Real.pi ≤ ∫ t in Set.Icc (-T) T,
+        ‖charFun μ t - charFun ν t‖ / |t|
+    · calc |cdf μ y - cdf ν y| ≤ 1 := hcdf
+        _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
+              ‖charFun μ t - charFun ν t‖ / |t|) := by
+            rw [div_mul_eq_mul_div, one_mul, le_div_iff₀ hpi]; linarith
+        _ ≤ _ := le_add_of_nonneg_right (by positivity)
+    · push_neg at hI_large
+      -- Case 3: I < π and 24M/(πT) < 1.
+      -- If I/π + 24M/(πT) ≥ 1: trivial.
+      set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t|
+      by_cases hsum : 1 ≤ 1 / Real.pi * I + 24 * M / (Real.pi * T)
+      · exact hcdf.trans hsum
+      · push_neg at hsum
+        -- Hard case: I/π + 24M/(πT) < 1.
+        -- Use: |Δ(y)| ≤ sup|Δ| and sup|Δ| ≤ I/π + 24M/(πT).
+        -- The sup-norm bound follows the Esseen (1945) bracket approach:
+        -- Find a₀ near the supremum, build a Lipschitz interval where Δ≥Δ̄/2,
+        -- then use the Fejér-smoothed Δ (bounded by I/(2π) from cesaro_fourier_bound)
+        -- at the midpoint of the interval.
+        -- This is the heart of the Fourier-analytic smoothing inequality.
+        -- The proof requires: (1) DCT limit of cesaro_fourier_bound,
+        -- (2) Fejér kernel positivity (Ψ ∈ [0,1]), (3) Fejér tail bound.
+        sorry
 
 /-- **Esseen's Fourier-analytic CDF bound.**
 
