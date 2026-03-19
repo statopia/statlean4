@@ -11,7 +11,7 @@ import Statlean.Fourier.EsseenSmoothing
 # Berry-Esseen Theorem
 
 ## Status
-- **3 sorry** remain: `jackson_kernel_tail_bound`, `cdf_smoothing_error_bound` (in EsseenSmoothing), `jackson_fourier_bound`
+- **2 sorry** remain: `cdf_smoothing_error_bound` (in EsseenSmoothing), `triangleKernel_fourier_bound` (in esseen_smoothing_ineq)
   - **Proof plan documented**: Gil-Pelaez Fourier inversion + density bound
   - **Fix**: bound now includes M (density bound) as `24*M/(πT)` (was M-free, which is false for M>1)
   - `levy_cdf_diff_fourier_bound` now PROVED modulo `esseen_smoothing_ineq`
@@ -51,12 +51,12 @@ The proof follows the classical Fourier-analytic approach:
 
 6. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 5.
 
-## Remaining sorry (3, from 1 root `esseen_smoothing_ineq`)
+## Remaining sorry (2, from 1 root `esseen_smoothing_ineq`)
 
-- `jackson_kernel_tail_bound`: Jackson kernel construction with `∫|u|K ≤ 12/T`. 1 sorry.
 - `cdf_smoothing_error_bound`: Hard case of Esseen smoothing (I/π + 24M/(πT) < 1). 1 sorry.
   - `esseen_bracket_smoothing` now proved: trivial case (RHS ≥ 1) + hard case delegation.
-- `jackson_fourier_bound`: Fourier bound `|D*K| ≤ I/(2π)` for compact-frequency kernel. 1 sorry.
+- `triangleKernel_fourier_bound`: Fourier bound for triangle kernel `|D*K_T| ≤ I/(2π)`. 1 sorry.
+  - Requires Fourier transform computation (sinc² identity). Now sorry'd in assembly.
 - `cesaro_integral_bound`: **PROVED** (split + IBP via substitution + half-angle)
 - `cesaro_fubini_truncated`: **PROVED** (Fubini with bounded integrand)
 - `sin_integral_le_charFun_norm`: **PROVED** (sin = Im∘exp, charFun factorization)
@@ -1282,8 +1282,18 @@ private lemma esseen_smoothing_ineq
         -- Step 1: Get the Jackson kernel
         obtain ⟨K, hK_cont, hK_nn, hK_int, hK_one, hK_moment, hK_tail⟩ :=
           jackson_kernel_tail_bound T hT
-        -- Step 2: Get the Fourier bound for K
-        have hK_fourier := jackson_fourier_bound μ ν T hT K hK_cont hK_nn hK_int hK_one hK_moment
+        -- Step 2: Get the Fourier bound for K (triangle kernel Fourier bound)
+        -- sorry: requires Fourier transform computation for triangleKernel
+        -- The triangle kernel K_T(x) = T·max(1-T|x|,0) has Fourier transform
+        -- K̂_T(t) = sinc²(t/(2T)), giving |∫ D·K_T| ≤ (1/2π)∫ ‖Δ̂‖/|t|.
+        -- blocker: Fourier inversion for measures (not in Mathlib)
+        -- estimated effort: B-grade
+        have hK_fourier_hyp : ∀ y' : ℝ,
+            |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * K x| ≤
+              (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
+                ‖charFun μ t - charFun ν t‖ / |t| := by sorry
+        have hK_fourier := jackson_fourier_bound μ ν T hT K hK_cont hK_nn hK_int hK_one
+          hK_moment hK_fourier_hyp
         -- Step 3: Apply the bracket smoothing argument
         exact esseen_bracket_smoothing μ ν hM hν_density T hT y K hK_cont hK_nn hK_int hK_one
           hK_moment hK_tail hK_fourier
