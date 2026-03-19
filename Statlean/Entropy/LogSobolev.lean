@@ -32,37 +32,21 @@ import Mathlib.MeasureTheory.Measure.Prod
   `mul_log_superadditive` (pointwise), `le_of_forall_pos_lt_add` (limit),
   and continuity of t·log(t) at 0.
 
-## Sorry gaps (1 sorry line in this file — was 4, replaced FALSE sorry with honest integrability sorry)
+## Sorry gaps (1 sorry line in this file — was 4)
 
-### LSI bridge (3 sorry declarations, was 1 monolithic)
-The C² bounded ae-positive case is PROVED via `lsi_of_bounded_C2_ae_pos`
-(wrapper around `gaussian_lsi_normalized_from_ou`). The remaining gap is
-the approximation argument bridging from general MemLp 2 + C¹:
+### Tensorization integrability gap (the ONLY remaining sorry)
+Location: `tensorization_lsi_core`, non-integrable case with 0 < ∫f² < 1.
+This case is mathematically vacuous: C¹ slices with L² regularity always have
+f²·log(f²) ∈ L¹(γ) by spatial truncation + bounded LSI + AECover.
+The n-dim integrability requires either:
+  (a) Extract 1D integrability (~300 lines) + Fubini with f ∈ L⁴(γⁿ) bound, or
+  (b) Formalize Gaussian hypercontractivity (Nelson's theorem) for L² → L⁴.
+**Effort estimate**: ~400 lines (1D extraction: 300 + Fubini: 100).
 
-- `lsi_of_bounded_C2` — removes ae-positivity from C² bounded case.
-  **ε→0 limit PROVED** via `mul_log_superadditive` + `le_of_forall_pos_lt_add`.
-  **Remaining sorry**: the ε-regularized bound (substitute h = √(f²+ε)/√(1+ε),
-  apply `lsi_of_bounded_C2_ae_pos` to h, transform back).
-  **Effort**: ~80 lines (HasDerivAt for h and h', boundedness, normalization, algebra).
-
-- `lsi_of_bounded_C1` — bridges from C¹ to C² via OU smoothing.
-  **Strategy**: For t > 0, P_t f is C² because Gaussian convolution smooths
-  bounded continuous f' to differentiable P_t(f'). Key sub-lemma:
-  d/dx P_t(f')(x) = (e^{-t}/b) ∫ f'(ax+by)·y dγ(y) exists by DCT on kernel.
-  Apply `lsi_of_bounded_C2` to P_t f, take t → 0.
-  **New infrastructure**: `ouSemigroup_bound_norm` (L^∞ contraction, proved).
-  **Effort**: ~140 lines (C1→C2 sub-lemma: ~60 + limit argument: ~80).
-
-- `lsi_approximation_from_bounded` — general W^{1,2}(γ) → bounded via truncation.
-  Uses `exists_bounded_C1_approx` which constructs g_n = f · smoothCutoff_n (spatial Hermite
-  cubic cutoff). Proved: pointwise domination, boundedness, entropy integrability, MemLp.
-  **Remaining sorry** (inside `exists_bounded_C1_approx`): HasDerivAt for smoothCutoff·f,
-  g_n' boundedness + MemLp, energy convergence, positive L² norm, entropy convergence.
-  **Effort**: ~100 lines (piecewise HasDerivAt for smoothCutoff + DCT arguments).
-
-### Other sorry gaps
-- `integrable_sq_mul_log_of_memLp` — f²·log(f²) integrability for f ∈ MemLp 2
-  **Blocker**: Needs either MemLp 4 bound or 1D IBP argument + Fubini
+### Previously closed sorry gaps (for reference)
+- `lsi_of_bounded_C2` ε→0 limit — PROVED via `mul_log_superadditive`
+- `gaussian_lsi_1d_ibp_core` vacuous case — PROVED (spatial truncation + AECover)
+- All 3 LSI bridge sorry declarations — PROVED (Bakry-Emery + OU semigroup)
 
 ## Proof architecture for `gaussian_lsi_normalized` (RESTRUCTURED)
 
@@ -4978,8 +4962,14 @@ If `μ` satisfies `LSI(c)`, then `μ^n` satisfies the multi-dimensional LSI:
 3. **Fubini rewrite** (`integral_condExpect_eq_integral_pi`, proved):
    `∫ (∫ (∂_i f(update x i t))² dμ(t)) d(μ^n)(x) = ∫ (∂_i f)² d(μ^n)`
 
-**Sorry count**: 1 (`hf_log`: f²·log(f²) integrability, provable from 1D IBP + Fubini).
-Note: `integral_condEntropyAt_le` handles the non-integrable case via `integral_undef`.
+**Sorry count**: 1 (vacuous case: 0 < A < 1 with f²·log(f²) not integrable).
+The proof case-splits on integrability of f²·log(f²):
+- **Integrable**: entropy subadditivity → 1D LSI per slice → Fubini rewrite. ✓
+- **Non-integrable, A=0 or A≥1**: entropyPi = -A·log(A) ≤ 0 ≤ RHS. ✓
+- **Non-integrable, 0<A<1**: vacuous (contradiction with C¹ + L² regularity).
+  Closing this sorry requires: (1) 1D integrability lemma (~300 lines, extracting
+  from `gaussian_lsi_1d_ibp_core`'s vacuous case), (2) Fubini with quantitative
+  bounds (needs f ∈ L⁴(γⁿ) from Gaussian Sobolev / hypercontractivity).
 
 **Proved** (zero sorry):
 - `integral_condExpect_eq_integral_pi` — Fubini identity
@@ -4987,25 +4977,61 @@ Note: `integral_condEntropyAt_le` handles the non-integrable case via `integral_
 - `integral_condEntropyAt_le` — integral monotonicity (case-splits on integrability) -/
 theorem tensorization_lsi_core (n : ℕ) (c : ℝ) (hc : 0 ≤ c) : TensorizationLSIAt n c := by
   intro hLSI f gradf hf hgradf hgrad hgrad_cont
-  -- f²·log(f²) integrability: honest sorry, provable from 1D IBP + Fubini
-  -- (each 1D slice has f ∈ L²(γ) and f' ∈ L²(γ) → f²·log(f²) ∈ L¹(γ) by IBP core)
-  have hf_log : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) (stdGaussianPi n) := by
-    sorry
-  calc entropyPi (stdGaussianPi n) (fun x => f x ^ 2)
-      ≤ ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
-          ∂(stdGaussianPi n) :=
-        entropy_subadditivity_pi f hf hf_log
-    _ ≤ ∑ i : Fin n, ∫ x,
-          (c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
-          ∂(stdGaussianPi n) := by
-        apply Finset.sum_le_sum; intro i _
-        exact integral_condEntropyAt_le c hc hLSI f gradf hf hgradf hgrad hgrad_cont i
-    _ = c * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
-        simp_rw [integral_const_mul]
-        rw [← Finset.mul_sum]
-        congr 1; congr 1 with i
-        exact integral_condExpect_eq_integral_pi (fun x => (gradf i x) ^ 2)
-          (hgradf i).integrable_sq i
+  -- Case split on integrability of f²·log(f²)
+  by_cases hf_log : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) (stdGaussianPi n)
+  · -- **Integrable case**: use entropy subadditivity + 1D LSI per slice + Fubini
+    calc entropyPi (stdGaussianPi n) (fun x => f x ^ 2)
+        ≤ ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
+            ∂(stdGaussianPi n) :=
+          entropy_subadditivity_pi f hf hf_log
+      _ ≤ ∑ i : Fin n, ∫ x,
+            (c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
+            ∂(stdGaussianPi n) := by
+          apply Finset.sum_le_sum; intro i _
+          exact integral_condEntropyAt_le c hc hLSI f gradf hf hgradf hgrad hgrad_cont i
+      _ = c * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) := by
+          simp_rw [integral_const_mul]
+          rw [← Finset.mul_sum]
+          congr 1; congr 1 with i
+          exact integral_condExpect_eq_integral_pi (fun x => (gradf i x) ^ 2)
+            (hgradf i).integrable_sq i
+  · -- **Non-integrable case**: entropyPi = -A·log(A) where A = ∫f²
+    -- When f²·log(f²) ∉ L¹, Lean's integral_undef gives ∫f²·log(f²) = 0
+    set A := ∫ x, f x ^ 2 ∂(stdGaussianPi n) with hA_def
+    have hA_nn : 0 ≤ A := integral_nonneg (fun _ => sq_nonneg _)
+    have hent_eq : entropyPi (stdGaussianPi n) (fun x => f x ^ 2) = -(A * Real.log A) := by
+      unfold entropyPi
+      rw [show (fun x => (fun x => f x ^ 2) x * Real.log ((fun x => f x ^ 2) x)) =
+        (fun x => f x ^ 2 * Real.log (f x ^ 2)) from rfl]
+      rw [integral_undef hf_log]
+      rw [show ∫ x, (fun x => f x ^ 2) x ∂(stdGaussianPi n) = A from hA_def.symm]
+      ring
+    rw [hent_eq]
+    -- RHS is nonneg
+    have hRHS_nn : 0 ≤ c * ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi n) :=
+      mul_nonneg hc (Finset.sum_nonneg fun i _ => integral_nonneg fun _ => sq_nonneg _)
+    -- Case split on A
+    by_cases hA_zero : A = 0
+    · -- A = 0: -0·log(0) = 0 ≤ RHS
+      simp only [hA_zero, mul_zero, Real.log_zero, neg_zero]; exact hRHS_nn
+    · have hA_pos : 0 < A := lt_of_le_of_ne hA_nn (Ne.symm hA_zero)
+      by_cases hA_ge : 1 ≤ A
+      · -- A ≥ 1: log(A) ≥ 0, so A·log(A) ≥ 0, so -A·log(A) ≤ 0 ≤ RHS
+        have : 0 ≤ A * Real.log A := mul_nonneg hA_pos.le (Real.log_nonneg hA_ge)
+        linarith
+      · -- 0 < A < 1: This case is vacuous.
+        -- The non-integrability of f²·log(f²) contradicts having C¹ slices with L² regularity.
+        -- Proof: each 1D slice has f,f' ∈ L²(γ) → f²·log(f²) ∈ L¹(γ) by spatial truncation
+        -- + bounded LSI + AECover (see gaussian_lsi_1d_ibp_core vacuous case).
+        -- Then Fubini gives global integrability. Formal proof requires ~300 lines of
+        -- spatial truncation infrastructure + Sobolev embedding for the Fubini bound.
+        push_neg at hA_ge
+        exfalso; exact hf_log (by
+          -- TODO: prove integrability from 1D spatial truncation + Fubini.
+          -- This requires: (1) extracting 1D integrability from gaussian_lsi_1d_ibp_core's
+          -- vacuous case, (2) a Fubini argument with quantitative bounds
+          -- (needs f ∈ L⁴(γⁿ) from Gaussian Sobolev embedding / hypercontractivity).
+          sorry)
 
 theorem gaussian_log_sobolev
     (n : ℕ) (f : (Fin n → ℝ) → ℝ)
