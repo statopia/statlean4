@@ -13,7 +13,7 @@ import Statlean.CharFun.Taylor
   - **Fix**: bound now includes M (density bound) as `24*M/(πT)` (was M-free, which is false for M>1)
   - `levy_cdf_diff_fourier_bound` now PROVED modulo `esseen_smoothing_ineq`
   - Sub-lemmas: `cesaro_integral_bound` PROVED, `cesaro_fubini_truncated` PROVED,
-    `cesaro_fourier_bound` partially proved (2 sorry: integrability plumbing + charFun symmetry)
+    `cesaro_fourier_bound` PROVED (zero sorry, added IntegrableOn hypothesis)
   - `sin_integral_le_charFun_norm` PROVED (charFun Im bound via exp factorization)
 - `abel_sinc_integral` PROVED (zero sorry, Leibniz rule + ODE uniqueness)
 - `esseen_fourier_cdf_bound` PROVED from `levy_cdf_diff_fourier_bound`
@@ -48,10 +48,9 @@ The proof follows the classical Fourier-analytic approach:
 
 6. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 5.
 
-## Remaining sorry (1 root + 2 in cesaro_fourier_bound)
+## Remaining sorry (1 root)
 
 - `esseen_smoothing_ineq`: Esseen's smoothing inequality (Esseen 1945). 1 sorry.
-- `cesaro_fourier_bound`: 2 sorry (integrability plumbing + charFun symmetry)
 - `cesaro_integral_bound`: **PROVED** (split + IBP via substitution + half-angle)
 - `cesaro_fubini_truncated`: **PROVED** (Fubini with bounded integrand)
 - `sin_integral_le_charFun_norm`: **PROVED** (sin = Im∘exp, charFun factorization)
@@ -1106,6 +1105,18 @@ private lemma sin_integral_le_charFun_norm (μ ν : Measure ℝ) [IsProbabilityM
     _ = ‖charFun μ t - charFun ν t‖ := by
         rw [norm_mul, Complex.norm_exp_ofReal_mul_I, one_mul]
 
+/-- Substitution: ∫_{[-b,-a]} f(t) dt = ∫_{[a,b]} f(-t) dt for Lebesgue measure. -/
+private lemma setIntegral_neg_Icc (f : ℝ → ℝ) (a b : ℝ) :
+    ∫ t in Set.Icc (-b) (-a), f t = ∫ t in Set.Icc a b, f (-t) := by
+  rw [← integral_indicator measurableSet_Icc, ← integral_indicator measurableSet_Icc]
+  rw [← integral_neg_eq_self (fun t => (Set.Icc a b).indicator (fun u => f (-u)) t)]
+  congr 1; ext t; simp only [Set.indicator]
+  split_ifs with h1 h2 h2
+  · simp [neg_neg]
+  · exfalso; apply h2; constructor <;> simp at h1 ⊢ <;> linarith [h1.1, h1.2]
+  · exfalso; apply h1; constructor <;> simp at h2 ⊢ <;> linarith [h2.1, h2.2]
+  · rfl
+
 /-- **Cesàro Fourier bound.**
 The Cesàro-averaged Fourier difference `(1/π)∫₀ᵀ (1-t/T) Im(Δ̂(t) e^{-iyt})/t dt`
 is bounded by `I/(2π)` in absolute value, where `I = ∫_{-T}^T ‖Δ̂(t)‖/|t| dt`.
@@ -1113,45 +1124,92 @@ is bounded by `I/(2π)` in absolute value, where `I = ∫_{-T}^T ‖Δ̂(t)‖/|
 This uses `(1-t/T) ≤ 1` and `|Im(Δ̂ e^{-iyt})| ≤ ‖Δ̂‖`. -/
 private lemma cesaro_fourier_bound (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
     [IsProbabilityMeasure ν]
-    (T y : ℝ) (hT : 0 < T) (δ : ℝ) (hδ : 0 < δ) (hδT : δ < T) :
+    (T y : ℝ) (hT : 0 < T) (δ : ℝ) (hδ : 0 < δ) (hδT : δ < T)
+    (hint_charfun : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
+      (Set.Icc (-T) T)) :
     |(1 / Real.pi) * ∫ t in Set.Icc δ T,
       (1 - t / T) * ((∫ x, Real.sin ((x - y) * t) ∂μ -
         ∫ x, Real.sin ((x - y) * t) ∂ν) / t)| ≤
     (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
       ‖charFun μ t - charFun ν t‖ / |t| := by
-  -- Step 1: bound the integrand
-  -- |∫_μ sin((x-y)t) - ∫_ν sin((x-y)t)| ≤ ‖charFun μ t - charFun ν t‖
-  -- because the difference = Im(exp(-iyt)(Δ(t))) and |Im(z)| ≤ ‖z‖
-  -- So |(1-t/T)(diff/t)| ≤ ‖Δ(t)‖/|t| for t ∈ [δ,T]
-  -- Step 2: |(1/π) ∫_{[δ,T]}| ≤ (1/π) ∫_{[δ,T]} ‖Δ‖/|t|
-  -- Step 3: ∫_{[δ,T]} ≤ (1/2) ∫_{[-T,T]} by symmetry ‖Δ(-t)‖ = ‖Δ(t)‖
-  -- Combine: ≤ (1/(2π)) ∫_{[-T,T]}
-
   -- Bound: |(1/π)| = 1/π (π > 0)
   have hpi : 0 < Real.pi := Real.pi_pos
   rw [abs_mul, abs_of_nonneg (by positivity)]
 
   -- Key bound: |∫_μ sin((x-y)t) - ∫_ν sin((x-y)t)| ≤ ‖charFun μ t - charFun ν t‖
-  -- Proof: ∫ sin((x-y)t) dμ = Im(exp(-iyt) · charFun μ t) (Fourier inversion),
-  -- so diff = Im(exp(-iyt) · Δ(t)), and |Im(z)| ≤ ‖z‖, ‖exp·z‖ = ‖z‖.
   have hsin_charfun_bound : ∀ t : ℝ,
       |∫ x, Real.sin ((x - y) * t) ∂μ - ∫ x, Real.sin ((x - y) * t) ∂ν| ≤
       ‖charFun μ t - charFun ν t‖ :=
     fun t => sin_integral_le_charFun_norm μ ν t y
-  -- Pointwise bound: |(1-t/T)(diff/t)| ≤ ‖Δ(t)‖/|t| for t ∈ [δ,T]
-  -- Uses: |∫ f| ≤ ∫ |f| (norm_integral), then setIntegral_mono_on with
-  -- |(1-t/T)| ≤ 1, |diff| ≤ ‖Δ(t)‖ (sin_integral_le_charFun_norm), |t| = t
+  -- Sorry 1: |(1/π) ∫_{[δ,T]} (1-t/T)(sin_diff/t)| ≤ ∫_{[δ,T]} ‖Δ(t)‖/|t|
+  -- Proof: |∫ f| ≤ ∫ ‖f‖ ≤ ∫ g by pointwise |(1-t/T)| ≤ 1 and |sin_diff| ≤ ‖Δ‖
   have habs_int : |∫ t in Set.Icc δ T,
       (1 - t / T) * ((∫ x, Real.sin ((x - y) * t) ∂μ -
         ∫ x, Real.sin ((x - y) * t) ∂ν) / t)| ≤
       ∫ t in Set.Icc δ T, ‖charFun μ t - charFun ν t‖ / |t| := by
-    sorry
-  -- Symmetry: ∫_{[δ,T]} ‖Δ‖/|t| ≤ (1/2) ∫_{[-T,T]} ‖Δ‖/|t|
-  -- because ‖Δ(-t)‖/|-t| = ‖Δ(t)‖/|t| (charFun_neg + norm_conj) and
-  -- ∫_{[-T,T]} ≥ ∫_{[-T,-δ]} + ∫_{[δ,T]} = 2∫_{[δ,T]}
+    -- IntegrableOn for ‖Δ(t)‖/|t| on [δ,T] (bounded by 2/δ since |t| ≥ δ)
+    have hint_rhs : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
+        (Set.Icc δ T) := by
+      refine integrableOn_of_bounded (M := 2 / δ) ?_ ?_ ?_
+      · rw [Real.volume_Icc]; exact ENNReal.ofReal_ne_top
+      · exact ((measurable_charFun (μ := μ).sub (measurable_charFun (μ := ν))).norm.div
+          measurable_abs).aestronglyMeasurable
+      · rw [ae_restrict_iff' measurableSet_Icc]; apply ae_of_all; intro t ht
+        rw [Real.norm_eq_abs, abs_div, abs_abs, abs_norm]
+        have ht_pos : 0 < t := lt_of_lt_of_le hδ ht.1
+        rw [abs_of_pos ht_pos]
+        calc ‖charFun μ t - charFun ν t‖ / t
+            ≤ 2 / t := div_le_div_of_nonneg_right (by
+              calc _ ≤ ‖charFun μ t‖ + ‖charFun ν t‖ := norm_sub_le _ _
+                _ ≤ 1 + 1 := add_le_add (norm_charFun_le_one t) (norm_charFun_le_one t)
+                _ = 2 := by norm_num) ht_pos.le
+          _ ≤ 2 / δ := div_le_div_of_nonneg_left (by norm_num) hδ ht.1
+    -- Main bound: ‖∫ f‖ ≤ ∫ g (pointwise ‖f(t)‖ ≤ g(t))
+    rw [← Real.norm_eq_abs]
+    exact norm_integral_le_of_norm_le hint_rhs (by
+      rw [ae_restrict_iff' measurableSet_Icc]
+      apply ae_of_all; intro t ht
+      have ht_pos : 0 < t := lt_of_lt_of_le hδ ht.1
+      rw [Real.norm_eq_abs, abs_mul, abs_div]
+      have hab : |1 - t / T| ≤ 1 := by
+        rw [abs_le]; constructor <;>
+          nlinarith [div_nonneg ht_pos.le hT.le, div_le_one₀ hT |>.mpr ht.2]
+      calc |1 - t / T| * (|∫ x, Real.sin ((x - y) * t) ∂μ -
+            ∫ x, Real.sin ((x - y) * t) ∂ν| / |t|)
+          ≤ 1 * (‖charFun μ t - charFun ν t‖ / |t|) := by
+            apply mul_le_mul hab
+              (div_le_div_of_nonneg_right (hsin_charfun_bound t) (abs_nonneg _))
+              (div_nonneg (abs_nonneg _) (abs_nonneg _)) one_pos.le
+        _ = ‖charFun μ t - charFun ν t‖ / |t| := one_mul _)
+  -- Sorry 2: ∫_{[δ,T]} ‖Δ‖/|t| ≤ (1/2) ∫_{[-T,T]} ‖Δ‖/|t|
+  -- Proof: symmetry ‖Δ(-t)‖/|-t| = ‖Δ(t)‖/|t| gives ∫_{[-T,-δ]} = ∫_{[δ,T]},
+  -- so 2∫_{[δ,T]} = ∫_{[-T,-δ]} + ∫_{[δ,T]} = ∫_{union} ≤ ∫_{[-T,T]}
   have hsymm : ∫ t in Set.Icc δ T, ‖charFun μ t - charFun ν t‖ / |t| ≤
       (1/2) * ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| := by
-    sorry
+    set Φ := fun t : ℝ => ‖charFun μ t - charFun ν t‖ / |t| with hΦ_def
+    have hΦ_even : ∀ t, Φ (-t) = Φ t := by
+      intro t; simp only [hΦ_def, charFun_neg, charFun_neg, ← map_sub (starRingEnd ℂ),
+        RCLike.norm_conj, abs_neg]
+    have hsym : ∫ t in Set.Icc (-T) (-δ), Φ t = ∫ t in Set.Icc δ T, Φ t := by
+      rw [setIntegral_neg_Icc]; congr 1; ext t; exact hΦ_even t
+    have hΦ_nn : ∀ t, 0 ≤ Φ t := fun t => div_nonneg (norm_nonneg _) (abs_nonneg _)
+    have hdisjoint : Disjoint (Set.Icc (-T) (-δ)) (Set.Icc δ T) := by
+      rw [Set.disjoint_iff]; intro t ⟨h1, h2⟩; linarith [h1.2, h2.1]
+    have hsubset : Set.Icc (-T) (-δ) ∪ Set.Icc δ T ⊆ Set.Icc (-T) T := by
+      intro t ht; rcases ht with h | h
+      · exact ⟨h.1, le_trans h.2 (by linarith)⟩
+      · exact ⟨le_trans (by linarith) h.1, h.2⟩
+    have hint_left : IntegrableOn Φ (Set.Icc (-T) (-δ)) :=
+      hint_charfun.mono_set (subset_trans Set.subset_union_left hsubset)
+    have hint_right : IntegrableOn Φ (Set.Icc δ T) :=
+      hint_charfun.mono_set (subset_trans Set.subset_union_right hsubset)
+    suffices h : 2 * ∫ t in Set.Icc δ T, Φ t ≤ ∫ t in Set.Icc (-T) T, Φ t by linarith
+    have hunion_eq := setIntegral_union hdisjoint measurableSet_Icc hint_left hint_right
+    have hunion_le : ∫ t in Set.Icc (-T) (-δ) ∪ Set.Icc δ T, Φ t ≤
+        ∫ t in Set.Icc (-T) T, Φ t :=
+      setIntegral_mono_set hint_charfun (ae_of_all _ fun t => hΦ_nn t)
+        (ae_of_all _ fun t ht => hsubset ht)
+    linarith [hunion_eq, hunion_le, hsym]
   calc 1 / Real.pi * |∫ t in Set.Icc δ T,
         (1 - t / T) * ((∫ x, Real.sin ((x - y) * t) ∂μ -
           ∫ x, Real.sin ((x - y) * t) ∂ν) / t)|
