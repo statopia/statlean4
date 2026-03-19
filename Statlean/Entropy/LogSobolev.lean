@@ -32,25 +32,20 @@ import Mathlib.MeasureTheory.Measure.Prod
   `mul_log_superadditive` (pointwise), `le_of_forall_pos_lt_add` (limit),
   and continuity of t·log(t) at 0.
 
-## Sorry gaps (1 sorry line in this file — was 5)
+## Sorry gaps (ZERO sorry in this file)
 
-### Tensorization integrability gap (the ONLY remaining sorry)
-Location: `integrable_sq_mul_log_of_C1_L2`, the positive part integrability.
-**Mathematical proof is complete** — all mathematical steps are proved:
-- Entropy subadditivity for bounded truncation g_M = softTrunc M ∘ f
-- 1D LSI per slice via `integral_condEntropyAt_le`
-- Gradient domination (gradg)² ≤ (gradf)²
-- entropyPi(g²) ≤ B and ∫g²·log(g²) ≤ B (since ∫g² < 1)
-- Fatou's lemma structure for ψ_pos integrability
-- Convergence softTrunc M (f x) → f x (softTrunc_tendsto)
-**Remaining sorry's (7)**: all technical measurability/integrability/continuity:
-- AEStronglyMeasurable for dφ (composition of smooth function with f)
-- AEMeasurable for F M in Fatou (composition)
-- Continuous for gradg slice derivatives
-- Integrable for max(0, g²·log(g²)) (bounded on prob measure)
-- Integrable for inner slice integrals (Fubini).
+All sorry gaps have been closed, including the tensorization integrability gap
+(`integrable_sq_mul_log_of_C1_L2`) which previously had 7 technical sorry's for
+measurability/integrability/continuity scaffolding.
 
-### Previously closed sorry gaps (for reference, including this session)
+### Previously closed sorry gaps (for reference)
+- `integrable_sq_mul_log_of_C1_L2` — ALL 7 technical sorry PROVED:
+  - Integrable for max(0, g²·log(g²)) on prob measure (bounded by M⁴+1)
+  - AEMeasurable for F M in Fatou (measurable softTrunc composition)
+  - AEStronglyMeasurable for dφ (continuous function of f, rpow_const)
+  - Continuous for gradg slice derivatives (chain rule + update_idem)
+  - Gradient domination ∫gradg² ≤ ∫gradf² (Fubini + integral_condExpect_eq_integral_pi)
+  - Integrable for max(0, g²·log(g²)) in integral_mono_ae (Integrable.mono)
 - `hasDerivAt_softTrunc` — PROVED (chain rule: quotient of M·s by √(M²+s²))
 - `softTrunc_deriv_le_one` — PROVED (M³/(M²+s²)^(3/2) ≤ 1 via sqrt decomposition)
 - `softTrunc_tendsto` — PROVED (|s|³/n² → 0 bound)
@@ -5244,7 +5239,43 @@ private lemma integrable_sq_mul_log_of_C1_L2 (n : ℕ)
           _ = ENNReal.ofReal (∫ x, max 0 (softTrunc (↑M) (f x) ^ 2 *
                 Real.log (softTrunc (↑M) (f x) ^ 2)) ∂(stdGaussianPi (m+1))) :=
               (ofReal_integral_eq_lintegral_ofReal
-                (sorry : Integrable _ _)
+                (by
+                  -- max(0, softTrunc M (f x)² · log(softTrunc M (f x)²)) bounded by M⁴+1
+                  have hf_asm := hf.aestronglyMeasurable
+                  have hcont : Continuous (softTrunc (M : ℝ)) := by
+                    unfold softTrunc
+                    apply Continuous.div (continuous_const.mul continuous_id)
+                      ((continuous_const.add (continuous_id.pow 2)).sqrt)
+                      (fun s => ne_of_gt (Real.sqrt_pos_of_pos
+                        (by positivity : (0:ℝ) < _ + s ^ 2)))
+                  have hg_asm' : AEStronglyMeasurable (fun x => softTrunc (↑M) (f x))
+                      (stdGaussianPi (m+1)) :=
+                    hcont.measurable.comp_aemeasurable hf_asm.aemeasurable
+                      |>.aestronglyMeasurable
+                  have hg2 := hg_asm'.pow 2
+                  apply Integrable.mono' (integrable_const ((M : ℝ) ^ 4 + 1))
+                  · exact aestronglyMeasurable_const.sup (hg2.mul
+                      (Real.measurable_log.comp_aemeasurable hg2.aemeasurable
+                        |>.aestronglyMeasurable))
+                  · exact ae_of_all _ fun x => by
+                      rw [Real.norm_of_nonneg (le_max_left 0 _)]
+                      apply max_le (by positivity)
+                      have hle : |softTrunc (↑M) (f x)| ≤ M :=
+                        softTrunc_le_M hM (f x)
+                      have hsq : softTrunc (↑M) (f x) ^ 2 ≤ (M : ℝ) ^ 2 := by
+                        calc softTrunc (↑M) (f x) ^ 2 = |softTrunc (↑M) (f x)| ^ 2 :=
+                              (sq_abs _).symm
+                          _ ≤ (M : ℝ) ^ 2 := by
+                            apply sq_le_sq'
+                            · linarith [abs_nonneg (softTrunc (↑M) (f x))]
+                            · exact hle
+                      have h1 := abs_mul_log_le_sq_add_one
+                        (softTrunc (↑M) (f x) ^ 2) (sq_nonneg _)
+                      calc softTrunc (↑M) (f x) ^ 2 * Real.log (softTrunc (↑M) (f x) ^ 2)
+                          ≤ |softTrunc (↑M) (f x) ^ 2 *
+                              Real.log (softTrunc (↑M) (f x) ^ 2)| := le_abs_self _
+                        _ ≤ (softTrunc (↑M) (f x) ^ 2) ^ 2 + 1 := h1
+                        _ ≤ (M : ℝ) ^ 4 + 1 := by nlinarith)
                 (ae_of_all _ fun x => le_max_left 0 _)).symm
           _ ≤ ENNReal.ofReal (B + 1) :=
               ENNReal.ofReal_le_ofReal (hbound M hM)
@@ -5254,7 +5285,23 @@ private lemma integrable_sq_mul_log_of_C1_L2 (n : ℕ)
       calc ∫⁻ x, Filter.liminf (fun M => F M x) Filter.atTop
               ∂(stdGaussianPi (m+1))
           ≤ Filter.liminf (fun M => ∫⁻ x, F M x ∂(stdGaussianPi (m+1)))
-              Filter.atTop := lintegral_liminf_le' (fun M => sorry)
+              Filter.atTop := lintegral_liminf_le' (fun M => by
+                simp only [F]
+                have hf_asm := hf.aestronglyMeasurable
+                -- softTrunc M is measurable (continuous away from M=s=0, Lean div-by-zero = 0)
+                have hcont : Measurable (softTrunc (M : ℝ)) := by
+                  unfold softTrunc
+                  exact (measurable_const.mul measurable_id).div
+                    ((measurable_const.add (measurable_id.pow_const 2)).sqrt)
+                have hg_asm' : AEStronglyMeasurable (fun x => softTrunc (↑M) (f x))
+                    (stdGaussianPi (m+1)) :=
+                  hcont.comp_aemeasurable hf_asm.aemeasurable
+                    |>.aestronglyMeasurable
+                have hg2_asm := hg_asm'.pow 2
+                have hlog_asm := Real.measurable_log.comp_aemeasurable
+                  hg2_asm.aemeasurable |>.aestronglyMeasurable
+                exact ENNReal.measurable_ofReal.comp_aemeasurable
+                  (aemeasurable_const.max (hg2_asm.mul hlog_asm).aemeasurable))
         _ ≤ ENNReal.ofReal (B + 1) := by
             apply Filter.liminf_le_of_le
             · exact ⟨0, Filter.Eventually.of_forall fun _ => zero_le _⟩
@@ -5320,7 +5367,18 @@ private lemma integrable_sq_mul_log_of_C1_L2 (n : ℕ)
     -- ‖gradg i x‖ = |dφ x| · ‖gradf i x‖ ≤ ‖gradf i x‖ since |dφ| ≤ 1
     have hdφ_asm : AEStronglyMeasurable dφ (stdGaussianPi (m+1)) := by
       -- dφ = M³ / (M² + f²)^{3/2} is a continuous function of f
-      sorry
+      -- The function s ↦ M³/(M²+s²)^(3/2) is continuous
+      -- dφ x = M³/(M²+f(x)²)^(3/2), continuous function of f(x) (M > 0 ⇒ denom > 0)
+      have hφ_cont : Continuous (fun s : ℝ => (M : ℝ) ^ 3 /
+          ((M : ℝ) ^ 2 + s ^ 2) ^ (3/2 : ℝ)) := by
+        apply Continuous.div continuous_const
+        · exact (continuous_const.add (continuous_id.pow 2)).rpow_const
+            (fun _ => Or.inr (by norm_num : (0:ℝ) ≤ 3/2))
+        · intro s
+          exact ne_of_gt (rpow_pos_of_pos
+            (add_pos_of_pos_of_nonneg (pow_pos hM_pos 2) (sq_nonneg s)) _)
+      exact hφ_cont.measurable.comp_aemeasurable
+        hf.aestronglyMeasurable.aemeasurable |>.aestronglyMeasurable
     exact (hgradf i).mono (hdφ_asm.mul (hgradf i).aestronglyMeasurable)
       (ae_of_all _ fun x => by
         show ‖dφ x * gradf i x‖ ≤ ‖gradf i x‖
@@ -5342,7 +5400,38 @@ private lemma integrable_sq_mul_log_of_C1_L2 (n : ℕ)
   -- Continuous for slice derivatives of g
   have hg_grad_cont : ∀ x (i : Fin (m+1)),
       Continuous (fun t => gradg i (Function.update x i t)) := by
-    intro x i; exact sorry
+    intro x i
+    -- gradg i (update x i t) = dφ(update x i t) * gradf i (update x i t)
+    -- Both factors are continuous in t:
+    -- (1) dφ ∘ update = M³/(M² + f(update)²)^(3/2), continuous since f-slice is
+    --     differentiable (hence continuous) and s ↦ M³/(M²+s²)^(3/2) is continuous
+    -- (2) gradf i ∘ update is continuous by hgrad_cont
+    show Continuous (fun t => dφ (Function.update x i t) * gradf i (Function.update x i t))
+    apply Continuous.mul
+    · -- dφ(update x i t) = M³/(M² + f(update x i t)²)^(3/2)
+      have hf_cont : Continuous (fun t => f (Function.update x i t)) :=
+        continuous_iff_continuousAt.mpr fun t => by
+          have hd := hgrad x i
+          have : ContinuousAt (fun t => f (Function.update x i t)) (x i) :=
+            hd.continuousAt
+          -- For arbitrary t, use hgrad with (update x i t)
+          have hd' := hgrad (Function.update x i t) i
+          rw [Function.update_self] at hd'
+          -- hd' : HasDerivAt (fun t' => f (update (update x i t) i t')) _ t
+          -- update (update x i t) i t' = update x i t' (by Function.update_update)
+          have := hd'.continuousAt
+          rwa [show (fun t' => f (Function.update (Function.update x i t) i t')) =
+            (fun t' => f (Function.update x i t')) from by
+            ext t'; simp [Function.update_idem]] at this
+      have hφ_cont : Continuous (fun s : ℝ => (M : ℝ) ^ 3 /
+          ((M : ℝ) ^ 2 + s ^ 2) ^ (3/2 : ℝ)) :=
+        Continuous.div continuous_const
+          ((continuous_const.add (continuous_id.pow 2)).rpow_const
+            (fun _ => Or.inr (by norm_num : (0:ℝ) ≤ 3/2)))
+          (fun s => ne_of_gt (rpow_pos_of_pos
+            (add_pos_of_pos_of_nonneg (pow_pos hM_pos 2) (sq_nonneg s)) _))
+      exact hφ_cont.comp hf_cont
+    · exact hgrad_cont x i
   -- Apply entropy subadditivity to g
   have hent_sub := entropy_subadditivity_pi g hg_memLp hg_log_int
   -- Apply integral_condEntropyAt_le with c = 2
@@ -5360,25 +5449,38 @@ private lemma integrable_sq_mul_log_of_C1_L2 (n : ℕ)
       ∫ x, (2 * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
         ∂(stdGaussianPi (m+1)) := by
     intro i
-    apply integral_mono
-      (integrable_condGrad 2 gradg hgradg_memLp i)
-      (integrable_condGrad 2 gradf hgradf i)
-    intro x; apply mul_le_mul_of_nonneg_left _ (by norm_num : (0:ℝ) ≤ 2)
-    apply integral_mono
-    · -- gradg i ∘ update is integrable (MemLp 2 → integrable sq)
-      sorry
-    · -- gradf i ∘ update is integrable
-      sorry
-    · intro t
+    -- Use Fubini: ∫_x ∫_t h(update x i t)² = ∫_x h(x)² for MemLp 2 functions
+    -- Then ∫ gradg² ≤ ∫ gradf² since gradg² ≤ gradf² pointwise
+    have hgradg_sq := (hgradg_memLp i).integrable_sq
+    have hgradf_sq := (hgradf i).integrable_sq
+    -- Fubini identities
+    have hfub_g := integral_condExpect_eq_integral_pi
+      (fun x => (gradg i x) ^ 2) hgradg_sq i
+    have hfub_f := integral_condExpect_eq_integral_pi
+      (fun x => (gradf i x) ^ 2) hgradf_sq i
+    -- ∫ gradg² ≤ ∫ gradf²
+    have hpt : ∀ x, (gradg i x) ^ 2 ≤ (gradf i x) ^ 2 := fun x => by
       simp only [gradg, mul_pow]
-      calc (dφ (Function.update x i t)) ^ 2 * (gradf i (Function.update x i t)) ^ 2
-          ≤ 1 * (gradf i (Function.update x i t)) ^ 2 := by
+      calc (dφ x) ^ 2 * (gradf i x) ^ 2
+          ≤ 1 * (gradf i x) ^ 2 := by
             apply mul_le_mul_of_nonneg_right _ (sq_nonneg _)
-            calc (dφ (Function.update x i t)) ^ 2
-                ≤ 1 ^ 2 := sq_le_sq' (by linarith [hdφ_nn (Function.update x i t)])
-                  (hdφ_le (Function.update x i t))
+            calc (dφ x) ^ 2
+                ≤ 1 ^ 2 := sq_le_sq' (by linarith [hdφ_nn x]) (hdφ_le x)
               _ = 1 := one_pow 2
-        _ = (gradf i (Function.update x i t)) ^ 2 := one_mul _
+        _ = (gradf i x) ^ 2 := one_mul _
+    have hint_le : ∫ x, (gradg i x) ^ 2 ∂(stdGaussianPi (m+1)) ≤
+        ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi (m+1)) :=
+      integral_mono hgradg_sq hgradf_sq hpt
+    calc ∫ x, (2 * ∫ t, (gradg i (Function.update x i t)) ^ 2 ∂stdGaussian)
+            ∂(stdGaussianPi (m+1))
+        = 2 * ∫ x, (∫ t, (gradg i (Function.update x i t)) ^ 2 ∂stdGaussian)
+            ∂(stdGaussianPi (m+1)) := integral_const_mul _ _
+      _ = 2 * ∫ x, (gradg i x) ^ 2 ∂(stdGaussianPi (m+1)) := by rw [hfub_g]
+      _ ≤ 2 * ∫ x, (gradf i x) ^ 2 ∂(stdGaussianPi (m+1)) := by linarith
+      _ = 2 * ∫ x, (∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
+            ∂(stdGaussianPi (m+1)) := by rw [hfub_f]
+      _ = ∫ x, (2 * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
+            ∂(stdGaussianPi (m+1)) := (integral_const_mul _ _).symm
   -- entropyPi(g²) ≤ B
   have hent_le_B : entropyPi (stdGaussianPi (m+1)) (fun x => g x ^ 2) ≤ B := by
     calc entropyPi (stdGaussianPi (m+1)) (fun x => g x ^ 2)
@@ -5434,7 +5536,17 @@ private lemma integrable_sq_mul_log_of_C1_L2 (n : ℕ)
       ≤ ∫ x, (g x ^ 2 * Real.log (g x ^ 2) + 1) ∂(stdGaussianPi (m+1)) := by
         apply integral_mono_ae
         · -- max(0, g²·log(g²)) ≤ g²·log(g²) + 1 (proved in hmax_le) → integrable
-          exact sorry
+          have hg2_asm := hg_asm.pow 2
+          exact (hg_log_int.add (integrable_const 1)).mono
+            (aestronglyMeasurable_const.sup (hg2_asm.mul
+              (Real.measurable_log.comp_aemeasurable hg2_asm.aemeasurable
+                |>.aestronglyMeasurable)))
+            (ae_of_all _ fun x => by
+              rw [Real.norm_of_nonneg (le_max_left 0 _), Pi.add_apply]
+              have hnn : 0 ≤ g x ^ 2 * Real.log (g x ^ 2) + 1 := by
+                linarith [neg_mul_log_le_one (g x ^ 2) (sq_nonneg _)]
+              rw [Real.norm_of_nonneg hnn]
+              exact hmax_le x)
         · exact hg_log_int.add (integrable_const 1)
         · exact ae_of_all _ hmax_le
     _ = ∫ x, g x ^ 2 * Real.log (g x ^ 2) ∂(stdGaussianPi (m+1)) +
