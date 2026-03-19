@@ -4,17 +4,16 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 import Statlean.CharFun.Taylor
 import Statlean.Fourier.JacksonKernel
-import Statlean.Fourier.CDFInversion
-import Statlean.Fourier.EsseenSmoothing
 
 /-!
 # Berry-Esseen Theorem
 
 ## Status
-- **2 sorry** remain: `cdf_smoothing_error_bound` (in EsseenSmoothing), `triangleKernel_fourier_bound` (in esseen_smoothing_ineq)
+- **1 sorry** remains: `triangleKernel_fourier_bound` (Fourier bound for triangle kernel in `esseen_smoothing_ineq`)
   - **Proof plan documented**: Gil-Pelaez Fourier inversion + density bound
   - **Fix**: bound now includes M (density bound) as `24*M/(πT)` (was M-free, which is false for M>1)
   - `levy_cdf_diff_fourier_bound` now PROVED modulo `esseen_smoothing_ineq`
+  - `cdf_smoothing_error_bound` eliminated by direct self-referential argument using triangle kernel compact support
   - Sub-lemmas: `cesaro_integral_bound` PROVED, `cesaro_fubini_truncated` PROVED,
     `cesaro_fourier_bound` PROVED (zero sorry, added IntegrableOn hypothesis)
   - `sin_integral_le_charFun_norm` PROVED (charFun Im bound via exp factorization)
@@ -51,12 +50,12 @@ The proof follows the classical Fourier-analytic approach:
 
 6. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 5.
 
-## Remaining sorry (2, from 1 root `esseen_smoothing_ineq`)
+## Remaining sorry (1)
 
-- `cdf_smoothing_error_bound`: Hard case of Esseen smoothing (I/π + 24M/(πT) < 1). 1 sorry.
-  - `esseen_bracket_smoothing` now proved: trivial case (RHS ≥ 1) + hard case delegation.
 - `triangleKernel_fourier_bound`: Fourier bound for triangle kernel `|D*K_T| ≤ I/(2π)`. 1 sorry.
-  - Requires Fourier transform computation (sinc² identity). Now sorry'd in assembly.
+  - Requires Fourier transform computation (sinc² identity / Lévy inversion).
+  - `cdf_smoothing_error_bound` (EsseenSmoothing.lean) eliminated by direct self-referential
+    argument using triangle kernel compact support + one-sided CDF regularity.
 - `cesaro_integral_bound`: **PROVED** (split + IBP via substitution + half-angle)
 - `cesaro_fubini_truncated`: **PROVED** (Fubini with bounded integrand)
 - `sin_integral_le_charFun_norm`: **PROVED** (sin = Im∘exp, charFun factorization)
@@ -1226,6 +1225,55 @@ private lemma cesaro_fourier_bound (μ ν : Measure ℝ) [IsProbabilityMeasure �
         apply mul_le_mul_of_nonneg_left hsymm (by positivity)
     _ = _ := by ring
 
+/-- CDF of a probability measure is M-Lipschitz when the density is bounded by M. -/
+private lemma cdf_lipschitz_of_density_bound (ν : Measure ℝ) [IsProbabilityMeasure ν]
+    {M : ℝ} (hM : 0 < M)
+    (hν_density : ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
+    (a b : ℝ) (hab : a ≤ b) : cdf ν b - cdf ν a ≤ M * (b - a) := by
+  -- Use measure_cdf: (cdf ν).measure = ν, and StieltjesFunction.measure_Ioc
+  have hmeas_eq : (cdf ν).measure = ν := measure_cdf ν
+  have hIoc : (cdf ν).measure (Set.Ioc a b) = ENNReal.ofReal (cdf ν b - cdf ν a) :=
+    StieltjesFunction.measure_Ioc _ a b
+  rw [hmeas_eq] at hIoc
+  have h_density := hν_density a b hab
+  have h_mono : cdf ν a ≤ cdf ν b := monotone_cdf ν hab
+  have h_sub_nn : 0 ≤ cdf ν b - cdf ν a := sub_nonneg.mpr h_mono
+  have hIoc_le : ν (Set.Ioc a b) ≤ ν (Set.Icc a b) :=
+    measure_mono Set.Ioc_subset_Icc_self
+  calc cdf ν b - cdf ν a
+      = (ENNReal.ofReal (cdf ν b - cdf ν a)).toReal := (ENNReal.toReal_ofReal h_sub_nn).symm
+    _ = (ν (Set.Ioc a b)).toReal := by rw [hIoc]
+    _ ≤ (ν (Set.Icc a b)).toReal := ENNReal.toReal_mono (measure_ne_top ν _) hIoc_le
+    _ ≤ (ENNReal.ofReal (M * (b - a))).toReal :=
+        ENNReal.toReal_mono ENNReal.ofReal_ne_top h_density
+    _ = M * (b - a) := ENNReal.toReal_ofReal (mul_nonneg hM.le (sub_nonneg.mpr hab))
+
+/-- The CDF difference convolution `∫ (F(y'-x) - G(y'-x)) K(x) dx` is integrable
+when K is continuous and integrable. Bound: |cdf diff| ≤ 1, so the product is bounded by |K|. -/
+private lemma integrable_cdf_diff_mul_kernel
+    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    (K : ℝ → ℝ) (hK_cont : Continuous K) (hK_int : Integrable K volume) (y' : ℝ) :
+    Integrable (fun x => (cdf μ (y' - x) - cdf ν (y' - x)) * K x) volume := by
+  -- CDF is measurable (monotone → measurable)
+  have hF_meas : Measurable (fun x => cdf μ (y' - x)) :=
+    (monotone_cdf μ).measurable.comp (measurable_const.sub measurable_id)
+  have hG_meas : Measurable (fun x => cdf ν (y' - x)) :=
+    (monotone_cdf ν).measurable.comp (measurable_const.sub measurable_id)
+  have hD_meas : AEStronglyMeasurable (fun x => cdf μ (y' - x) - cdf ν (y' - x)) volume :=
+    (hF_meas.sub hG_meas).aestronglyMeasurable
+  have hK_meas : AEStronglyMeasurable K volume := hK_cont.measurable.aestronglyMeasurable
+  -- Bound: |D(y'-x)| ≤ 1, so |D(y'-x) * K(x)| ≤ |K(x)|
+  refine Integrable.mono hK_int (hD_meas.mul hK_meas) ?_
+  filter_upwards with x
+  rw [norm_mul]
+  calc ‖cdf μ (y' - x) - cdf ν (y' - x)‖ * ‖K x‖
+      ≤ 1 * ‖K x‖ := by
+        gcongr
+        rw [Real.norm_eq_abs, abs_le]
+        constructor <;> linarith [cdf_nonneg μ (y' - x), cdf_le_one μ (y' - x),
+          cdf_nonneg ν (y' - x), cdf_le_one ν (y' - x)]
+    _ = ‖K x‖ := one_mul _
+
 /-- **Esseen's smoothing inequality** (Esseen 1945).
 
 For probability measures `μ`, `ν` where `ν` has CDF that is `M`-Lipschitz
@@ -1234,16 +1282,17 @@ is bounded by the characteristic function integral plus a density error:
 
   `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24M/(πT)`
 
-**Proof**: Assembles from three sub-lemmas:
-1. `jackson_kernel_tail_bound`: existence of kernel with `∫|u|K ≤ 12/T`
-2. `jackson_fourier_bound`: Fourier bound `|D*K| ≤ I/(2π)`
-3. `esseen_bracket_smoothing`: bracket argument `|D| ≤ I/π + 24M/(πT)`
+**Proof**: Uses the triangle kernel (compact support on `[-1/T, 1/T]`) with
+a self-referential argument:
+- If `|D(y)| ≤ 4M/T`: trivially bounded by `24M/(πT)` (since `4 ≤ 24/π`)
+- If `D(y) > 4M/T`: set `a = D/(4M) ≥ 1/T`. The one-sided CDF regularity gives
+  `D(y+a-x) ≥ D/2` for all `x` in the kernel support `|x| ≤ 1/T ≤ a`.
+  Since K vanishes outside `[-1/T, 1/T]`: `∫ D(y+a-x) K(x) dx ≥ D/2`.
+  The Fourier bound gives `D/2 ≤ I/(2π)`, so `D ≤ I/π`.
 
-The easy cases (`24M/(πT) ≥ 1`, `I ≥ π`, `I/π + 24M/(πT) ≥ 1`) are handled
-trivially by `|cdf diff| ≤ 1`.
-
-**Reference**: Esseen (1945), Feller Vol II §XV.3, arxiv.org/html/2602.06234 Thm 3.3.
+**Reference**: Esseen (1945), Feller Vol II §XV.3.
 -/
+-- sorry count: 1 (Fourier bound for triangle kernel)
 private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     {M : ℝ} (hM : 0 < M)
@@ -1256,47 +1305,166 @@ private lemma esseen_smoothing_ineq
   have hI_nn := charFun_integral_nonneg μ ν T
   have hcdf := abs_cdf_sub_le_one μ ν y
   have hpi := Real.pi_pos
-  -- Case 1: If 24M/(πT) ≥ 1, the trivial bound |cdf diff| ≤ 1 ≤ RHS.
-  by_cases hcase : 1 ≤ 24 * M / (Real.pi * T)
-  · calc |cdf μ y - cdf ν y| ≤ 1 := hcdf
-      _ ≤ 24 * M / (Real.pi * T) := hcase
-      _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
-            ‖charFun μ t - charFun ν t‖ / |t|) +
-          24 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
-  · push_neg at hcase
-    -- Case 2: If I ≥ π, then I/π ≥ 1 ≥ |cdf diff|.
-    by_cases hI_large : Real.pi ≤ ∫ t in Set.Icc (-T) T,
-        ‖charFun μ t - charFun ν t‖ / |t|
-    · calc |cdf μ y - cdf ν y| ≤ 1 := hcdf
-        _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
-              ‖charFun μ t - charFun ν t‖ / |t|) := by
-            rw [div_mul_eq_mul_div, one_mul, le_div_iff₀ hpi]; linarith
-        _ ≤ _ := le_add_of_nonneg_right (by positivity)
-    · push_neg at hI_large
-      -- Case 3: If I/π + 24M/(πT) ≥ 1: trivial.
-      set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t|
-      by_cases hsum : 1 ≤ 1 / Real.pi * I + 24 * M / (Real.pi * T)
-      · exact hcdf.trans hsum
-      · push_neg at hsum
-        -- Hard case: assemble from sub-lemmas.
-        -- Step 1: Get the Jackson kernel
-        obtain ⟨K, hK_cont, hK_nn, hK_int, hK_one, hK_moment, hK_tail⟩ :=
-          jackson_kernel_tail_bound T hT
-        -- Step 2: Get the Fourier bound for K (triangle kernel Fourier bound)
-        -- sorry: requires Fourier transform computation for triangleKernel
-        -- The triangle kernel K_T(x) = T·max(1-T|x|,0) has Fourier transform
-        -- K̂_T(t) = sinc²(t/(2T)), giving |∫ D·K_T| ≤ (1/2π)∫ ‖Δ̂‖/|t|.
-        -- blocker: Fourier inversion for measures (not in Mathlib)
-        -- estimated effort: B-grade
-        have hK_fourier_hyp : ∀ y' : ℝ,
-            |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * K x| ≤
-              (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
-                ‖charFun μ t - charFun ν t‖ / |t| := by sorry
-        have hK_fourier := jackson_fourier_bound μ ν T hT K hK_cont hK_nn hK_int hK_one
-          hK_moment hK_fourier_hyp
-        -- Step 3: Apply the bracket smoothing argument
-        exact esseen_bracket_smoothing μ ν hM hν_density T hT y K hK_cont hK_nn hK_int hK_one
-          hK_moment hK_tail hK_fourier
+  set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| with hI_def
+  -- Trivial case: if RHS ≥ 1, use |D| ≤ 1.
+  by_cases htriv : 1 ≤ 1 / Real.pi * I + 24 * M / (Real.pi * T)
+  · exact hcdf.trans htriv
+  push_neg at htriv
+  -- Get the triangle kernel with compact support
+  obtain ⟨K, hK_cont, hK_nn, hK_int, hK_one, _, _, hK_support⟩ :=
+    jackson_kernel_tail_bound T hT
+  -- sorry: Fourier bound for the triangle kernel
+  -- The triangle kernel K(x) = T·max(1-T|x|,0) satisfies this via Lévy inversion.
+  -- blocker: Fourier inversion for measures (not in Mathlib)
+  have hK_fourier : ∀ y' : ℝ,
+      |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * K x| ≤
+        (1 / (2 * Real.pi)) * I := by sorry
+  -- CDF regularity tools
+  have hν_lip := cdf_lipschitz_of_density_bound ν hM hν_density
+  -- One-sided regularity: D(y+t) ≥ D(y) - Mt for t ≥ 0
+  have hD_right : ∀ t : ℝ, 0 ≤ t →
+      cdf μ (y + t) - cdf ν (y + t) ≥ (cdf μ y - cdf ν y) - M * t := by
+    intro t ht
+    linarith [monotone_cdf μ (show y ≤ y + t by linarith), hν_lip y (y + t) (by linarith)]
+  -- Left regularity: D(y-s) ≤ D(y) + Ms for s ≥ 0
+  have hD_left : ∀ s : ℝ, 0 ≤ s →
+      cdf μ (y - s) - cdf ν (y - s) ≤ (cdf μ y - cdf ν y) + M * s := by
+    intro s hs
+    linarith [monotone_cdf μ (show y - s ≤ y by linarith), hν_lip (y - s) y (by linarith)]
+  set D := cdf μ y - cdf ν y with hD_def
+  -- It suffices to show |D| ≤ I/π + 4M/T (since 4M/T ≤ 24M/(πT) as 4π ≤ 24)
+  have h4_le_24pi : 4 * M / T ≤ 24 * M / (Real.pi * T) := by
+    have hpiT : 0 < Real.pi * T := mul_pos hpi hT
+    rw [div_le_div_iff₀ hT hpiT]
+    have h_pi4 : Real.pi ≤ 4 := Real.pi_le_four
+    have hMT : 0 ≤ M * T := mul_nonneg hM.le hT.le
+    nlinarith [mul_nonneg hM.le hT.le, mul_le_mul_of_nonneg_right h_pi4 hMT]
+  suffices hsuff : |D| ≤ 1 / Real.pi * I + 4 * M / T by linarith
+  -- Helper: for |x| ≤ 1/T, K(x) ≠ 0 → |x| < 1/T (strictly)
+  have hK_supp : ∀ x, K x ≠ 0 → |x| < 1 / T := by
+    intro x hx; by_contra h; push_neg at h; exact hx (hK_support x h)
+  -- Helper: integrability of cdf difference * K
+  have hint : ∀ y', Integrable (fun x => (cdf μ (y' - x) - cdf ν (y' - x)) * K x) := by
+    intro y'; exact integrable_cdf_diff_mul_kernel μ ν K hK_cont hK_int y'
+  -- Prove |D| ≤ I/π + 4M/T by contradiction on each side
+  rw [abs_le]; constructor
+  -- Part 1: D ≥ -(I/π + 4M/T)
+  · -- If D ≥ -4M/T, done since -4M/T ≥ -(I/π + 4M/T)
+    by_cases h4 : -(4 * M / T) ≤ D
+    · have : 0 ≤ 1 / Real.pi * I := mul_nonneg (by positivity) hI_nn
+      linarith
+    push_neg at h4
+    -- D < -4M/T. Set a = (-D)/(4M) ≥ 1/T. Convolution at y-a gives contradiction.
+    set a := (-D) / (4 * M) with ha_def
+    -- D < -4M/T, so -D > 4M/T > 0
+    have h4MT : 0 < 4 * M / T := by positivity
+    have hD_neg : D < 0 := by linarith
+    have hnegD_pos : 0 < -D := neg_pos.mpr hD_neg
+    have ha_pos : 0 < a := by rw [ha_def]; exact div_pos hnegD_pos (by positivity)
+    -- -D > 4M/T → -D * T > 4M (multiply by T > 0)
+    have hnegDT : 4 * M < -D * T := by
+      have h : 4 * M / T < -D := by linarith
+      rwa [div_lt_iff₀ hT] at h
+    have ha_ge : 1 / T ≤ a := by
+      rw [ha_def, div_le_div_iff₀ hT (by positivity : (0:ℝ) < 4 * M)]
+      linarith
+    -- Pointwise bound: D(y-a-x) ≤ D/2 for x in kernel support
+    have hpw : ∀ x, K x ≠ 0 → cdf μ ((y - a) - x) - cdf ν ((y - a) - x) ≤ D / 2 := by
+      intro x hKx
+      have hx_abs : |x| < 1 / T := hK_supp x hKx
+      have hax_nn : 0 ≤ a + x := by
+        have := neg_abs_le x; linarith
+      have hax_le : a + x ≤ 2 * a := by
+        have := le_abs_self x; linarith
+      show cdf μ (y - a - x) - cdf ν (y - a - x) ≤ D / 2
+      have h2Ma : M * (2 * a) = -D / 2 := by
+        rw [ha_def]; field_simp [ne_of_gt hM]; ring
+      calc cdf μ (y - a - x) - cdf ν (y - a - x)
+          = cdf μ (y - (a + x)) - cdf ν (y - (a + x)) := by ring_nf
+        _ ≤ D + M * (a + x) := hD_left (a + x) hax_nn
+        _ ≤ D + M * (2 * a) := by gcongr
+        _ = D + -D / 2 := by rw [h2Ma]
+        _ = D / 2 := by ring
+    -- Convolution ≤ D/2
+    have hconv_le : ∫ x, (cdf μ ((y - a) - x) - cdf ν ((y - a) - x)) * K x ≤ D / 2 := by
+      calc ∫ x, (cdf μ ((y - a) - x) - cdf ν ((y - a) - x)) * K x
+          ≤ ∫ x, (D / 2) * K x := by
+            apply MeasureTheory.integral_mono (hint (y - a)) (hK_int.const_mul _)
+            intro x; by_cases hKx : K x = 0
+            · simp [hKx]
+            · exact mul_le_mul_of_nonneg_right (hpw x hKx) (hK_nn x)
+        _ = D / 2 := by rw [MeasureTheory.integral_const_mul, hK_one, mul_one]
+    -- Fourier bound: |conv| ≤ I/(2π). Since conv ≤ D/2 < 0: -D/2 ≤ |conv| ≤ I/(2π)
+    have hfour := hK_fourier (y - a)
+    have : -D / 2 ≤ I / (2 * Real.pi) := by
+      have hD2_neg : D / 2 < 0 := by linarith
+      have hconv_neg : 0 ≤ -(∫ x, (cdf μ ((y - a) - x) - cdf ν ((y - a) - x)) * K x) := by
+        linarith [hconv_le]
+      calc -D / 2 = -(D / 2) := by ring
+        _ ≤ -(∫ x, (cdf μ ((y - a) - x) - cdf ν ((y - a) - x)) * K x) := by linarith [hconv_le]
+        _ ≤ |∫ x, (cdf μ ((y - a) - x) - cdf ν ((y - a) - x)) * K x| := neg_le_abs _
+        _ ≤ 1 / (2 * Real.pi) * I := hfour
+        _ = I / (2 * Real.pi) := by ring
+    -- -D/2 ≤ I/(2π), so -D ≤ I/π, so D ≥ -I/π ≥ -(I/π + 4M/T)
+    -- Explicit: from this : -D / 2 ≤ I / (2 * π)
+    -- multiply by 2: -D ≤ I/π (need 2*(I/(2π)) = I/π)
+    have hD_ge : -(1 / Real.pi * I) ≤ D := by
+      have h2pi : I / (2 * Real.pi) = 1 / Real.pi * I / 2 := by ring
+      rw [h2pi] at this
+      linarith
+    linarith [show 0 ≤ 4 * M / T from by positivity]
+  -- Part 2: D ≤ I/π + 4M/T
+  · by_cases h4 : D ≤ 4 * M / T
+    · have : 0 ≤ 1 / Real.pi * I := mul_nonneg (by positivity) hI_nn
+      linarith
+    push_neg at h4
+    -- D > 4M/T. Set a = D/(4M) ≥ 1/T. Convolution at y+a gives contradiction.
+    set a := D / (4 * M) with ha_def
+    have hD_pos : 0 < D := lt_trans (by positivity : 0 < 4 * M / T) h4
+    have ha_pos : 0 < a := by rw [ha_def]; exact div_pos hD_pos (by positivity)
+    -- D > 4M/T → D * T > 4M
+    have hDT : 4 * M < D * T := by
+      rwa [div_lt_iff₀ hT] at h4
+    have ha_ge : 1 / T ≤ a := by
+      rw [ha_def, div_le_div_iff₀ hT (by positivity : (0:ℝ) < 4 * M)]
+      linarith
+    have h2Ma : M * (2 * a) = D / 2 := by rw [ha_def]; field_simp [ne_of_gt hM]; ring
+    -- Pointwise bound: D(y+a-x) ≥ D/2 for x in kernel support
+    have hpw : ∀ x, K x ≠ 0 → D / 2 ≤ cdf μ ((y + a) - x) - cdf ν ((y + a) - x) := by
+      intro x hKx
+      have hx_abs : |x| < 1 / T := hK_supp x hKx
+      have hax_nn : 0 ≤ a - x := by
+        -- x ≤ |x| < 1/T ≤ a, so x < a
+        linarith [le_abs_self x, hx_abs, ha_ge]
+      have hax_le : a - x ≤ 2 * a := by
+        -- -|x| ≤ x, |x| < 1/T ≤ a, so x ≥ -|x| ≥ -a, so a-x ≤ 2a
+        linarith [neg_abs_le x, hx_abs, ha_ge]
+      calc D / 2 = D - D / 2 := by ring
+        _ = D - M * (2 * a) := by rw [h2Ma]
+        _ ≤ D - M * (a - x) := by gcongr
+        _ ≤ cdf μ (y + (a - x)) - cdf ν (y + (a - x)) := hD_right (a - x) hax_nn
+        _ = cdf μ ((y + a) - x) - cdf ν ((y + a) - x) := by ring_nf
+    -- Convolution ≥ D/2
+    have hconv_ge : D / 2 ≤ ∫ x, (cdf μ ((y + a) - x) - cdf ν ((y + a) - x)) * K x := by
+      calc D / 2 = D / 2 * ∫ x, K x := by rw [hK_one, mul_one]
+        _ = ∫ x, D / 2 * K x := (MeasureTheory.integral_const_mul _ _).symm
+        _ ≤ ∫ x, (cdf μ ((y + a) - x) - cdf ν ((y + a) - x)) * K x := by
+            apply MeasureTheory.integral_mono (hK_int.const_mul _) (hint (y + a))
+            intro x; by_cases hKx : K x = 0
+            · simp [hKx]
+            · exact mul_le_mul_of_nonneg_right (hpw x hKx) (hK_nn x)
+    -- Fourier bound: D/2 ≤ conv ≤ |conv| ≤ I/(2π)
+    have hfour := hK_fourier (y + a)
+    have hD2_le : D / 2 ≤ I / (2 * Real.pi) := by
+      calc D / 2 ≤ ∫ x, (cdf μ ((y + a) - x) - cdf ν ((y + a) - x)) * K x := hconv_ge
+        _ ≤ |∫ x, (cdf μ ((y + a) - x) - cdf ν ((y + a) - x)) * K x| := le_abs_self _
+        _ ≤ 1 / (2 * Real.pi) * I := hfour
+        _ = I / (2 * Real.pi) := by ring
+    -- D ≤ I/π ≤ I/π + 4M/T
+    have hD_le : D ≤ 1 / Real.pi * I := by
+      have h2pi : I / (2 * Real.pi) = 1 / Real.pi * I / 2 := by ring
+      rw [h2pi] at hD2_le; linarith
+    linarith [show 0 ≤ 4 * M / T from by positivity]
 
 /-- **Esseen's Fourier-analytic CDF bound.**
 

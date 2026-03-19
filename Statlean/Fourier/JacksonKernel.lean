@@ -259,10 +259,12 @@ lemma jackson_kernel_tail_bound (T : ℝ) (hT : 0 < T) :
       (∫ x, |x| * K x ≤ 12 / T) ∧
       -- Fejér CDF bracket: for any a > 0,
       -- Ψ_K(u-a) - ε ≤ H(u) ≤ Ψ_K(u+a) + ε where ε = ∫_{|x|>a} K(x) dx ≤ 12/(Ta)
-      (∀ a : ℝ, 0 < a → ∫ x in Ioi a ∪ Iio (-a), K x ≤ 12 / (T * a)) := by
+      (∀ a : ℝ, 0 < a → ∫ x in Ioi a ∪ Iio (-a), K x ≤ 12 / (T * a)) ∧
+      -- Compact support: K(x) = 0 for |x| ≥ 1/T
+      (∀ x, |x| ≥ 1 / T → K x = 0) := by
   exact ⟨triangleKernel T, triangleKernel_continuous T,
     triangleKernel_nonneg hT, triangleKernel_integrable hT,
     triangleKernel_integral hT, triangleKernel_first_moment hT,
-    triangleKernel_tail hT⟩
+    triangleKernel_tail hT, fun x hx => triangleKernel_zero_of_abs_ge hT hx⟩
 
 end JacksonKernel
