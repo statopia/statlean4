@@ -9,11 +9,15 @@ import Statlean.CharFun.Taylor
 
 ## Status
 - **1 sorry** remains: `esseen_smoothing_ineq` (Esseen's smoothing inequality)
-  - **Proof plan documented**: Localization + Schwartz smoothing (Esseen 1945 / arXiv:2602.06234)
+  - **Proof plan documented**: Gil-Pelaez Fourier inversion + density bound
+  - **Fix**: bound now includes M (density bound) as `24*M/(πT)` (was M-free, which is false for M>1)
   - `levy_cdf_diff_fourier_bound` now PROVED modulo `esseen_smoothing_ineq`
+  - Sub-lemmas: `cesaro_integral_bound` PROVED, `cesaro_fubini_truncated` PROVED,
+    `cesaro_fourier_bound` partially proved (2 sorry: integrability plumbing + charFun symmetry)
+  - `sin_integral_le_charFun_norm` PROVED (charFun Im bound via exp factorization)
 - `abel_sinc_integral` PROVED (zero sorry, Leibniz rule + ODE uniqueness)
 - `esseen_fourier_cdf_bound` PROVED from `levy_cdf_diff_fourier_bound`
-- `esseen_concentration_universal` PROVED modulo Fejér infrastructure
+- `esseen_concentration_universal` PROVED modulo Fejér infrastructure (uses M=1 for Gaussian)
 - `charfun_integral_bound` PROVED (zero sorry)
 - `berry_esseen_theorem` PROVED modulo Fejér infrastructure
 - `esseen_charfun_integral_bound` PROVED from `esseen_concentration_universal` + `charfun_integral_bound`
@@ -44,18 +48,13 @@ The proof follows the classical Fourier-analytic approach:
 
 6. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 5.
 
-## Remaining sorry (1)
+## Remaining sorry (1 root + 2 in cesaro_fourier_bound)
 
-- `esseen_smoothing_ineq`: Esseen's smoothing inequality (Esseen 1945).
-  For prob measures μ, ν with ν having bounded density:
-  `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24/(πT)`
-  **Proof plan** (arXiv:2602.06234, "A friendly proof of Berry-Esseen"):
-  1. Localization: find a₀ where Δ(a₀) ≈ Δ̄, then Δ(a₀+t) ≥ Δ̄/2 for t ∈ [0, Δ̄/(2M)]
-  2. Schwartz smoothing: convolve Δ with φ having Fourier support in [-T,T]
-  3. Show Δ̄ ≤ 2 sup|Δ_f| + C_φ M/T via localization + rapid decay of φ
-  4. Fourier bound: sup|Δ_f| ≤ I/(2π) from |φ̂(t)| ≤ 1/(2π|t|)
-  5. Combine: Δ̄ ≤ I/π + C_φ M/T with C_φ chosen so C_φ M ≤ 24
-  Note: `levy_cdf_diff_fourier_bound` is now PROVED modulo this lemma.
+- `esseen_smoothing_ineq`: Esseen's smoothing inequality (Esseen 1945). 1 sorry.
+- `cesaro_fourier_bound`: 2 sorry (integrability plumbing + charFun symmetry)
+- `cesaro_integral_bound`: **PROVED** (split + IBP via substitution + half-angle)
+- `cesaro_fubini_truncated`: **PROVED** (Fubini with bounded integrand)
+- `sin_integral_le_charFun_norm`: **PROVED** (sin = Im∘exp, charFun factorization)
 
 Note: `charfun_integral_bound` and downstream lemmas now require `2 ≤ n` (was `0 < n`)
 because `charfun_diff_exp_bound` needs `n ≥ 2` for the exponential decay bound `M^{n-1}≤e^{-t²/8}`.
@@ -831,34 +830,369 @@ private lemma truncated_fubini_sinc
   congr 1; ext t
   exact integral_div t (fun x => Real.sin ((x - y) * t))
 
+-- Helper: |sin(bt)/t| ≤ |b| for all t (from |sin(x)| ≤ |x|)
+private lemma abs_sin_mul_div_le (b t : ℝ) : |Real.sin (b * t) / t| ≤ |b| := by
+  by_cases ht : t = 0
+  · simp [ht, abs_nonneg]
+  · rw [abs_div]
+    calc |Real.sin (b * t)| / |t|
+        ≤ |b * t| / |t| := div_le_div_of_nonneg_right Real.abs_sin_le_abs (abs_nonneg t)
+      _ = |b| := by rw [abs_mul]
+                    exact mul_div_cancel_of_imp (fun h => absurd (abs_eq_zero.mp h) ht)
+
+-- Helper: sin(bt)/t is interval-integrable (bounded by |b|, measurable)
+private lemma intervalIntegrable_sin_div (b : ℝ) {a T : ℝ} :
+    IntervalIntegrable (fun t => Real.sin (b * t) / t) volume a T := by
+  apply IntegrableOn.intervalIntegrable
+  haveI : IsFiniteMeasure (volume.restrict (Set.uIcc a T) : Measure ℝ) :=
+    isFiniteMeasure_restrict.mpr (by exact measure_Icc_lt_top.ne)
+  exact Integrable.of_bound (C := |b|)
+    (((Real.measurable_sin.comp (measurable_const.mul measurable_id)).div
+      measurable_id).aestronglyMeasurable.restrict)
+    (by filter_upwards with t; rw [Real.norm_eq_abs]; exact abs_sin_mul_div_le b t)
+
+-- Helper: substitution ∫_δ^T sin(bt)/t = ∫_{bδ}^{bT} sin(u)/u for b > 0
+private lemma sinc_substitution (b δ T : ℝ) (hb : 0 < b) (hδ : 0 < δ) (hR : δ ≤ T) :
+    ∫ t in δ..T, Real.sin (b * t) / t = ∫ u in (b * δ)..(b * T), Real.sin u / u := by
+  have h1 : ∫ t in δ..T, Real.sin (b * t) / t =
+      b * ∫ t in δ..T, Real.sin (b * t) / (b * t) := by
+    rw [← intervalIntegral.integral_const_mul]
+    apply intervalIntegral.integral_congr_ae
+    filter_upwards with t ht
+    have ht_ne : t ≠ 0 := by rw [Set.uIoc_of_le hR, Set.mem_Ioc] at ht; linarith [ht.1]
+    field_simp
+  rw [h1]
+  conv_lhs => arg 2; arg 1; ext t; rw [show b * t = t * b from mul_comm b t]
+  rw [show b * δ = δ * b from mul_comm b δ, show b * T = T * b from mul_comm b T]
+  exact @intervalIntegral.mul_integral_comp_mul_right δ T (fun u => Real.sin u / u) b
+
+-- Helper: crude bound |∫_0^T sin(bt)/t| ≤ |b|T
+private lemma sinc_integral_crude_bound (b T : ℝ) (hT : 0 ≤ T) :
+    |∫ t in (0:ℝ)..T, Real.sin (b * t) / t| ≤ |b| * T := by
+  rw [← Real.norm_eq_abs]
+  calc ‖∫ t in (0:ℝ)..T, Real.sin (b * t) / t‖
+      ≤ ∫ t in (0:ℝ)..T, ‖Real.sin (b * t) / t‖ :=
+        intervalIntegral.norm_integral_le_integral_norm hT
+    _ ≤ ∫ t in (0:ℝ)..T, |b| := by
+        apply intervalIntegral.integral_mono_on hT
+          (intervalIntegrable_sin_div b).norm _root_.intervalIntegrable_const
+        intro t _; rw [Real.norm_eq_abs]; exact abs_sin_mul_div_le b t
+    _ = |b| * T := by
+        rw [intervalIntegral.integral_const, smul_eq_mul, sub_zero]; ring
+
+-- Helper: |∫_0^T sin(bt)/t| ≤ 3 (sharp bound via split + IBP)
+private lemma sinc_integral_bound (b T : ℝ) (hT : 0 < T) :
+    |∫ t in (0:ℝ)..T, Real.sin (b * t) / t| ≤ 3 := by
+  by_cases hb : b = 0
+  · simp [hb]
+  -- Reduce to b > 0 case using sin(-x) = -sin(x)
+  suffices h : ∀ c : ℝ, 0 < c → |∫ t in (0:ℝ)..T, Real.sin (c * t) / t| ≤ 3 by
+    rcases (ne_iff_lt_or_gt.mp hb) with hlt | hgt
+    · have : ∫ t in (0:ℝ)..T, Real.sin (b * t) / t =
+          -(∫ t in (0:ℝ)..T, Real.sin ((-b) * t) / t) := by
+        rw [← intervalIntegral.integral_neg]
+        apply intervalIntegral.integral_congr_ae
+        filter_upwards with t _
+        simp [neg_mul, Real.sin_neg]; ring
+      rw [this, abs_neg]; exact h (-b) (neg_pos.mpr hlt)
+    · exact h b hgt
+  intro c hc
+  -- Case split on c*T ≤ 1 vs c*T > 1
+  by_cases hcT : c * T ≤ 1
+  · calc |∫ t in (0:ℝ)..T, Real.sin (c * t) / t|
+        ≤ |c| * T := sinc_integral_crude_bound c T hT.le
+      _ = c * T := by rw [abs_of_pos hc]
+      _ ≤ 1 := hcT
+      _ ≤ 3 := by norm_num
+  · push_neg at hcT
+    have h1c : 0 < 1 / c := div_pos one_pos hc
+    have h1c_lt : 1 / c < T := by rwa [div_lt_iff₀ hc, mul_comm]
+    -- Split: ∫_0^T = ∫_0^{1/c} + ∫_{1/c}^T
+    have hsplit := intervalIntegral.integral_add_adjacent_intervals
+      (intervalIntegrable_sin_div c (a := 0) (T := 1/c))
+      (intervalIntegrable_sin_div c (a := 1/c) (T := T))
+    rw [← hsplit]
+    have hbd1 : |∫ t in (0:ℝ)..(1/c), Real.sin (c * t) / t| ≤ 1 :=
+      calc |∫ t in (0:ℝ)..(1/c), Real.sin (c * t) / t|
+          ≤ |c| * (1/c) := sinc_integral_crude_bound c (1/c) h1c.le
+        _ = 1 := by rw [abs_of_pos hc]; field_simp
+    have hbd2 : |∫ t in (1/c)..T, Real.sin (c * t) / t| ≤ 2 := by
+      rw [sinc_substitution c (1/c) T hc h1c h1c_lt.le,
+        show c * (1/c) = 1 from by field_simp]
+      exact (sine_interval_integral_bound 1 (c * T) one_pos (by linarith)).trans
+        (by norm_num)
+    linarith [abs_add_le (∫ t in (0:ℝ)..(1/c), Real.sin (c * t) / t)
+                          (∫ t in (1/c)..T, Real.sin (c * t) / t)]
+
+-- Helper: 1 - cos x = 2 sin²(x/2)
+private lemma one_sub_cos_eq (x : ℝ) : 1 - Real.cos x = 2 * Real.sin (x / 2) ^ 2 := by
+  have h1 := Real.cos_two_mul (x / 2)
+  have h2 := Real.sin_sq_add_cos_sq (x / 2)
+  have : 2 * (x / 2) = x := by ring
+  rw [this] at h1; nlinarith
+
+-- Helper: |(1-cos x)/x| ≤ 1 for all x
+private lemma abs_one_sub_cos_div_le (x : ℝ) : |(1 - Real.cos x) / x| ≤ 1 := by
+  by_cases hx : x = 0
+  · simp [hx]
+  · rw [abs_div, one_sub_cos_eq, abs_of_nonneg (by positivity)]
+    have hsin_le : Real.sin (x / 2) ^ 2 ≤ |Real.sin (x / 2)| * |x / 2| := by
+      calc Real.sin (x / 2) ^ 2
+          = |Real.sin (x / 2)| * |Real.sin (x / 2)| := by rw [← sq_abs (Real.sin (x / 2))]; ring
+        _ ≤ |Real.sin (x / 2)| * |x / 2| :=
+          mul_le_mul_of_nonneg_left Real.abs_sin_le_abs (abs_nonneg _)
+    calc 2 * Real.sin (x / 2) ^ 2 / |x|
+        ≤ 2 * (|Real.sin (x / 2)| * |x / 2|) / |x| :=
+          div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left hsin_le (by norm_num)) (abs_nonneg x)
+      _ = |Real.sin (x / 2)| := by
+          rw [abs_div, show |2| = (2 : ℝ) from abs_of_pos (by norm_num)]
+          field_simp
+      _ ≤ 1 := Real.abs_sin_le_one _
+
+-- Helper: ∫_0^T sin(bt) = (1-cos(bT))/b for b ≠ 0
+private lemma integral_sin_mul (b T : ℝ) (hb : b ≠ 0) :
+    ∫ t in (0:ℝ)..T, Real.sin (b * t) = (1 - Real.cos (b * T)) / b := by
+  have hderiv : ∀ x ∈ Set.uIcc 0 T,
+      HasDerivAt (fun t => -Real.cos (b * t) / b) (Real.sin (b * x)) x := by
+    intro x _
+    have h1 : HasDerivAt (fun t => b * t) b x := by
+      convert (hasDerivAt_id x).const_mul b using 1; ring
+    have h3 : HasDerivAt (fun t => Real.cos (b * t)) (-Real.sin (b * x) * b) x := by
+      have := (Real.hasDerivAt_cos (b * x)).comp x h1
+      simp only [Function.comp_def] at this; exact this
+    have h4 := h3.neg.congr_deriv (show -(-Real.sin (b * x) * b) = Real.sin (b * x) * b by ring)
+    exact (h4.div_const b).congr_deriv (by field_simp)
+  rw [intervalIntegral.integral_eq_sub_of_hasDerivAt hderiv
+    ((Real.continuous_sin.comp (continuous_const.mul continuous_id)).intervalIntegrable 0 T)]
+  rw [mul_zero, Real.cos_zero]; field_simp; ring
+
+-- Cesaro sine integral bound: |∫₀ᵀ (1-t/T) sin(bt)/t dt| ≤ 5
+set_option maxHeartbeats 400000 in
+private lemma cesaro_integral_bound (T b : ℝ) (hT : 0 < T) :
+    |∫ t in Set.Icc 0 T, (1 - t / T) * (Real.sin (b * t) / t)| ≤ 5 := by
+  -- Convert set integral on Icc to interval integral
+  rw [integral_Icc_eq_integral_Ioc, ← intervalIntegral.integral_of_le hT.le]
+  -- b = 0 case
+  by_cases hb : b = 0
+  · simp [hb]
+  -- Split: ∫ (1-t/T)sin(bt)/t = ∫ sin(bt)/t - (1/T)∫ sin(bt)
+  have h1 := intervalIntegrable_sin_div b (a := (0:ℝ)) (T := T)
+  have h2 : IntervalIntegrable (fun t => (1 / T) * Real.sin (b * t)) volume 0 T :=
+    (Real.continuous_sin.comp (continuous_const.mul continuous_id)).intervalIntegrable 0 T |>.const_mul _
+  -- Rewrite integrand
+  have hcongr : ∫ t in (0:ℝ)..T, (1 - t / T) * (Real.sin (b * t) / t) =
+      ∫ t in (0:ℝ)..T, (Real.sin (b * t) / t - 1 / T * Real.sin (b * t)) := by
+    apply intervalIntegral.integral_congr_ae
+    filter_upwards with t _
+    by_cases htv : t = 0 <;> simp [htv] <;> field_simp
+  have hsplit : ∫ t in (0:ℝ)..T, (1 - t / T) * (Real.sin (b * t) / t) =
+      (∫ t in (0:ℝ)..T, Real.sin (b * t) / t) -
+      (1 / T) * ∫ t in (0:ℝ)..T, Real.sin (b * t) := by
+    rw [hcongr, intervalIntegral.integral_sub h1 h2, intervalIntegral.integral_const_mul]
+  rw [hsplit]
+  -- Triangle inequality
+  calc |(∫ t in (0:ℝ)..T, Real.sin (b * t) / t) -
+        (1 / T) * ∫ t in (0:ℝ)..T, Real.sin (b * t)|
+      ≤ |∫ t in (0:ℝ)..T, Real.sin (b * t) / t| +
+        |(1 / T) * ∫ t in (0:ℝ)..T, Real.sin (b * t)| := abs_sub _ _
+    _ ≤ 3 + 1 := by
+        apply add_le_add (sinc_integral_bound b T hT)
+        -- |(1/T) ∫ sin(bt)| = |(1-cos(bT))/(bT)| ≤ 1
+        rw [integral_sin_mul b T hb, abs_mul, abs_of_nonneg (by positivity)]
+        rw [show (1 : ℝ) / T * |(1 - Real.cos (b * T)) / b| =
+          |(1 - Real.cos (b * T)) / (b * T)| from by
+          rw [abs_div, abs_div, abs_mul, abs_of_pos hT]; ring]
+        exact abs_one_sub_cos_div_le (b * T)
+    _ ≤ 5 := by norm_num
+
+/-- **Cesàro Fubini identity.**
+For a probability measure `μ` and `0 < δ < T`, the order of integration can be swapped
+for the Cesàro-weighted sinc integrand on `[δ, T] × μ`:
+
+  `∫_μ ∫_{[δ,T]} (1-t/T) sin((x-y)t)/t dt = ∫_{[δ,T]} (1-t/T)(∫_μ sin((x-y)t))/t dt`
+
+The integrand `(1-t/T) sin((x-y)t)/t` is bounded by `1/δ` on `[δ,T]` (since
+`|(1-t/T)| ≤ 1` and `|sin(...)/t| ≤ 1/δ`), so Fubini applies on this finite product. -/
+private lemma cesaro_fubini_truncated
+    (μ : Measure ℝ) [IsProbabilityMeasure μ]
+    (δ T y : ℝ) (hδ : 0 < δ) (hR : δ < T) :
+    ∫ x, (∫ t in Set.Icc δ T, (1 - t / T) * (Real.sin ((x - y) * t) / t)) ∂μ =
+    ∫ t in Set.Icc δ T, (1 - t / T) * ((∫ x, Real.sin ((x - y) * t) ∂μ) / t) := by
+  -- The integrand (1-t/T)·sin((x-y)t)/t is bounded by 1/δ on [δ,T]×μ.
+  -- Fubini gives ∫_μ ∫_{Icc} = ∫_{Icc} ∫_μ, then simplify.
+  set ν := (volume : Measure ℝ).restrict (Set.Icc δ T)
+  haveI : IsFiniteMeasure ν := isFiniteMeasure_restrict.mpr measure_Icc_lt_top.ne
+  -- Measurability of the integrand
+  have hmeas : Measurable (Function.uncurry fun (x t : ℝ) =>
+      (1 - t / T) * (Real.sin ((x - y) * t) / t)) :=
+    ((measurable_const.sub (measurable_snd.div measurable_const)).mul
+      ((Real.measurable_sin.comp ((measurable_fst.sub measurable_const).mul
+        measurable_snd)).div measurable_snd))
+  -- Bound on [δ,T]: |(1-t/T) sin((x-y)t)/t| ≤ 1/δ
+  have hbd : ∀ᵐ t ∂ν, ∀ x : ℝ,
+      ‖(1 - t / T) * (Real.sin ((x - y) * t) / t)‖ ≤ 1 / δ := by
+    filter_upwards [ae_restrict_mem measurableSet_Icc] with t ht x
+    have ht_pos : 0 < t := lt_of_lt_of_le hδ ht.1
+    have htT : t ≤ T := ht.2
+    rw [Real.norm_eq_abs, abs_mul]
+    have hT_pos : (0 : ℝ) < T := lt_trans hδ hR
+    calc |1 - t / T| * |Real.sin ((x - y) * t) / t|
+        ≤ 1 * (1 / δ) := by
+          apply mul_le_mul
+          · have htT1 : t / T ≤ 1 := (div_le_one₀ hT_pos).mpr htT
+            have htT0 : 0 ≤ t / T := div_nonneg ht_pos.le hT_pos.le
+            rw [abs_of_nonneg (by linarith)]; linarith
+          · rw [abs_div, abs_of_pos ht_pos]
+            calc |Real.sin ((x - y) * t)| / t
+                ≤ 1 / t := div_le_div_of_nonneg_right (Real.abs_sin_le_one _) ht_pos.le
+              _ ≤ 1 / δ := div_le_div_of_nonneg_left one_pos.le hδ ht.1
+          · exact abs_nonneg _
+          · linarith
+      _ = 1 / δ := one_mul _
+  -- Product integrability
+  have hprod : Integrable (Function.uncurry fun (x t : ℝ) =>
+      (1 - t / T) * (Real.sin ((x - y) * t) / t)) (μ.prod ν) := by
+    apply Integrable.of_bound hmeas.aestronglyMeasurable (1 / δ)
+    rw [Measure.ae_prod_iff_ae_ae (measurableSet_le hmeas.norm measurable_const)]
+    filter_upwards with x
+    filter_upwards [hbd] with t ht; exact ht x
+  -- Apply Fubini
+  rw [integral_integral_swap hprod]
+  congr 1; ext t
+  -- ∫_μ (1-t/T) * (sin/t) = (1-t/T) * (∫_μ sin) / t
+  rw [MeasureTheory.integral_const_mul, integral_div]
+
+-- Helper: sin(θ) = Im(exp(iθ))
+private lemma real_sin_eq_im_exp (θ : ℝ) : Real.sin θ = (exp ((↑θ : ℂ) * I)).im := by
+  simp [exp_mul_I, add_im, mul_im, I_re, I_im, Complex.sin_ofReal_re]
+
+-- Helper: exp(i(x-y)t) is integrable under a probability measure
+private lemma integrable_exp_product (μ : Measure ℝ) [IsProbabilityMeasure μ] (t y : ℝ) :
+    Integrable (fun x => exp ((↑((x - y) * t) : ℂ) * I)) μ := by
+  apply Integrable.of_bound (C := 1)
+  · exact (by fun_prop : Measurable (fun x => exp ((↑((x - y) * t) : ℂ) * I))).aestronglyMeasurable
+  · filter_upwards with x; rw [Complex.norm_exp_ofReal_mul_I]
+
+-- Helper: |∫ sin((x-y)t) dμ - ∫ sin((x-y)t) dν| ≤ ‖charFun μ t - charFun ν t‖
+-- Proof: sin = Im∘exp, pull exp(-iyt) factor, use |Im(z)| ≤ ‖z‖ and ‖exp·z‖ = ‖z‖.
+set_option maxHeartbeats 400000 in
+private lemma sin_integral_le_charFun_norm (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
+    [IsProbabilityMeasure ν] (t y : ℝ) :
+    |∫ x, Real.sin ((x - y) * t) ∂μ - ∫ x, Real.sin ((x - y) * t) ∂ν| ≤
+    ‖charFun μ t - charFun ν t‖ := by
+  simp_rw [real_sin_eq_im_exp]
+  conv_lhs =>
+    arg 1; arg 1
+    rw [show (fun x => (exp ((↑((x - y) * t) : ℂ) * I)).im) =
+      (fun x => Complex.imCLM (exp ((↑((x - y) * t) : ℂ) * I))) from rfl]
+    rw [ContinuousLinearMap.integral_comp_comm Complex.imCLM (integrable_exp_product μ t y)]
+  conv_lhs =>
+    arg 1; arg 2
+    rw [show (fun x => (exp ((↑((x - y) * t) : ℂ) * I)).im) =
+      (fun x => Complex.imCLM (exp ((↑((x - y) * t) : ℂ) * I))) from rfl]
+    rw [ContinuousLinearMap.integral_comp_comm Complex.imCLM (integrable_exp_product ν t y)]
+  simp only [Complex.imCLM_apply]
+  rw [← Complex.sub_im]
+  have hexp : ∫ x, exp ((↑((x - y) * t) : ℂ) * I) ∂μ -
+      ∫ x, exp ((↑((x - y) * t) : ℂ) * I) ∂ν =
+      exp ((↑(-y * t) : ℂ) * I) * (charFun μ t - charFun ν t) := by
+    rw [mul_sub]; congr 1 <;> {
+      rw [charFun_apply_real, ← MeasureTheory.integral_const_mul]
+      congr 1; ext x; rw [← Complex.exp_add]; congr 1; push_cast; ring }
+  rw [hexp]
+  calc |(exp ((↑(-y * t) : ℂ) * I) * (charFun μ t - charFun ν t)).im|
+      ≤ ‖exp ((↑(-y * t) : ℂ) * I) * (charFun μ t - charFun ν t)‖ :=
+        Complex.abs_im_le_norm _
+    _ = ‖charFun μ t - charFun ν t‖ := by
+        rw [norm_mul, Complex.norm_exp_ofReal_mul_I, one_mul]
+
+/-- **Cesàro Fourier bound.**
+The Cesàro-averaged Fourier difference `(1/π)∫₀ᵀ (1-t/T) Im(Δ̂(t) e^{-iyt})/t dt`
+is bounded by `I/(2π)` in absolute value, where `I = ∫_{-T}^T ‖Δ̂(t)‖/|t| dt`.
+
+This uses `(1-t/T) ≤ 1` and `|Im(Δ̂ e^{-iyt})| ≤ ‖Δ̂‖`. -/
+private lemma cesaro_fourier_bound (μ ν : Measure ℝ) [IsProbabilityMeasure μ]
+    [IsProbabilityMeasure ν]
+    (T y : ℝ) (hT : 0 < T) (δ : ℝ) (hδ : 0 < δ) (hδT : δ < T) :
+    |(1 / Real.pi) * ∫ t in Set.Icc δ T,
+      (1 - t / T) * ((∫ x, Real.sin ((x - y) * t) ∂μ -
+        ∫ x, Real.sin ((x - y) * t) ∂ν) / t)| ≤
+    (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
+      ‖charFun μ t - charFun ν t‖ / |t| := by
+  -- Step 1: bound the integrand
+  -- |∫_μ sin((x-y)t) - ∫_ν sin((x-y)t)| ≤ ‖charFun μ t - charFun ν t‖
+  -- because the difference = Im(exp(-iyt)(Δ(t))) and |Im(z)| ≤ ‖z‖
+  -- So |(1-t/T)(diff/t)| ≤ ‖Δ(t)‖/|t| for t ∈ [δ,T]
+  -- Step 2: |(1/π) ∫_{[δ,T]}| ≤ (1/π) ∫_{[δ,T]} ‖Δ‖/|t|
+  -- Step 3: ∫_{[δ,T]} ≤ (1/2) ∫_{[-T,T]} by symmetry ‖Δ(-t)‖ = ‖Δ(t)‖
+  -- Combine: ≤ (1/(2π)) ∫_{[-T,T]}
+
+  -- Bound: |(1/π)| = 1/π (π > 0)
+  have hpi : 0 < Real.pi := Real.pi_pos
+  rw [abs_mul, abs_of_nonneg (by positivity)]
+
+  -- Key bound: |∫_μ sin((x-y)t) - ∫_ν sin((x-y)t)| ≤ ‖charFun μ t - charFun ν t‖
+  -- Proof: ∫ sin((x-y)t) dμ = Im(exp(-iyt) · charFun μ t) (Fourier inversion),
+  -- so diff = Im(exp(-iyt) · Δ(t)), and |Im(z)| ≤ ‖z‖, ‖exp·z‖ = ‖z‖.
+  have hsin_charfun_bound : ∀ t : ℝ,
+      |∫ x, Real.sin ((x - y) * t) ∂μ - ∫ x, Real.sin ((x - y) * t) ∂ν| ≤
+      ‖charFun μ t - charFun ν t‖ :=
+    fun t => sin_integral_le_charFun_norm μ ν t y
+  -- Pointwise bound: |(1-t/T)(diff/t)| ≤ ‖Δ(t)‖/|t| for t ∈ [δ,T]
+  -- Uses: |∫ f| ≤ ∫ |f| (norm_integral), then setIntegral_mono_on with
+  -- |(1-t/T)| ≤ 1, |diff| ≤ ‖Δ(t)‖ (sin_integral_le_charFun_norm), |t| = t
+  have habs_int : |∫ t in Set.Icc δ T,
+      (1 - t / T) * ((∫ x, Real.sin ((x - y) * t) ∂μ -
+        ∫ x, Real.sin ((x - y) * t) ∂ν) / t)| ≤
+      ∫ t in Set.Icc δ T, ‖charFun μ t - charFun ν t‖ / |t| := by
+    sorry
+  -- Symmetry: ∫_{[δ,T]} ‖Δ‖/|t| ≤ (1/2) ∫_{[-T,T]} ‖Δ‖/|t|
+  -- because ‖Δ(-t)‖/|-t| = ‖Δ(t)‖/|t| (charFun_neg + norm_conj) and
+  -- ∫_{[-T,T]} ≥ ∫_{[-T,-δ]} + ∫_{[δ,T]} = 2∫_{[δ,T]}
+  have hsymm : ∫ t in Set.Icc δ T, ‖charFun μ t - charFun ν t‖ / |t| ≤
+      (1/2) * ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| := by
+    sorry
+  calc 1 / Real.pi * |∫ t in Set.Icc δ T,
+        (1 - t / T) * ((∫ x, Real.sin ((x - y) * t) ∂μ -
+          ∫ x, Real.sin ((x - y) * t) ∂ν) / t)|
+      ≤ 1 / Real.pi * ∫ t in Set.Icc δ T, ‖charFun μ t - charFun ν t‖ / |t| := by
+        apply mul_le_mul_of_nonneg_left habs_int (by positivity)
+    _ ≤ 1 / Real.pi * ((1/2) * ∫ t in Set.Icc (-T) T,
+        ‖charFun μ t - charFun ν t‖ / |t|) := by
+        apply mul_le_mul_of_nonneg_left hsymm (by positivity)
+    _ = _ := by ring
+
 /-- **Esseen's smoothing inequality** (Esseen 1945).
 
 For probability measures `μ`, `ν` where `ν` has CDF that is `M`-Lipschitz
-(equivalently, `ν` has density bounded by `M`), the supremum of the CDF difference
+(equivalently, `ν` has density bounded by `M`), the CDF difference
 is bounded by the characteristic function integral plus a density error:
 
-  `sup_y |cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24M/(πT)`
+  `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24M/(πT)`
 
-**Proof sketch** (Esseen 1945 / "A friendly proof of Berry-Esseen" arXiv:2602.06234):
-1. WLOG `sup Δ = sup|Δ| = Δ̄ > 0`.
-2. **Localization**: Choose `a₀` with `Δ(a₀) ≥ 0.9Δ̄`. By the Lipschitz condition
-   on `ν`, `Δ(a₀+t) ≥ Δ(a₀) - Mt` for `t ≥ 0`.
-3. **Smoothing**: Convolve `Δ` with a Schwartz probability density `φ` whose Fourier
-   transform is supported in `[-T, T]`. The smoothed `Δ_f(a) = ∫ Δ(a+y)φ(y)dy`
-   satisfies `Δ̄ ≤ 2 sup|Δ_f| + C_φ M / T`.
-4. **Fourier bound**: Since `φ̂` is compactly supported in `[-T, T]` with
-   `|φ̂(t)| ≤ 1/(2π|t|)`, we get `sup|Δ_f| ≤ (1/(2π)) I`.
-5. **Combine**: `Δ̄ ≤ I/π + C_φ M/T`.
+**Proof strategy**: Fejér bracket approach via de la Vallée-Poussin kernel.
+The Fejér CDF `Ψ(u) = 1/2 + (1/π) C(uT)` (where `C` is the Cesàro mean of Si)
+satisfies `Ψ ∈ [0,1]`, `1-Ψ(a) ≤ 4/(πaT)`, and the bracket inequality
+`H(u) ≤ Ψ(u+a) + (1-Ψ(a))` where `H = 1_{[0,∞)}`.
+
+Combined with the Fourier identity (from `cesaro_fubini_truncated` + limit):
+  `|E_μ[Ψ(y-X)] - E_ν[Ψ(y-X)]| ≤ I/(2π)`
+and the density bound `E_ν[Ψ(y+a-X) - Ψ(y-a-X)] ≤ 2aM`:
+  `|F-G| ≤ I/(2π) + 2aM + 8/(πaT)`
+
+Choosing `a = 12/(πMT)` gives `2aM + 8/(πaT) = 24/(πT) + 2M/3`.
+For the full proof, the Gil-Pelaez conditional convergence argument is needed
+to remove the constant and achieve the `O(M/T)` rate.
 -/
 private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
-    (hν_density : ∃ M : ℝ, 0 < M ∧
-      ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
+    {M : ℝ} (hM : 0 < M)
+    (hν_density : ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
     (T : ℝ) (hT : 0 < T) (y : ℝ) :
     |cdf μ y - cdf ν y| ≤
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
-      24 / (Real.pi * T) := by
+      24 * M / (Real.pi * T) := by
   sorry
 
 /-- **Esseen's Fourier-analytic CDF bound.**
@@ -888,36 +1222,36 @@ condition on `ν`, this gives `|F-G| ≤ I/(2π) + 2Ma + 4/(πTa)`.
 Optimizing `a = 1/T` and absorbing constants gives the result. -/
 private lemma levy_cdf_diff_fourier_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
-    (hν_density : ∃ M : ℝ, 0 < M ∧
-      ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
+    {M : ℝ} (hM : 0 < M)
+    (hν_density : ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
     (T : ℝ) (hT : 0 < T) (y : ℝ) :
     |cdf μ y - cdf ν y| ≤
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
-      24 / (Real.pi * T) := by
+      24 * M / (Real.pi * T) := by
   -- The charFun integral is nonneg
   have hI_nn := charFun_integral_nonneg μ ν T
   -- |cdf diff| ≤ 1
   have hcdf := abs_cdf_sub_le_one μ ν y
   -- π > 0
   have hpi := Real.pi_pos
-  -- 24/(πT) > 0
-  have h24 : 0 < 24 / (Real.pi * T) := by positivity
-  -- If 24/(πT) ≥ 1, the bound is trivially true since |cdf diff| ≤ 1 ≤ 24/(πT) ≤ RHS
-  by_cases hT_small : T ≤ 24 / Real.pi
-  · -- Small T case: 24/(πT) ≥ 1
-    have h1 : 1 ≤ 24 / (Real.pi * T) := by
+  -- 24M/(πT) > 0
+  have h24 : 0 < 24 * M / (Real.pi * T) := by positivity
+  -- If 24M/(πT) ≥ 1, the bound is trivially true since |cdf diff| ≤ 1 ≤ 24M/(πT) ≤ RHS
+  by_cases hT_small : T ≤ 24 * M / Real.pi
+  · -- Small T case: 24M/(πT) ≥ 1
+    have h1 : 1 ≤ 24 * M / (Real.pi * T) := by
       rw [le_div_iff₀ (mul_pos hpi hT), one_mul]
       calc Real.pi * T = T * Real.pi := mul_comm _ _
-        _ ≤ (24 / Real.pi) * Real.pi := by gcongr
-        _ = 24 := by field_simp
+        _ ≤ (24 * M / Real.pi) * Real.pi := by gcongr
+        _ = 24 * M := by field_simp
     calc |cdf μ y - cdf ν y|
         ≤ 1 := hcdf
-      _ ≤ 24 / (Real.pi * T) := h1
+      _ ≤ 24 * M / (Real.pi * T) := h1
       _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
             ‖charFun μ t - charFun ν t‖ / |t|) +
-          24 / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
-  · -- Large T case: T > 24/π. Use Lévy-Gil-Pelaez inversion.
+          24 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
+  · -- Large T case: T > 24M/π.
     push_neg at hT_small
     -- Case split: if charFun integral ≥ π, trivially true
     set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| with hI_def
@@ -928,123 +1262,40 @@ private lemma levy_cdf_diff_fourier_bound
         _ ≤ 1 / Real.pi * I := by
             rw [div_mul_eq_mul_div, one_mul, le_div_iff₀ hpi]
             linarith
-        _ ≤ 1 / Real.pi * I + 24 / (Real.pi * T) := le_add_of_nonneg_right h24.le
-    · -- Case I < π: Since the RHS is ≥ 24/(πT) > 1 when T ≤ 24/π
-      -- (handled above), here T > 24/π.
-      -- The bound I/π + 24/(πT) might be < 1, so we need the density hypothesis.
+        _ ≤ 1 / Real.pi * I + 24 * M / (Real.pi * T) := le_add_of_nonneg_right h24.le
+    · -- Case I < π and T > 24M/π.
       push_neg at hI_large
-      obtain ⟨M, hM_pos, hM_bound⟩ := hν_density
-      -- Key: use I/π < 1 and 24/(πT) < 1, but their sum covers |F-G|.
-      -- By Esseen's smoothing lemma with the triangular kernel of bandwidth 1/T:
-      --   |F(y) - G(y)| ≤ |∫(F-G)K| + smoothing_error
-      -- Using the density bound on ν:
-      --   smoothing_error = |F(y) - ∫F(y-x)K(x)dx - (G(y) - ∫G(y-x)K(x)dx)|
-      --                   ≤ |F(y) - ∫FK| + |G(y) - ∫GK|
-      -- For any CDF H: |H(y) - ∫H(y-x)K(x)dx| ≤ 1/2 (monotonicity of H + ∫K=1)
-      -- For Lipschitz G with constant M: |G(y) - ∫GK| ≤ M∫|x|K(x)dx = M/(3T)
-      -- So: smoothing_error ≤ 1/2 + M/(3T)
-      --
-      -- For the smoothed error, using Fourier analysis:
-      --   |∫(F-G)K| ≤ (1/(2π)) * I   [Parseval/Fourier connection]
-      -- Combined: |F-G| ≤ I/(2π) + 1/2 + M/(3T)
-      -- Since I/(2π) ≤ I/π and M/(3T) ≤ 24/(πT) for suitable M:
-      --   |F-G| ≤ I/π + 24/(πT)    when 1/2 ≤ I/π - I/(2π) + 24/(πT) - M/(3T)
-      --                              = I/(2π) + (24/π - M/3)/T
-      --
-      -- For M = 1 (Gaussian case): need 1/2 ≤ I/(2π) + (24/π - 1/3)/T
-      -- Since I ≥ 0 and T > 24/π ≈ 7.64: (24/π - 1/3)/T < 1, so not obvious.
-      --
-      -- Instead, we combine the two cases:
-      -- Either |F-G| ≤ 1/2, in which case I/π + 24/(πT) ≥ 24/(πT) > 24/(π·24/π) = 1/π ≈ 0.318...
-      -- Hmm, 1/π < 1/2, so this doesn't work directly.
-      --
-      -- Use the full smoothing approach: split I into near-zero and bulk parts,
-      -- use the density bound for near-zero cancellation.
-      -- This requires the Fourier inversion infrastructure (~200 lines).
-      --
-      -- For now, we use a combined approach:
-      -- The smoothing kernel gives |F-G| ≤ |∫(F-G)K| + 1/2 + M/(3T)
-      -- And |∫(F-G)K| ≤ 1 (trivial)
-      -- So |F-G| ≤ 3/2 + M/(3T)
-      --
-      -- We need 3/2 + M/(3T) ≤ I/π + 24/(πT)
-      -- i.e., 3/2 ≤ I/π + (24/π - M/3)/T
-      -- For M ≤ 24/π ≈ 7.64 and T ≥ 1: this requires I/π ≥ 3/2 - 24/(πT) + M/(3T)
-      -- i.e., I ≥ 3π/2 - 24/T + πM/(3T)
-      -- For T large: I ≥ 3π/2 ≈ 4.71, but we're in the I < π ≈ 3.14 case. Contradiction!
-      --
-      -- So the trivial smoothing bound is NOT sufficient.
-      -- We genuinely need the Fourier connection: |∫(F-G)K| ≤ (1/(2π))*I.
-      --
-      -- Use the integral_charFun_Icc identity from Mathlib as a starting point.
-      -- This gives ∫_{-T}^T charFun μ t = 2T ∫_μ sinc(Tx).
-      -- For the smoothed CDF: ∫ F(y-x) K(x) dx = ∫_μ Ψ(y-z) (Fubini),
-      -- where Ψ is the CDF of K. The Fourier connection then gives
-      -- |∫_μ Ψ(y-z) - ∫_ν Ψ(y-z)| ≤ (1/(2π)) I via the FT of Ψ.
-      --
-      -- Case split: if I ≥ π - 24/T, the trivial bound |F-G| ≤ 1 suffices.
-      by_cases hI_near_pi : Real.pi - 24 / T ≤ I
-      · -- I close to π: I/π + 24/(πT) ≥ (π - 24/T)/π + 24/(πT) = 1
+      -- Case split: if I ≥ π - 24M/T, the trivial bound |F-G| ≤ 1 suffices.
+      by_cases hI_near_pi : Real.pi - 24 * M / T ≤ I
+      · -- I close to π: I/π + 24M/(πT) ≥ (π - 24M/T)/π + 24M/(πT) = 1
         calc |cdf μ y - cdf ν y|
             ≤ 1 := hcdf
-          _ ≤ 1 / Real.pi * I + 24 / (Real.pi * T) := by
-              -- From hI_near_pi: π - 24/T ≤ I, so I/π ≥ 1 - 24/(πT)
+          _ ≤ 1 / Real.pi * I + 24 * M / (Real.pi * T) := by
               have hpi_ne : Real.pi ≠ 0 := ne_of_gt hpi
               have hT_ne : T ≠ 0 := ne_of_gt hT
-              have step1 : 1 - 24 / (Real.pi * T) ≤ 1 / Real.pi * I := by
+              have step1 : 1 - 24 * M / (Real.pi * T) ≤ 1 / Real.pi * I := by
                 rw [div_mul_eq_mul_div, one_mul]
                 rw [le_div_iff₀ hpi]
-                have h24T : Real.pi - 24 / T ≤ I := hI_near_pi
-                have : Real.pi * (1 - 24 / (Real.pi * T)) = Real.pi - 24 / T := by
+                have h24T : Real.pi - 24 * M / T ≤ I := hI_near_pi
+                have : Real.pi * (1 - 24 * M / (Real.pi * T)) = Real.pi - 24 * M / T := by
                   field_simp
                 linarith
               linarith
-      · -- I < π - 24/T: use Fejér bracket approach (Esseen 1945 / Feller XV.3).
-        --
-        -- PROOF (Fejér bracket + Fourier identity):
-        --
-        -- Define Fejér CDF: Ψ(u) = 1/2 + (1/π) ∫₀ᵀ (1-t/T) sin(ut)/t dt
-        -- Key properties (from d/du Ψ = (2sin²(uT/2))/(πTu²) ≥ 0):
-        --   (a) Ψ non-decreasing
-        --   (b) Ψ ∈ [0,1] (C(R) = ∫₀ᴿ(1-s/R)sin(s)/s ds is monotone ≤ π/2)
-        --   (c) 1-Ψ(a) ≤ 4/(πaT) (from |Si(R)-π/2| ≤ 2/R via IBP)
-        --
-        -- Bracket: for a > 0,
-        --   F(y) ≤ E_μ[Ψ(y+a-X)] + (1-Ψ(a))
-        --   G(y) ≥ E_ν[Ψ(y-a-X)] - (1-Ψ(a))
-        --
-        -- Fourier identity (Fubini on bounded integrand × prob measure):
-        --   E_μ[Ψ(y-X)] - E_ν[Ψ(y-X)] = -(1/π)∫₀ᵀ(1-t/T)Im(Δe^{-ity})/t dt
-        --   |...| ≤ I/(2π)
-        --
-        -- Density bound on ν (M-Lipschitz CDF):
-        --   E_ν[Ψ(y+a-X) - Ψ(y-a-X)] ≤ 2aM
-        --
-        -- Combine: |F-G| ≤ I/(2π) + 2aM + 2(1-Ψ(a)) ≤ I/(2π) + 2aM + 8/(πaT)
-        -- With a = 2/(√π·T): I/(2π) + 4M/(√πT) + 4/(√πT) = I/(2π) + 4(M+1)/(√πT)
-        -- For M = 1: I/(2π) + 8/(√πT) ≤ I/π + 24/(πT) since 8/√π < 24/π.
-        --
-        -- FORMALIZATION STATUS: Requires ~150 lines of Fejér CDF infrastructure:
-        -- 1. ∫₀ᵀ(1-t/T)cos(ut)dt = (1-cos(uT))/(Tu²) — IBP computation
-        -- 2. Monotonicity of Fejér CDF — from sin² ≥ 0
-        -- 3. C(R) = ∫₀ᴿ(1-s/R)sin(s)/s ds monotone ≤ π/2 — from C'=(1-cos)/R² ≥ 0
-        -- 4. Tail bound 1-Ψ(a) ≤ 4/(πaT) — from |Si(R)-π/2| ≤ 2/R
-        -- 5. Fubini for Cesàro-weighted sinc — bounded integrand on [0,T] × μ
-        -- The only caller uses M = 1 (Gaussian density).
+      · -- I < π - 24M/T: use Esseen's smoothing inequality.
         push_neg at hI_near_pi
-        -- Apply Esseen's smoothing inequality
-        exact esseen_smoothing_ineq μ ν ⟨M, hM_pos, hM_bound⟩ T hT y
+        exact esseen_smoothing_ineq μ ν hM hν_density T hT y
 
 private lemma esseen_fourier_cdf_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     (hν_density : ∃ M : ℝ, 0 < M ∧
       ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
     (T : ℝ) (hT : 0 < T) (y : ℝ) :
-    |cdf μ y - cdf ν y| ≤
+    ∃ M : ℝ, 0 < M ∧ |cdf μ y - cdf ν y| ≤
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
-      24 / (Real.pi * T) :=
-  levy_cdf_diff_fourier_bound μ ν hν_density T hT y
+      24 * M / (Real.pi * T) := by
+  obtain ⟨M, hM, hbd⟩ := hν_density
+  exact ⟨M, hM, levy_cdf_diff_fourier_bound μ ν hM hbd T hT y⟩
 
 /-- The Gaussian density `gaussianPDFReal 0 1 x ≤ 1` for all `x`. -/
 private lemma gaussianPDFReal_le_one (x : ℝ) : gaussianPDFReal 0 1 x ≤ 1 := by
@@ -1108,12 +1359,15 @@ lemma esseen_concentration_universal :
             C₂ / T := by
   refine ⟨1 / Real.pi, 24 / Real.pi, by positivity, by positivity, fun T hT μ _ y => ?_⟩
   have hpi : 0 < Real.pi := Real.pi_pos
-  -- Apply the core Fourier-analytic bound
-  have hbound := esseen_fourier_cdf_bound μ (gaussianReal 0 1)
+  -- Apply the core Fourier-analytic bound with M = 1 (Gaussian density)
+  obtain ⟨M, hM, hbound⟩ := esseen_fourier_cdf_bound μ (gaussianReal 0 1)
     ⟨1, one_pos, gaussianReal_density_bounded⟩ T hT y
-  -- Simplify: 24/(π*T) = (24/π)/T
-  rw [show 24 / (Real.pi * T) = (24 / Real.pi) / T from by ring] at hbound
-  exact hbound
+  -- Since M = 1 from Gaussian: 24*1/(π*T) = (24/π)/T
+  -- But M could be any value satisfying the density bound; we use M = 1 explicitly.
+  have hbound' := levy_cdf_diff_fourier_bound μ (gaussianReal 0 1) one_pos
+    gaussianReal_density_bounded T hT y
+  rw [show 24 * (1 : ℝ) / (Real.pi * T) = (24 / Real.pi) / T from by ring] at hbound'
+  exact hbound'
 
 /-- **Auxiliary: the charfun integrand is bounded by 5δ|t|² on Icc(-T, T).**
 For t² ≤ 2n (which holds for all t ∈ Icc(-T, T)), the Taylor bound gives
