@@ -23,6 +23,11 @@ import Statlean.SubGaussian.Lipschitz
 -- Characteristic function Taylor bounds
 import Statlean.CharFun.Taylor
 
+-- Fourier analysis infrastructure
+import Statlean.Fourier.JacksonKernel
+import Statlean.Fourier.CDFInversion
+import Statlean.Fourier.EsseenSmoothing
+
 -- Limit theorems
 import Statlean.LimitTheorems.Convergence
 import Statlean.LimitTheorems.Levy

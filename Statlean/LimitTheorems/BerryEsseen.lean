@@ -3,6 +3,9 @@ Copyright (c) 2026 StatLean Contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 import Statlean.CharFun.Taylor
+import Statlean.Fourier.JacksonKernel
+import Statlean.Fourier.CDFInversion
+import Statlean.Fourier.EsseenSmoothing
 
 /-!
 # Berry-Esseen Theorem
@@ -1221,112 +1224,6 @@ private lemma cesaro_fourier_bound (μ ν : Measure ℝ) [IsProbabilityMeasure �
         ‖charFun μ t - charFun ν t‖ / |t|) := by
         apply mul_le_mul_of_nonneg_left hsymm (by positivity)
     _ = _ := by ring
-
-/-- **Jackson kernel existence.**
-
-For `T > 0` and any `k ≥ 2`, there exists a non-negative integrable kernel `K` such that:
-- `∫ K = 1`
-- `K` has compact Fourier support: `K̂(ξ) = 0` for `|ξ| > T`
-  (encoded as the Fejér CDF bracket property with tail bound `O(1/(Ta)^(2k-1))`)
-- `∫ |u| K(u) du ≤ C/T` for a universal constant `C`
-
-The Jackson kernel `J_{2k}(x) = c · (sin(Tx/(2k))/x)^{2k}` has decay `O(1/x^{2k})`,
-so `∫ |u| J_{2k}(u) du < ∞` for `k ≥ 2` and scales as `C/T`. Its Fourier transform
-is a B-spline of order `2k`, supported on `[-T, T]` (with appropriate scaling).
-
-This sub-lemma asserts the existence abstractly. The concrete construction
-(explicit `sin^{2k}/x^{2k}` formulas, B-spline Fourier identity, and the
-computation `∫ |u| J₄(u) du = C/T`) is deferred.
-
-**Reference**: Esseen (1945), also Feller Vol II §XV.3.
--/
-private lemma jackson_kernel_tail_bound (T : ℝ) (hT : 0 < T) :
-    ∃ (K : ℝ → ℝ),
-      (Continuous K) ∧
-      (∀ x, 0 ≤ K x) ∧
-      (Integrable K volume) ∧
-      (∫ x, K x = 1) ∧
-      (∫ x, |x| * K x ≤ 12 / T) ∧
-      -- Fejér CDF bracket: for any a > 0,
-      -- Ψ_K(u-a) - ε ≤ H(u) ≤ Ψ_K(u+a) + ε where ε = ∫_{|x|>a} K(x) dx ≤ 12/(Ta)
-      (∀ a : ℝ, 0 < a → ∫ x in Set.Ioi a ∪ Set.Iio (-a), K x ≤ 12 / (T * a)) := by
-  sorry
-
-/-- **Bracket smoothing bound via kernel with good tail.**
-
-Given a non-negative kernel `K` with `∫K = 1` and tail bound
-`∫_{|x|>a} K ≤ C/(Ta)`, the Fejér bracket argument yields for any `a > 0`:
-
-  `|cdf μ y - cdf ν y| ≤ |∫ Ψ_K(y+a-x) d(μ-ν)| + 2aM + 2C/(Ta)`
-
-where `Ψ_K` is the CDF of `K`, and the `2aM` term comes from the Lipschitz
-condition on `ν`'s CDF.
-
-The Fourier bound `|∫ Ψ_K d(μ-ν)| ≤ I/(2π)` (from `cesaro_fourier_bound` or its
-generalization to arbitrary kernels with compact frequency support) then gives:
-
-  `|cdf μ y - cdf ν y| ≤ I/(2π) + 2aM + 2C/(Ta)`
-
-Setting `a = 12/(πMT)` (where the bracket minimizes to `≈ 24M/(πT)`) and using
-`I/(2π) ≤ I/π` gives the conclusion.
-
-**Proof obligations**: Fejér CDF bracket inequality + Fubini for kernel convolution
-+ Lipschitz bound on `G` + optimization of `a`.
--/
-private lemma esseen_bracket_smoothing
-    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
-    {M : ℝ} (hM : 0 < M)
-    (hν_density : ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
-    (T : ℝ) (hT : 0 < T) (y : ℝ)
-    -- Kernel properties
-    (K : ℝ → ℝ) (hK_cont : Continuous K) (hK_nn : ∀ x, 0 ≤ K x)
-    (hK_int : Integrable K volume) (hK_one : ∫ x, K x = 1)
-    (hK_moment : ∫ x, |x| * K x ≤ 12 / T)
-    (hK_tail : ∀ a : ℝ, 0 < a → ∫ x in Set.Ioi a ∪ Set.Iio (-a), K x ≤ 12 / (T * a))
-    -- Fourier bound: the Cesàro/Fejér convolution satisfies ∫ Ψ_K d(F-G) ≤ I/(2π)
-    -- (This follows from compact frequency support of K, but stated as hypothesis
-    -- to allow separation of Fourier analysis from the bracket argument.)
-    (hK_fourier : ∀ y' : ℝ,
-      |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * K x| ≤
-        (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
-          ‖charFun μ t - charFun ν t‖ / |t|) :
-    |cdf μ y - cdf ν y| ≤
-      (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
-        ‖charFun μ t - charFun ν t‖ / |t|) +
-      24 * M / (Real.pi * T) := by
-  sorry
-
-/-- **Fourier bound for kernel convolution with CDF difference.**
-
-For a non-negative kernel `K` with `∫K = 1` whose Fourier transform
-has compact support in `[-T, T]`, the convolution of the CDF difference
-`D = F - G` against `K` satisfies:
-
-  `|∫ D(y-x) K(x) dx| ≤ (1/(2π)) ∫_{-T}^T ‖φ_μ(t)-φ_ν(t)‖/|t| dt`
-
-This is the Fourier-analytic core: it converts the spatial convolution
-into a frequency-domain integral via Fubini + the Fourier inversion identity
-for `K`. The compact frequency support of `K` restricts the integral to `[-T,T]`.
-
-**Proof**: Uses Fubini to exchange spatial and frequency integrals, the identity
-`∫ K(x) e^{itx} dx = K̂(t)` with `|K̂(t)| ≤ 1`, and the cancellation
-`Im(φ_μ(t) e^{-ity}) - Im(φ_ν(t) e^{-ity})` to extract `‖Δ(t)‖/|t|`.
-
-For the Jackson kernel, this follows from the B-spline Fourier identity.
-For the Fejér kernel, this is already proved in `cesaro_fourier_bound`.
--/
-private lemma jackson_fourier_bound
-    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
-    (T : ℝ) (hT : 0 < T)
-    (K : ℝ → ℝ) (_hK_cont : Continuous K) (_hK_nn : ∀ x, 0 ≤ K x)
-    (_hK_int : Integrable K volume) (_hK_one : ∫ x, K x = 1)
-    -- Jackson kernel with compact Fourier support (the key structural property)
-    (_hK_moment : ∫ x, |x| * K x ≤ 12 / T) :
-    ∀ y : ℝ,
-      |∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x| ≤
-        (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
-          ‖charFun μ t - charFun ν t‖ / |t| := by
-  sorry
 
 /-- **Esseen's smoothing inequality** (Esseen 1945).
 
