@@ -2,7 +2,7 @@
 
 用 Lean 4 + Mathlib 形式化数理统计的核心定理，涵盖估计理论、充分性、极限定理、集中不等式、回归分析、Gaussian 分析等。
 
-**当前规模**：55 个 Lean 文件 · ~22,400 行 · ~850 个声明 · 48 个零 sorry 模块 · **5 个 sorry 待证**
+**当前规模**：55 个 Lean 文件 · ~27,000 行 · ~900+ 个声明 · 52 个零 sorry 模块 · **2 个 sorry 待证**
 
 > **想参与贡献？请阅读 [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -88,6 +88,8 @@
 | Gaussian Dirichlet form（∫Lφ·ψ dγ = -∫φ'ψ' dγ） | `Gaussian/OrnsteinUhlenbeck.lean` |
 | 积分 Cauchy-Schwarz（(∫h)²/(∫k) ≤ ∫h²/k） | `Gaussian/OrnsteinUhlenbeck.lean` |
 | **1D Gaussian Log-Sobolev 不等式**（Bakry-Emery, C²） | `Gaussian/OrnsteinUhlenbeck.lean` |
+| **1D Gaussian LSI（一般 W^{1,2} 版本）** | `Entropy/LogSobolev.lean` |
+| **n 维 Gaussian LSI（张量化）** | `Entropy/LogSobolev.lean` |
 | 熵耗散（d/dt Ent(P_t g) = -I(P_t g)） | `Gaussian/OrnsteinUhlenbeck.lean` |
 | Fisher 信息收缩（I(P_t g) ≤ e⁻²ᵗ I(g)） | `Gaussian/OrnsteinUhlenbeck.lean` |
 | ANOVA 方差分解 | `Variance/ANOVA.lean` |
@@ -123,14 +125,28 @@
 
 ---
 
-## 已完成：1D Gaussian Log-Sobolev 不等式 ✅
+## 已完成：Gaussian Log-Sobolev 不等式（1D + n 维张量化）✅
 
-通过 **Bakry-Emery 准则**（Ornstein-Uhlenbeck 半群方法）完整证明 1D Gaussian LSI（C² 版本）：
+完整形式化 **Gaussian Log-Sobolev 不等式**，从 Bakry-Emery 到 n 维张量化，**零 sorry**（~5650 行）：
 
-$$\text{Ent}_\gamma(f^2) \leq 2 \int (f')^2 \, d\gamma$$
+$$\text{Ent}_{\gamma^n}(f^2) \leq 2 \sum_{i=1}^n \int (\partial_i f)^2 \, d\gamma^n$$
 
-**零 sorry**（3429 行，~30 个引理）。证明架构：比较函数 Φ(t) = F(t) + (I(g)/2)(1−e⁻²ᵗ) 单调递增（Fisher 收缩），
-配合 F(T)→0（OU 收敛 + DCT）和 F(T)≥0（Jensen），得 Ent(g) ≤ I(g)/2 = 2∫(f')²。
+### 证明架构（8 层逼近链 + OU 半群核心）
+
+```
+gaussian_lsi_normalized_from_ou ✅  Ent(f²) ≤ 2∫(f')² (C², bounded, ae-pos)  [OU 半群]
+  └─ lsi_of_bounded_C2_ae_pos  ✅  thin wrapper around OU theorem
+     └─ lsi_of_bounded_C2      ✅  ε-正则化 h=√(f²+ε)/√(1+ε) + DCT 极限
+        └─ lsi_of_bounded_C1   ✅  OU 平滑 C¹→C² (Stein repr + Leibniz)
+           └─ lsi_approximation_from_bounded  ✅  空间截断 + DCT
+              └─ gaussian_lsi_normalized_of_integrable  ✅  组装
+                 └─ gaussian_lsi_1d_ibp_core  ✅  by_cases + vacuous exfalso
+                    └─ gaussian_lsi_1d_core   ✅  SatisfiesLSI stdGaussian 2
+tensorization_lsi_core          ✅  n 维 LSI（熵子可加性 + 1D LSI per slice）
+gaussian_log_sobolev            ✅  最终 n 维定理
+```
+
+### OU 半群基础设施（零 sorry，~3400 行）
 
 ```
 ouSemigroup_zero               ✅  P_0 = id
@@ -138,6 +154,9 @@ integral_ouSemigroup           ✅  ∫ P_t f dγ = ∫ f dγ
 ouSemigroup_hasDerivAt         ✅  (P_t f)' = e⁻ᵗ P_t(f')
 ouSemigroup_tendsto            ✅  P_t f(x) → E[f]
 ouSemigroup_pos_ae             ✅  P_t g > 0 a.e. for t > 0
+ouSemigroup_stein_repr         ✅  P_t f' = (1/b)∫f(ax+by)·y dγ(y)
+ouSemigroup_hasSecondDeriv     ✅  P_t f is C² for C¹ input
+ouSemigroup_cameron_martin     ✅  Cameron-Martin tilt representation
 entropy_dissipation            ✅  d/dt Ent(P_t g) = -I(P_t g)
 fisherInfo_ouSemigroup_le      ✅  I(P_t g) ≤ e⁻²ᵗ I(g)
 gaussian_lsi_normalized_from_ou ✅  Ent(f²) ≤ 2∫(f')² (C² version)
@@ -228,20 +247,18 @@ Statlean/
 
 ---
 
-## Sorry 缺口（5 个）
+## Sorry 缺口（2 个）
 
 | 模块 | Sorry | 简述 | Blocker |
 |------|-------|------|---------|
 | BerryEsseen | 1 | Lévy CDF 反演界 | Stieltjes inversion (~100 行 Fourier) |
-| LogSobolev | 2 | integrable f²·log f²、LSI L² bridge | C² → L² 逼近（mollification） |
-| LogSobolev | 1 | non-integrable subadditivity | 可能 FALSE（Lean ∫=0 约定） |
 | Herbst | 1 | hasSubgaussianMGF of Lipschitz | 需要 LSI + Grönwall |
 
 ```
 依赖 DAG:
-  BerryEsseen (1 sorry)           ── 独立
-  OrnsteinUhlenbeck (0 sorry) ✅ ──→ LogSobolev (3 sorry, DPI ✅)
-                                   └─→ Herbst (1 sorry，blocked by LSI L² bridge)
+  BerryEsseen (1 sorry)              ── 独立
+  OrnsteinUhlenbeck (0 sorry) ✅ ──→ LogSobolev (0 sorry) ✅
+                                   └─→ Herbst (1 sorry，需要 LSI + Grönwall)
 ```
 
 完整清单 → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
