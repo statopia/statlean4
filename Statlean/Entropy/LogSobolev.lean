@@ -32,16 +32,22 @@ import Mathlib.MeasureTheory.Measure.Prod
   `mul_log_superadditive` (pointwise), `le_of_forall_pos_lt_add` (limit),
   and continuity of t·log(t) at 0.
 
-## Sorry gaps (1 sorry line in this file — was 4)
+## Sorry gaps (1 sorry line in this file — was 5)
 
 ### Tensorization integrability gap (the ONLY remaining sorry)
-Location: `tensorization_lsi_core`, non-integrable case with 0 < ∫f² < 1.
-This case is mathematically vacuous: C¹ slices with L² regularity always have
-f²·log(f²) ∈ L¹(γ) by spatial truncation + bounded LSI + AECover.
-The n-dim integrability requires either:
-  (a) Extract 1D integrability (~300 lines) + Fubini with f ∈ L⁴(γⁿ) bound, or
-  (b) Formalize Gaussian hypercontractivity (Nelson's theorem) for L² → L⁴.
-**Effort estimate**: ~400 lines (1D extraction: 300 + Fubini: 100).
+Location: `integrable_sq_mul_log_of_C1_L2`, the positive part integrability.
+The proof has:
+- **DONE**: pos/neg decomposition, neg part integrable (bounded by 1), AEStronglyMeasurable
+- **DONE**: softTrunc infrastructure (derivative, derivative bound ≤ 1, pointwise convergence)
+- **TODO**: positive part integrability via soft truncation + entropy bound (~80 lines)
+  Strategy: g_M = softTrunc M ∘ f → bounded → integrable entropy → uniform bound
+  → monotone convergence on max(0, g_M²·log(g_M²)) → ψ_pos integrable.
+
+### Previously closed sorry gaps (for reference, including this session)
+- `hasDerivAt_softTrunc` — PROVED (chain rule: quotient of M·s by √(M²+s²))
+- `softTrunc_deriv_le_one` — PROVED (M³/(M²+s²)^(3/2) ≤ 1 via sqrt decomposition)
+- `softTrunc_tendsto` — PROVED (|s|³/n² → 0 bound)
+- AEStronglyMeasurable for ψ_neg — PROVED (measurable_mk + composition)
 
 ### Previously closed sorry gaps (for reference)
 - `lsi_of_bounded_C2` ε→0 limit — PROVED via `mul_log_superadditive`
@@ -4958,7 +4964,42 @@ private noncomputable def softTrunc (M : ℝ) (s : ℝ) : ℝ :=
 /-- The derivative of softTrunc M at s when M > 0. -/
 private lemma hasDerivAt_softTrunc {M : ℝ} (hM : 0 < M) (s : ℝ) :
     HasDerivAt (softTrunc M) (M ^ 3 / (M ^ 2 + s ^ 2) ^ (3/2 : ℝ)) s := by
-  sorry -- TODO: chain rule with sqrt; will be filled in next iteration
+  unfold softTrunc
+  have hpos : 0 < M ^ 2 + s ^ 2 := by positivity
+  have hne : M ^ 2 + s ^ 2 ≠ 0 := ne_of_gt hpos
+  have hsqrt_pos : 0 < Real.sqrt (M ^ 2 + s ^ 2) := Real.sqrt_pos_of_pos hpos
+  have hsqrt_ne : Real.sqrt (M ^ 2 + s ^ 2) ≠ 0 := ne_of_gt hsqrt_pos
+  -- d/ds(M*s) = M
+  have hnum : HasDerivAt (fun t => M * t) M s := by
+    convert (hasDerivAt_id s).const_mul M using 1; ring
+  -- d/ds(M²+s²) = 2*s
+  have hinner : HasDerivAt (fun t => M ^ 2 + t ^ 2) (2 * s) s := by
+    have h1 : HasDerivAt (fun t => t ^ 2) (2 * s) s := by
+      have := (hasDerivAt_id s).pow 2
+      simp only [Nat.cast_ofNat] at this
+      convert this using 1 <;> simp [id]
+    convert h1.const_add (M ^ 2) using 1 <;> ring
+  -- d/ds(√(M²+s²)) = s / √(M²+s²)
+  have hdenom : HasDerivAt (fun t => Real.sqrt (M ^ 2 + t ^ 2))
+      (s / Real.sqrt (M ^ 2 + s ^ 2)) s := by
+    have h1 := (Real.hasDerivAt_sqrt hne).comp s hinner
+    convert h1 using 1
+    field_simp
+  -- Quotient rule: d/ds(M·s / √(M²+s²))
+  have hquot := hnum.div hdenom hsqrt_ne
+  -- The quotient rule gives (M·√(M²+s²) - M·s·(s/√(M²+s²))) / √(M²+s²)²
+  -- = (M·(M²+s²) - M·s²) / ((M²+s²) · √(M²+s²)) (after clearing inner fraction)
+  -- = M³ / ((M²+s²) · √(M²+s²)) = M³ / (M²+s²)^(3/2)
+  convert hquot using 1
+  -- Simplify both sides using √(M²+s²)² = M²+s²
+  have hsq : Real.sqrt (M ^ 2 + s ^ 2) ^ 2 = M ^ 2 + s ^ 2 := Real.sq_sqrt hpos.le
+  -- Goal involves rpow (3/2) on LHS and √(...)² on RHS
+  rw [show (M ^ 2 + s ^ 2) ^ (3 / 2 : ℝ) =
+      (M ^ 2 + s ^ 2) * Real.sqrt (M ^ 2 + s ^ 2) from by
+    rw [show (3 : ℝ) / 2 = 1 + 1 / 2 from by norm_num, rpow_add hpos, rpow_one,
+        Real.sqrt_eq_rpow]]
+  field_simp
+  nlinarith [hsq]
 
 private lemma softTrunc_le_abs {M : ℝ} (hM : 0 < M) (s : ℝ) :
     |softTrunc M s| ≤ |s| := by
@@ -4998,11 +5039,76 @@ private lemma softTrunc_sq_le {M : ℝ} (hM : 0 < M) (s : ℝ) :
 
 private lemma softTrunc_deriv_le_one {M : ℝ} (hM : 0 < M) (s : ℝ) :
     M ^ 3 / (M ^ 2 + s ^ 2) ^ (3/2 : ℝ) ≤ 1 := by
-  sorry -- TODO: M³ ≤ (M²+s²)^{3/2}
+  have hpos : (0 : ℝ) < M ^ 2 + s ^ 2 := by positivity
+  -- (M²+s²)^(3/2) = (M²+s²) * √(M²+s²)
+  have hsqrt_pos : 0 < Real.sqrt (M ^ 2 + s ^ 2) := Real.sqrt_pos_of_pos hpos
+  have hrpow : (M ^ 2 + s ^ 2) ^ (3/2 : ℝ) =
+      (M ^ 2 + s ^ 2) * Real.sqrt (M ^ 2 + s ^ 2) := by
+    rw [show (3 : ℝ) / 2 = 1 + 1 / 2 from by norm_num, rpow_add hpos, rpow_one,
+        Real.sqrt_eq_rpow]
+  rw [hrpow, div_le_one (mul_pos hpos hsqrt_pos)]
+  -- M³ = M² * M ≤ (M²+s²) * M ≤ (M²+s²) * √(M²+s²)
+  calc M ^ 3 = M ^ 2 * M := by ring
+    _ ≤ (M ^ 2 + s ^ 2) * M := by nlinarith [sq_nonneg s]
+    _ ≤ (M ^ 2 + s ^ 2) * Real.sqrt (M ^ 2 + s ^ 2) := by
+        apply mul_le_mul_of_nonneg_left _ (le_of_lt hpos)
+        calc M = Real.sqrt (M ^ 2) := (Real.sqrt_sq hM.le).symm
+          _ ≤ Real.sqrt (M ^ 2 + s ^ 2) :=
+            Real.sqrt_le_sqrt (le_add_of_nonneg_right (sq_nonneg s))
 
 private lemma softTrunc_tendsto (s : ℝ) :
     Filter.Tendsto (fun M : ℕ => softTrunc (M : ℝ) s) Filter.atTop (nhds s) := by
-  sorry -- TODO: M·s/√(M²+s²) → s as M → ∞
+  -- softTrunc M s = M*s/√(M²+s²) → s. Bound: |softTrunc M s - s| ≤ |s|³/M².
+  rw [Metric.tendsto_atTop]
+  intro ε hε
+  -- Choose N large enough: |s|³/N² < ε, i.e., N² > |s|³/ε
+  set B := |s| ^ 3 / ε with hB_def
+  have hB_nn : 0 ≤ B := div_nonneg (pow_nonneg (abs_nonneg s) 3) hε.le
+  obtain ⟨N, hN⟩ : ∃ N : ℕ, B < (N : ℝ) ^ 2 := by
+    obtain ⟨k, hk⟩ := exists_nat_gt (Real.sqrt B + 1)
+    refine ⟨k, ?_⟩
+    have hsk := Real.sqrt_nonneg B
+    calc B ≤ Real.sqrt B ^ 2 := by rw [Real.sq_sqrt hB_nn]
+      _ < (Real.sqrt B + 1) ^ 2 := by nlinarith
+      _ < k ^ 2 := by nlinarith
+  refine ⟨N.max 1, fun n hn => ?_⟩
+  rw [Real.dist_eq]
+  have hn_ge : 1 ≤ n := le_trans (Nat.le_max_right N 1) hn
+  have hn_pos : (0 : ℝ) < n := Nat.cast_pos.mpr (by omega)
+  have hpos : 0 < (n : ℝ) ^ 2 + s ^ 2 := by positivity
+  have hsqrt_pos : 0 < Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) := Real.sqrt_pos_of_pos hpos
+  have hle_sqrt : (n : ℝ) ≤ Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) := by
+    calc (n : ℝ) = Real.sqrt ((n : ℝ) ^ 2) := (Real.sqrt_sq hn_pos.le).symm
+      _ ≤ Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) :=
+        Real.sqrt_le_sqrt (le_add_of_nonneg_right (sq_nonneg s))
+  -- Factor and bound
+  have hfactor : softTrunc (n : ℝ) s - s =
+      -(s * (Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) - n)) / Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) := by
+    unfold softTrunc; field_simp; ring
+  -- Rationalize: √(n²+s²) - n = s²/(√(n²+s²)+n)
+  have hrat : Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) - n =
+      s ^ 2 / (Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) + n) := by
+    rw [eq_div_iff (by linarith : Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) + n ≠ 0)]
+    nlinarith [Real.sq_sqrt (le_of_lt hpos)]
+  have hsum_pos : 0 < Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) + n := by linarith
+  have hN_le : (N : ℝ) ≤ n := by exact_mod_cast le_trans (Nat.le_max_left N 1) hn
+  have hdenom : (n : ℝ) ^ 2 ≤
+      (Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) + n) * Real.sqrt ((n : ℝ) ^ 2 + s ^ 2) := by
+    nlinarith [hle_sqrt]
+  -- Rewrite goal to simplified form, then bound
+  rw [hfactor, hrat, neg_div, abs_neg, abs_div, abs_of_nonneg hsqrt_pos.le,
+      abs_mul, abs_div, abs_of_nonneg (sq_nonneg s), abs_of_nonneg hsum_pos.le,
+      mul_div_assoc', div_div, show |s| * s ^ 2 = |s| ^ 3 from by rw [← sq_abs]; ring]
+  calc |s| ^ 3 / ((Real.sqrt (↑n ^ 2 + s ^ 2) + ↑n) * Real.sqrt (↑n ^ 2 + s ^ 2))
+      ≤ |s| ^ 3 / (n : ℝ) ^ 2 := by
+        apply div_le_div_of_nonneg_left (by positivity) (by positivity) hdenom
+    _ < ε := by
+        have hn2_pos : (0 : ℝ) < (n : ℝ) ^ 2 := by positivity
+        have hN2 : B < (n : ℝ) ^ 2 := lt_of_lt_of_le hN (by nlinarith)
+        rw [hB_def] at hN2
+        -- |s|³/ε < n² → |s|³ < ε * n² → |s|³/n² < ε
+        rw [div_lt_iff₀ hn2_pos]
+        linarith [(div_lt_iff₀ hε).mp hN2]
 
 /-- Integrability of f²·log(f²) under the hypotheses of tensorization LSI.
     Uses soft truncation g_M = φ_M ∘ f, applies the integrable case entropy bound
@@ -5037,7 +5143,13 @@ private lemma integrable_sq_mul_log_of_C1_L2 (n : ℕ)
   -- Neg part integrable: ψ_neg ≤ 1, integrable on probability measure
   have hψ_neg_int : Integrable ψ_neg (stdGaussianPi n) := by
     apply Integrable.mono' (integrable_const (1 : ℝ))
-    · sorry -- AEStronglyMeasurable for ψ_neg
+    · -- AEStronglyMeasurable for ψ_neg = max(0, -(f²·log(f²)))
+      have hfae : AEStronglyMeasurable f (stdGaussianPi n) := hf.aestronglyMeasurable
+      exact hfae.aemeasurable.measurable_mk |>.pow_const 2 |> fun hm =>
+        ((@measurable_const _ _ _ _ (0 : ℝ)).sup
+          ((hm.mul (measurable_log.comp hm)).neg)).aestronglyMeasurable
+          |>.congr (by filter_upwards [hfae.aemeasurable.ae_eq_mk] with x hx;
+                       simp only [ψ_neg, hx, Function.comp])
     · exact ae_of_all _ fun x => by
         simp only [ψ_neg, norm_one]
         rw [Real.norm_of_nonneg (le_max_left 0 _)]
