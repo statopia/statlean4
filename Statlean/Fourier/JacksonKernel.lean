@@ -5,23 +5,26 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Mathlib
 
 /-!
-# Jackson Kernel (Band-Limited Approximation to Identity)
+# Triangle Kernel (Compact Support Approximation to Identity)
 
 Existence of a non-negative integrable kernel `K` with:
 - `∫ K = 1`
 - First moment bound: `∫ |x| K(x) ≤ 12/T`
 - Tail bound: `∫_{|x|>a} K ≤ 12/(Ta)` for all `a > 0`
+- Compact support: `K(x) = 0` for `|x| ≥ 1/T`
 
-The Jackson kernel `J_{2k}(x) = c · (sin(Tx/(2k))/x)^{2k}` has decay `O(1/x^{2k})`,
-so `∫ |u| J_{2k}(u) du < ∞` for `k ≥ 2` and scales as `C/T`. Its Fourier transform
-is a B-spline of order `2k`, supported on `[-T, T]`.
+Uses the triangle kernel `K_T(x) = T·(1 - T|x|)₊`.
 
 ## Main results
-- `jackson_kernel_tail_bound`: existence of kernel with the above properties,
-  including the Fourier bound for CDF difference convolution
+- `jackson_kernel_tail_bound`: existence of kernel with the above spatial properties
 
-## Sorry (1)
-- `triangleKernel_fourier_bound`: `|∫ D(y-x) K(x) dx| ≤ I/(2π)` via Fourier inversion
+## Sorry count: 0
+
+**Note**: The Fourier bound `|∫ D(y-x) K(x) dx| ≤ I/(2π)` was previously claimed
+here as `triangleKernel_fourier_bound`, but this statement is FALSE (Paley-Wiener:
+the triangle kernel's FT is `sinc²`, not compactly supported). It has been removed.
+The Esseen smoothing inequality now uses the Fejér CDF inversion remainder bound
+(see `esseen_smoothing_ineq` in BerryEsseen.lean).
 
 ## References
 - Esseen (1945), Feller Vol II §XV.3
@@ -236,36 +239,23 @@ private lemma triangleKernel_tail {T : ℝ} (hT : 0 < T) (a : ℝ) (ha : 0 < a) 
             linarith
           linarith
 
-/-- **Jackson kernel existence.**
+/-- **Triangle kernel existence (spatial properties only).**
 
-For `T > 0` and any `k ≥ 2`, there exists a non-negative integrable kernel `K` such that:
+For `T > 0`, the triangle kernel `K_T(x) = T·(1 - T|x|)₊` satisfies:
 - `∫ K = 1`
-- `K` has compact Fourier support: `K̂(ξ) = 0` for `|ξ| > T`
-  (encoded as the Fejér CDF bracket property with tail bound `O(1/(Ta)^(2k-1))`)
-- `∫ |u| K(u) du ≤ C/T` for a universal constant `C`
+- `K ≥ 0`, continuous, integrable
+- `∫ |x| K(x) ≤ 12/T`
+- Compact support: `K(x) = 0` for `|x| ≥ 1/T`
+- Tail bound: `∫_{|x|>a} K ≤ 12/(Ta)` for `a > 0`
 
-The Jackson kernel `J_{2k}(x) = c · (sin(Tx/(2k))/x)^{2k}` has decay `O(1/x^{2k})`,
-so `∫ |u| J_{2k}(u) du < ∞` for `k ≥ 2` and scales as `C/T`. Its Fourier transform
-is a B-spline of order `2k`, supported on `[-T, T]` (with appropriate scaling).
-
-This sub-lemma asserts the existence abstractly. The concrete construction
-(explicit `sin^{2k}/x^{2k}` formulas, B-spline Fourier identity, and the
-computation `∫ |u| J₄(u) du = C/T`) is deferred.
+**Note**: The Fourier bound `|∫ D(y-x) K(x) dx| ≤ I/(2π)` is FALSE for the triangle
+kernel (Paley-Wiener: the triangle kernel's Fourier transform is `sinc²`, which is
+NOT compactly supported in `[-T, T]`). The Esseen smoothing inequality uses the
+Fejér CDF inversion remainder bound instead (see `fejer_cdf_inversion_remainder`
+in BerryEsseen.lean).
 
 **Reference**: Esseen (1945), also Feller Vol II §XV.3.
 -/
--- sorry count: 1 (Fourier bound for triangle kernel convolution)
--- blocker: Fourier inversion for CDF difference convolved with Fejér kernel
--- proof sketch: K_T has Fourier transform (1-|t|/T)₊, so ∫ D(y-x)K(x)dx
---   = (1/2π) ∫_{-T}^T (1-|t|/T) Δ(t) e^{-iyt}/(-it) dt, bounded by I/(2π)
--- estimated effort: B-grade, ~200 lines (Fourier inversion + Fubini)
-private lemma triangleKernel_fourier_bound (T : ℝ) (hT : 0 < T)
-    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] (y' : ℝ) :
-    |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * triangleKernel T x| ≤
-      (1 / (2 * Real.pi)) * ∫ t in Icc (-T) T,
-        ‖charFun μ t - charFun ν t‖ / |t| := by
-  sorry
-
 lemma jackson_kernel_tail_bound (T : ℝ) (hT : 0 < T) :
     ∃ (K : ℝ → ℝ),
       (Continuous K) ∧
@@ -273,20 +263,11 @@ lemma jackson_kernel_tail_bound (T : ℝ) (hT : 0 < T) :
       (Integrable K volume) ∧
       (∫ x, K x = 1) ∧
       (∫ x, |x| * K x ≤ 12 / T) ∧
-      -- Fejér CDF bracket: for any a > 0,
-      -- Ψ_K(u-a) - ε ≤ H(u) ≤ Ψ_K(u+a) + ε where ε = ∫_{|x|>a} K(x) dx ≤ 12/(Ta)
       (∀ a : ℝ, 0 < a → ∫ x in Ioi a ∪ Iio (-a), K x ≤ 12 / (T * a)) ∧
-      -- Compact support: K(x) = 0 for |x| ≥ 1/T
-      (∀ x, |x| ≥ 1 / T → K x = 0) ∧
-      -- Fourier bound: convolution of CDF difference with K bounded by charFun integral
-      (∀ (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] (y' : ℝ),
-        |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * K x| ≤
-          (1 / (2 * Real.pi)) * ∫ t in Icc (-T) T,
-            ‖charFun μ t - charFun ν t‖ / |t|) := by
+      (∀ x, |x| ≥ 1 / T → K x = 0) := by
   exact ⟨triangleKernel T, triangleKernel_continuous T,
     triangleKernel_nonneg hT, triangleKernel_integrable hT,
     triangleKernel_integral hT, triangleKernel_first_moment hT,
-    triangleKernel_tail hT, fun x hx => triangleKernel_zero_of_abs_ge hT hx,
-    fun μ ν _ _ y' => triangleKernel_fourier_bound T hT μ ν y'⟩
+    triangleKernel_tail hT, fun x hx => triangleKernel_zero_of_abs_ge hT hx⟩
 
 end JacksonKernel
