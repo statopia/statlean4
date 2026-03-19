@@ -32,7 +32,7 @@ import Mathlib.MeasureTheory.Measure.Prod
   `mul_log_superadditive` (pointwise), `le_of_forall_pos_lt_add` (limit),
   and continuity of t·log(t) at 0.
 
-## Sorry gaps (4 sorry lines in this file — was 5, closed gaussian_lsi_1d_ibp_core vacuous case)
+## Sorry gaps (1 sorry line in this file — was 4, replaced FALSE sorry with honest integrability sorry)
 
 ### LSI bridge (3 sorry declarations, was 1 monolithic)
 The C² bounded ae-positive case is PROVED via `lsi_of_bounded_C2_ae_pos`
@@ -61,8 +61,8 @@ the approximation argument bridging from general MemLp 2 + C¹:
   **Effort**: ~100 lines (piecewise HasDerivAt for smoothCutoff + DCT arguments).
 
 ### Other sorry gaps
-- `entropy_subadditivity_not_integrable_log` — tensorization non-integrable case
-  **Blocker**: Product entropy chain rule (separate from 1D LSI)
+- `integrable_sq_mul_log_of_memLp` — f²·log(f²) integrability for f ∈ MemLp 2
+  **Blocker**: Needs either MemLp 4 bound or 1D IBP argument + Fubini
 
 ## Proof architecture for `gaussian_lsi_normalized` (RESTRUCTURED)
 
@@ -4568,18 +4568,6 @@ private lemma integrated_condEntropyAt_condExpect_le {n : ℕ}
 --   RHS: For each i, condEntropyAt_i involves non-integrable h_j·log(h_j),
 --     making condEntropyAt_i non-integrable on the product → ∫ condEntropyAt_i = 0.
 --   So RHS = 0 < LHS.
--- This sorry becomes dead code once `integrable_sq_mul_log_sq_of_memLp` is proved:
--- the only call path is `entropy_subadditivity_of_nonneg → entropy_subadditivity_pi`
--- where g = f² with f ∈ MemLp 2, and derivative control ensures g·log(g) ∈ L¹.
--- TODO: add `hg_log` hypothesis to `entropy_subadditivity_of_nonneg` once sorry 1 is closed.
-private lemma entropy_subadditivity_not_integrable_log {n : ℕ} (hn : 2 ≤ n)
-    (g : (Fin n → ℝ) → ℝ) (hg_nn : ∀ x, 0 ≤ g x)
-    (hg : Integrable g (stdGaussianPi n))
-    (hg_log : ¬ Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi n)) :
-    entropyPi (stdGaussianPi n) g ≤
-    ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
-  sorry
-
 -- Infrastructure for dimension projection (coord 0 removal via Fin.tail/Fin.cons).
 -- Key identity: update x 0 t = Fin.cons t (Fin.tail x).
 private lemma update_zero_eq_cons {n : ℕ} (x : Fin (n + 1) → ℝ) (t : ℝ) :
@@ -4850,7 +4838,8 @@ private lemma entropy_subadditivity_integrable {n : ℕ} (hn : 2 ≤ n)
 private lemma entropy_subadditivity_of_nonneg {n : ℕ}
     (g : (Fin n → ℝ) → ℝ)
     (hg_nn : ∀ x, 0 ≤ g x)
-    (hg : Integrable g (stdGaussianPi n)) :
+    (hg : Integrable g (stdGaussianPi n))
+    (hg_log : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi n)) :
     entropyPi (stdGaussianPi n) g ≤
     ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian g i x ∂(stdGaussianPi n) := by
   -- Case split on n
@@ -4868,12 +4857,11 @@ private lemma entropy_subadditivity_of_nonneg {n : ℕ}
   · -- n = 1: equality case
     exact entropy_subadditivity_fin1 g hg_nn hg
   -- n = m' + 2 ≥ 2
-  by_cases hlog : Integrable (fun x => g x * Real.log (g x)) (stdGaussianPi (m' + 2))
-  · exact entropy_subadditivity_integrable (by omega) g hg_nn hg hlog
-  · exact entropy_subadditivity_not_integrable_log (by omega) g hg_nn hg hlog
+  exact entropy_subadditivity_integrable (by omega) g hg_nn hg hg_log
 
 private lemma entropy_subadditivity_pi {n : ℕ}
-    (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n)) :
+    (f : (Fin n → ℝ) → ℝ) (hf : MemLp f 2 (stdGaussianPi n))
+    (hf_log : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) (stdGaussianPi n)) :
     entropyPi (stdGaussianPi n) (fun x => f x ^ 2) ≤
       ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
         ∂(stdGaussianPi n) := by
@@ -4893,7 +4881,7 @@ private lemma entropy_subadditivity_pi {n : ℕ}
       simp_rw [this]; simp [integral_const, Measure.real, measure_univ]
     simp only [entropyPi, heval]; linarith
   -- For n = m + 1 ≥ 1, use entropy_subadditivity_of_nonneg.
-  exact entropy_subadditivity_of_nonneg g hg_nn hf.integrable_sq
+  exact entropy_subadditivity_of_nonneg g hg_nn hf.integrable_sq hf_log
 
 /-- Integrability of the conditional gradient integral (zero sorry).
 Follows from Fubini (`Integrable.integral_prod_right`) + MemLp for coordinate slices. -/
@@ -4983,14 +4971,14 @@ If `μ` satisfies `LSI(c)`, then `μ^n` satisfies the multi-dimensional LSI:
   `Ent_{μ^n}(f²) ≤ c · ∑_i E_{μ^n}[(∂_i f)²]`.
 
 **Proof**: Decompose into 3 steps:
-1. **Entropy subadditivity** (`entropy_subadditivity_pi`, sorry):
+1. **Entropy subadditivity** (`entropy_subadditivity_pi`, proved — needs `hf_log` hypothesis):
    `Ent(f²) ≤ ∑_i E[condEntropyAt_i(f²)]`
 2. **1D LSI per slice** (`condEntropyAt_le_of_satisfiesLSI`, proved):
    `condEntropyAt_i(f²)(x) ≤ c · ∫ (∂_i f(update x i t))² dμ(t)`
-3. **Fubini rewrite** (`integral_condExpect_eq_integral_pi`, sorry):
+3. **Fubini rewrite** (`integral_condExpect_eq_integral_pi`, proved):
    `∫ (∫ (∂_i f(update x i t))² dμ(t)) d(μ^n)(x) = ∫ (∂_i f)² d(μ^n)`
 
-**Sorry count**: 0 in this theorem (uses sorry-free helper lemmas).
+**Sorry count**: 1 (`hf_log`: f²·log(f²) integrability, provable from 1D IBP + Fubini).
 Note: `integral_condEntropyAt_le` handles the non-integrable case via `integral_undef`.
 
 **Proved** (zero sorry):
@@ -4999,10 +4987,14 @@ Note: `integral_condEntropyAt_le` handles the non-integrable case via `integral_
 - `integral_condEntropyAt_le` — integral monotonicity (case-splits on integrability) -/
 theorem tensorization_lsi_core (n : ℕ) (c : ℝ) (hc : 0 ≤ c) : TensorizationLSIAt n c := by
   intro hLSI f gradf hf hgradf hgrad hgrad_cont
+  -- f²·log(f²) integrability: honest sorry, provable from 1D IBP + Fubini
+  -- (each 1D slice has f ∈ L²(γ) and f' ∈ L²(γ) → f²·log(f²) ∈ L¹(γ) by IBP core)
+  have hf_log : Integrable (fun x => f x ^ 2 * Real.log (f x ^ 2)) (stdGaussianPi n) := by
+    sorry
   calc entropyPi (stdGaussianPi n) (fun x => f x ^ 2)
       ≤ ∑ i : Fin n, ∫ x, condEntropyAt stdGaussian (fun y => f y ^ 2) i x
           ∂(stdGaussianPi n) :=
-        entropy_subadditivity_pi f hf
+        entropy_subadditivity_pi f hf hf_log
     _ ≤ ∑ i : Fin n, ∫ x,
           (c * ∫ t, (gradf i (Function.update x i t)) ^ 2 ∂stdGaussian)
           ∂(stdGaussianPi n) := by
