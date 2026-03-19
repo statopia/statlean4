@@ -11,7 +11,7 @@ import Statlean.Fourier.EsseenSmoothing
 # Berry-Esseen Theorem
 
 ## Status
-- **3 sorry** remain: `jackson_kernel_tail_bound`, `esseen_bracket_smoothing`, `jackson_fourier_bound`
+- **3 sorry** remain: `jackson_kernel_tail_bound`, `cdf_smoothing_error_bound` (in EsseenSmoothing), `jackson_fourier_bound`
   - **Proof plan documented**: Gil-Pelaez Fourier inversion + density bound
   - **Fix**: bound now includes M (density bound) as `24*M/(πT)` (was M-free, which is false for M>1)
   - `levy_cdf_diff_fourier_bound` now PROVED modulo `esseen_smoothing_ineq`
@@ -54,7 +54,8 @@ The proof follows the classical Fourier-analytic approach:
 ## Remaining sorry (3, from 1 root `esseen_smoothing_ineq`)
 
 - `jackson_kernel_tail_bound`: Jackson kernel construction with `∫|u|K ≤ 12/T`. 1 sorry.
-- `esseen_bracket_smoothing`: Fejér bracket argument assembling kernel + Fourier + Lipschitz. 1 sorry.
+- `cdf_smoothing_error_bound`: Hard case of Esseen smoothing (I/π + 24M/(πT) < 1). 1 sorry.
+  - `esseen_bracket_smoothing` now proved: trivial case (RHS ≥ 1) + hard case delegation.
 - `jackson_fourier_bound`: Fourier bound `|D*K| ≤ I/(2π)` for compact-frequency kernel. 1 sorry.
 - `cesaro_integral_bound`: **PROVED** (split + IBP via substitution + half-angle)
 - `cesaro_fubini_truncated`: **PROVED** (Fubini with bounded integrand)
