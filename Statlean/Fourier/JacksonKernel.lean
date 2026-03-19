@@ -17,7 +17,11 @@ so `∫ |u| J_{2k}(u) du < ∞` for `k ≥ 2` and scales as `C/T`. Its Fourier t
 is a B-spline of order `2k`, supported on `[-T, T]`.
 
 ## Main results
-- `jackson_kernel_tail_bound`: existence of kernel with the above properties
+- `jackson_kernel_tail_bound`: existence of kernel with the above properties,
+  including the Fourier bound for CDF difference convolution
+
+## Sorry (1)
+- `triangleKernel_fourier_bound`: `|∫ D(y-x) K(x) dx| ≤ I/(2π)` via Fourier inversion
 
 ## References
 - Esseen (1945), Feller Vol II §XV.3
@@ -250,6 +254,18 @@ computation `∫ |u| J₄(u) du = C/T`) is deferred.
 
 **Reference**: Esseen (1945), also Feller Vol II §XV.3.
 -/
+-- sorry count: 1 (Fourier bound for triangle kernel convolution)
+-- blocker: Fourier inversion for CDF difference convolved with Fejér kernel
+-- proof sketch: K_T has Fourier transform (1-|t|/T)₊, so ∫ D(y-x)K(x)dx
+--   = (1/2π) ∫_{-T}^T (1-|t|/T) Δ(t) e^{-iyt}/(-it) dt, bounded by I/(2π)
+-- estimated effort: B-grade, ~200 lines (Fourier inversion + Fubini)
+private lemma triangleKernel_fourier_bound (T : ℝ) (hT : 0 < T)
+    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] (y' : ℝ) :
+    |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * triangleKernel T x| ≤
+      (1 / (2 * Real.pi)) * ∫ t in Icc (-T) T,
+        ‖charFun μ t - charFun ν t‖ / |t| := by
+  sorry
+
 lemma jackson_kernel_tail_bound (T : ℝ) (hT : 0 < T) :
     ∃ (K : ℝ → ℝ),
       (Continuous K) ∧
@@ -261,10 +277,16 @@ lemma jackson_kernel_tail_bound (T : ℝ) (hT : 0 < T) :
       -- Ψ_K(u-a) - ε ≤ H(u) ≤ Ψ_K(u+a) + ε where ε = ∫_{|x|>a} K(x) dx ≤ 12/(Ta)
       (∀ a : ℝ, 0 < a → ∫ x in Ioi a ∪ Iio (-a), K x ≤ 12 / (T * a)) ∧
       -- Compact support: K(x) = 0 for |x| ≥ 1/T
-      (∀ x, |x| ≥ 1 / T → K x = 0) := by
+      (∀ x, |x| ≥ 1 / T → K x = 0) ∧
+      -- Fourier bound: convolution of CDF difference with K bounded by charFun integral
+      (∀ (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] (y' : ℝ),
+        |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * K x| ≤
+          (1 / (2 * Real.pi)) * ∫ t in Icc (-T) T,
+            ‖charFun μ t - charFun ν t‖ / |t|) := by
   exact ⟨triangleKernel T, triangleKernel_continuous T,
     triangleKernel_nonneg hT, triangleKernel_integrable hT,
     triangleKernel_integral hT, triangleKernel_first_moment hT,
-    triangleKernel_tail hT, fun x hx => triangleKernel_zero_of_abs_ge hT hx⟩
+    triangleKernel_tail hT, fun x hx => triangleKernel_zero_of_abs_ge hT hx,
+    fun μ ν _ _ y' => triangleKernel_fourier_bound T hT μ ν y'⟩
 
 end JacksonKernel

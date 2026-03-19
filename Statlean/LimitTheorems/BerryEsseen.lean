@@ -9,10 +9,8 @@ import Statlean.Fourier.JacksonKernel
 # Berry-Esseen Theorem
 
 ## Status
-- **1 sorry** remains: `triangleKernel_fourier_bound` (Fourier bound for triangle kernel in `esseen_smoothing_ineq`)
-  - **Proof plan documented**: Gil-Pelaez Fourier inversion + density bound
-  - **Fix**: bound now includes M (density bound) as `24*M/(πT)` (was M-free, which is false for M>1)
-  - `levy_cdf_diff_fourier_bound` now PROVED modulo `esseen_smoothing_ineq`
+- **0 sorry** in this file (Fourier bound sorry moved to `Statlean/Fourier/JacksonKernel.lean`)
+  - `levy_cdf_diff_fourier_bound` PROVED
   - `cdf_smoothing_error_bound` eliminated by direct self-referential argument using triangle kernel compact support
   - Sub-lemmas: `cesaro_integral_bound` PROVED, `cesaro_fubini_truncated` PROVED,
     `cesaro_fourier_bound` PROVED (zero sorry, added IntegrableOn hypothesis)
@@ -50,12 +48,10 @@ The proof follows the classical Fourier-analytic approach:
 
 6. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 5.
 
-## Remaining sorry (1)
+## Remaining sorry (0 in this file)
 
-- `triangleKernel_fourier_bound`: Fourier bound for triangle kernel `|D*K_T| ≤ I/(2π)`. 1 sorry.
-  - Requires Fourier transform computation (sinc² identity / Lévy inversion).
-  - `cdf_smoothing_error_bound` (EsseenSmoothing.lean) eliminated by direct self-referential
-    argument using triangle kernel compact support + one-sided CDF regularity.
+The Fourier bound sorry (`triangleKernel_fourier_bound`) has been moved to
+`Statlean/Fourier/JacksonKernel.lean` as part of `jackson_kernel_tail_bound`.
 - `cesaro_integral_bound`: **PROVED** (split + IBP via substitution + half-angle)
 - `cesaro_fubini_truncated`: **PROVED** (Fubini with bounded integrand)
 - `sin_integral_le_charFun_norm`: **PROVED** (sin = Im∘exp, charFun factorization)
@@ -1292,7 +1288,7 @@ a self-referential argument:
 
 **Reference**: Esseen (1945), Feller Vol II §XV.3.
 -/
--- sorry count: 1 (Fourier bound for triangle kernel)
+-- sorry count: 0 (Fourier bound moved to JacksonKernel.lean)
 private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     {M : ℝ} (hM : 0 < M)
@@ -1310,15 +1306,13 @@ private lemma esseen_smoothing_ineq
   by_cases htriv : 1 ≤ 1 / Real.pi * I + 24 * M / (Real.pi * T)
   · exact hcdf.trans htriv
   push_neg at htriv
-  -- Get the triangle kernel with compact support
-  obtain ⟨K, hK_cont, hK_nn, hK_int, hK_one, _, _, hK_support⟩ :=
+  -- Get the triangle kernel with compact support + Fourier bound
+  obtain ⟨K, hK_cont, hK_nn, hK_int, hK_one, _, _, hK_support, hK_fourier_raw⟩ :=
     jackson_kernel_tail_bound T hT
-  -- sorry: Fourier bound for the triangle kernel
-  -- The triangle kernel K(x) = T·max(1-T|x|,0) satisfies this via Lévy inversion.
-  -- blocker: Fourier inversion for measures (not in Mathlib)
+  -- Fourier bound from JacksonKernel (sorry moved there)
   have hK_fourier : ∀ y' : ℝ,
       |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * K x| ≤
-        (1 / (2 * Real.pi)) * I := by sorry
+        (1 / (2 * Real.pi)) * I := fun y' => hK_fourier_raw μ ν y'
   -- CDF regularity tools
   have hν_lip := cdf_lipschitz_of_density_bound ν hM hν_density
   -- One-sided regularity: D(y+t) ≥ D(y) - Mt for t ≥ 0
@@ -1617,9 +1611,7 @@ the standard Gaussian has a bounded continuous density `g(x) = (2π)^{-1/2} e^{-
 **Proof**: Instantiates `esseen_fourier_cdf_bound` with `ν = gaussianReal 0 1` and
 uses `gaussianReal_density_bounded` to provide the bounded density hypothesis.
 -/
--- sorry count: 3 (from esseen_smoothing_ineq sub-lemmas)
--- blocker: Abel-regularized Lévy inversion (not in Mathlib)
--- estimated effort: P8
+-- sorry count: 0 (sorry moved to JacksonKernel.lean)
 lemma esseen_concentration_universal :
     ∃ C₁ C₂ : ℝ, 0 < C₁ ∧ 0 < C₂ ∧
       ∀ (T : ℝ), 0 < T →
