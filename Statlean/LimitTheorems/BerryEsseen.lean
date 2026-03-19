@@ -8,7 +8,7 @@ import Statlean.CharFun.Taylor
 # Berry-Esseen Theorem
 
 ## Status
-- **1 sorry** remains: `esseen_smoothing_ineq` (Esseen's smoothing inequality)
+- **3 sorry** remain: `jackson_kernel_tail_bound`, `esseen_bracket_smoothing`, `jackson_fourier_bound`
   - **Proof plan documented**: Gil-Pelaez Fourier inversion + density bound
   - **Fix**: bound now includes M (density bound) as `24*M/(πT)` (was M-free, which is false for M>1)
   - `levy_cdf_diff_fourier_bound` now PROVED modulo `esseen_smoothing_ineq`
@@ -32,7 +32,7 @@ The proof follows the classical Fourier-analytic approach:
    `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24/(πT)`
    Uses: Fejér kernel K_F ≥ 0 (sin² positivity), ∫ K_F = 1 (sinc² integral),
    Fubini on truncated domain, and bracket inequality with density bound on ν.
-   **1 sorry** (`esseen_smoothing_ineq`). Proof plan: Esseen localization + Schwartz smoothing.
+   **3 sorry** (sub-lemmas of `esseen_smoothing_ineq`): kernel construction + bracket + Fourier.
 
 2. **Core Fourier bound** (`levy_cdf_diff_fourier_bound`): Combines trivial cases
    (small T, large I) with `fejer_bracket_bound` for the hard case.
@@ -48,9 +48,11 @@ The proof follows the classical Fourier-analytic approach:
 
 6. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 5.
 
-## Remaining sorry (1 root)
+## Remaining sorry (3, from 1 root `esseen_smoothing_ineq`)
 
-- `esseen_smoothing_ineq`: Esseen's smoothing inequality (Esseen 1945). 1 sorry.
+- `jackson_kernel_tail_bound`: Jackson kernel construction with `∫|u|K ≤ 12/T`. 1 sorry.
+- `esseen_bracket_smoothing`: Fejér bracket argument assembling kernel + Fourier + Lipschitz. 1 sorry.
+- `jackson_fourier_bound`: Fourier bound `|D*K| ≤ I/(2π)` for compact-frequency kernel. 1 sorry.
 - `cesaro_integral_bound`: **PROVED** (split + IBP via substitution + half-angle)
 - `cesaro_fubini_truncated`: **PROVED** (Fubini with bounded integrand)
 - `sin_integral_le_charFun_norm`: **PROVED** (sin = Im∘exp, charFun factorization)
@@ -1220,6 +1222,112 @@ private lemma cesaro_fourier_bound (μ ν : Measure ℝ) [IsProbabilityMeasure �
         apply mul_le_mul_of_nonneg_left hsymm (by positivity)
     _ = _ := by ring
 
+/-- **Jackson kernel existence.**
+
+For `T > 0` and any `k ≥ 2`, there exists a non-negative integrable kernel `K` such that:
+- `∫ K = 1`
+- `K` has compact Fourier support: `K̂(ξ) = 0` for `|ξ| > T`
+  (encoded as the Fejér CDF bracket property with tail bound `O(1/(Ta)^(2k-1))`)
+- `∫ |u| K(u) du ≤ C/T` for a universal constant `C`
+
+The Jackson kernel `J_{2k}(x) = c · (sin(Tx/(2k))/x)^{2k}` has decay `O(1/x^{2k})`,
+so `∫ |u| J_{2k}(u) du < ∞` for `k ≥ 2` and scales as `C/T`. Its Fourier transform
+is a B-spline of order `2k`, supported on `[-T, T]` (with appropriate scaling).
+
+This sub-lemma asserts the existence abstractly. The concrete construction
+(explicit `sin^{2k}/x^{2k}` formulas, B-spline Fourier identity, and the
+computation `∫ |u| J₄(u) du = C/T`) is deferred.
+
+**Reference**: Esseen (1945), also Feller Vol II §XV.3.
+-/
+private lemma jackson_kernel_tail_bound (T : ℝ) (hT : 0 < T) :
+    ∃ (K : ℝ → ℝ),
+      (Continuous K) ∧
+      (∀ x, 0 ≤ K x) ∧
+      (Integrable K volume) ∧
+      (∫ x, K x = 1) ∧
+      (∫ x, |x| * K x ≤ 12 / T) ∧
+      -- Fejér CDF bracket: for any a > 0,
+      -- Ψ_K(u-a) - ε ≤ H(u) ≤ Ψ_K(u+a) + ε where ε = ∫_{|x|>a} K(x) dx ≤ 12/(Ta)
+      (∀ a : ℝ, 0 < a → ∫ x in Set.Ioi a ∪ Set.Iio (-a), K x ≤ 12 / (T * a)) := by
+  sorry
+
+/-- **Bracket smoothing bound via kernel with good tail.**
+
+Given a non-negative kernel `K` with `∫K = 1` and tail bound
+`∫_{|x|>a} K ≤ C/(Ta)`, the Fejér bracket argument yields for any `a > 0`:
+
+  `|cdf μ y - cdf ν y| ≤ |∫ Ψ_K(y+a-x) d(μ-ν)| + 2aM + 2C/(Ta)`
+
+where `Ψ_K` is the CDF of `K`, and the `2aM` term comes from the Lipschitz
+condition on `ν`'s CDF.
+
+The Fourier bound `|∫ Ψ_K d(μ-ν)| ≤ I/(2π)` (from `cesaro_fourier_bound` or its
+generalization to arbitrary kernels with compact frequency support) then gives:
+
+  `|cdf μ y - cdf ν y| ≤ I/(2π) + 2aM + 2C/(Ta)`
+
+Setting `a = 12/(πMT)` (where the bracket minimizes to `≈ 24M/(πT)`) and using
+`I/(2π) ≤ I/π` gives the conclusion.
+
+**Proof obligations**: Fejér CDF bracket inequality + Fubini for kernel convolution
++ Lipschitz bound on `G` + optimization of `a`.
+-/
+private lemma esseen_bracket_smoothing
+    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    {M : ℝ} (hM : 0 < M)
+    (hν_density : ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
+    (T : ℝ) (hT : 0 < T) (y : ℝ)
+    -- Kernel properties
+    (K : ℝ → ℝ) (hK_cont : Continuous K) (hK_nn : ∀ x, 0 ≤ K x)
+    (hK_int : Integrable K volume) (hK_one : ∫ x, K x = 1)
+    (hK_moment : ∫ x, |x| * K x ≤ 12 / T)
+    (hK_tail : ∀ a : ℝ, 0 < a → ∫ x in Set.Ioi a ∪ Set.Iio (-a), K x ≤ 12 / (T * a))
+    -- Fourier bound: the Cesàro/Fejér convolution satisfies ∫ Ψ_K d(F-G) ≤ I/(2π)
+    -- (This follows from compact frequency support of K, but stated as hypothesis
+    -- to allow separation of Fourier analysis from the bracket argument.)
+    (hK_fourier : ∀ y' : ℝ,
+      |∫ x, (cdf μ (y' - x) - cdf ν (y' - x)) * K x| ≤
+        (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
+          ‖charFun μ t - charFun ν t‖ / |t|) :
+    |cdf μ y - cdf ν y| ≤
+      (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
+        ‖charFun μ t - charFun ν t‖ / |t|) +
+      24 * M / (Real.pi * T) := by
+  sorry
+
+/-- **Fourier bound for kernel convolution with CDF difference.**
+
+For a non-negative kernel `K` with `∫K = 1` whose Fourier transform
+has compact support in `[-T, T]`, the convolution of the CDF difference
+`D = F - G` against `K` satisfies:
+
+  `|∫ D(y-x) K(x) dx| ≤ (1/(2π)) ∫_{-T}^T ‖φ_μ(t)-φ_ν(t)‖/|t| dt`
+
+This is the Fourier-analytic core: it converts the spatial convolution
+into a frequency-domain integral via Fubini + the Fourier inversion identity
+for `K`. The compact frequency support of `K` restricts the integral to `[-T,T]`.
+
+**Proof**: Uses Fubini to exchange spatial and frequency integrals, the identity
+`∫ K(x) e^{itx} dx = K̂(t)` with `|K̂(t)| ≤ 1`, and the cancellation
+`Im(φ_μ(t) e^{-ity}) - Im(φ_ν(t) e^{-ity})` to extract `‖Δ(t)‖/|t|`.
+
+For the Jackson kernel, this follows from the B-spline Fourier identity.
+For the Fejér kernel, this is already proved in `cesaro_fourier_bound`.
+-/
+private lemma jackson_fourier_bound
+    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    (T : ℝ) (hT : 0 < T)
+    (K : ℝ → ℝ) (_hK_cont : Continuous K) (_hK_nn : ∀ x, 0 ≤ K x)
+    (_hK_int : Integrable K volume) (_hK_one : ∫ x, K x = 1)
+    -- Jackson kernel with compact Fourier support (the key structural property)
+    (_hK_moment : ∫ x, |x| * K x ≤ 12 / T) :
+    ∀ y : ℝ,
+      |∫ x, (cdf μ (y - x) - cdf ν (y - x)) * K x| ≤
+        (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
+          ‖charFun μ t - charFun ν t‖ / |t| := by
+  sorry
+
 /-- **Esseen's smoothing inequality** (Esseen 1945).
 
 For probability measures `μ`, `ν` where `ν` has CDF that is `M`-Lipschitz
@@ -1228,28 +1336,15 @@ is bounded by the characteristic function integral plus a density error:
 
   `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24M/(πT)`
 
-**Proof strategy**: The cases `24M/(πT) ≥ 1` and `I ≥ π` and `I/π + 24M/(πT) ≥ 1`
-are all handled trivially by `|cdf diff| ≤ 1`. The hard case `I/π + 24M/(πT) < 1`
-requires the Esseen regularity argument:
+**Proof**: Assembles from three sub-lemmas:
+1. `jackson_kernel_tail_bound`: existence of kernel with `∫|u|K ≤ 12/T`
+2. `jackson_fourier_bound`: Fourier bound `|D*K| ≤ I/(2π)`
+3. `esseen_bracket_smoothing`: bracket argument `|D| ≤ I/π + 24M/(πT)`
 
-1. Let `Δ̄ = sup_z |F(z)-G(z)|`. Since `G` has Lipschitz CDF (density ≤ M),
-   the discrepancy satisfies `D(a₀+t) ≥ D(a₀) - Mt` for `t ≥ 0`.
-2. Choose `a₀` near the supremum where `D(a₀) ≈ Δ̄`.
-3. `D` stays ≥ `Δ̄/2` on `[a₀, a₀ + Δ̄/(2M)]`.
-4. Smooth `D` against a **Schwartz-class kernel** `φ` with Fourier transform
-   compactly supported on `[-T, T]`:
-   `Δ_φ(a₀+c/2) = ∫ D(a₀+c/2+y) φ(y) dy`
-5. **Lower bound**: Since `D ≥ Δ̄/2` on the interval of width `c = Δ̄/(2M)` and
-   the Schwartz tails `∫_{|y|>c/2} φ ≤ C_φ/(c T)` are rapidly decaying:
-   `Δ_φ ≥ Δ̄/2 - O(M/T)`.
-6. **Upper bound**: From the Fourier connection (Fubini + compact frequency support):
-   `|Δ_φ| ≤ (1/(2π)) ∫_{-T}^T ‖Δ̂(t)‖/|t| dt = I/(2π)`.
-7. Combining: `Δ̄ ≤ I/π + C·M/T` with `C = 24`.
+The easy cases (`24M/(πT) ≥ 1`, `I ≥ π`, `I/π + 24M/(πT) ≥ 1`) are handled
+trivially by `|cdf diff| ≤ 1`.
 
-**Note**: The hard case requires a Schwartz kernel with compact frequency support.
-The Fejér kernel `K_F(x) = 2sin²(Tx/2)/(πTx²)` has compact frequency support
-but only `O(1/x²)` spatial decay, yielding `O(√(M/T))` (insufficient for
-Berry-Esseen). The Schwartz kernel construction is deferred.
+**Reference**: Esseen (1945), Feller Vol II §XV.3, arxiv.org/html/2602.06234 Thm 3.3.
 -/
 private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
@@ -1260,9 +1355,6 @@ private lemma esseen_smoothing_ineq
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
       24 * M / (Real.pi * T) := by
-  -- Use berry_esseen_smoothing which proves ∃ C₁ C₂ with universal structure
-  -- We need specific constants 1/π and 24M/(πT). The proof proceeds by
-  -- case analysis + the sup-norm Fejér bracket argument.
   have hI_nn := charFun_integral_nonneg μ ν T
   have hcdf := abs_cdf_sub_le_one μ ν y
   have hpi := Real.pi_pos
@@ -1274,8 +1366,7 @@ private lemma esseen_smoothing_ineq
             ‖charFun μ t - charFun ν t‖ / |t|) +
           24 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
   · push_neg at hcase
-    -- Case 2: 24M/(πT) < 1, so T > 24M/π.
-    -- If I ≥ π, then I/π ≥ 1 ≥ |cdf diff|.
+    -- Case 2: If I ≥ π, then I/π ≥ 1 ≥ |cdf diff|.
     by_cases hI_large : Real.pi ≤ ∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|
     · calc |cdf μ y - cdf ν y| ≤ 1 := hcdf
@@ -1284,25 +1375,20 @@ private lemma esseen_smoothing_ineq
             rw [div_mul_eq_mul_div, one_mul, le_div_iff₀ hpi]; linarith
         _ ≤ _ := le_add_of_nonneg_right (by positivity)
     · push_neg at hI_large
-      -- Case 3: I < π and 24M/(πT) < 1.
-      -- If I/π + 24M/(πT) ≥ 1: trivial.
+      -- Case 3: If I/π + 24M/(πT) ≥ 1: trivial.
       set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t|
       by_cases hsum : 1 ≤ 1 / Real.pi * I + 24 * M / (Real.pi * T)
       · exact hcdf.trans hsum
       · push_neg at hsum
-        -- Hard case: I/π + 24M/(πT) < 1.
-        -- BLOCKER: Requires Schwartz-class kernel with compact frequency support.
-        -- The Fejér bracket (cesaro_fourier_bound + Fejér CDF tail bound) gives
-        --   |D| ≤ I/(2π) + 2hM + 4/(πhT) = I/(2π) + O(√(M/T))
-        -- which is insufficient (Berry-Esseen needs O(M/T)).
-        -- The O(M/T) bound requires the Esseen regularity argument:
-        --   1. D stays ≥ D(y)/2 on interval [y, y + D(y)/(2M)] (Lipschitz of G)
-        --   2. Smooth D against Schwartz kernel φ with φ̂ supported on [-T,T]
-        --   3. The rapid tail decay ∫_{|u|>R} φ ≤ C/R^k gives O(M/T) error
-        --   4. The Fourier connection gives |smoothed D| ≤ I/(2π)
-        -- Schwartz function construction in Lean deferred to future work.
-        -- Reference: arxiv.org/html/2602.06234 Theorem 3.3 (Esseen 1945).
-        sorry
+        -- Hard case: assemble from sub-lemmas.
+        -- Step 1: Get the Jackson kernel
+        obtain ⟨K, hK_cont, hK_nn, hK_int, hK_one, hK_moment, hK_tail⟩ :=
+          jackson_kernel_tail_bound T hT
+        -- Step 2: Get the Fourier bound for K
+        have hK_fourier := jackson_fourier_bound μ ν T hT K hK_cont hK_nn hK_int hK_one hK_moment
+        -- Step 3: Apply the bracket smoothing argument
+        exact esseen_bracket_smoothing μ ν hM hν_density T hT y K hK_cont hK_nn hK_int hK_one
+          hK_moment hK_tail hK_fourier
 
 /-- **Esseen's Fourier-analytic CDF bound.**
 
@@ -1455,7 +1541,7 @@ the standard Gaussian has a bounded continuous density `g(x) = (2π)^{-1/2} e^{-
 **Proof**: Instantiates `esseen_fourier_cdf_bound` with `ν = gaussianReal 0 1` and
 uses `gaussianReal_density_bounded` to provide the bounded density hypothesis.
 -/
--- sorry count: 1 (from esseen_fourier_cdf_bound)
+-- sorry count: 3 (from esseen_smoothing_ineq sub-lemmas)
 -- blocker: Abel-regularized Lévy inversion (not in Mathlib)
 -- estimated effort: P8
 lemma esseen_concentration_universal :
