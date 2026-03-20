@@ -1021,4 +1021,67 @@ theorem fejerKernel_integral_one {T : ℝ} (hT : 0 < T) :
   rw [hIic, fejerKernel_half_integral hT]
   ring
 
+/-! ### Fejér CDF -/
+
+/-- The Fejér CDF: `Ψ_F(u) = ∫_{-∞}^u K_F(v) dv`. -/
+noncomputable def fejerCDF (T : ℝ) (u : ℝ) : ℝ :=
+  ∫ v in Set.Iic u, fejerKernel T v
+
+/-- The Fejér CDF is non-negative since `K_F ≥ 0`. -/
+lemma fejerCDF_nonneg {T : ℝ} (hT : 0 < T) (u : ℝ) : 0 ≤ fejerCDF T u := by
+  apply setIntegral_nonneg measurableSet_Iic (fun x _ => fejerKernel_nonneg hT x)
+
+/-- The Fejér CDF is at most 1, since `∫ K_F = 1`. -/
+lemma fejerCDF_le_one {T : ℝ} (hT : 0 < T) (u : ℝ) : fejerCDF T u ≤ 1 := by
+  rw [← fejerKernel_integral_one hT]
+  apply setIntegral_le_integral (fejerKernel_integrable hT)
+  filter_upwards with x
+  exact fejerKernel_nonneg hT x
+
+/-- The Fejér CDF is monotone non-decreasing. -/
+lemma fejerCDF_monotone {T : ℝ} (hT : 0 < T) : Monotone (fejerCDF T) := by
+  intro a b hab
+  apply setIntegral_mono_set
+    (fejerKernel_integrable hT).integrableOn
+    (ae_of_all _ (fun x => fejerKernel_nonneg hT x))
+    (ae_of_all _ (fun x (hx : x ∈ Set.Iic a) => Set.Iic_subset_Iic.mpr hab hx))
+
+/-- The Fejér CDF satisfies `Ψ_F(-u) + Ψ_F(u) = 1` by the evenness of `K_F`. -/
+lemma fejerCDF_symm {T : ℝ} (hT : 0 < T) (u : ℝ) :
+    fejerCDF T (-u) = 1 - fejerCDF T u := by
+  have hint := fejerKernel_integrable hT
+  -- ∫_{Iic (-u)} + ∫_{(Iic (-u))ᶜ} = 1
+  have htotal := integral_add_compl (s := Set.Iic (-u)) measurableSet_Iic hint
+  rw [fejerKernel_integral_one hT] at htotal
+  -- (Iic (-u))ᶜ = Ioi (-u)
+  have hcompl_eq : (Set.Iic (-u))ᶜ = Set.Ioi (-u) := by
+    ext x; simp
+  rw [hcompl_eq] at htotal
+  -- Show ∫_{Ioi (-u)} K_F = ∫_{Iic u} K_F = fejerCDF T u
+  have hflip : ∫ x in Set.Ioi (-u), fejerKernel T x ∂volume =
+      ∫ v in Set.Iic u, fejerKernel T v ∂volume := by
+    -- Replace f(x) by f(-x) using evenness
+    have heven : ∀ x, fejerKernel T x = fejerKernel T (-x) :=
+      fun x => (fejerKernel_neg T x).symm
+    calc ∫ x in Set.Ioi (-u), fejerKernel T x ∂volume
+        = ∫ x in Set.Ioi (-u), fejerKernel T (-x) ∂volume := by
+          exact setIntegral_congr_fun measurableSet_Ioi (fun x _ => heven x)
+      _ = ∫ x in Set.Iic (- -u), fejerKernel T x ∂volume :=
+          integral_comp_neg_Ioi (-u) (fejerKernel T)
+      _ = ∫ v in Set.Iic u, fejerKernel T v ∂volume := by rw [neg_neg]
+  -- fejerCDF T (-u) = 1 - fejerCDF T u
+  change ∫ v in Set.Iic (-u), fejerKernel T v = 1 - ∫ v in Set.Iic u, fejerKernel T v
+  linarith
+
+/-- `Ψ_F(0) = 1/2` by the symmetry `Ψ_F(-u) = 1 - Ψ_F(u)`. -/
+lemma fejerCDF_zero {T : ℝ} (hT : 0 < T) : fejerCDF T 0 = 1 / 2 := by
+  have h := fejerCDF_symm hT 0
+  simp only [neg_zero] at h
+  linarith
+
+/-- `Ψ_F(u) ∈ [0, 1]` for all `u`. -/
+lemma fejerCDF_mem_Icc {T : ℝ} (hT : 0 < T) (u : ℝ) :
+    fejerCDF T u ∈ Set.Icc (0 : ℝ) 1 :=
+  ⟨fejerCDF_nonneg hT u, fejerCDF_le_one hT u⟩
+
 end FejerKernel
