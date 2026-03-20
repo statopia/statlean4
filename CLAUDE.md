@@ -127,43 +127,63 @@ R5: LLM 自主探索（50-300K token）→ 当前流程
 **S-B 级 sorry → 跳过 R4，直接 R5**（简单 sorry 不值得 Web 搜索 token）。
 **路线解析脚本**：`python3 scripts/parse_proof_roadmap.py`（多格式：纯文字/LaTeX/PDF/YAML）。
 
-### R6: 基础设施升级 — Mathlib PR 级 sorry 的工程路线（强制）
+### R6: 基础设施升级 — Mathlib PR 级 sorry 的工程路线（强制，硬性规则）
 
-**触发条件**：agent 在同一 sorry 上 stuck ≥ 3 轮，且确认需要 Mathlib 中不存在的基础设施。
+**本节是硬性规则。违反 = 浪费 token，用户有权终止会话。**
 
-**执行流程（不可跳过）**：
-1. **Web 搜索现有实现**：
-   ```
-   WebSearch "Lean 4 Mathlib <missing_concept> proof 2025 2026"
-   WebSearch "<theorem_name> formalization Lean Isabelle Coq"
-   ```
-   - 检查 Mathlib 是否已有（可能在最新版本）
-   - 检查其他形式化项目（Isabelle AFP、Coq MathComp）是否有可参考的证明路线
-   - 检查数学文献（arXiv、教材）中最短的证明路线
+**触发条件（自动，不需用户指令）**：
+- agent 在**同一 sorry** 上 stuck ≥ 3 轮（包含跨会话的累计，查 `sorry_backlog.yaml` 的 `stuck_rounds` 字段）
+- 或 agent 返回 "needs ~N lines infrastructure" / "not in Mathlib" 类结论
+- 一旦触发，**禁止**再派 agent 做理论分析，**必须**执行以下 4 步
 
-2. **WebFetch 获取具体路线**：
-   - Mathlib API 文档页面（`leanprover-community.github.io/mathlib4_docs/`）
-   - arXiv 论文中的证明步骤
-   - 提取: 所需 API 名称、依赖顺序、估计行数
+**执行流程（每步必须执行，不可跳过，不可合并）**：
 
-3. **制定工程路线**：
-   - 分解为独立可证的子引理（每个 ≤ 50 行）
-   - 确定依赖 DAG
-   - 估计总行数和优先级
-   - 写入 `sorry_backlog.yaml`
+**Step 1: Web 搜索（主会话执行，不委托给 agent）**
+```
+WebSearch "Lean 4 Mathlib <缺失概念> proof 2025 2026"
+WebSearch "<定理名> formalization Lean Isabelle Coq"
+WebSearch "arXiv <定理名> short proof elementary"
+```
+- 检查 Mathlib 最新版本是否已有（agent 的索引可能过时）
+- 检查 Isabelle AFP / Coq MathComp 有无可参考路线
+- 检查数学文献中最短的纯分析证明
 
-4. **立即实施**（不等用户确认）：
-   - 按 DAG 顺序逐个实现子引理
-   - 每个子引理 build 验证后立即 commit
-   - 如果某个子引理 stuck，用 sorry 暂留并继续下一个
+**Step 2: WebFetch 获取具体 API / 证明步骤**
+- Mathlib API 文档: `leanprover-community.github.io/mathlib4_docs/Mathlib/Analysis/...`
+- arXiv 论文 HTML 版本: `arxiv.org/html/<id>`
+- 提取: 所需 API **精确名称**、函数签名、依赖关系
 
-**关键原则**：不要在同一个 sorry 上反复做理论分析。3 轮 stuck 后必须升级到 R6（web 搜索 + 工程路线 + 实施）。
+**Step 3: 制定工程路线（写入文件）**
+- 分解为独立子引理（每个 ≤ 50 行，可独立 build）
+- 确定依赖 DAG（哪些可以并行）
+- 估计总行数
+- 写入 `sorry_backlog.yaml` 的 `engineering_route` 字段
+- **输出 1 行摘要到屏幕**："R6 路线: N 个子引理, ~M 行, 依赖: A→B→C"
+
+**Step 4: 立即实施（不等用户确认，不再分析）**
+- 按 DAG 叶节点 → 根节点顺序实现
+- 每个子引理: 写代码 → `lake build` → commit
+- 子引理 stuck → sorry 暂留 + 继续下一个（不停下来分析）
+- 所有子引理完成后组装主定理
+
+**反模式（禁止）**：
+- ❌ "需要 ~200 行基础设施" 然后停下来等用户
+- ❌ 再派 agent 做 "分析可行性" / "探索替代路线"
+- ❌ 写 design request 文档然后等待反馈
+- ❌ 在同一个 sorry 上做第 4+ 轮理论分析
+
+**正确模式**：
+- ✅ 第 3 轮 stuck → 立即 WebSearch → 找到 Mathlib API → 制定路线 → 写代码
+- ✅ 30 分钟内从 "stuck" 到 "开始写第一个子引理"
 
 详细执行/升级条件见各 prove 命令的 Phase 0.5 和 `theme/prove_playbook.md` §3。
 
 ---
 
-## Mathlib / StatLib 搜索策略（省 token 三级法）— 强制执行
+## Mathlib / StatLib 搜索策略（省 token 三级法）— 强制执行，硬性规则
+
+**跳过本节任何步骤 = 违规。subagent prompt 中必须包含本节的检查清单。**
+**subagent 返回结果中如果没有"已查 mathlib_full_type_index.tsv"的证据，主会话必须自己补查。**
 
 **本节是硬性规则，所有证明流程（`/prove`、`/prove-deep`、subagent）必须遵循。**
 **违反本节 = 浪费 token + 搜索结果不可靠，用户有权拒绝。**
@@ -286,12 +306,13 @@ R5: LLM 自主探索（50-300K token）→ 当前流程
   - subagent 返回后，主会话检查目标 sorry 是否已关闭（grep sorry 或 lake build）
   - 若未关闭且 subagent 有实质进展（文件已修改），立即派新 agent 续接，prompt 注明"从文件当前状态继续，前任已完成 X"
   - 若无进展（策略耗尽）且 stuck 轮数 < 3，记录到 sorry_backlog.yaml 并转攻下一个目标
-  - **若 stuck ≥ 3 轮（强制升级 R6）**：
-    1. 停止派 agent 做理论分析
-    2. 主会话执行 WebSearch + WebFetch 获取工程路线（Mathlib API docs、arXiv 论文、其他形式化项目）
-    3. 制定子引理分解 + 依赖 DAG
-    4. 按 DAG 逐个实现（每个子引理单独 agent）
+  - **若 stuck ≥ 3 轮（强制升级 R6，硬性规则）**：
+    1. **禁止**再派 agent 做理论分析（违反 = 浪费 token）
+    2. **主会话亲自执行** WebSearch + WebFetch（不委托给 agent，因为 agent 会跳过）
+    3. 制定子引理分解 + 依赖 DAG（写入 sorry_backlog.yaml）
+    4. 按 DAG 逐个实现（每个子引理单独 agent，prompt 必须是"写代码"不是"分析"）
     5. 不等用户确认，立即实施
+    6. **sorry_backlog.yaml 中记录 stuck_rounds 字段**，跨会话累计
 - **基础设施增量入库（强制 — 证明过程中实时执行，不等主定理完成）**：
   证明过程中产生的内容分两类处理：
 
