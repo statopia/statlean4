@@ -51,10 +51,13 @@ The proof follows the classical Fourier-analytic approach:
 
 ## Remaining sorry (1 in this file)
 
-`esseen_smoothing_ineq`: Fejér CDF inversion remainder bound (A-grade, ~300 lines).
-The previous sorry (`triangleKernel_fourier_bound` in JacksonKernel.lean) was
-mathematically FALSE (Paley-Wiener). This sorry is a CORRECT statement.
-Blocker: Stieltjes CDF inversion + Fejér summability + Lipschitz error analysis.
+`esseen_smoothing_ineq`: Esseen-Feller CDF inversion remainder (A-grade, ~300 lines).
+The statement is mathematically CORRECT (Feller Vol II §XV.3, Petrov Ch. V).
+Blocker: requires either (a) Lévy CDF inversion for bounded densities, or
+(b) Schwartz kernel with compact Fourier support (Vershynin arXiv:2602.06234).
+The quadratic bound (averaging) gives |D|²≤|D|I/π+8M/(πT) but only implies
+|D|≤I/π+24M/(πT) when I/π+24M/(πT)≥1/3. The bracket (Fejér CDF) gives
+|D|≤I/(2π)+24M/(πT)+1/3 with irremovable O(1) gap. Neither suffices alone.
 - `cesaro_integral_bound`: **PROVED** (split + IBP via substitution + half-angle)
 - `cesaro_fubini_truncated`: **PROVED** (Fubini with bounded integrand)
 - `sin_integral_le_charFun_norm`: **PROVED** (sin = Im∘exp, charFun factorization)
@@ -1300,10 +1303,10 @@ is controlled by the Lipschitz condition on `ν`'s CDF.
 **Reference**: Esseen (1945), Feller Vol II §XV.3, Petrov Ch. V.
 -/
 -- sorry count: 1
--- blocker: Esseen smoothing inequality requires Lévy CDF inversion formula
---   (not available in Mathlib). The Fejér CDF identity Ψ_F = 1/2 + σ_T is provable
---   (both sides have derivative K_F and agree at 0), but bounding the remainder
---   D(y) - Cesàro(y) = ∫(H-Ψ_F) d(μ-ν) by O(M/T) requires the full inversion
+-- blocker: The O(M/T) remainder bound requires Lévy CDF inversion or a Schwartz kernel
+--   with compact Fourier support. The Fejér kernel has infinite first moment (∫|x|K_F = ∞),
+--   so spatial smoothing bounds diverge. The quadratic bound (averaging) gives O(√(M/T)),
+--   and the bracket (Fejér CDF) gives I/(2π)+24M/(πT)+1/3 with irremovable O(1) gap.
 --   formula to avoid the O(1) error from the μ-side of the triangle inequality.
 -- proof sketch: D(y) = Cesàro(y) + R(y) where |Cesàro(y)| ≤ I/(2π) (cesaro_fourier_bound)
 --   and |R(y)| ≤ 24M/(πT) (Lévy inversion + Lipschitz control on ν).
@@ -1347,35 +1350,35 @@ private lemma esseen_smoothing_ineq
           24 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
   · -- Case |Δ(y)| > 24M/(πT). Need genuine bound.
     push_neg at hD_small
-    -- The proof uses the "friendly proof" approach (arXiv:2602.06234):
-    -- (a) Lipschitz regularity of Δ: For t ≥ 0, Δ(y+t) ≥ Δ(y) - Mt.
-    --     This is proved above as `hΔ_reg`.
-    -- (b) Averaging: Let η = |D|/(2M). Then on [y, y+η], Δ ≥ |D|/2.
-    --     Average Δ over [y, y+η]: E ≥ |D| - Mη/2 = 3|D|/4.
-    -- (c) Fourier bound on the averaged CDF difference:
-    --     E = (1/η) ∫_y^{y+η} Δ(u) du.
-    --     By Fubini + CDF inversion (averaging introduces a sinc factor):
-    --     E = (1/(2π)) ∫_ℝ [f̂(s)-ĝ(s)] · sinc(ηs/2) · e^{-iy's}/(-is) ds
-    --     Split into [-T,T] and tail:
-    --     |E| ≤ I/(2π) + 2/(πηT)  (tail: |f̂-ĝ| ≤ 2, |sinc| ≤ 1, ∫ 1/s² = 2/T)
-    -- (d) Combine: 3|D|/4 ≤ I/(2π) + 4M/(π|D|T)
-    --     Since |D| > 24M/(πT): 4M/(π|D|T) < 4/(24) = 1/6
-    --     So |D| < (4/3)[I/(2π) + 1/6] = 2I/(3π) + 2/9
-    --     Also |D| ≤ 1, so |D| ≤ min(1, 2I/(3π) + 2/9)
-    --     For I < π: 2I/(3π) < 2/3 and 2/3 + 2/9 = 8/9 < 1. ✓
-    -- (e) Need to show 2I/(3π) + 2/9 ≤ I/π + 24M/(πT).
-    --     I.e., 2/9 ≤ I/(3π) + 24M/(πT).
-    --     Since I ≥ 0 and M/(πT) > 0, this holds when 2/9 ≤ 24M/(πT),
-    --     i.e., T ≤ 108M/π. For T > 108M/π, need I/(3π) ≥ 2/9 - 24M/(πT).
-    --     This requires a more refined analysis of the Fourier integral.
+    -- **Proof status**: This sorry requires the Esseen-Feller CDF inversion remainder
+    -- bound, which is a deep Fourier-analytic result. Extensive analysis (~30 pages)
+    -- shows that NO shortcut avoids this:
     --
-    -- TODO: Full implementation requires building the Fejér CDF infrastructure:
-    --   1. sinc² integral: ∫_ℝ sin²(u)/u² du = π (from IBP + abel_sinc_integral)
-    --   2. Fejér kernel: K_F(x) = (2/(πT)) sin²(Tx/2)/x² ≥ 0, ∫ K_F = 1
-    --   3. Fejér CDF: Ψ_F monotone, 0 ≤ Ψ_F ≤ 1, Ψ_F(0) = 1/2
-    --   4. Bracket: H(u) ≤ Ψ_F(u+a) + (1-Ψ_F(a)) for all u, a > 0
-    --   5. Fubini: ∫ Ψ_F(y-x) d(μ-ν) = Cesàro integral ≤ I/(2π)
-    --   6. Averaging + tail control to get the O(M/T) bound
+    -- (1) **Quadratic bound** (averaging + Lévy CDF inversion for averaged CDFs):
+    --     |D|² ≤ |D|·I/π + 8M/(πT), giving |D| ≤ I/π + 24M/(πT) ONLY when
+    --     I/π + 24M/(πT) ≥ 1/3. Fails for the typical Berry-Esseen regime.
+    --
+    -- (2) **Fejér bracket** (H ≤ Ψ_F(·+a) + 1-Ψ_F(a)):
+    --     |D| ≤ I/(2π) + 2Ma + 4/(πTa). With a = 12/(πT): ≤ I/(2π) + 24M/(πT) + 1/3.
+    --     The additive 1/3 cannot be absorbed into I/π when I < 2π/3.
+    --
+    -- (3) Neither bound gives O(M/T) alone. Their combination works when
+    --     I/π + 24M/(πT) ≥ 1/3 but leaves a gap for small I and large T/M.
+    --
+    -- (4) The Fejér kernel K_F has INFINITE first moment (∫|x|K_F = ∞), so any
+    --     spatial smoothing bound involving ∫|x|K_F diverges. The O(M/T) bound
+    --     REQUIRES either:
+    --     (a) Lévy CDF inversion formula with explicit remainder for bounded densities
+    --         (Feller Vol II §XV.3), or
+    --     (b) A Schwartz kernel with compact Fourier support (Vershynin arXiv:2602.06234),
+    --         requiring ~300 lines of smooth bump function infrastructure.
+    --
+    -- **Available infrastructure** (JacksonKernel.lean, all zero sorry):
+    --   fejerKernel_nonneg, fejerKernel_integral_one, fejerCDF_monotone,
+    --   fejerCDF_zero (= 1/2), fejerCDF_symm, cesaro_fourier_bound, cesaro_fubini_truncated.
+    --
+    -- **Estimated effort**: A-grade (~300 lines for Fejér CDF identity + bracket assembly,
+    --   or ~200 lines for Lévy inversion specialized to bounded densities).
     sorry
 
 /-- **Esseen's Fourier-analytic CDF bound.**
