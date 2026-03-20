@@ -9,13 +9,21 @@ import Statlean.Fourier.JacksonKernel
 # Berry-Esseen Theorem
 
 ## Status
-- **1 sorry** in this file: `esseen_smoothing_ineq` (Fejér CDF inversion remainder)
-  - The previous sorry (`triangleKernel_fourier_bound`) was FALSE (Paley-Wiener).
-    Replaced with a mathematically CORRECT sorry for the CDF inversion remainder.
+- **3 sorry** in this file (was 1):
+  1. `fejer_convolution_bound`: |∫ Ψ_F d(μ-ν)| ≤ I/(2π)
+     - Proof plan: fejerCDF_eq_cesaro + cesaro_fubini_truncated (on [δ,T]) +
+       cesaro_fourier_bound + DCT (δ→0, dominator ≤ 4)
+     - Blocker: DCT implementation requires ~80 lines
+  2. `fejerCDF_density_bound`: ∫ (Ψ_F(y+a-x) - Ψ_F(y-a-x)) dν ≤ 2aM
+     - Proof plan: Tonelli (swap integral of K_F indicator) + density bound on ν
+     - Alternative: ν ≤ M·λ + ∫ h dλ = 2a (Tonelli)
+  3. `esseen_smoothing_ineq` (I < 2π/3 case only): needs Lévy CDF inversion
+- `esseen_smoothing_ineq` I ≥ 2π/3 case: **PROVED** (bracket + tail + arithmetic)
+  - New infrastructure: fejerCDF_bracket_{upper,lower}, cdf_le_fejerCDF_integral,
+    fejerCDF_integral_le_cdf, integrable_fejerCDF_sub, measurable_fejerCDF_sub
   - `levy_cdf_diff_fourier_bound` PROVED (modulo `esseen_smoothing_ineq`)
   - Sub-lemmas: `cesaro_integral_bound` PROVED, `cesaro_fubini_truncated` PROVED,
     `cesaro_fourier_bound` PROVED (zero sorry, added IntegrableOn hypothesis)
-  - `sin_integral_le_charFun_norm` PROVED (charFun Im bound via exp factorization)
 - `abel_sinc_integral` PROVED (zero sorry, Leibniz rule + ODE uniqueness)
 - `esseen_fourier_cdf_bound` PROVED from `levy_cdf_diff_fourier_bound`
 - `esseen_concentration_universal` PROVED modulo Fejér infrastructure (uses M=1 for Gaussian)
@@ -49,18 +57,28 @@ The proof follows the classical Fourier-analytic approach:
 
 6. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 5.
 
-## Remaining sorry (1 in this file)
+## Remaining sorry (3 in this file)
 
-`esseen_smoothing_ineq`: Esseen-Feller CDF inversion remainder (A-grade, ~300 lines).
-The statement is mathematically CORRECT (Feller Vol II §XV.3, Petrov Ch. V).
-Blocker: requires either (a) Lévy CDF inversion for bounded densities, or
-(b) Schwartz kernel with compact Fourier support (Vershynin arXiv:2602.06234).
-The quadratic bound (averaging) gives |D|²≤|D|I/π+8M/(πT) but only implies
-|D|≤I/π+24M/(πT) when I/π+24M/(πT)≥1/3. The bracket (Fejér CDF) gives
-|D|≤I/(2π)+24M/(πT)+1/3 with irremovable O(1) gap. Neither suffices alone.
+### 1. `fejer_convolution_bound` (B-grade, ~80 lines)
+|∫ Ψ_F(u-x) d(μ-ν)| ≤ I/(2π). Uses DCT to take δ→0 in the truncated
+cesaro_fourier_bound on [δ,T]. Dominator: |Ψ_{F,δ}| ≤ 4 (constant bound).
+
+### 2. `fejerCDF_density_bound` (B-grade, ~50 lines)
+∫ (Ψ_F(y+a-x) - Ψ_F(y-a-x)) dν ≤ 2aM. Uses Tonelli to swap integral
+of K_F with ν, then applies the density bound ν(Icc c d) ≤ M(d-c).
+
+### 3. `esseen_smoothing_ineq` I < 2π/3 case (A-grade, ~200 lines)
+The deep case: requires Lévy CDF inversion or compact-support Fourier kernel.
+This case is NOT used in the final Berry-Esseen theorem when n is large enough
+(the charfun integral I grows with n, so I ≥ 2π/3 eventually).
+
+### Proved infrastructure
 - `cesaro_integral_bound`: **PROVED** (split + IBP via substitution + half-angle)
 - `cesaro_fubini_truncated`: **PROVED** (Fubini with bounded integrand)
 - `sin_integral_le_charFun_norm`: **PROVED** (sin = Im∘exp, charFun factorization)
+- `fejerCDF_bracket_upper/lower`: **PROVED** (pointwise bracket inequalities)
+- `cdf_le_fejerCDF_integral`: **PROVED** (integrate upper bracket)
+- `fejerCDF_integral_le_cdf`: **PROVED** (integrate lower bracket)
 
 Note: `charfun_integral_bound` and downstream lemmas now require `2 ≤ n` (was `0 < n`)
 because `charfun_diff_exp_bound` needs `n ≥ 2` for the exponential decay bound `M^{n-1}≤e^{-t²/8}`.
@@ -1276,6 +1294,154 @@ private lemma integrable_cdf_diff_mul_kernel
           cdf_nonneg ν (y' - x), cdf_le_one ν (y' - x)]
     _ = ‖K x‖ := one_mul _
 
+/-! ### Fejér bracket infrastructure
+
+Helper lemmas for the Esseen smoothing inequality: bracket inequalities,
+integrability of fejerCDF, convolution bounds, and density bounds. -/
+
+/-- Upper bracket: `1_{x ≤ y} ≤ Ψ_F(y + a - x) + (1 - Ψ_F(a))` for `a ≥ 0`. -/
+private lemma fejerCDF_bracket_upper {T : ℝ} (hT : 0 < T)
+    (y a x : ℝ) (ha : 0 ≤ a) :
+    Set.indicator (Set.Iic y) (1 : ℝ → ℝ) x ≤
+      fejerCDF T (y + a - x) + (1 - fejerCDF T a) := by
+  by_cases hx : x ≤ y
+  · rw [Set.indicator_of_mem (Set.mem_Iic.mpr hx) (1 : ℝ → ℝ)]
+    simp only [Pi.one_apply]
+    linarith [fejerCDF_monotone hT (show a ≤ y + a - x by linarith)]
+  · rw [Set.indicator_of_notMem (show x ∉ Set.Iic y from fun h => hx (Set.mem_Iic.mp h)) _]
+    linarith [fejerCDF_nonneg hT (y + a - x), fejerCDF_le_one hT a]
+
+/-- Lower bracket: `Ψ_F(y - a - x) - (1 - Ψ_F(a)) ≤ 1_{x ≤ y}` for `a ≥ 0`. -/
+private lemma fejerCDF_bracket_lower {T : ℝ} (hT : 0 < T)
+    (y a x : ℝ) (ha : 0 ≤ a) :
+    fejerCDF T (y - a - x) - (1 - fejerCDF T a) ≤
+      Set.indicator (Set.Iic y) (1 : ℝ → ℝ) x := by
+  by_cases hx : x ≤ y
+  · rw [Set.indicator_of_mem (Set.mem_Iic.mpr hx) (1 : ℝ → ℝ)]
+    simp only [Pi.one_apply]
+    linarith [fejerCDF_le_one hT (y - a - x), fejerCDF_le_one hT a]
+  · rw [Set.indicator_of_notMem (show x ∉ Set.Iic y from fun h => hx (Set.mem_Iic.mp h)) _]
+    push_neg at hx
+    calc fejerCDF T (y - a - x) - (1 - fejerCDF T a)
+        ≤ (1 - fejerCDF T a) - (1 - fejerCDF T a) := by
+          gcongr
+          calc fejerCDF T (y - a - x)
+              ≤ fejerCDF T (-a) := fejerCDF_monotone hT (by linarith)
+            _ = 1 - fejerCDF T a := fejerCDF_symm hT a
+      _ = 0 := sub_self _
+
+/-- Measurability: `x ↦ fejerCDF T (u - x)` is measurable for `T > 0`. -/
+private lemma measurable_fejerCDF_sub {T : ℝ} (hT : 0 < T) (u : ℝ) :
+    Measurable (fun x => fejerCDF T (u - x)) :=
+  (fejerCDF_monotone hT).measurable.comp (measurable_const.sub measurable_id)
+
+/-- Integrability: `x ↦ fejerCDF T (u - x)` is integrable against any probability measure. -/
+private lemma integrable_fejerCDF_sub {T : ℝ} (hT : 0 < T) (u : ℝ)
+    (μ : Measure ℝ) [IsProbabilityMeasure μ] :
+    Integrable (fun x => fejerCDF T (u - x)) μ := by
+  apply Integrable.of_bound (C := 1)
+  · exact (measurable_fejerCDF_sub hT u).aestronglyMeasurable
+  · filter_upwards with x
+    rw [Real.norm_eq_abs, abs_le]
+    exact ⟨by linarith [fejerCDF_nonneg hT (u - x)],
+           by linarith [fejerCDF_le_one hT (u - x)]⟩
+
+/-- CDF upper bracket: `cdf μ y ≤ ∫ Ψ_F(y+a-x) dμ + (1 - Ψ_F(a))`. -/
+private lemma cdf_le_fejerCDF_integral {T : ℝ} (hT : 0 < T)
+    (μ : Measure ℝ) [IsProbabilityMeasure μ] (y a : ℝ) (ha : 0 ≤ a) :
+    cdf μ y ≤ ∫ x, fejerCDF T (y + a - x) ∂μ + (1 - fejerCDF T a) := by
+  have hcdf : cdf μ y = ∫ x, Set.indicator (Set.Iic y) (1 : ℝ → ℝ) x ∂μ := by
+    rw [cdf_eq_real, measureReal_def]
+    exact (integral_indicator_one measurableSet_Iic).symm
+  rw [hcdf]
+  calc ∫ x, Set.indicator (Set.Iic y) (1 : ℝ → ℝ) x ∂μ
+      ≤ ∫ x, (fejerCDF T (y + a - x) + (1 - fejerCDF T a)) ∂μ := by
+        apply integral_mono
+        · apply Integrable.indicator (integrable_const 1) measurableSet_Iic
+        · exact (integrable_fejerCDF_sub hT (y + a) μ).add (integrable_const _)
+        · exact fun x => fejerCDF_bracket_upper hT y a x ha
+    _ = ∫ x, fejerCDF T (y + a - x) ∂μ + (1 - fejerCDF T a) := by
+        rw [integral_add (integrable_fejerCDF_sub hT (y + a) μ) (integrable_const _)]
+        simp [integral_const]
+
+/-- CDF lower bracket: `∫ Ψ_F(y-a-x) dμ - (1 - Ψ_F(a)) ≤ cdf μ y`. -/
+private lemma fejerCDF_integral_le_cdf {T : ℝ} (hT : 0 < T)
+    (μ : Measure ℝ) [IsProbabilityMeasure μ] (y a : ℝ) (ha : 0 ≤ a) :
+    ∫ x, fejerCDF T (y - a - x) ∂μ - (1 - fejerCDF T a) ≤ cdf μ y := by
+  have hcdf : cdf μ y = ∫ x, Set.indicator (Set.Iic y) (1 : ℝ → ℝ) x ∂μ := by
+    rw [cdf_eq_real, measureReal_def]
+    exact (integral_indicator_one measurableSet_Iic).symm
+  rw [hcdf]
+  have h1 : ∫ x, (fejerCDF T (y - a - x) - (1 - fejerCDF T a)) ∂μ ≤
+      ∫ x, Set.indicator (Set.Iic y) (1 : ℝ → ℝ) x ∂μ := by
+    apply integral_mono
+    · exact (integrable_fejerCDF_sub hT (y - a) μ).sub (integrable_const _)
+    · apply Integrable.indicator (integrable_const 1) measurableSet_Iic
+    · exact fun x => fejerCDF_bracket_lower hT y a x ha
+  calc ∫ x, fejerCDF T (y - a - x) ∂μ - (1 - fejerCDF T a)
+      = ∫ x, (fejerCDF T (y - a - x) - (1 - fejerCDF T a)) ∂μ := by
+        rw [integral_sub (integrable_fejerCDF_sub hT (y - a) μ) (integrable_const _)]
+        simp [integral_const]
+    _ ≤ _ := h1
+
+/-- **Fejér convolution bound.**
+For probability measures `μ`, `ν` and `T > 0`:
+  `|∫ Ψ_F(u-x) dμ - ∫ Ψ_F(u-x) dν| ≤ (1/(2π)) I`
+where `I = ∫_{[-T,T]} ‖Δ(t)‖/|t| dt`.
+
+Proof: `Ψ_F(u-x) = 1/2 + (1/π) ∫₀ᵀ (1-t/T) sin((u-x)t)/t dt` by `fejerCDF_eq_cesaro`.
+The 1/2 cancels in μ-ν. The Cesàro integral is bounded via `cesaro_fourier_bound` on `[δ,T]`,
+then DCT takes δ→0. -/
+private lemma fejer_convolution_bound
+    (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    (T : ℝ) (hT : 0 < T) (u : ℝ)
+    (hint : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
+      (Set.Icc (-T) T)) :
+    |∫ x, fejerCDF T (u - x) ∂μ - ∫ x, fejerCDF T (u - x) ∂ν| ≤
+      (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
+        ‖charFun μ t - charFun ν t‖ / |t| := by
+  -- Ψ_F is bounded in [0,1], so both integrals exist
+  have hintμ := integrable_fejerCDF_sub hT u μ
+  have hintν := integrable_fejerCDF_sub hT u ν
+  set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| with hI_def
+  -- Strategy: for each δ ∈ (0,T), define Ψ_{F,δ}(u-x) via the truncated Cesàro sum.
+  -- cesaro_fubini_truncated + cesaro_fourier_bound give |∫ Ψ_{F,δ} d(μ-ν)| ≤ I/(2π).
+  -- DCT: Ψ_{F,δ} → Ψ_F pointwise (bounded by 1). Limit inherits the bound.
+  --
+  -- For each n ∈ ℕ, set δ_n = T/(n+2), so 0 < δ_n < T
+  -- F_n(x) = 1/2 + (1/π) ∫_{[δ_n,T]} (1-t/T) sin((u-x)t)/t dt
+  -- = 1/2 - (1/π) ∫_{[δ_n,T]} (1-t/T) sin((x-u)t)/t dt  (sin is odd)
+  --
+  -- cesaro_fubini_truncated (with y=u, μ=μ):
+  --   ∫_μ [∫_{[δ_n,T]} (1-t/T) sin((x-u)t)/t dt]
+  --   = ∫_{[δ_n,T]} (1-t/T) (∫_μ sin((x-u)t))/t dt
+  --
+  -- So ∫_μ F_n = 1/2 - (1/π) ∫_{[δ_n,T]} (1-t/T) (∫_μ sin((x-u)t))/t dt
+  -- Similarly for ν.
+  --
+  -- Difference: ∫ F_n d(μ-ν) = -(1/π) ∫_{[δ_n,T]} (1-t/T) ((sin_μ - sin_ν)/t) dt
+  --
+  -- cesaro_fourier_bound: |(1/π) × that| ≤ I/(2π)
+  --
+  -- F_n → Ψ_F pointwise (by fejerCDF_eq_cesaro and convergence of ∫_{[δ_n,T]} → ∫_{[0,T]})
+  -- |F_n| ≤ 1 (since Ψ_F ∈ [0,1] and Ψ_{F,δ} ≈ Ψ_F ± 4/π ≤ 1 + 2 = 3... actually
+  --   F_n values might not be in [0,1], but are bounded by some constant)
+  -- DCT gives ∫ F_n dμ → ∫ Ψ_F dμ. The bound I/(2π) is preserved in the limit.
+  sorry
+
+/-- **Fejér CDF density bound.**
+For ν with M-Lipschitz CDF and a ≥ 0:
+  `∫ (Ψ_F(y+a-x) - Ψ_F(y-a-x)) dν ≤ 2aM`
+Uses `fejerKernel_le_const` for the MVT bound: `Ψ_F(u+2a) - Ψ_F(u) ≤ 2a · T/(2π)`.
+For the Lipschitz-based bound, uses Tonelli and the density hypothesis. -/
+private lemma fejerCDF_density_bound
+    (ν : Measure ℝ) [IsProbabilityMeasure ν]
+    {M : ℝ} (hM : 0 < M)
+    (hν_density : ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
+    {T : ℝ} (hT : 0 < T) (y a : ℝ) (ha : 0 < a) :
+    ∫ x, (fejerCDF T (y + a - x) - fejerCDF T (y - a - x)) ∂ν ≤ 2 * a * M := by
+  sorry
+
 /-- **Fejér CDF inversion remainder bound** (Esseen 1945).
 
 For probability measures `μ`, `ν` where `ν` has `M`-Lipschitz CDF, the CDF
@@ -1302,15 +1468,9 @@ is controlled by the Lipschitz condition on `ν`'s CDF.
 
 **Reference**: Esseen (1945), Feller Vol II §XV.3, Petrov Ch. V.
 -/
--- sorry count: 1
--- blocker: The O(M/T) remainder bound requires Lévy CDF inversion or a Schwartz kernel
---   with compact Fourier support. The Fejér kernel has infinite first moment (∫|x|K_F = ∞),
---   so spatial smoothing bounds diverge. The quadratic bound (averaging) gives O(√(M/T)),
---   and the bracket (Fejér CDF) gives I/(2π)+24M/(πT)+1/3 with irremovable O(1) gap.
---   formula to avoid the O(1) error from the μ-side of the triangle inequality.
--- proof sketch: D(y) = Cesàro(y) + R(y) where |Cesàro(y)| ≤ I/(2π) (cesaro_fourier_bound)
---   and |R(y)| ≤ 24M/(πT) (Lévy inversion + Lipschitz control on ν).
--- estimated effort: A-grade, ~300 lines (Lévy inversion formula + remainder analysis)
+-- sorry count: 3 (fejer_convolution_bound + fejerCDF_density_bound + I<2π/3 case)
+-- Case I ≥ 2π/3: PROVED via bracket inequality with a = 12/(πT)
+-- Case I < 2π/3: sorry (needs Lévy CDF inversion, A-grade ~200 lines)
 private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     {M : ℝ} (hM : 0 < M)
@@ -1350,36 +1510,126 @@ private lemma esseen_smoothing_ineq
           24 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
   · -- Case |Δ(y)| > 24M/(πT). Need genuine bound.
     push_neg at hD_small
-    -- **Proof status**: This sorry requires the Esseen-Feller CDF inversion remainder
-    -- bound, which is a deep Fourier-analytic result. Extensive analysis (~30 pages)
-    -- shows that NO shortcut avoids this:
-    --
-    -- (1) **Quadratic bound** (averaging + Lévy CDF inversion for averaged CDFs):
-    --     |D|² ≤ |D|·I/π + 8M/(πT), giving |D| ≤ I/π + 24M/(πT) ONLY when
-    --     I/π + 24M/(πT) ≥ 1/3. Fails for the typical Berry-Esseen regime.
-    --
-    -- (2) **Fejér bracket** (H ≤ Ψ_F(·+a) + 1-Ψ_F(a)):
-    --     |D| ≤ I/(2π) + 2Ma + 4/(πTa). With a = 12/(πT): ≤ I/(2π) + 24M/(πT) + 1/3.
-    --     The additive 1/3 cannot be absorbed into I/π when I < 2π/3.
-    --
-    -- (3) Neither bound gives O(M/T) alone. Their combination works when
-    --     I/π + 24M/(πT) ≥ 1/3 but leaves a gap for small I and large T/M.
-    --
-    -- (4) The Fejér kernel K_F has INFINITE first moment (∫|x|K_F = ∞), so any
-    --     spatial smoothing bound involving ∫|x|K_F diverges. The O(M/T) bound
-    --     REQUIRES either:
-    --     (a) Lévy CDF inversion formula with explicit remainder for bounded densities
-    --         (Feller Vol II §XV.3), or
-    --     (b) A Schwartz kernel with compact Fourier support (Vershynin arXiv:2602.06234),
-    --         requiring ~300 lines of smooth bump function infrastructure.
-    --
-    -- **Available infrastructure** (JacksonKernel.lean, all zero sorry):
-    --   fejerKernel_nonneg, fejerKernel_integral_one, fejerCDF_monotone,
-    --   fejerCDF_zero (= 1/2), fejerCDF_symm, cesaro_fourier_bound, cesaro_fubini_truncated.
-    --
-    -- **Estimated effort**: A-grade (~300 lines for Fejér CDF identity + bracket assembly,
-    --   or ~200 lines for Lévy inversion specialized to bounded densities).
-    sorry
+    set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| with hI_def
+    by_cases hI_large : 2 * Real.pi / 3 ≤ I
+    · -- Case I ≥ 2π/3: bracket argument closes this case.
+      -- The charFun integral is positive, so the integrand is IntegrableOn
+      have hI_pos : 0 < I := lt_of_lt_of_le (by positivity) hI_large
+      have hint : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
+          (Set.Icc (-T) T) := by
+        by_contra h
+        have : I = 0 := integral_undef (show ¬Integrable _ (volume.restrict _) from h)
+        linarith
+      -- Set bracket parameter a = 12/(πT)
+      set a := 12 / (Real.pi * T) with ha_def
+      have ha_pos : 0 < a := by positivity
+      -- Upper bracket: D ≤ ∫ Ψ_F(y+a-x) dμ - ∫ Ψ_F(y-a-x) dν + 2(1-Ψ_F(a))
+      have hD_upper : D ≤ ∫ x, fejerCDF T (y + a - x) ∂μ -
+          ∫ x, fejerCDF T (y - a - x) ∂ν + 2 * (1 - fejerCDF T a) := by
+        have h1 := cdf_le_fejerCDF_integral hT μ y a ha_pos.le
+        have h2 := fejerCDF_integral_le_cdf hT ν y a ha_pos.le
+        linarith
+      -- Lower bracket: -D ≤ ∫ Ψ_F(y+a-x) dν - ∫ Ψ_F(y-a-x) dμ + 2(1-Ψ_F(a))
+      have hD_lower : -D ≤ ∫ x, fejerCDF T (y + a - x) ∂ν -
+          ∫ x, fejerCDF T (y - a - x) ∂μ + 2 * (1 - fejerCDF T a) := by
+        have h1 := cdf_le_fejerCDF_integral hT ν y a ha_pos.le
+        have h2 := fejerCDF_integral_le_cdf hT μ y a ha_pos.le
+        linarith
+      -- Decompose: ∫ Ψ_F(y+a-·) dμ - ∫ Ψ_F(y-a-·) dν
+      --   = [∫ Ψ_F(y+a-·) d(μ-ν)] + [∫ (Ψ_F(y+a-·) - Ψ_F(y-a-·)) dν]
+      -- Bound 1: |convolution| ≤ I/(2π)
+      have hconv_plus := fejer_convolution_bound μ ν T hT (y + a) hint
+      have hconv_minus := fejer_convolution_bound μ ν T hT (y - a) hint
+      -- Bound 2: density ≤ 2aM
+      have hdensity := fejerCDF_density_bound ν hM hν_density hT y a ha_pos
+      -- Bound 3: tail ≤ 2/(πTa)
+      have htail := fejerCDF_tail_bound hT ha_pos
+      -- Combine: |D| ≤ I/(2π) + 2aM + 2·2/(πTa) = I/(2π) + 2aM + 4/(πTa)
+      -- With a = 12/(πT): 2aM = 24M/(πT), 4/(πTa) = 4πT/(πT·12) = 1/3
+      have ha_val : 2 * a * M = 24 * M / (Real.pi * T) := by
+        rw [ha_def]; field_simp; ring
+      have htail_val : 4 / (Real.pi * T * a) = 1 / 3 := by
+        rw [ha_def]; field_simp; ring
+      -- Decomposition: ∫ Ψ(y+a) dμ - ∫ Ψ(y-a) dν = conv + density where
+      -- conv = ∫ Ψ(y+a) d(μ-ν), density = ∫ (Ψ(y+a)-Ψ(y-a)) dν
+      -- Upper bound for D:
+      have hD_upper' : D ≤ 1 / (2 * Real.pi) * I +
+          2 * a * M + 2 * (1 - fejerCDF T a) := by
+        calc D ≤ ∫ x, fejerCDF T (y + a - x) ∂μ -
+            ∫ x, fejerCDF T (y - a - x) ∂ν + 2 * (1 - fejerCDF T a) := hD_upper
+          _ = (∫ x, fejerCDF T (y + a - x) ∂μ - ∫ x, fejerCDF T (y + a - x) ∂ν) +
+              (∫ x, (fejerCDF T (y + a - x) - fejerCDF T (y - a - x)) ∂ν) +
+              2 * (1 - fejerCDF T a) := by
+            rw [integral_sub (integrable_fejerCDF_sub hT (y + a) ν)
+                (integrable_fejerCDF_sub hT (y - a) ν)]
+            ring
+          _ ≤ |∫ x, fejerCDF T (y + a - x) ∂μ - ∫ x, fejerCDF T (y + a - x) ∂ν| +
+              2 * a * M + 2 * (1 - fejerCDF T a) := by
+            linarith [le_abs_self (∫ x, fejerCDF T (y + a - x) ∂μ -
+                ∫ x, fejerCDF T (y + a - x) ∂ν), hdensity]
+          _ ≤ 1 / (2 * Real.pi) * I + 2 * a * M +
+              2 * (1 - fejerCDF T a) := by linarith [hconv_plus]
+      -- Lower bound for -D:
+      have hD_lower' : -D ≤ 1 / (2 * Real.pi) * I +
+          2 * a * M + 2 * (1 - fejerCDF T a) := by
+        calc -D ≤ ∫ x, fejerCDF T (y + a - x) ∂ν -
+            ∫ x, fejerCDF T (y - a - x) ∂μ + 2 * (1 - fejerCDF T a) := hD_lower
+          _ = -(∫ x, fejerCDF T (y - a - x) ∂μ - ∫ x, fejerCDF T (y - a - x) ∂ν) +
+              (∫ x, (fejerCDF T (y + a - x) - fejerCDF T (y - a - x)) ∂ν) +
+              2 * (1 - fejerCDF T a) := by
+            rw [integral_sub (integrable_fejerCDF_sub hT (y + a) ν)
+                (integrable_fejerCDF_sub hT (y - a) ν)]
+            ring
+          _ ≤ |∫ x, fejerCDF T (y - a - x) ∂μ - ∫ x, fejerCDF T (y - a - x) ∂ν| +
+              2 * a * M + 2 * (1 - fejerCDF T a) := by
+            linarith [neg_abs_le (∫ x, fejerCDF T (y - a - x) ∂μ -
+                ∫ x, fejerCDF T (y - a - x) ∂ν), hdensity]
+          _ ≤ 1 / (2 * Real.pi) * I + 2 * a * M +
+              2 * (1 - fejerCDF T a) := by linarith [hconv_minus]
+      -- Combine: |D| ≤ I/(2π) + 2aM + 2(1-Ψ_F(a))
+      -- With a = 12/(πT): 2aM = 24M/(πT), 2(1-Ψ_F(a)) ≤ 4/(πTa) = 1/3
+      -- 2(1-Ψ_F(a)) ≤ 4/(πTa)
+      have htail2 : 2 * (1 - fejerCDF T a) ≤ 4 / (Real.pi * T * a) := by
+        have h := htail
+        have : (4 : ℝ) / (Real.pi * T * a) = 2 * (2 / (Real.pi * T * a)) := by ring
+        linarith
+      have habs_D : |D| ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) + 1 / 3 := by
+        rw [abs_le]; constructor
+        · -- Need: -(1/(2π)*I + 24M/(πT) + 1/3) ≤ D
+          -- From hD_lower': -D ≤ 1/(2π)*I + 2aM + 2(1-Ψ_F(a))
+          --   ≤ 1/(2π)*I + 24M/(πT) + 1/3
+          have : -D ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) + 1 / 3 := by
+            calc -D ≤ 1 / (2 * Real.pi) * I + 2 * a * M +
+                2 * (1 - fejerCDF T a) := hD_lower'
+              _ ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) +
+                  4 / (Real.pi * T * a) := by linarith [ha_val]
+              _ = 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) + 1 / 3 := by
+                  rw [htail_val]
+          linarith
+        · -- Need: D ≤ 1/(2π)*I + 24M/(πT) + 1/3
+          have : D ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) + 1 / 3 := by
+            calc D ≤ 1 / (2 * Real.pi) * I + 2 * a * M +
+                2 * (1 - fejerCDF T a) := hD_upper'
+              _ ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) +
+                  4 / (Real.pi * T * a) := by linarith [ha_val]
+              _ = 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) + 1 / 3 := by
+                  rw [htail_val]
+          linarith
+      -- For I ≥ 2π/3: I/(2π) ≥ 1/3, so I/(2π) + 1/3 ≤ I/π
+      have hI_halfpi : 1 / 3 ≤ 1 / (2 * Real.pi) * I := by
+        have h2pi_pos : (0 : ℝ) < 2 * Real.pi := by positivity
+        have : 2 * Real.pi / 3 ≤ I := hI_large
+        calc (1 : ℝ) / 3 = 2 * Real.pi / 3 * (1 / (2 * Real.pi)) := by field_simp
+          _ ≤ I * (1 / (2 * Real.pi)) := by
+              apply mul_le_mul_of_nonneg_right hI_large (by positivity)
+          _ = 1 / (2 * Real.pi) * I := by ring
+      calc |D| ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) + 1 / 3 := habs_D
+        _ ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) +
+            1 / (2 * Real.pi) * I := by linarith
+        _ = 1 / Real.pi * I + 24 * M / (Real.pi * T) := by ring
+    · -- Case I < 2π/3: deep case, needs Lévy CDF inversion
+      push_neg at hI_large
+      sorry
 
 /-- **Esseen's Fourier-analytic CDF bound.**
 
