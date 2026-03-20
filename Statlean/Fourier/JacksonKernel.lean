@@ -22,12 +22,18 @@ Uses the triangle kernel `K_T(x) = T·(1 - T|x|)₊`.
 ## Sinc-squared integral
 `∫₀^∞ sin²(t)/t² dt = π/2` (Fejér kernel normalization).
 
+## Fejér kernel
+`K_F(T, x) = 2 sin²(xT/2) / (π T x²)` with `K_F(T, 0) = T/(2π)`.
+- Non-negative, even, integrable, bounded by `T/(2π)`.
+- `∫ K_F = 1` (normalization via `integral_sinc_sq_Ioi`).
+
 ## Main results
 - `jackson_kernel_tail_bound`: existence of kernel with the above spatial properties
 - `abel_sinc_integral`: Abel-regularized sinc integral equals arctan
 - `integral_sinc_sq_Ioi`: ∫₀^∞ sin²(t)/t² dt = π/2
+- `fejerKernel_integral_one`: ∫ K_F(T, ·) = 1
 
-## Sorry count: 1 (Leibniz rule heartbeat blocker)
+## Sorry count: 0
 
 ## References
 - Esseen (1945), Feller Vol II §XV.3
@@ -790,3 +796,229 @@ theorem integral_sinc_sq_Ioi :
   exact tendsto_nhds_unique hlim_lhs hlim_eq
 
 end SincSquared
+
+/-! ### Fejér Kernel
+
+The Fejér kernel `K_F(T, x) = 2 sin²(xT/2) / (π T x²)` (with `K_F(T, 0) = T/(2π)`)
+is a non-negative approximate identity satisfying `∫ K_F = 1`.
+
+The normalization follows from `integral_sinc_sq_Ioi`: substituting `u = xT/2`,
+`∫₀^∞ K_F dx = (2/(πT)) · (T/2) · ∫₀^∞ sin²(u)/u² du = (2/(πT)) · (T/2) · π/2 = 1/2`,
+so `∫_{-∞}^{∞} K_F = 1` by symmetry.
+-/
+
+section FejerKernel
+
+/-- The Fejér kernel. For `x ≠ 0`: `K_F(T, x) = 2 sin²(xT/2) / (π T x²)`.
+At `x = 0`: `K_F(T, 0) = T / (2π)` (the L'Hôpital limit). -/
+noncomputable def fejerKernel (T : ℝ) (x : ℝ) : ℝ :=
+  if x = 0 then T / (2 * Real.pi)
+  else 2 * Real.sin (x * T / 2) ^ 2 / (Real.pi * T * x ^ 2)
+
+lemma fejerKernel_zero (T : ℝ) : fejerKernel T 0 = T / (2 * Real.pi) := by
+  simp [fejerKernel]
+
+lemma fejerKernel_ne_zero {T : ℝ} {x : ℝ} (hx : x ≠ 0) :
+    fejerKernel T x = 2 * Real.sin (x * T / 2) ^ 2 / (Real.pi * T * x ^ 2) := by
+  simp [fejerKernel, hx]
+
+/-- The Fejér kernel is non-negative for `T > 0`. -/
+lemma fejerKernel_nonneg {T : ℝ} (hT : 0 < T) (x : ℝ) : 0 ≤ fejerKernel T x := by
+  unfold fejerKernel
+  split_ifs with hx
+  · exact div_nonneg hT.le (mul_nonneg (by norm_num) Real.pi_pos.le)
+  · apply div_nonneg
+    · exact mul_nonneg (by norm_num) (sq_nonneg _)
+    · exact mul_nonneg (mul_nonneg Real.pi_pos.le hT.le) (sq_nonneg _)
+
+/-- The Fejér kernel agrees with `2 sin²(xT/2) / (πTx²)` a.e. (everywhere except x=0). -/
+lemma fejerKernel_eq_ae (T : ℝ) :
+    ∀ᵐ x ∂volume, fejerKernel T x =
+      2 * Real.sin (x * T / 2) ^ 2 / (Real.pi * T * x ^ 2) := by
+  filter_upwards [compl_mem_ae_iff.mpr (by simp : volume {(0 : ℝ)} = 0)] with x hx
+  exact fejerKernel_ne_zero (by simpa using hx)
+
+/-- The Fejér kernel is measurable. -/
+lemma fejerKernel_measurable (T : ℝ) : Measurable (fejerKernel T) := by
+  apply Measurable.ite (measurableSet_singleton 0)
+  · exact measurable_const
+  · exact ((measurable_const.mul
+      ((Real.measurable_sin.comp
+        ((measurable_id.mul_const T).div_const 2)).pow_const 2)).div
+      ((measurable_const.mul (measurable_id.pow_const 2))))
+
+/-- The "raw" Fejér integrand is integrable on `(0, ∞)`. -/
+private lemma integrableOn_fejer_raw_Ioi {T : ℝ} (hT : 0 < T) :
+    IntegrableOn (fun x => 2 * Real.sin (x * T / 2) ^ 2 / (Real.pi * T * x ^ 2))
+      (Set.Ioi 0) := by
+  have hmeas : Measurable (fun x : ℝ => 2 * Real.sin (x * T / 2) ^ 2 / (Real.pi * T * x ^ 2)) :=
+    (measurable_const.mul
+      ((Real.measurable_sin.comp ((measurable_id.mul_const T).div_const 2)).pow_const 2)).div
+      (measurable_const.mul (measurable_id.pow_const 2))
+  -- Split (0,∞) = (0,1] ∪ (1,∞)
+  rw [show Set.Ioi (0 : ℝ) = Set.Ioc 0 1 ∪ Set.Ioi 1 from by
+    ext x; simp only [Set.mem_Ioi, Set.mem_union, Set.mem_Ioc, Set.mem_Ioi]; constructor
+    · intro hx; rcases le_or_gt x 1 with h | h
+      · exact Or.inl ⟨hx, h⟩
+      · exact Or.inr h
+    · rintro (⟨hx, _⟩ | hx) <;> linarith]
+  apply IntegrableOn.union
+  · -- On (0, 1]: bounded by T/(2π)
+    apply Integrable.mono' (integrableOn_const (C := T / (2 * Real.pi))
+      (hs := measure_Ioc_lt_top.ne))
+    · exact hmeas.aestronglyMeasurable.restrict
+    · filter_upwards [ae_restrict_mem measurableSet_Ioc] with x hx
+      have hx_pos : 0 < x := hx.1
+      rw [Real.norm_eq_abs, abs_div, abs_of_nonneg (mul_nonneg (by norm_num) (sq_nonneg _)),
+        abs_of_nonneg (mul_nonneg (mul_nonneg Real.pi_pos.le hT.le) (sq_nonneg _)),
+        div_le_div_iff₀ (mul_pos (mul_pos Real.pi_pos hT) (sq_pos_of_pos hx_pos))
+          (mul_pos (by norm_num : (0:ℝ) < 2) Real.pi_pos)]
+      have hsq := @Real.sin_sq_le_sq (x * T / 2)
+      have hpi := Real.pi_pos
+      nlinarith [sq_nonneg (x * T / 2)]
+  · -- On (1, ∞): bounded by C · x^(-2)
+    set C := 2 / (Real.pi * T) with hC_def
+    apply Integrable.mono'
+      ((integrableOn_Ioi_rpow_of_lt (show (-2 : ℝ) < -1 by linarith)
+        (show (0:ℝ) < 1 by linarith)).const_mul C)
+    · exact hmeas.aestronglyMeasurable.restrict
+    · filter_upwards [ae_restrict_mem measurableSet_Ioi] with x hx
+      have hx_pos : 0 < x := by linarith [show (1 : ℝ) < x from hx]
+      rw [Real.norm_eq_abs, abs_div, abs_of_nonneg (mul_nonneg (by norm_num) (sq_nonneg _)),
+        abs_of_nonneg (mul_nonneg (mul_nonneg Real.pi_pos.le hT.le) (sq_nonneg _))]
+      calc 2 * Real.sin (x * T / 2) ^ 2 / (Real.pi * T * x ^ 2)
+          ≤ 2 / (Real.pi * T * x ^ 2) := by
+            apply div_le_div_of_nonneg_right _
+              (mul_nonneg (mul_nonneg Real.pi_pos.le hT.le) (sq_nonneg _))
+            nlinarith [Real.sin_sq_add_cos_sq (x * T / 2),
+              sq_nonneg (Real.cos (x * T / 2))]
+        _ = C / x ^ 2 := by rw [hC_def]; ring
+        _ = C * x ^ ((-2 : ℝ)) := by
+            rw [Real.rpow_neg hx_pos.le, div_eq_mul_inv]; simp
+
+/-- The Fejér kernel is even: `K_F(T, -x) = K_F(T, x)`. -/
+lemma fejerKernel_neg (T x : ℝ) : fejerKernel T (-x) = fejerKernel T x := by
+  simp only [fejerKernel, neg_eq_zero, neg_mul, neg_div, Real.sin_neg, neg_sq]
+
+/-- Pointwise bound: the Fejér kernel is bounded by `T/(2π)`. -/
+lemma fejerKernel_le_const {T : ℝ} (hT : 0 < T) (x : ℝ) :
+    fejerKernel T x ≤ T / (2 * Real.pi) := by
+  by_cases hx : x = 0
+  · subst hx; rw [fejerKernel_zero]
+  · rw [fejerKernel_ne_zero hx,
+      div_le_div_iff₀ (mul_pos (mul_pos Real.pi_pos hT) (sq_pos_of_ne_zero hx))
+        (mul_pos (by norm_num : (0:ℝ) < 2) Real.pi_pos)]
+    have hsq := @Real.sin_sq_le_sq (x * T / 2)
+    nlinarith [sq_nonneg (x * T / 2), Real.pi_pos]
+
+/-- The Fejér kernel is integrable for `T > 0`. -/
+lemma fejerKernel_integrable {T : ℝ} (hT : 0 < T) :
+    Integrable (fejerKernel T) volume := by
+  -- Dominate by an integrable function using the pointwise bound and tail decay.
+  -- On Icc (-1) 1: fejerKernel ≤ T/(2π) (bounded, finite measure set).
+  -- On Ioi 1 ∪ Iio (-1): fejerKernel ≤ 2/(πT) · 1/x² (integrable tail).
+  -- So fejerKernel ≤ T/(2π) · 𝟙_{Icc} + 2/(πT) · (1/x²) on ℝ.
+  -- To avoid constructing piecewise dominator, split into three IntegrableOn proofs.
+  rw [← integrableOn_univ]
+  have huniv : (Set.univ : Set ℝ) = Set.Icc (-1) 1 ∪ (Set.Ioi 1 ∪ Set.Iic (-1)) := by
+    ext x; simp only [Set.mem_univ, true_iff, Set.mem_union, Set.mem_Icc, Set.mem_Ioi, Set.mem_Iic]
+    rcases le_or_gt x (-1) with h | h
+    · exact Or.inr (Or.inr h)
+    · rcases le_or_gt x 1 with h2 | h2
+      · exact Or.inl ⟨le_of_lt h, h2⟩
+      · exact Or.inr (Or.inl h2)
+  rw [huniv]
+  have hmeas := fejerKernel_measurable T
+  -- Piece 1: Icc (-1) 1 — bounded
+  have h1 : IntegrableOn (fejerKernel T) (Set.Icc (-1) 1) := by
+    apply Integrable.mono' (integrableOn_const (C := T / (2 * Real.pi))
+      (hs := measure_Icc_lt_top.ne))
+    · exact hmeas.aestronglyMeasurable.restrict
+    · filter_upwards with x
+      rw [Real.norm_eq_abs, abs_of_nonneg (fejerKernel_nonneg hT x)]
+      exact fejerKernel_le_const hT x
+  -- Piece 2: Ioi 1 — 1/x² tail
+  have h2 : IntegrableOn (fejerKernel T) (Set.Ioi 1) := by
+    set C := 2 / (Real.pi * T)
+    apply Integrable.mono'
+      ((integrableOn_Ioi_rpow_of_lt (show (-2 : ℝ) < -1 by linarith)
+        (show (0:ℝ) < 1 by linarith)).const_mul C)
+    · exact hmeas.aestronglyMeasurable.restrict
+    · filter_upwards [ae_restrict_mem measurableSet_Ioi] with x hx
+      have hx_pos : 0 < x := by linarith [show (1 : ℝ) < x from hx]
+      rw [Real.norm_eq_abs, abs_of_nonneg (fejerKernel_nonneg hT x),
+        fejerKernel_ne_zero (ne_of_gt hx_pos)]
+      calc 2 * Real.sin (x * T / 2) ^ 2 / (Real.pi * T * x ^ 2)
+          ≤ 2 / (Real.pi * T * x ^ 2) := by
+            apply div_le_div_of_nonneg_right _
+              (mul_nonneg (mul_nonneg Real.pi_pos.le hT.le) (sq_nonneg _))
+            nlinarith [Real.sin_sq_add_cos_sq (x * T / 2), sq_nonneg (Real.cos (x * T / 2))]
+        _ = C / x ^ 2 := by simp [C]; ring
+        _ = C * x ^ ((-2 : ℝ)) := by
+            rw [Real.rpow_neg hx_pos.le, div_eq_mul_inv]; simp
+  -- Piece 3: Iic (-1) — by evenness, same as Ioi 1
+  have h3 : IntegrableOn (fejerKernel T) (Set.Iic (-1)) := by
+    -- fejerKernel T = (fejerKernel T) ∘ Neg.neg by evenness
+    have hcomp : (fejerKernel T) ∘ Neg.neg = fejerKernel T := by
+      ext x; exact fejerKernel_neg T x
+    rw [← hcomp, show Set.Iic ((-1 : ℝ)) = Neg.neg ⁻¹' Set.Ici 1 from by ext x; simp]
+    rw [(Measure.measurePreserving_neg volume).integrableOn_comp_preimage
+      (Homeomorph.neg ℝ).measurableEmbedding]
+    rw [show Set.Ici (1 : ℝ) = Set.Ioi 1 ∪ {1} from by ext x; simp [le_iff_lt_or_eq, eq_comm]]
+    exact h2.union (integrableOn_singleton (hx := by simp))
+  exact h1.union (h2.union h3)
+
+/-- Half-integral of the Fejér kernel: `∫_{Ioi 0} fejerKernel T = 1/2`.
+
+This follows from the substitution `u = xT/2` and `integral_sinc_sq_Ioi`. -/
+private lemma fejerKernel_half_integral {T : ℝ} (hT : 0 < T) :
+    ∫ x in Set.Ioi (0 : ℝ), fejerKernel T x = 1 / 2 := by
+  -- On Ioi 0, fejerKernel agrees with the raw formula
+  have heq : Set.EqOn (fejerKernel T)
+      (fun x => 2 * Real.sin (x * T / 2) ^ 2 / (Real.pi * T * x ^ 2)) (Set.Ioi 0) := by
+    intro x hx; exact fejerKernel_ne_zero (ne_of_gt hx)
+  rw [setIntegral_congr_fun measurableSet_Ioi heq]
+  -- Factor out constants: = (2/(πT)) · ∫₀^∞ sin²(xT/2)/x² dx
+  -- Factor: raw = (2/(πT)) · sin²(xT/2)/x²
+  --       = (2/(πT)) · (T/2)² · sin²(xT/2)/(xT/2)²
+  -- Substitution u = x·(T/2): ∫₀^∞ g(x·(T/2)) = (T/2)⁻¹ · ∫₀^∞ g
+  have hT2 : (0 : ℝ) < T / 2 := div_pos hT (by norm_num)
+  -- Rewrite each integrand point to isolate the sinc² substitution
+  have hstep1 : ∫ x in Set.Ioi (0 : ℝ),
+      2 * Real.sin (x * T / 2) ^ 2 / (Real.pi * T * x ^ 2) =
+    ∫ x in Set.Ioi (0 : ℝ),
+      (2 / (Real.pi * T) * (T / 2) ^ 2) *
+        (Real.sin (x * (T / 2)) ^ 2 / (x * (T / 2)) ^ 2) := by
+    apply setIntegral_congr_fun measurableSet_Ioi
+    intro x hx
+    have hx_ne : x ≠ 0 := ne_of_gt hx
+    field_simp
+  rw [hstep1, integral_const_mul,
+    integral_comp_mul_right_Ioi (fun u => Real.sin u ^ 2 / u ^ 2) 0 hT2]
+  -- Goal: 2/(πT) * (T/2)² * ((T/2)⁻¹ * (π/2)) = 1/2
+  simp only [zero_mul, integral_sinc_sq_Ioi, smul_eq_mul]
+  have hpi := Real.pi_pos
+  field_simp
+
+/-- **Fejér kernel normalization.** `∫ K_F(T, ·) = 1` for `T > 0`.
+
+Proof: The kernel is even, so `∫ = 2 · ∫₀^∞`. By substitution `u = xT/2`,
+`∫₀^∞ 2sin²(xT/2)/(πTx²) dx = (4/(πT)) · (T/2) · ∫₀^∞ sin²(u)/u² du = (4/(πT)) · (T/2) · π/2 = 1/2`.
+-/
+theorem fejerKernel_integral_one {T : ℝ} (hT : 0 < T) :
+    ∫ x, fejerKernel T x = 1 := by
+  -- By evenness: ∫ f = ∫_{Ioi 0} + ∫_{Iic 0} = 2 · ∫_{Ioi 0}
+  have hint := fejerKernel_integrable hT
+  have hcompl : (Set.Ioi (0 : ℝ))ᶜ = Set.Iic 0 := by ext x; simp
+  rw [← integral_add_compl measurableSet_Ioi hint, hcompl]
+  -- ∫_{Iic 0} f = ∫_{Ioi 0} f by evenness
+  have hIic : ∫ x in Set.Iic (0 : ℝ), fejerKernel T x =
+      ∫ x in Set.Ioi (0 : ℝ), fejerKernel T x := by
+    have := integral_comp_neg_Ioi 0 (fejerKernel T)
+    simp only [neg_zero] at this
+    rw [← this]
+    exact setIntegral_congr_fun measurableSet_Ioi (fun x _ => fejerKernel_neg T x)
+  rw [hIic, fejerKernel_half_integral hT]
+  ring
+
+end FejerKernel
