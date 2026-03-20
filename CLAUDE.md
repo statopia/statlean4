@@ -127,6 +127,38 @@ R5: LLM 自主探索（50-300K token）→ 当前流程
 **S-B 级 sorry → 跳过 R4，直接 R5**（简单 sorry 不值得 Web 搜索 token）。
 **路线解析脚本**：`python3 scripts/parse_proof_roadmap.py`（多格式：纯文字/LaTeX/PDF/YAML）。
 
+### R6: 基础设施升级 — Mathlib PR 级 sorry 的工程路线（强制）
+
+**触发条件**：agent 在同一 sorry 上 stuck ≥ 3 轮，且确认需要 Mathlib 中不存在的基础设施。
+
+**执行流程（不可跳过）**：
+1. **Web 搜索现有实现**：
+   ```
+   WebSearch "Lean 4 Mathlib <missing_concept> proof 2025 2026"
+   WebSearch "<theorem_name> formalization Lean Isabelle Coq"
+   ```
+   - 检查 Mathlib 是否已有（可能在最新版本）
+   - 检查其他形式化项目（Isabelle AFP、Coq MathComp）是否有可参考的证明路线
+   - 检查数学文献（arXiv、教材）中最短的证明路线
+
+2. **WebFetch 获取具体路线**：
+   - Mathlib API 文档页面（`leanprover-community.github.io/mathlib4_docs/`）
+   - arXiv 论文中的证明步骤
+   - 提取: 所需 API 名称、依赖顺序、估计行数
+
+3. **制定工程路线**：
+   - 分解为独立可证的子引理（每个 ≤ 50 行）
+   - 确定依赖 DAG
+   - 估计总行数和优先级
+   - 写入 `sorry_backlog.yaml`
+
+4. **立即实施**（不等用户确认）：
+   - 按 DAG 顺序逐个实现子引理
+   - 每个子引理 build 验证后立即 commit
+   - 如果某个子引理 stuck，用 sorry 暂留并继续下一个
+
+**关键原则**：不要在同一个 sorry 上反复做理论分析。3 轮 stuck 后必须升级到 R6（web 搜索 + 工程路线 + 实施）。
+
 详细执行/升级条件见各 prove 命令的 Phase 0.5 和 `theme/prove_playbook.md` §3。
 
 ---
@@ -173,7 +205,8 @@ R5: LLM 自主探索（50-300K token）→ 当前流程
 ## Phase 0 工具链（强制）
 
 ### 攻击 sorry 前必查路线 + 知识库
-- **Phase 0.5 路线搜索**：按 R1→R2→R3→R4→R5 五级 fallback 获取证明路线
+- **Phase 0.5 路线搜索**：按 R1→R2→R3→R4→R5→R6 六级 fallback 获取证明路线
+- **R6 触发（强制）**：同一 sorry stuck ≥ 3 轮 → 必须 WebSearch + WebFetch 获取工程路线后再继续
 - 有路线 → 按路线 key_api 定向查签名，**跳过 mathlib_api_index.md 全文读取**
 - 无路线 → 读 `theme/proof_knowledge.yaml` 按 trigger 匹配 goal 形态
   - **匹配到 L3/L2** → 优先使用已记录的 strategy/chain（一轮验证即可），**跳过 mathlib_api_index.md**
@@ -252,7 +285,13 @@ R5: LLM 自主探索（50-300K token）→ 当前流程
 - **subagent 返回后自动检查续派**：
   - subagent 返回后，主会话检查目标 sorry 是否已关闭（grep sorry 或 lake build）
   - 若未关闭且 subagent 有实质进展（文件已修改），立即派新 agent 续接，prompt 注明"从文件当前状态继续，前任已完成 X"
-  - 若无进展（策略耗尽），记录到 sorry_backlog.yaml 并转攻下一个目标，不无限重试
+  - 若无进展（策略耗尽）且 stuck 轮数 < 3，记录到 sorry_backlog.yaml 并转攻下一个目标
+  - **若 stuck ≥ 3 轮（强制升级 R6）**：
+    1. 停止派 agent 做理论分析
+    2. 主会话执行 WebSearch + WebFetch 获取工程路线（Mathlib API docs、arXiv 论文、其他形式化项目）
+    3. 制定子引理分解 + 依赖 DAG
+    4. 按 DAG 逐个实现（每个子引理单独 agent）
+    5. 不等用户确认，立即实施
 - **基础设施增量入库（强制 — 证明过程中实时执行，不等主定理完成）**：
   证明过程中产生的内容分两类处理：
 
