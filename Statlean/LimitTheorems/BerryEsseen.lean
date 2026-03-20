@@ -9,11 +9,8 @@ import Statlean.Fourier.JacksonKernel
 # Berry-Esseen Theorem
 
 ## Status
-- **2 sorry** in this file (was 3):
-  1. `fejer_convolution_bound`: |∫ Ψ_F d(μ-ν)| ≤ I/(2π)
-     - Proof plan: fejerCDF_eq_cesaro + cesaro_fubini_truncated (on [δ,T]) +
-       cesaro_fourier_bound + DCT (δ→0, dominator ≤ 2)
-     - Blocker: DCT needs uniform bound via Abel-Dirichlet test + sine integral bound
+- **1 sorry** in this file (was 3):
+  1. ~~`fejer_convolution_bound`~~: **PROVED** (DCT with truncated Cesàro + cesaro_fourier_bound)
   2. ~~`fejerCDF_density_bound`~~: **PROVED** via Tonelli swap (lintegral_lintegral_swap)
   3. `esseen_smoothing_ineq` (I < 2π/3 case only): needs Lévy CDF inversion
 - `esseen_smoothing_ineq` I ≥ 2π/3 case: **PROVED** (bracket + tail + arithmetic)
@@ -1397,34 +1394,304 @@ private lemma fejer_convolution_bound
     |∫ x, fejerCDF T (u - x) ∂μ - ∫ x, fejerCDF T (u - x) ∂ν| ≤
       (1 / (2 * Real.pi)) * ∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t| := by
-  -- Ψ_F is bounded in [0,1], so both integrals exist
-  have hintμ := integrable_fejerCDF_sub hT u μ
-  have hintν := integrable_fejerCDF_sub hT u ν
-  set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| with hI_def
-  -- Strategy: for each δ ∈ (0,T), define Ψ_{F,δ}(u-x) via the truncated Cesàro sum.
-  -- cesaro_fubini_truncated + cesaro_fourier_bound give |∫ Ψ_{F,δ} d(μ-ν)| ≤ I/(2π).
-  -- DCT: Ψ_{F,δ} → Ψ_F pointwise (bounded by 1). Limit inherits the bound.
-  --
-  -- For each n ∈ ℕ, set δ_n = T/(n+2), so 0 < δ_n < T
-  -- F_n(x) = 1/2 + (1/π) ∫_{[δ_n,T]} (1-t/T) sin((u-x)t)/t dt
-  -- = 1/2 - (1/π) ∫_{[δ_n,T]} (1-t/T) sin((x-u)t)/t dt  (sin is odd)
-  --
-  -- cesaro_fubini_truncated (with y=u, μ=μ):
-  --   ∫_μ [∫_{[δ_n,T]} (1-t/T) sin((x-u)t)/t dt]
-  --   = ∫_{[δ_n,T]} (1-t/T) (∫_μ sin((x-u)t))/t dt
-  --
-  -- So ∫_μ F_n = 1/2 - (1/π) ∫_{[δ_n,T]} (1-t/T) (∫_μ sin((x-u)t))/t dt
-  -- Similarly for ν.
-  --
-  -- Difference: ∫ F_n d(μ-ν) = -(1/π) ∫_{[δ_n,T]} (1-t/T) ((sin_μ - sin_ν)/t) dt
-  --
-  -- cesaro_fourier_bound: |(1/π) × that| ≤ I/(2π)
-  --
-  -- F_n → Ψ_F pointwise (by fejerCDF_eq_cesaro and convergence of ∫_{[δ_n,T]} → ∫_{[0,T]})
-  -- |F_n| ≤ 1 (since Ψ_F ∈ [0,1] and Ψ_{F,δ} ≈ Ψ_F ± 4/π ≤ 1 + 2 = 3... actually
-  --   F_n values might not be in [0,1], but are bounded by some constant)
-  -- DCT gives ∫ F_n dμ → ∫ Ψ_F dμ. The bound I/(2π) is preserved in the limit.
-  sorry
+  have hpi := Real.pi_pos
+  set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t|
+  -- f₀(x) = ∫_{[0,T]} (1-t/T) sin((u-x)t)/t dt
+  set f₀ : ℝ → ℝ := fun x =>
+    ∫ t in Set.Icc (0 : ℝ) T, (1 - t / T) * (Real.sin ((u - x) * t) / t)
+  have hΨ_eq : ∀ x, fejerCDF T (u - x) = 1/2 + (1 / Real.pi) * f₀ x :=
+    fun x => fejerCDF_eq_cesaro T hT (u - x)
+  have hf₀_bd : ∀ x, |f₀ x| ≤ 5 := fun x => cesaro_integral_bound T (u - x) hT
+  have hmeas_joint : Measurable (Function.uncurry fun (t x : ℝ) =>
+      (1 - t / T) * (Real.sin ((u - x) * t) / t)) :=
+    (measurable_const.sub (measurable_fst.div measurable_const)).mul
+      ((Real.measurable_sin.comp ((measurable_const.sub measurable_snd).mul
+        measurable_fst)).div measurable_fst)
+  have hf₀_smeas : StronglyMeasurable f₀ :=
+    hmeas_joint.stronglyMeasurable.integral_prod_left
+  have hf₀_int : ∀ (m : Measure ℝ) [IsProbabilityMeasure m], Integrable f₀ m := fun m _ =>
+    ⟨hf₀_smeas.aestronglyMeasurable, hasFiniteIntegral_of_bounded (C := 5)
+      (by filter_upwards with x; rw [Real.norm_eq_abs]; exact hf₀_bd x)⟩
+  -- Step 1: ∫ Ψ_F dμ - ∫ Ψ_F dν = (1/π)(∫ f₀ dμ - ∫ f₀ dν)
+  -- (the 1/2 terms cancel since both are probability measures)
+  have hdiff_rw : ∫ x, fejerCDF T (u - x) ∂μ - ∫ x, fejerCDF T (u - x) ∂ν =
+      (1 / Real.pi) * (∫ x, f₀ x ∂μ - ∫ x, f₀ x ∂ν) := by
+    have hrw : ∀ (m : Measure ℝ) [IsProbabilityMeasure m],
+        ∫ x, fejerCDF T (u - x) ∂m = 1/2 + (1 / Real.pi) * ∫ x, f₀ x ∂m := by
+      intro m _
+      simp_rw [hΨ_eq]
+      rw [integral_add (integrable_const _) ((hf₀_int m).const_mul _)]
+      simp [integral_const, measure_univ, integral_const_mul]
+    rw [hrw μ, hrw ν]; ring
+  rw [hdiff_rw]
+  -- Step 2: Truncated bound via Fubini + cesaro_fourier_bound
+  -- Define F_n(x) = ∫_{[T/(n+2),T]} (1-t/T) sin((u-x)t)/t dt
+  set F : ℕ → ℝ → ℝ := fun n x =>
+    ∫ t in Set.Icc (T / (↑n + 2)) T,
+      (1 - t / T) * (Real.sin ((u - x) * t) / t)
+  have hδ_pos : ∀ n : ℕ, (0 : ℝ) < T / (↑n + 2) := fun n => by positivity
+  have hδ_lt_T : ∀ n : ℕ, T / (↑n + 2) < T := fun n => by
+    have h : (1 : ℝ) < ↑n + 2 := by
+      have := Nat.cast_nonneg (α := ℝ) n; linarith
+    exact div_lt_self hT h
+  -- For each n: |(1/π)(∫ F_n dμ - ∫ F_n dν)| ≤ I/(2π)
+  have htrunc_bound : ∀ n : ℕ, |(1 / Real.pi) * (∫ x, F n x ∂μ - ∫ x, F n x ∂ν)| ≤
+      (1 / (2 * Real.pi)) * I := by
+    intro n
+    set δ := T / (↑n + 2)
+    have hδp := hδ_pos n
+    have hδT := hδ_lt_T n
+    -- F_n uses sin((u-x)t) but cesaro_fubini_truncated uses sin((x-y)t).
+    -- sin((u-x)t) = -sin((x-u)t), so F_n(x) = -G(x) where G uses (x-u).
+    have hF_eq_neg : ∀ x, F n x = -(∫ t in Set.Icc δ T,
+        (1 - t / T) * (Real.sin ((x - u) * t) / t)) := by
+      intro x; simp only [F]
+      rw [← integral_neg]
+      refine setIntegral_congr_fun measurableSet_Icc (fun t _ => ?_)
+      have : (u - x) * t = -((x - u) * t) := by ring
+      rw [this, Real.sin_neg, neg_div, mul_neg]
+    -- ∫_μ F_n = -(∫_μ G)  and ∫_ν F_n = -(∫_ν G)
+    -- Using cesaro_fubini_truncated: ∫_m G = ∫_{[δ,T]} (1-t/T)(∫_m sin)/t
+    have hint_eq : ∀ (m : Measure ℝ) [IsProbabilityMeasure m],
+        ∫ x, F n x ∂m =
+        -(∫ t in Set.Icc δ T, (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂m) / t)) := by
+      intro m _
+      simp_rw [hF_eq_neg, integral_neg]
+      congr 1
+      exact cesaro_fubini_truncated m δ T u hδp hδT
+    rw [hint_eq μ, hint_eq ν]
+    -- -(A) - (-(B)) = -(A - B)
+    rw [show -(∫ t in Set.Icc δ T, (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂μ) / t)) -
+        -(∫ t in Set.Icc δ T, (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂ν) / t)) =
+        -((∫ t in Set.Icc δ T, (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂μ) / t)) -
+          (∫ t in Set.Icc δ T, (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂ν) / t)))
+      from by ring, mul_neg, abs_neg]
+    -- Integrability on [δ,T] (bounded by 1/δ on compact interval)
+    have hint_on : ∀ (m : Measure ℝ) [IsProbabilityMeasure m],
+        IntegrableOn (fun t => (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂m) / t))
+          (Set.Icc δ T) := by
+      intro m _
+      apply integrableOn_of_bounded (M := 1 / δ)
+      · rw [Real.volume_Icc]; exact ENNReal.ofReal_ne_top
+      · -- measurability: the integrand t ↦ (1-t/T)(∫ sin((x-u)t) ∂m)/t
+        -- t ↦ ∫ x, sin((x-u)t) ∂m is measurable (parametric integral)
+        have hmeas_sin_int : Measurable (fun t : ℝ => ∫ x, Real.sin ((x - u) * t) ∂m) := by
+          have : Measurable (Function.uncurry fun (x t : ℝ) => Real.sin ((x - u) * t)) :=
+            Real.measurable_sin.comp ((measurable_fst.sub measurable_const).mul measurable_snd)
+          exact this.stronglyMeasurable.integral_prod_left.measurable
+        exact ((measurable_const.sub (measurable_id'.div_const T)).mul
+          (hmeas_sin_int.div measurable_id')).aestronglyMeasurable
+      · rw [ae_restrict_iff' measurableSet_Icc]; apply ae_of_all; intro t ht
+        have ht_pos : 0 < t := lt_of_lt_of_le hδp ht.1
+        rw [Real.norm_eq_abs, abs_mul]
+        have h1 : |1 - t / T| ≤ 1 := by
+          rw [abs_of_nonneg (sub_nonneg.mpr ((div_le_one₀ hT).mpr ht.2))]
+          linarith [div_nonneg ht_pos.le hT.le]
+        have h2 : |(∫ x, Real.sin ((x - u) * t) ∂m) / t| ≤ 1 / δ := by
+          rw [abs_div, abs_of_pos ht_pos]
+          calc |∫ x, Real.sin ((x - u) * t) ∂m| / t
+              ≤ 1 / t := by
+                apply div_le_div_of_nonneg_right _ ht_pos.le
+                have : |∫ x, Real.sin ((x - u) * t) ∂m| ≤ 1 := by
+                  calc |∫ x, Real.sin ((x - u) * t) ∂m|
+                      = ‖∫ x, Real.sin ((x - u) * t) ∂m‖ := (Real.norm_eq_abs _).symm
+                    _ ≤ ∫ x, ‖Real.sin ((x - u) * t)‖ ∂m := norm_integral_le_integral_norm _
+                    _ ≤ ∫ _ : ℝ, (1 : ℝ) ∂m := by
+                        apply integral_mono_of_nonneg (ae_of_all _ fun _ => norm_nonneg _)
+                          (integrable_const _)
+                        filter_upwards with x
+                        rw [Real.norm_eq_abs]; exact Real.abs_sin_le_one _
+                    _ = 1 := by simp
+                linarith
+            _ ≤ 1 / δ := div_le_div_of_nonneg_left one_pos.le hδp ht.1
+        calc |1 - t / T| * |(∫ x, Real.sin ((x - u) * t) ∂m) / t|
+            ≤ 1 * (1 / δ) := mul_le_mul h1 h2 (abs_nonneg _) one_pos.le
+          _ = 1 / δ := one_mul _
+    -- Factor: ∫ h_μ - ∫ h_ν = ∫ (h_μ - h_ν)
+    rw [show (∫ t in Set.Icc δ T, (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂μ) / t)) -
+        (∫ t in Set.Icc δ T, (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂ν) / t)) =
+        ∫ t in Set.Icc δ T, ((1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂μ) / t) -
+          (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂ν) / t)) from by
+      rw [← integral_sub (hint_on μ) (hint_on ν)]]
+    -- Simplify integrand: (1-t/T)(A/t) - (1-t/T)(B/t) = (1-t/T)((A-B)/t)
+    have hcongr : ∀ t, (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂μ) / t) -
+        (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂ν) / t) =
+        (1 - t / T) * ((∫ x, Real.sin ((x - u) * t) ∂μ -
+          ∫ x, Real.sin ((x - u) * t) ∂ν) / t) :=
+      fun t => by rw [sub_div]; ring
+    simp_rw [hcongr]
+    exact cesaro_fourier_bound μ ν T u hT δ hδp hδT hint
+  -- Step 3: DCT + limit argument
+  -- ∫ F_n dμ → ∫ f₀ dμ by dominated convergence (bound = 7)
+  -- Then |limit| ≤ I/(2π) since |a_n| ≤ I/(2π) for all n
+  -- F_n(x) → f₀(x) pointwise: difference is ∫_{[0,δ_n]} ... → 0
+  -- |F_n(x)| ≤ 7 (truncated cesaro bound)
+  -- Use le_of_tendsto for sequences
+  have hF_smeas : ∀ n, AEStronglyMeasurable (F n) μ := by
+    intro n; exact (hmeas_joint.stronglyMeasurable.integral_prod_left).aestronglyMeasurable
+  have hF_smeas_ν : ∀ n, AEStronglyMeasurable (F n) ν := by
+    intro n; exact (hmeas_joint.stronglyMeasurable.integral_prod_left).aestronglyMeasurable
+  -- Uniform bound: |F_n(x)| ≤ 7 for all n and x
+  -- Proof: split (1-t/T)sin(at)/t = sin(at)/t - (1/T)sin(at)
+  -- |∫_δ^T sin(at)/t| ≤ 6 (by sinc_integral_bound twice: |∫_0^T| + |∫_0^δ| ≤ 3+3)
+  -- |(1/T)∫_δ^T sin(at)| ≤ 1 (MVT on cos)
+  have hF_bd : ∀ n x, |F n x| ≤ 7 := by
+    intro n x
+    set δ := T / (↑n + 2)
+    set a := u - x
+    -- Convert set integral to interval integral
+    have hδ_le_T : δ ≤ T := (hδ_lt_T n).le
+    have hδp := hδ_pos n
+    rw [show F n x = ∫ t in Set.Icc δ T,
+        (1 - t / T) * (Real.sin (a * t) / t) from rfl]
+    rw [integral_Icc_eq_integral_Ioc, ← intervalIntegral.integral_of_le hδ_le_T]
+    -- Split: ∫(1-t/T)sin(at)/t = ∫ sin(at)/t - (1/T) ∫ sin(at)
+    have h_iint := intervalIntegrable_sin_div a (a := δ) (T := T)
+    have h_sin_int : IntervalIntegrable (fun t => (1/T) * Real.sin (a * t)) volume δ T :=
+      (Real.continuous_sin.comp (continuous_const.mul continuous_id)).intervalIntegrable _ _
+        |>.const_mul _
+    have hsplit : ∫ t in δ..T, (1 - t / T) * (Real.sin (a * t) / t) =
+        (∫ t in δ..T, Real.sin (a * t) / t) -
+        (1/T) * ∫ t in δ..T, Real.sin (a * t) := by
+      rw [← intervalIntegral.integral_const_mul]
+      rw [← intervalIntegral.integral_sub h_iint h_sin_int]
+      apply intervalIntegral.integral_congr_ae
+      filter_upwards with t _
+      by_cases htv : t = 0
+      · simp [htv]
+      · field_simp
+    rw [hsplit]
+    -- Triangle inequality
+    calc |(∫ t in δ..T, Real.sin (a * t) / t) -
+          (1/T) * ∫ t in δ..T, Real.sin (a * t)|
+        ≤ |∫ t in δ..T, Real.sin (a * t) / t| +
+          |(1/T) * ∫ t in δ..T, Real.sin (a * t)| := abs_sub _ _
+      _ ≤ 6 + 1 := by
+          apply add_le_add
+          -- Part 1: |∫_δ^T sin(at)/t| ≤ 6
+          · -- = |∫_0^T - ∫_0^δ| ≤ |∫_0^T| + |∫_0^δ| ≤ 3 + 3
+            rw [show ∫ t in δ..T, Real.sin (a * t) / t =
+                (∫ t in (0:ℝ)..T, Real.sin (a * t) / t) -
+                (∫ t in (0:ℝ)..δ, Real.sin (a * t) / t) from by
+              rw [← intervalIntegral.integral_add_adjacent_intervals
+                (intervalIntegrable_sin_div a (a := (0:ℝ)) (T := δ))
+                (intervalIntegrable_sin_div a (a := δ) (T := T))]
+              ring]
+            calc _ ≤ |∫ t in (0:ℝ)..T, Real.sin (a * t) / t| +
+                    |∫ t in (0:ℝ)..δ, Real.sin (a * t) / t| := abs_sub _ _
+              _ ≤ 3 + 3 := add_le_add (sinc_integral_bound a T hT)
+                    (sinc_integral_bound a δ hδp)
+              _ = 6 := by norm_num
+          -- Part 2: |(1/T)∫_δ^T sin(at)| ≤ 1
+          · by_cases ha : a = 0
+            · simp [ha]
+            · -- ∫_δ^T sin(at) = ∫_0^T - ∫_0^δ
+              have hsin_int : ∀ (c d : ℝ), IntervalIntegrable (fun t => Real.sin (a * t)) volume c d :=
+                fun c d => by exact (by fun_prop : Continuous (fun t => Real.sin (a * t))).intervalIntegrable c d
+              rw [show ∫ t in δ..T, Real.sin (a * t) =
+                  (∫ t in (0:ℝ)..T, Real.sin (a * t)) -
+                  (∫ t in (0:ℝ)..δ, Real.sin (a * t)) from by
+                rw [← intervalIntegral.integral_add_adjacent_intervals
+                  (hsin_int 0 δ) (hsin_int δ T)]; ring,
+                integral_sin_mul a T ha, integral_sin_mul a δ ha]
+              -- Now: |(1/T)((1-cos(aT))/a - (1-cos(aδ))/a)|
+              -- = |(cos(aδ)-cos(aT))/(aT)| ≤ |a|(T-δ)/(|a|T) = (T-δ)/T ≤ 1
+              -- Use |cos x - cos y| ≤ |x - y| (from Real.lipschitzWith_cos)
+              have hcos_lip := Real.lipschitzWith_cos.dist_le_mul (a * δ) (a * T)
+              simp only [NNReal.coe_one, one_mul, Real.dist_eq] at hcos_lip
+              -- |cos(aδ)-cos(aT)| ≤ |aδ-aT| = |a|·|δ-T| = |a|(T-δ)
+              rw [show a * δ - a * T = a * (δ - T) from by ring] at hcos_lip
+              rw [abs_mul] at hcos_lip
+              rw [show |δ - T| = T - δ from by rw [abs_of_nonpos (by linarith)]; ring] at hcos_lip
+              -- Goal: |(1/T) * ((1-cos(aT))/a - (1-cos(aδ))/a)| ≤ 1
+              -- Simplify: (1-cos(aT))/a - (1-cos(aδ))/a = (cos(aδ)-cos(aT))/a
+              -- So the LHS = |cos(aδ)-cos(aT)| / (|a|·T) ≤ |a|(T-δ)/(|a|T) = (T-δ)/T ≤ 1
+              have ha_pos : 0 < |a| := abs_pos.mpr ha
+              rw [abs_mul, abs_of_nonneg (by positivity : (0:ℝ) ≤ 1 / T)]
+              -- Simplify the fraction
+              rw [show (1 - Real.cos (a * T)) / a - (1 - Real.cos (a * δ)) / a =
+                  (Real.cos (a * δ) - Real.cos (a * T)) / a from by ring]
+              rw [abs_div]
+              -- 1/T * (|cos diff| / |a|) ≤ 1/T * (|a|(T-δ)/|a|) = (T-δ)/T ≤ 1
+              calc 1 / T * (|Real.cos (a * δ) - Real.cos (a * T)| / |a|)
+                  ≤ 1 / T * (|a| * (T - δ) / |a|) := by
+                    apply mul_le_mul_of_nonneg_left _ (by positivity)
+                    exact div_le_div_of_nonneg_right hcos_lip (abs_nonneg _)
+                _ = (T - δ) / T := by
+                    rw [mul_div_cancel_left₀ _ (ne_of_gt ha_pos)]; ring
+                _ ≤ 1 := by rw [div_le_one₀ hT]; linarith
+      _ = 7 := by norm_num
+  -- Pointwise convergence: F_n(x) → f₀(x)
+  -- F_n(x) = f₀(x) - ∫_0^{δ_n} g, and |∫_0^{δ_n} g| → 0
+  have hF_conv : ∀ x, Filter.Tendsto (fun n => F n x) Filter.atTop (nhds (f₀ x)) := by
+    intro x
+    set s : ℕ → Set ℝ := fun n => Set.Icc (T / (↑n + 2)) T
+    -- Monotone sets
+    have hmono : Monotone s := by
+      intro m n hmn; apply Set.Icc_subset_Icc_left
+      exact div_le_div_of_nonneg_left hT.le (by positivity)
+        (by exact_mod_cast Nat.add_le_add_right hmn 2)
+    -- g is integrable on Icc 0 T
+    set g := fun t : ℝ => (1 - t / T) * (Real.sin ((u - x) * t) / t)
+    have hg_intOn : IntegrableOn g (Set.Icc 0 T) :=
+      integrableOn_of_bounded measure_Icc_lt_top.ne
+        ((measurable_const.sub (measurable_id'.div_const T)).mul
+          ((Real.measurable_sin.comp (measurable_const.mul measurable_id')).div
+            measurable_id')).aestronglyMeasurable
+        (by filter_upwards [ae_restrict_mem measurableSet_Icc] with t ht
+            rw [Real.norm_eq_abs, abs_mul]
+            have h1 : |1 - t / T| ≤ 1 := by
+              rw [abs_of_nonneg (sub_nonneg.mpr ((div_le_one₀ hT).mpr ht.2))]
+              linarith [div_nonneg ht.1 hT.le]
+            exact (mul_le_mul h1 (abs_sin_mul_div_le (u-x) t)
+              (abs_nonneg _) one_pos.le).trans (one_mul _).le)
+    -- ⋃ s ⊆ Icc 0 T
+    have hsubset : ⋃ n, s n ⊆ Set.Icc 0 T :=
+      Set.iUnion_subset fun n => Set.Icc_subset_Icc_left (hδ_pos n).le
+    have htend := tendsto_setIntegral_of_monotone (f := g) (μ := volume)
+      (fun _ => measurableSet_Icc) hmono (hg_intOn.mono_set hsubset)
+    -- ∫_{⋃ s} g = ∫_{Icc 0 T} g = f₀ x
+    -- Because ⋃ s =ᵃᵉ Icc 0 T (differ at most at {0})
+    suffices h : ∫ t in ⋃ n, s n, g t = f₀ x by rwa [h] at htend
+    apply setIntegral_congr_set
+    -- ⋃ s =ᵃᵉ Icc 0 T. The symmetric difference is ⊆ {0}, which has measure 0.
+    rw [Filter.EventuallyEq, ae_iff]
+    apply le_antisymm _ (zero_le _)
+    apply le_trans (measure_mono _) (by simp : volume ({0} : Set ℝ) ≤ 0)
+    intro t ht
+    simp only [Set.mem_setOf, Set.mem_singleton_iff]
+    -- ht : ¬(t ∈ ⋃ s ↔ t ∈ Icc 0 T)
+    -- Since ⋃ s ⊆ Icc 0 T, the → direction is automatic.
+    -- So the failure must be ←: t ∈ Icc 0 T but t ∉ ⋃ s.
+    -- This happens only if t = 0 (since for t > 0, t ∈ Icc(δ_n, T) for large n).
+    by_contra ht0
+    apply ht; show (⋃ n, s n) t = (Set.Icc 0 T) t
+    apply propext; exact ⟨fun h => hsubset h, fun h => by
+      have ht_pos : 0 < t := lt_of_le_of_ne h.1 (Ne.symm ht0)
+      obtain ⟨n, hn⟩ := exists_nat_gt (T / t - 2)
+      exact Set.mem_iUnion.mpr ⟨n, Set.mem_Icc.mpr ⟨by
+        rw [div_le_iff₀ (by positivity : (0:ℝ) < ↑n + 2)]
+        nlinarith [mul_div_cancel₀ T (ne_of_gt ht_pos)], h.2⟩⟩⟩
+  -- DCT: ∫ F_n dμ → ∫ f₀ dμ
+  have htends_μ : Filter.Tendsto (fun n => ∫ x, F n x ∂μ) Filter.atTop
+      (nhds (∫ x, f₀ x ∂μ)) :=
+    tendsto_integral_of_dominated_convergence (fun _ => (7 : ℝ)) hF_smeas
+      (integrable_const _)
+      (fun n => ae_of_all _ fun x => by rw [Real.norm_eq_abs]; exact hF_bd n x)
+      (ae_of_all _ fun x => hF_conv x)
+  have htends_ν : Filter.Tendsto (fun n => ∫ x, F n x ∂ν) Filter.atTop
+      (nhds (∫ x, f₀ x ∂ν)) :=
+    tendsto_integral_of_dominated_convergence (fun _ => (7 : ℝ)) hF_smeas_ν
+      (integrable_const _)
+      (fun n => ae_of_all _ fun x => by rw [Real.norm_eq_abs]; exact hF_bd n x)
+      (ae_of_all _ fun x => hF_conv x)
+  -- The sequence |(1/π)(∫ F_n dμ - ∫ F_n dν)| → |(1/π)(∫ f₀ dμ - ∫ f₀ dν)|
+  -- and each term ≤ I/(2π), so the limit ≤ I/(2π)
+  have htends_diff : Filter.Tendsto
+      (fun n => (1 / Real.pi) * (∫ x, F n x ∂μ - ∫ x, F n x ∂ν))
+      Filter.atTop (nhds ((1 / Real.pi) * (∫ x, f₀ x ∂μ - ∫ x, f₀ x ∂ν))) :=
+    (htends_μ.sub htends_ν).const_mul _
+  exact le_of_tendsto (htends_diff.abs) (Filter.Eventually.of_forall htrunc_bound)
 
 set_option maxHeartbeats 800000 in
 /-- **Fejér CDF density bound.**
