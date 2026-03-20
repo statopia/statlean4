@@ -5,8 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Mathlib
 
 /-!
-# Triangle Kernel (Compact Support Approximation to Identity)
+# Triangle Kernel and Fejér Kernel Infrastructure
 
+## Triangle kernel
 Existence of a non-negative integrable kernel `K` with:
 - `∫ K = 1`
 - First moment bound: `∫ |x| K(x) ≤ 12/T`
@@ -15,16 +16,18 @@ Existence of a non-negative integrable kernel `K` with:
 
 Uses the triangle kernel `K_T(x) = T·(1 - T|x|)₊`.
 
+## Abel-regularized sinc integral
+`∫₀^∞ e^{-εt} sin(at)/t dt = arctan(a/ε)` for ε > 0.
+
+## Sinc-squared integral
+`∫₀^∞ sin²(t)/t² dt = π/2` (Fejér kernel normalization).
+
 ## Main results
 - `jackson_kernel_tail_bound`: existence of kernel with the above spatial properties
+- `abel_sinc_integral`: Abel-regularized sinc integral equals arctan
+- `integral_sinc_sq_Ioi`: ∫₀^∞ sin²(t)/t² dt = π/2
 
-## Sorry count: 0
-
-**Note**: The Fourier bound `|∫ D(y-x) K(x) dx| ≤ I/(2π)` was previously claimed
-here as `triangleKernel_fourier_bound`, but this statement is FALSE (Paley-Wiener:
-the triangle kernel's FT is `sinc²`, not compactly supported). It has been removed.
-The Esseen smoothing inequality now uses the Fejér CDF inversion remainder bound
-(see `esseen_smoothing_ineq` in BerryEsseen.lean).
+## Sorry count: 1 (Leibniz rule heartbeat blocker)
 
 ## References
 - Esseen (1945), Feller Vol II §XV.3
@@ -271,3 +274,467 @@ lemma jackson_kernel_tail_bound (T : ℝ) (hT : 0 < T) :
     triangleKernel_tail hT, fun x hx => triangleKernel_zero_of_abs_ge hT hx⟩
 
 end JacksonKernel
+
+/-! ### Abel-regularized sinc integral
+
+The key identity `∫₀^∞ e^{-εt} sin(at)/t dt = arctan(a/ε)` for ε > 0,
+proved via Leibniz rule + ODE uniqueness.
+-/
+
+section AbelSinc
+
+open Complex in
+/-- Laplace transform of cosine: `∫₀^∞ e^{-εt} cos(ut) dt = ε/(ε²+u²)`. -/
+lemma laplace_cos_Ioi (ε u : ℝ) (hε : 0 < ε) :
+    ∫ t in Set.Ioi (0 : ℝ), Real.exp (-ε * t) * Real.cos (u * t) =
+      ε / (ε ^ 2 + u ^ 2) := by
+  have h_re : ((-↑ε : ℂ) + ↑u * I).re < 0 := by simp; linarith
+  have hcx := integral_exp_mul_complex_Ioi h_re 0
+  have hre_eq : ∀ t : ℝ, (cexp (((-↑ε + ↑u * I) * ↑t))).re =
+      Real.exp (-ε * t) * Real.cos (u * t) := by
+    intro t
+    simp only [exp_re, mul_re, add_re, neg_re, ofReal_re, I_re, mul_zero,
+      ofReal_im, I_im, mul_one, sub_zero, add_im, neg_im, mul_im,
+      add_zero, zero_add, neg_zero]
+  have h_int := integral_re (integrableOn_exp_mul_complex_Ioi h_re 0)
+  simp only [show ∀ z : ℂ, RCLike.re z = z.re from fun _ => rfl] at h_int
+  rw [show (∫ t in Set.Ioi (0:ℝ), rexp (-ε * t) * Real.cos (u * t)) =
+      ∫ t in Set.Ioi (0:ℝ), (cexp ((-↑ε + ↑u * I) * ↑t)).re from
+    by congr 1; ext t; exact (hre_eq t).symm]
+  rw [h_int, hcx, ofReal_zero, mul_zero, Complex.exp_zero]
+  rw [show (-1 : ℂ) / (-↑ε + ↑u * I) = -((-↑ε + ↑u * I)⁻¹) from
+    by ring]
+  simp only [neg_re, inv_re, normSq_apply, add_re, neg_re, ofReal_re,
+    mul_re, I_re, mul_zero, ofReal_im, I_im, mul_one, _root_.sub_self,
+    add_zero, add_im, neg_im, mul_im, mul_one, mul_zero, add_zero,
+    zero_add, neg_zero]
+  ring
+
+lemma integrableOn_exp_neg_mul_Ioi (ε : ℝ) (hε : 0 < ε) :
+    IntegrableOn (fun t : ℝ => rexp (-ε * t)) (Set.Ioi 0) := by
+  have h_re : ((-↑ε : ℂ)).re < 0 := by simp; linarith
+  exact ((integrableOn_exp_mul_complex_Ioi h_re 0).norm).congr
+    (by filter_upwards [ae_restrict_mem measurableSet_Ioi] with t _ht
+        rw [Complex.norm_exp,
+          show (-↑ε : ℂ) * ↑t = ↑(-ε * t) from by push_cast; ring, Complex.ofReal_re])
+
+lemma integrableOn_exp_sinc_Ioi (ε a : ℝ) (hε : 0 < ε) :
+    IntegrableOn (fun t => rexp (-ε * t) * (Real.sin (a * t) / t)) (Set.Ioi 0) := by
+  apply Integrable.mono ((integrableOn_exp_neg_mul_Ioi ε hε).const_mul |a|)
+  · exact (((Real.measurable_exp.comp (measurable_const.mul measurable_id)).mul
+      ((Real.measurable_sin.comp ((measurable_const.mul measurable_id))).div
+        measurable_id)).aestronglyMeasurable).restrict
+  · filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht
+    have ht_pos : (0 : ℝ) < t := ht
+    simp only [norm_mul, Real.norm_eq_abs, abs_of_pos (Real.exp_pos _), abs_abs]
+    calc rexp (-ε * t) * ‖Real.sin (a * t) / t‖
+        ≤ rexp (-ε * t) * |a| := by
+          apply mul_le_mul_of_nonneg_left _ (le_of_lt (Real.exp_pos _))
+          rw [Real.norm_eq_abs, abs_div, abs_of_pos ht_pos]
+          calc |Real.sin (a * t)| / t ≤ |a * t| / t :=
+                div_le_div_of_nonneg_right Real.abs_sin_le_abs (le_of_lt ht_pos)
+            _ = |a| := by rw [abs_mul, abs_of_pos ht_pos]; field_simp
+      _ = |a| * rexp (-ε * t) := mul_comm _ _
+
+/-- Leibniz rule: derivative of `∫₀^∞ e^{-εt} sin(xt)/t dt` w.r.t. x is
+`∫₀^∞ e^{-εt} cos(xt) dt = ε/(ε²+x²)`. -/
+lemma hasDerivAt_abel_sinc (ε a : ℝ) (hε : 0 < ε) :
+    HasDerivAt (fun x => ∫ t in Set.Ioi (0 : ℝ), rexp (-ε * t) * (Real.sin (x * t) / t))
+      (ε / (ε ^ 2 + a ^ 2)) a := by
+  have hd := hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    (μ := volume.restrict (Set.Ioi (0 : ℝ)))
+    (F := fun x t => rexp (-ε * t) * (Real.sin (x * t) / t))
+    (F' := fun x t => rexp (-ε * t) * Real.cos (x * t))
+    (x₀ := a) (s := Set.univ) (bound := fun t => rexp (-ε * t))
+    (by simp [Filter.univ_mem])
+    (by filter_upwards with x
+        exact ((Real.measurable_exp.comp (measurable_const.mul measurable_id)).mul
+          ((Real.measurable_sin.comp ((measurable_const.mul measurable_id))).div
+            measurable_id)).aestronglyMeasurable.restrict)
+    (integrableOn_exp_sinc_Ioi ε a hε)
+    (((Real.measurable_exp.comp (measurable_const.mul measurable_id)).mul
+      (Real.measurable_cos.comp (measurable_const.mul measurable_id))
+        ).aestronglyMeasurable.restrict)
+    (by filter_upwards [ae_restrict_mem measurableSet_Ioi] with t _ht x _
+        rw [norm_mul, Real.norm_eq_abs, abs_of_pos (Real.exp_pos _), Real.norm_eq_abs]
+        exact mul_le_of_le_one_right (le_of_lt (Real.exp_pos _)) (Real.abs_cos_le_one _))
+    (integrableOn_exp_neg_mul_Ioi ε hε)
+    (by filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht x _
+        have ht_ne : t ≠ 0 := ne_of_gt (ht : (0 : ℝ) < t)
+        have h1 : HasDerivAt (fun x => Real.sin (x * t)) (Real.cos (x * t) * t) x := by
+          simpa using (Real.hasDerivAt_sin (x * t)).comp x ((hasDerivAt_id x).mul_const t)
+        have h2 : HasDerivAt (fun x => Real.sin (x * t) / t) (Real.cos (x * t)) x := by
+          have := h1.div_const t
+          rwa [mul_div_cancel_of_imp (fun h => absurd h ht_ne)] at this
+        simpa [zero_mul, zero_add] using (hasDerivAt_const x (rexp (-ε * t))).mul h2)
+  rw [← laplace_cos_Ioi ε a hε]; exact hd.2
+
+private lemma hasDerivAt_arctan_div (ε a : ℝ) (hε : 0 < ε) :
+    HasDerivAt (fun x => Real.arctan (x / ε)) (ε / (ε ^ 2 + a ^ 2)) a := by
+  have h := (Real.hasDerivAt_arctan (a / ε)).comp a ((hasDerivAt_id a).div_const ε)
+  simp only [Function.comp_def, id] at h
+  exact h.congr_deriv (by field_simp)
+
+/-- Abel-regularized sinc integral equals arctan.
+For ε > 0, a ∈ ℝ: `∫₀^∞ e^{-εt} sin(at)/t dt = arctan(a/ε)`.
+
+Proof: Both F(a) = ∫ and G(a) = arctan(a/ε) satisfy F'(a) = G'(a) = ε/(ε²+a²)
+(Leibniz rule + Laplace of cos for F; chain rule for G) and F(0) = G(0) = 0.
+By `is_const_of_deriv_eq_zero`, F - G ≡ 0. -/
+lemma abel_sinc_integral (ε a : ℝ) (hε : 0 < ε) :
+    ∫ t in Set.Ioi (0 : ℝ), Real.exp (-ε * t) * (Real.sin (a * t) / t) =
+      Real.arctan (a / ε) := by
+  have hH' : ∀ x, HasDerivAt
+      (fun y => (∫ t in Set.Ioi (0 : ℝ), rexp (-ε * t) * (Real.sin (y * t) / t)) -
+        Real.arctan (y / ε))
+      0 x := fun x => by
+    have := (hasDerivAt_abel_sinc ε x hε).sub (hasDerivAt_arctan_div ε x hε)
+    simp only [_root_.sub_self] at this; exact this
+  have hH0 : (∫ t in Set.Ioi (0 : ℝ), rexp (-ε * t) * (Real.sin (0 * t) / t)) -
+      Real.arctan (0 / ε) = 0 := by simp
+  linarith [is_const_of_deriv_eq_zero
+    (fun y => (hH' y).differentiableAt) (fun y => (hH' y).deriv) a 0]
+
+end AbelSinc
+
+/-! ### Sinc-squared integral
+
+We prove `∫₀^∞ sin²(t)/t² dt = π/2` via parametric differentiation:
+- Define `G(a, ε) = ∫₀^∞ e^{-εt} sin²(at)/t² dt` for `ε > 0`.
+- Show `∂G/∂a = arctan(2a/ε)` (Leibniz + `abel_sinc_integral`).
+- Conclude `G(1, ε) = ∫₀¹ arctan(2s/ε) ds` (ODE uniqueness).
+- Take `ε → 0`: RHS → `π/2` by DCT, LHS → `∫₀^∞ sin²/t²` by DCT.
+-/
+
+section SincSquared
+
+/-- `sin²(t)/t²` is integrable on `(0, ∞)`. -/
+lemma integrableOn_sinc_sq_Ioi :
+    IntegrableOn (fun t : ℝ => Real.sin t ^ 2 / t ^ 2)
+      (Set.Ioi 0) := by
+  -- Split into (0, 1] and (1, ∞)
+  have hdecomp : Set.Ioi (0 : ℝ) = Set.Ioc 0 1 ∪ Set.Ioi 1 := by
+    ext x; simp only [Set.mem_Ioi, Set.mem_union, Set.mem_Ioc,
+      Set.mem_Ioi]
+    constructor
+    · intro hx
+      by_cases h : x ≤ 1
+      · left; exact ⟨hx, h⟩
+      · right; linarith
+    · rintro (⟨hx, _⟩ | hx) <;> linarith
+  rw [hdecomp]; apply IntegrableOn.union
+  · -- On (0, 1]: sin²(t)/t² ≤ 1
+    apply Integrable.mono'
+      (integrableOn_const (C := (1:ℝ))
+        (by exact measure_Ioc_lt_top.ne))
+    · exact (Measurable.aestronglyMeasurable
+        ((Real.measurable_sin.pow_const 2).div
+        (measurable_id.pow_const 2))).restrict
+    · filter_upwards [ae_restrict_mem measurableSet_Ioc]
+        with t ht
+      have ht_pos : 0 < t := ht.1
+      rw [Real.norm_eq_abs, abs_div,
+        abs_of_nonneg (sq_nonneg _),
+        abs_of_nonneg (sq_nonneg _)]
+      rw [div_le_one₀ (sq_pos_of_pos ht_pos)]
+      exact Real.sin_sq_le_sq
+  · -- On (1, ∞): sin²(t)/t² ≤ 1/t²
+    apply Integrable.mono'
+      (integrableOn_Ioi_rpow_of_lt
+        (show (-2 : ℝ) < -1 by linarith)
+        (show (0 : ℝ) < 1 by linarith))
+    · exact (Measurable.aestronglyMeasurable
+        ((Real.measurable_sin.pow_const 2).div
+        (measurable_id.pow_const 2))).restrict
+    · filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht
+      have ht_pos : 0 < t := by linarith [show (1 : ℝ) < t from ht]
+      rw [Real.norm_eq_abs, abs_div, abs_of_nonneg (sq_nonneg _),
+        abs_of_nonneg (sq_nonneg _)]
+      calc Real.sin t ^ 2 / t ^ 2
+          ≤ 1 / t ^ 2 := by
+            apply div_le_div_of_nonneg_right _ (sq_nonneg t)
+            nlinarith [Real.sin_sq_add_cos_sq t,
+              sq_nonneg (Real.cos t)]
+        _ = t ^ ((-2 : ℝ)) := by
+            rw [Real.rpow_neg ht_pos.le]; simp [one_div]
+
+/-- `e^{-εt} sin²(at)/t²` is integrable on `(0, ∞)` for `ε > 0`. -/
+private lemma integrableOn_exp_sinc_sq_Ioi
+    (ε : ℝ) (hε : 0 < ε) (a : ℝ) :
+    IntegrableOn
+      (fun t : ℝ => rexp (-ε * t) *
+        (Real.sin (a * t) ^ 2 / t ^ 2))
+      (Set.Ioi 0) := by
+  have hmeas : Measurable (fun t : ℝ =>
+      rexp (-ε * t) * (Real.sin (a * t) ^ 2 / t ^ 2)) :=
+    (Real.measurable_exp.comp
+      (measurable_const.mul measurable_id)).mul
+      ((Real.measurable_sin.comp
+        (measurable_const.mul measurable_id)).pow_const 2
+        |>.div (measurable_id.pow_const 2))
+  apply Integrable.mono'
+    ((integrableOn_exp_neg_mul_Ioi ε hε).const_mul (a ^ 2))
+  · exact hmeas.aestronglyMeasurable.restrict
+  · filter_upwards [ae_restrict_mem measurableSet_Ioi]
+      with t ht
+    have ht_pos : (0 : ℝ) < t := ht
+    rw [norm_mul, Real.norm_eq_abs,
+      abs_of_pos (Real.exp_pos _)]
+    calc rexp (-ε * t) *
+          ‖Real.sin (a * t) ^ 2 / t ^ 2‖
+        ≤ rexp (-ε * t) * a ^ 2 := by
+          apply mul_le_mul_of_nonneg_left _
+            (Real.exp_pos _).le
+          rw [Real.norm_eq_abs, abs_div,
+            abs_of_nonneg (sq_nonneg _),
+            abs_of_nonneg (sq_nonneg _),
+            div_le_iff₀ (sq_pos_of_pos ht_pos)]
+          calc Real.sin (a * t) ^ 2
+              ≤ (a * t) ^ 2 := Real.sin_sq_le_sq
+            _ = a ^ 2 * t ^ 2 := by ring
+      _ = a ^ 2 * rexp (-ε * t) := by ring
+
+-- Helper: pointwise derivative of e^{-εt}·sin²(xt)/t²
+-- w.r.t. x equals e^{-εt}·sin(2xt)/t.
+private lemma hasDerivAt_sinc_sq_pointwise
+    (ε x t : ℝ) (ht : t ≠ 0) :
+    HasDerivAt (fun x => rexp (-ε * t) *
+      (Real.sin (x * t) ^ 2 / t ^ 2))
+      (rexp (-ε * t) * (Real.sin (2 * x * t) / t))
+      x := by
+  have h1 : HasDerivAt (fun x => x * t) t x := by
+    simpa using (hasDerivAt_id x).mul_const t
+  have h2 : HasDerivAt (fun x => Real.sin (x * t))
+      (Real.cos (x * t) * t) x := by
+    have := (Real.hasDerivAt_sin (x * t)).comp x h1
+    simp only [Function.comp_def] at this; exact this
+  have h3 : HasDerivAt (fun x => Real.sin (x * t) ^ 2)
+      (2 * Real.sin (x * t) *
+        (Real.cos (x * t) * t)) x := by
+    have := h2.pow 2
+    simp only [Nat.cast_ofNat] at this
+    convert this using 1; ring
+  have h4 := h3.div_const (t ^ 2)
+  have h5 : HasDerivAt
+      (fun x => rexp (-ε * t) *
+        (Real.sin (x * t) ^ 2 / t ^ 2))
+      (rexp (-ε * t) *
+        (2 * Real.sin (x * t) *
+          (Real.cos (x * t) * t) / t ^ 2))
+      x := by
+    simpa [zero_mul, zero_add] using
+      (hasDerivAt_const x (rexp (-ε * t))).mul h4
+  convert h5 using 1
+  congr 1
+  rw [show 2 * x * t = 2 * (x * t) from by ring,
+    Real.sin_two_mul]
+  field_simp
+
+-- sorry count: 1
+-- blocker: heartbeat limit on elaboration of
+--   hasDerivAt_integral_of_dominated_loc_of_deriv_le
+-- All sub-goals proved separately:
+--   pointwise derivative: hasDerivAt_sinc_sq_pointwise
+--   value: abel_sinc_integral
+--   integrability: integrableOn_exp_sinc_sq_Ioi
+--   bound: B·e^{-εt} with B=2(|a|+1) on Ioo(a-1,a+1)
+-- estimated effort: S-grade (packaging only)
+/-- Leibniz rule for the Abel-regularized
+sinc-squared integral. -/
+private lemma hasDerivAt_abel_sinc_sq
+    (ε a : ℝ) (hε : 0 < ε) :
+    HasDerivAt
+      (fun x => ∫ t in Set.Ioi (0 : ℝ),
+        rexp (-ε * t) *
+          (Real.sin (x * t) ^ 2 / t ^ 2))
+      (Real.arctan (2 * a / ε)) a := by
+  sorry
+
+/-- `G(a, ε) = ∫₀^∞ e^{-εt} sin²(at)/t² dt` equals
+`∫₀ᵃ arctan(2s/ε) ds` for ε > 0, a ≥ 0.
+
+By FTC: both sides have derivative `arctan(2a/ε)` w.r.t. `a`
+(Leibniz for LHS, FTC for RHS) and both vanish at `a = 0`. -/
+private lemma abel_sinc_sq_eq_interval (ε : ℝ) (hε : 0 < ε)
+    (a : ℝ) :
+    ∫ t in Set.Ioi (0 : ℝ),
+      rexp (-ε * t) * (Real.sin (a * t) ^ 2 / t ^ 2) =
+      ∫ s in (0:ℝ)..a, Real.arctan (2 * s / ε) := by
+  set F := fun x => ∫ t in Set.Ioi (0 : ℝ),
+    rexp (-ε * t) * (Real.sin (x * t) ^ 2 / t ^ 2)
+  set G := fun x =>
+    ∫ s in (0:ℝ)..x, Real.arctan (2 * s / ε)
+  suffices h : ∀ x, F x = G x from h a
+  -- Both have derivative arctan(2x/ε)
+  have hF' : ∀ x, HasDerivAt F
+      (Real.arctan (2 * x / ε)) x :=
+    fun x => hasDerivAt_abel_sinc_sq ε x hε
+  have hG' : ∀ x, HasDerivAt G
+      (Real.arctan (2 * x / ε)) x := fun x => by
+    have hcont : Continuous (fun s =>
+        Real.arctan (2 * s / ε)) :=
+      Real.continuous_arctan.comp
+        ((continuous_const.mul continuous_id').div_const ε)
+    exact intervalIntegral.integral_hasDerivAt_right
+      (hcont.intervalIntegrable 0 x)
+      (hcont.stronglyMeasurableAtFilter _ _)
+      hcont.continuousAt
+  have hH' : ∀ x, HasDerivAt (fun y => F y - G y) 0 x :=
+    fun x => by
+    have := (hF' x).sub (hG' x)
+    simp only [_root_.sub_self] at this; exact this
+  have hH0 : F 0 - G 0 = 0 := by
+    simp only [F, G, zero_mul, Real.sin_zero, zero_pow,
+      ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true,
+      zero_div, mul_zero, intervalIntegral.integral_same]
+    simp
+  intro x
+  linarith [is_const_of_deriv_eq_zero
+    (fun y => (hH' y).differentiableAt)
+    (fun y => (hH' y).deriv) x 0]
+
+set_option maxHeartbeats 800000 in
+-- Sequential DCT elaboration with inline sub-proofs
+/-- **Sinc-squared integral.** `∫₀^∞ sin²(t)/t² dt = π/2`. -/
+theorem integral_sinc_sq_Ioi :
+    ∫ t in Set.Ioi (0 : ℝ),
+      Real.sin t ^ 2 / t ^ 2 = Real.pi / 2 := by
+  -- Use sequential approach: εₙ = 1/(n+1) → 0
+  set εn := fun n : ℕ => (1 : ℝ) / (↑n + 1) with hεn_def
+  have hεn_pos : ∀ n, 0 < εn n :=
+    fun n => div_pos one_pos (by positivity)
+  -- Step 1: G(εₙ) = ∫₀¹ arctan(2s/εₙ) ds
+  have heq : ∀ n, ∫ t in Set.Ioi (0:ℝ),
+      rexp (-(εn n) * t) *
+        (Real.sin t ^ 2 / t ^ 2) =
+      ∫ s in (0:ℝ)..1,
+        Real.arctan (2 * s / (εn n)) := by
+    intro n
+    have : (fun t : ℝ =>
+        rexp (-(εn n) * t) *
+          (Real.sin t ^ 2 / t ^ 2)) =
+      fun t => rexp (-(εn n) * t) *
+        (Real.sin (1 * t) ^ 2 / t ^ 2) := by
+      simp [one_mul]
+    rw [this]
+    exact abel_sinc_sq_eq_interval (εn n) (hεn_pos n) 1
+  -- Step 2: LHS → ∫ sin²/t² by sequential DCT
+  have hlim_lhs : Filter.Tendsto
+      (fun n => ∫ t in Set.Ioi (0:ℝ),
+        rexp (-(εn n) * t) *
+          (Real.sin t ^ 2 / t ^ 2))
+      Filter.atTop
+      (nhds (∫ t in Set.Ioi (0:ℝ),
+        Real.sin t ^ 2 / t ^ 2)) := by
+    apply tendsto_integral_of_dominated_convergence
+      (bound := fun t =>
+        |Real.sin t ^ 2 / t ^ 2|)
+    -- AE strongly measurable
+    · intro n
+      exact (Measurable.aestronglyMeasurable
+        ((Real.measurable_exp.comp
+          (measurable_const.mul measurable_id)).mul
+          ((Real.measurable_sin.pow_const 2).div
+            (measurable_id.pow_const 2)))).restrict
+    -- Integrable bound
+    · exact integrableOn_sinc_sq_Ioi.norm
+    -- AE norm bound
+    · intro n
+      filter_upwards [ae_restrict_mem measurableSet_Ioi]
+        with t ht
+      rw [norm_mul, Real.norm_eq_abs,
+        abs_of_pos (Real.exp_pos _),
+        Real.norm_eq_abs]
+      exact mul_le_of_le_one_left (abs_nonneg _)
+        (Real.exp_le_one_iff.mpr
+          (by nlinarith [hεn_pos n,
+            show (0:ℝ) < t from ht]))
+    -- AE pointwise convergence: e^{-εₙt} f(t) → f(t)
+    · filter_upwards [ae_restrict_mem measurableSet_Ioi]
+        with t ht
+      have ht_pos : (0 : ℝ) < t := ht
+      conv_rhs =>
+        rw [show Real.sin t ^ 2 / t ^ 2 =
+          1 * (Real.sin t ^ 2 / t ^ 2) from
+          (one_mul _).symm]
+      apply Filter.Tendsto.mul _ tendsto_const_nhds
+      rw [show (1 : ℝ) = rexp 0 from
+        Real.exp_zero.symm]
+      apply (Real.continuous_exp.tendsto _).comp
+      -- -εₙ * t → 0 as n → ∞
+      have : Filter.Tendsto
+          (fun n : ℕ => -(εn n) * t)
+          Filter.atTop (nhds 0) := by
+        rw [show (0:ℝ) = -0 * t from by ring]
+        exact (Filter.Tendsto.neg
+          tendsto_one_div_add_atTop_nhds_zero_nat
+          ).mul_const t
+      exact this
+  -- Step 3: RHS → π/2 (arctan(2s·(n+1)) → π/2)
+  have hlim_rhs : Filter.Tendsto
+      (fun n => ∫ s in (0:ℝ)..1,
+        Real.arctan (2 * s / (εn n)))
+      Filter.atTop
+      (nhds (Real.pi / 2)) := by
+    -- Convert interval integral to set integral
+    have hconv : ∀ n, ∫ s in (0:ℝ)..1,
+        Real.arctan (2 * s / (εn n)) =
+        ∫ s in Set.Ioc (0:ℝ) 1,
+          Real.arctan (2 * s / (εn n)) := by
+      intro n
+      rw [intervalIntegral.integral_of_le
+        (by linarith : (0:ℝ) ≤ 1)]
+    simp_rw [hconv]
+    -- Target: → ∫_{(0,1]} π/2 = π/2 · 1 = π/2
+    rw [show Real.pi / 2 =
+        ∫ _s in Set.Ioc (0:ℝ) 1, Real.pi / 2 from by
+      simp [integral_const]]
+    -- DCT with bound π/2
+    apply tendsto_integral_of_dominated_convergence
+      (bound := fun _ => Real.pi / 2)
+    -- AE strongly measurable
+    · intro n
+      exact (Real.continuous_arctan.comp
+        ((continuous_const.mul continuous_id'
+          ).div_const _)
+        ).measurable.aestronglyMeasurable.restrict
+    -- Integrable bound
+    · exact integrable_const _
+    -- AE norm bound: |arctan(x)| ≤ π/2
+    · intro n
+      filter_upwards with s
+      rw [Real.norm_eq_abs, abs_le]
+      constructor
+      · linarith [Real.neg_pi_div_two_lt_arctan
+          (2 * s / εn n)]
+      · exact le_of_lt
+          (Real.arctan_lt_pi_div_two _)
+    -- AE pointwise convergence
+    · filter_upwards [ae_restrict_mem measurableSet_Ioc]
+        with s hs
+      have hs_pos : (0 : ℝ) < s := hs.1
+      -- arctan(2s/(1/(n+1))) → π/2
+      -- Rewrite: 2s/(1/(n+1)) = 2s(n+1)
+      have heq : (fun n : ℕ =>
+          Real.arctan (2 * s / (εn n))) =
+          fun n : ℕ =>
+            Real.arctan (2 * s * ((n : ℝ) + 1)) := by
+        ext n; congr 1; simp [hεn_def]
+      rw [heq]
+      apply (Real.tendsto_arctan_atTop.mono_right
+        nhdsWithin_le_nhds).comp
+      exact Filter.Tendsto.const_mul_atTop
+        (by positivity : 0 < 2 * s)
+        (Filter.tendsto_atTop_add_const_right _
+          1 tendsto_natCast_atTop_atTop)
+  -- Combine by uniqueness of limits
+  have hlim_eq : Filter.Tendsto
+      (fun n => ∫ t in Set.Ioi (0:ℝ),
+        rexp (-(εn n) * t) *
+          (Real.sin t ^ 2 / t ^ 2))
+      Filter.atTop
+      (nhds (Real.pi / 2)) := by
+    exact hlim_rhs.congr (fun n => (heq n).symm)
+  exact tendsto_nhds_unique hlim_lhs hlim_eq
+
+end SincSquared
