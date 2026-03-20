@@ -107,11 +107,66 @@
 - sorry 数只减不增
 - `lake build Statlean.Verified` 零 sorry 警告
 
+### 反例搜索（强制，sorry 攻击 > 5 轮时触发）
+
+**本节是硬性规则。违反 = 可能在 FALSE 声明上浪费 10+ 轮 agent。**
+
+**触发条件**：同一 sorry 连续 stuck ≥ 5 轮（跨会话累计，查 `sorry_backlog.yaml` 的 `stuck_rounds`）。
+
+**执行流程（不可跳过）**：
+1. **暂停攻击**，花 1 轮专门搜索反例
+2. **构造反例候选**：
+   - 取极端参数（T→∞, M→0, μ=点质量, ν=均匀分布等）
+   - 检查 LHS 和 RHS 的数值大小关系
+   - 特别关注：紧支撑 vs 无穷支撑、密度有界 vs 点质量、矩有限 vs 矩无穷
+3. **验证反例**：用 Lean `#eval` 或数值计算检查具体参数
+4. **结果处理**：
+   - 找到反例 → **立即修改声明**（不继续攻击 FALSE 目标）
+   - 未找到 → 记录"已验证无反例"到 sorry_backlog.yaml，继续攻击
+5. **入库**：如果发现 FALSE 声明，作为 anti-pattern 写入 `proof_knowledge.yaml`
+
+**教训**：Berry-Esseen 中两个 FALSE 声明各浪费 5-10 轮 agent：
+- `hν_density` 假设太弱（点质量满足但不等式不成立）— 轮 10 才发现
+- `triangleKernel_fourier_bound`（Paley-Wiener 禁止）— 轮 30+ 才发现
+如果在第 5 轮就搜索反例，可以节省 20+ 轮。
+
+### Subagent prompt 模板（强制格式）
+
+**本节是硬性规则。所有 prove/prove-deep 的 subagent prompt 必须遵循此格式。**
+
+**模板结构（前 5 行必须是）**：
+```
+目标: 证明 <lemma_name> (文件 <file>:<line>)
+验收标准: sorry 数从 N 降到 M（或 "sorry 关闭"）
+约束: 只修改 <file>。不做理论分析。直接写 Lean 代码。
+预验证: 每个 Mathlib API 使用前先 `#check` 验证签名。
+build 上限: ≤ 5 次 lake build，超过则停下来用 Level 0 重新确认所有 API。
+```
+
+**禁止的 prompt 内容**：
+- ❌ "分析可行性" / "探索替代路线" / "评估难度"（这些是分析，不是实施）
+- ❌ 超过 500 字的数学推导（应在主会话做，不浪费 agent 上下文）
+- ❌ "如果 stuck 就报告"（应改为 "如果 stuck 就 sorry 暂留并继续下一个子引理"）
+
+**必须包含的 prompt 内容**：
+- ✅ 验收标准（明确的 sorry 数变化）
+- ✅ 已有 API 列表（减少重复搜索）
+- ✅ "每证完一个子引理立即写入文件"
+- ✅ "每个 Mathlib API 先 `#check`"
+- ✅ build 次数上限
+
+**Agent 返回后的强制检查**：
+1. 检查 sorry 数是否减少（`grep -c ' sorry$' <file>`）
+2. 检查 build 是否通过（`lake build <module>`）
+3. 如果 sorry 未减少且 stuck_rounds ≥ 3 → 触发 R6
+4. 如果 sorry 未减少且 stuck_rounds ≥ 5 → 触发反例搜索
+
 ---
 
-## 证明路线搜索 — 五级 Fallback 协议（强制）
+## 证明路线搜索 — 六级 Fallback 协议（强制）
 
 **本节是硬性规则，所有证明流程（`/prove`、`/prove-deep`、`/prove-out`、`/pipeline` prove 阶段）必须遵循。**
+**六级 = R1-R5 (原五级) + R6 (基础设施升级)。**
 
 攻击 sorry 前，按成本递增依次执行路线搜索。获得完整路线后跳过后续级别：
 
@@ -237,6 +292,12 @@ WebSearch "arXiv <定理名> short proof elementary"
 - **自动入库**：证明成功后 agent 输出 `new_knowledge` YAML 块，由 `scripts/ingest_knowledge.py` 自动入库
 - **入库标准**：L1 frequency≥2（脚本累计）、L2 chain≥2 API、L3 confidence≥3
 - **去重**：trigger 关键词 Jaccard>0.8 视为同条目（更新 frequency/source）
+- **anti-pattern 强制入库（硬性规则）**：
+  - 发现 FALSE 声明 → **立即**写入 anti-pattern（`anti: true`），不等证明完成
+  - 发现死路（同一策略 stuck ≥ 3 轮）→ **立即**写入 anti-pattern
+  - anti-pattern 格式：`strategy: "DO NOT <路线>. <原因>. Must use <正确路线>."`
+  - **教训**：Berry-Esseen 中 "+1/2 smoothing error" 被 10+ 轮 agent 反复发现，
+    如果第 1 轮就入库为 anti-pattern，后续 agent 会直接跳过
 - **Mathlib 升级后验证** — 版本升级后抽查 pattern 是否仍有效，删除失效条目
 
 ### 签名提取代替全文件读取
