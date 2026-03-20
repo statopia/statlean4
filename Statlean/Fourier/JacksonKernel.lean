@@ -133,16 +133,16 @@ private lemma triangleKernel_integral {T : ℝ} (hT : 0 < T) :
       ∫ x in (-(1/T))..0, (T + T ^ 2 * x) := by
     apply intervalIntegral.integral_congr
     intro x hx
-    simp only [uIcc_of_le (by linarith [div_pos one_pos hT] : -(1/T) ≤ (0:ℝ)),
+    simp only [uIcc_of_le (by linarith [div_pos one_pos hT] : -(1/T) ≤ (0 : ℝ)),
       mem_Icc] at hx
     rw [triangleKernel_eq_on_nonpos hT hx.2 hx.1]
     ring
   -- Right integral: K agrees with T - T²x on [0, 1/T]
-  have right_eq : ∫ x in (0:ℝ)..(1/T), triangleKernel T x =
-      ∫ x in (0:ℝ)..(1/T), (T - T ^ 2 * x) := by
+  have right_eq : ∫ x in (0 : ℝ)..(1/T), triangleKernel T x =
+      ∫ x in (0 : ℝ)..(1/T), (T - T ^ 2 * x) := by
     apply intervalIntegral.integral_congr
     intro x hx
-    simp only [uIcc_of_le (by linarith [div_pos one_pos hT] : (0:ℝ) ≤ 1/T),
+    simp only [uIcc_of_le (by linarith [div_pos one_pos hT] : (0 : ℝ) ≤ 1/T),
       mem_Icc] at hx
     rw [triangleKernel_eq_on_nonneg hT hx.1 hx.2]
     ring
@@ -304,8 +304,8 @@ lemma laplace_cos_Ioi (ε u : ℝ) (hε : 0 < ε) :
       add_zero, zero_add, neg_zero]
   have h_int := integral_re (integrableOn_exp_mul_complex_Ioi h_re 0)
   simp only [show ∀ z : ℂ, RCLike.re z = z.re from fun _ => rfl] at h_int
-  rw [show (∫ t in Set.Ioi (0:ℝ), rexp (-ε * t) * Real.cos (u * t)) =
-      ∫ t in Set.Ioi (0:ℝ), (cexp ((-↑ε + ↑u * I) * ↑t)).re from
+  rw [show (∫ t in Set.Ioi (0 : ℝ), rexp (-ε * t) * Real.cos (u * t)) =
+      ∫ t in Set.Ioi (0 : ℝ), (cexp ((-↑ε + ↑u * I) * ↑t)).re from
     by congr 1; ext t; exact (hre_eq t).symm]
   rw [h_int, hcx, ofReal_zero, mul_zero, Complex.exp_zero]
   rw [show (-1 : ℂ) / (-↑ε + ↑u * I) = -((-↑ε + ↑u * I)⁻¹) from
@@ -617,11 +617,11 @@ private lemma abel_sinc_sq_eq_interval (ε : ℝ) (hε : 0 < ε)
     (a : ℝ) :
     ∫ t in Set.Ioi (0 : ℝ),
       rexp (-ε * t) * (Real.sin (a * t) ^ 2 / t ^ 2) =
-      ∫ s in (0:ℝ)..a, Real.arctan (2 * s / ε) := by
+      ∫ s in (0 : ℝ)..a, Real.arctan (2 * s / ε) := by
   set F := fun x => ∫ t in Set.Ioi (0 : ℝ),
     rexp (-ε * t) * (Real.sin (x * t) ^ 2 / t ^ 2)
   set G := fun x =>
-    ∫ s in (0:ℝ)..x, Real.arctan (2 * s / ε)
+    ∫ s in (0 : ℝ)..x, Real.arctan (2 * s / ε)
   suffices h : ∀ x, F x = G x from h a
   -- Both have derivative arctan(2x/ε)
   have hF' : ∀ x, HasDerivAt F
@@ -662,10 +662,10 @@ theorem integral_sinc_sq_Ioi :
   have hεn_pos : ∀ n, 0 < εn n :=
     fun n => div_pos one_pos (by positivity)
   -- Step 1: G(εₙ) = ∫₀¹ arctan(2s/εₙ) ds
-  have heq : ∀ n, ∫ t in Set.Ioi (0:ℝ),
+  have heq : ∀ n, ∫ t in Set.Ioi (0 : ℝ),
       rexp (-(εn n) * t) *
         (Real.sin t ^ 2 / t ^ 2) =
-      ∫ s in (0:ℝ)..1,
+      ∫ s in (0 : ℝ)..1,
         Real.arctan (2 * s / (εn n)) := by
     intro n
     have : (fun t : ℝ =>
@@ -678,11 +678,11 @@ theorem integral_sinc_sq_Ioi :
     exact abel_sinc_sq_eq_interval (εn n) (hεn_pos n) 1
   -- Step 2: LHS → ∫ sin²/t² by sequential DCT
   have hlim_lhs : Filter.Tendsto
-      (fun n => ∫ t in Set.Ioi (0:ℝ),
+      (fun n => ∫ t in Set.Ioi (0 : ℝ),
         rexp (-(εn n) * t) *
           (Real.sin t ^ 2 / t ^ 2))
       Filter.atTop
-      (nhds (∫ t in Set.Ioi (0:ℝ),
+      (nhds (∫ t in Set.Ioi (0 : ℝ),
         Real.sin t ^ 2 / t ^ 2)) := by
     apply tendsto_integral_of_dominated_convergence
       (bound := fun t =>
@@ -706,7 +706,7 @@ theorem integral_sinc_sq_Ioi :
       exact mul_le_of_le_one_left (abs_nonneg _)
         (Real.exp_le_one_iff.mpr
           (by nlinarith [hεn_pos n,
-            show (0:ℝ) < t from ht]))
+            show (0 : ℝ) < t from ht]))
     -- AE pointwise convergence: e^{-εₙt} f(t) → f(t)
     · filter_upwards [ae_restrict_mem measurableSet_Ioi]
         with t ht
@@ -723,29 +723,29 @@ theorem integral_sinc_sq_Ioi :
       have : Filter.Tendsto
           (fun n : ℕ => -(εn n) * t)
           Filter.atTop (nhds 0) := by
-        rw [show (0:ℝ) = -0 * t from by ring]
+        rw [show (0 : ℝ) = -0 * t from by ring]
         exact (Filter.Tendsto.neg
           tendsto_one_div_add_atTop_nhds_zero_nat
           ).mul_const t
       exact this
   -- Step 3: RHS → π/2 (arctan(2s·(n+1)) → π/2)
   have hlim_rhs : Filter.Tendsto
-      (fun n => ∫ s in (0:ℝ)..1,
+      (fun n => ∫ s in (0 : ℝ)..1,
         Real.arctan (2 * s / (εn n)))
       Filter.atTop
       (nhds (Real.pi / 2)) := by
     -- Convert interval integral to set integral
-    have hconv : ∀ n, ∫ s in (0:ℝ)..1,
+    have hconv : ∀ n, ∫ s in (0 : ℝ)..1,
         Real.arctan (2 * s / (εn n)) =
-        ∫ s in Set.Ioc (0:ℝ) 1,
+        ∫ s in Set.Ioc (0 : ℝ) 1,
           Real.arctan (2 * s / (εn n)) := by
       intro n
       rw [intervalIntegral.integral_of_le
-        (by linarith : (0:ℝ) ≤ 1)]
+        (by linarith : (0 : ℝ) ≤ 1)]
     simp_rw [hconv]
     -- Target: → ∫_{(0,1]} π/2 = π/2 · 1 = π/2
     rw [show Real.pi / 2 =
-        ∫ _s in Set.Ioc (0:ℝ) 1, Real.pi / 2 from by
+        ∫ _s in Set.Ioc (0 : ℝ) 1, Real.pi / 2 from by
       simp [integral_const]]
     -- DCT with bound π/2
     apply tendsto_integral_of_dominated_convergence
@@ -787,7 +787,7 @@ theorem integral_sinc_sq_Ioi :
           1 tendsto_natCast_atTop_atTop)
   -- Combine by uniqueness of limits
   have hlim_eq : Filter.Tendsto
-      (fun n => ∫ t in Set.Ioi (0:ℝ),
+      (fun n => ∫ t in Set.Ioi (0 : ℝ),
         rexp (-(εn n) * t) *
           (Real.sin t ^ 2 / t ^ 2))
       Filter.atTop
@@ -872,7 +872,7 @@ private lemma integrableOn_fejer_raw_Ioi {T : ℝ} (hT : 0 < T) :
       rw [Real.norm_eq_abs, abs_div, abs_of_nonneg (mul_nonneg (by norm_num) (sq_nonneg _)),
         abs_of_nonneg (mul_nonneg (mul_nonneg Real.pi_pos.le hT.le) (sq_nonneg _)),
         div_le_div_iff₀ (mul_pos (mul_pos Real.pi_pos hT) (sq_pos_of_pos hx_pos))
-          (mul_pos (by norm_num : (0:ℝ) < 2) Real.pi_pos)]
+          (mul_pos (by norm_num : (0 : ℝ) < 2) Real.pi_pos)]
       have hsq := @Real.sin_sq_le_sq (x * T / 2)
       have hpi := Real.pi_pos
       nlinarith [sq_nonneg (x * T / 2)]
@@ -880,7 +880,7 @@ private lemma integrableOn_fejer_raw_Ioi {T : ℝ} (hT : 0 < T) :
     set C := 2 / (Real.pi * T) with hC_def
     apply Integrable.mono'
       ((integrableOn_Ioi_rpow_of_lt (show (-2 : ℝ) < -1 by linarith)
-        (show (0:ℝ) < 1 by linarith)).const_mul C)
+        (show (0 : ℝ) < 1 by linarith)).const_mul C)
     · exact hmeas.aestronglyMeasurable.restrict
     · filter_upwards [ae_restrict_mem measurableSet_Ioi] with x hx
       have hx_pos : 0 < x := by linarith [show (1 : ℝ) < x from hx]
@@ -907,7 +907,7 @@ lemma fejerKernel_le_const {T : ℝ} (hT : 0 < T) (x : ℝ) :
   · subst hx; rw [fejerKernel_zero]
   · rw [fejerKernel_ne_zero hx,
       div_le_div_iff₀ (mul_pos (mul_pos Real.pi_pos hT) (sq_pos_of_ne_zero hx))
-        (mul_pos (by norm_num : (0:ℝ) < 2) Real.pi_pos)]
+        (mul_pos (by norm_num : (0 : ℝ) < 2) Real.pi_pos)]
     have hsq := @Real.sin_sq_le_sq (x * T / 2)
     nlinarith [sq_nonneg (x * T / 2), Real.pi_pos]
 
@@ -942,7 +942,7 @@ lemma fejerKernel_integrable {T : ℝ} (hT : 0 < T) :
     set C := 2 / (Real.pi * T)
     apply Integrable.mono'
       ((integrableOn_Ioi_rpow_of_lt (show (-2 : ℝ) < -1 by linarith)
-        (show (0:ℝ) < 1 by linarith)).const_mul C)
+        (show (0 : ℝ) < 1 by linarith)).const_mul C)
     · exact hmeas.aestronglyMeasurable.restrict
     · filter_upwards [ae_restrict_mem measurableSet_Ioi] with x hx
       have hx_pos : 0 < x := by linarith [show (1 : ℝ) < x from hx]
@@ -1083,5 +1083,214 @@ lemma fejerCDF_zero {T : ℝ} (hT : 0 < T) : fejerCDF T 0 = 1 / 2 := by
 lemma fejerCDF_mem_Icc {T : ℝ} (hT : 0 < T) (u : ℝ) :
     fejerCDF T u ∈ Set.Icc (0 : ℝ) 1 :=
   ⟨fejerCDF_nonneg hT u, fejerCDF_le_one hT u⟩
+
+/-! ### Fejér CDF identity
+
+The Fejér CDF satisfies `Ψ_F(u) = 1/2 + (1/π) ∫₀ᵀ (1-t/T) sin(ut)/t dt`.
+
+**Proof strategy (ODE uniqueness):**
+Both sides have the same derivative (the Fejér kernel) and agree at `u = 0`.
+By `is_const_of_deriv_eq_zero`, they are equal everywhere.
+
+The derivative computation uses:
+- FTC for `fejerCDF` (via `intervalIntegral.integral_hasDerivAt_right`).
+- Leibniz rule for the Cesàro integral (parametric differentiation under the integral sign).
+- IBP to evaluate `∫₀ᵀ (1-t/T) cos(ut) dt = (1-cos(uT))/(Tu²)` for `u ≠ 0`.
+-/
+
+/-- The Fejér kernel equals `T/(2π) · sinc(xT/2)²`, hence is continuous. -/
+lemma fejerKernel_eq_sinc {T : ℝ} (hT : 0 < T) (x : ℝ) :
+    fejerKernel T x = T / (2 * Real.pi) * Real.sinc (x * T / 2) ^ 2 := by
+  unfold fejerKernel
+  split_ifs with hx
+  · simp [hx, Real.sinc_apply]
+  · rw [Real.sinc_apply, if_neg]
+    · field_simp
+    · intro h; have : x * T = 0 := by linarith
+      exact hx (mul_eq_zero.mp this |>.resolve_right (ne_of_gt hT))
+
+/-- The Fejér kernel is continuous. -/
+lemma fejerKernel_continuous {T : ℝ} (hT : 0 < T) : Continuous (fejerKernel T) := by
+  rw [show fejerKernel T = fun x => T / (2 * Real.pi) * Real.sinc (x * T / 2) ^ 2
+      from funext (fejerKernel_eq_sinc hT)]
+  exact continuous_const.mul ((Real.continuous_sinc.comp
+    ((continuous_id.mul continuous_const).div_const 2)).pow 2)
+
+/-- Decomposition: `∫_{Iic u} f = ∫_{Iic 0} f + ∫₀ᵘ f` for integrable `f`. -/
+private lemma setIntegral_Iic_eq_add_intervalIntegral (f : ℝ → ℝ) (hf : Integrable f volume)
+    (u : ℝ) :
+    ∫ v in Set.Iic u, f v = (∫ v in Set.Iic 0, f v) + ∫ v in (0 : ℝ)..u, f v := by
+  have key : ∀ (a b : ℝ), a ≤ b →
+      ∫ v in Set.Iic b, f v = (∫ v in Set.Iic a, f v) + ∫ v in a..b, f v := by
+    intro a b hab
+    rw [show Set.Iic b = Set.Iic a ∪ Set.Ioc a b from (Set.Iic_union_Ioc_eq_Iic hab).symm,
+      show (∫ v in Set.Iic a ∪ Set.Ioc a b, f v) =
+        (∫ v in Set.Iic a, f v) + ∫ v in Set.Ioc a b, f v from
+        setIntegral_union (Set.Iic_disjoint_Ioc (le_refl a))
+          measurableSet_Ioc hf.integrableOn hf.integrableOn]
+    congr 1; exact (intervalIntegral.integral_of_le hab).symm
+  rcases le_or_gt 0 u with hu | hu
+  · exact key 0 u hu
+  · have h := key u 0 hu.le
+    have : ∫ v in u..0, f v = -(∫ v in (0 : ℝ)..u, f v) := intervalIntegral.integral_symm 0 u
+    linarith
+
+/-- `HasDerivAt (fejerCDF T) (fejerKernel T u) u`: the Fejér CDF has derivative
+equal to the Fejér kernel (FTC). -/
+private lemma hasDerivAt_fejerCDF {T : ℝ} (hT : 0 < T) (u : ℝ) :
+    HasDerivAt (fejerCDF T) (fejerKernel T u) u := by
+  -- Write fejerCDF as constant + interval integral, then use FTC
+  have hint := fejerKernel_integrable hT
+  have hcont := fejerKernel_continuous hT
+  -- fejerCDF T u = fejerCDF T 0 + ∫ 0..u, fejerKernel T
+  have hdecomp : ∀ v, fejerCDF T v = fejerCDF T 0 + ∫ w in (0 : ℝ)..v, fejerKernel T w := by
+    intro v; unfold fejerCDF
+    rw [setIntegral_Iic_eq_add_intervalIntegral _ hint v]
+  -- HasDerivAt of the interval integral part is FTC
+  have hFTC : HasDerivAt (fun v => ∫ w in (0 : ℝ)..v, fejerKernel T w)
+      (fejerKernel T u) u :=
+    intervalIntegral.integral_hasDerivAt_right
+      (hcont.intervalIntegrable 0 u)
+      (hcont.stronglyMeasurableAtFilter _ _)
+      hcont.continuousAt
+  -- Combine: fejerCDF T = const + interval integral
+  have : HasDerivAt (fejerCDF T) (0 + fejerKernel T u) u := by
+    have heq : fejerCDF T = fun v => fejerCDF T 0 + ∫ w in (0 : ℝ)..v, fejerKernel T w :=
+      funext hdecomp
+    rw [heq]; exact (hasDerivAt_const u (fejerCDF T 0)).add hFTC
+  simpa using this
+
+/-- `|1 - t/T| ≤ 1` for `t ∈ [0, T]` with `T > 0`. -/
+private lemma abs_one_sub_div_le {t T : ℝ} (hT : 0 < T) (ht : t ∈ Set.Icc (0 : ℝ) T) :
+    |1 - t / T| ≤ 1 := by
+  have h1 : 0 ≤ t / T := div_nonneg ht.1 hT.le
+  have h2 : t / T ≤ 1 := (div_le_one hT).mpr ht.2
+  simp only [abs_of_nonneg (by linarith : 0 ≤ 1 - t / T)]; linarith
+
+set_option maxHeartbeats 800000 in
+-- Leibniz rule with dominated convergence requires extra unification work
+/-- Leibniz rule: `d/du [∫₀ᵀ (1-t/T) sin(ut)/t dt] = ∫₀ᵀ (1-t/T) cos(ut) dt`. -/
+private lemma hasDerivAt_cesaro_sinc {T : ℝ} (hT : 0 < T) (u : ℝ) :
+    HasDerivAt (fun u => ∫ t in Set.Icc 0 T, (1 - t/T) * (Real.sin (u * t) / t))
+      (∫ t in Set.Icc 0 T, (1 - t/T) * Real.cos (u * t)) u := by
+  have hae_ne : ∀ᵐ (t : ℝ) ∂(volume.restrict (Set.Icc (0 : ℝ) T)), t ≠ 0 :=
+    ae_iff.mpr (le_antisymm (le_trans (Measure.restrict_apply_le _ _) (by simp)) (zero_le _))
+  have hF_meas : ∀ (x : ℝ), AEStronglyMeasurable
+      (fun t => (1 - t/T) * (Real.sin (x * t) / t)) (volume.restrict (Set.Icc (0 : ℝ) T)) :=
+    fun x => ((measurable_const.sub (measurable_id.div_const T)).mul
+      ((Real.measurable_sin.comp (measurable_const.mul measurable_id)).div
+        measurable_id)).aestronglyMeasurable
+  have hF_int : Integrable (fun t => (1 - t/T) * (Real.sin (u * t) / t))
+      (volume.restrict (Set.Icc (0 : ℝ) T)) :=
+    Integrable.mono' (integrableOn_const (C := |u|) (hs := measure_Icc_lt_top.ne))
+      (hF_meas u) (by
+        filter_upwards [ae_restrict_mem measurableSet_Icc] with t ht
+        rw [Real.norm_eq_abs, abs_mul]
+        exact le_trans (mul_le_of_le_one_left (abs_nonneg _) (abs_one_sub_div_le hT ht))
+          (by rw [abs_div]; exact div_le_of_le_mul₀ (abs_nonneg _) (abs_nonneg _)
+                ((abs_sin_le_abs (x := u*t)).trans (abs_mul u t).le)))
+  exact (hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    (F' := fun x t => (1 - t/T) * Real.cos (x * t))
+    (bound := fun _ => 1)
+    univ_mem
+    (Filter.Eventually.of_forall hF_meas) hF_int
+    (((continuous_const.sub (continuous_id.div_const T)).mul
+      (Real.continuous_cos.comp (continuous_const.mul continuous_id'))).aestronglyMeasurable)
+    (by filter_upwards [ae_restrict_mem measurableSet_Icc] with t ht x _
+        rw [Real.norm_eq_abs, abs_mul]
+        exact mul_le_one₀ (abs_one_sub_div_le hT ht) (abs_nonneg _) (abs_cos_le_one _))
+    (integrableOn_const (hs := measure_Icc_lt_top.ne))
+    (by filter_upwards [hae_ne] with t ht x _
+        have h1 : HasDerivAt (fun u => u * t) t x := by
+          convert (hasDerivAt_id x).mul (hasDerivAt_const x t) using 1; ring
+        have h2 : HasDerivAt (fun u => Real.sin (u * t) / t) (Real.cos (x * t)) x := by
+          convert ((Real.hasDerivAt_sin (x * t)).comp x h1).div_const t using 1; field_simp
+        exact ((hasDerivAt_const x (1 - t/T)).mul h2).congr_deriv (by simp))).2
+
+/-- Antiderivative for the IBP computation. -/
+private lemma hasDerivAt_cesaro_antideriv (u T t : ℝ) (hu : u ≠ 0) (hT : T ≠ 0) :
+    HasDerivAt (fun s => (1 - s/T) * (Real.sin (u*s) / u) - Real.cos (u*s) / (T * u^2))
+      ((1 - t/T) * Real.cos (u*t)) t := by
+  have h_sin : HasDerivAt (fun s => Real.sin (u * s)) (Real.cos (u * t) * u) t :=
+    (Real.hasDerivAt_sin (u * t)).comp t
+      (hasDerivAt_const t u |>.mul (hasDerivAt_id t) |>.congr_deriv (by ring))
+  have h_cos : HasDerivAt (fun s => Real.cos (u * s)) (-Real.sin (u * t) * u) t :=
+    (Real.hasDerivAt_cos (u * t)).comp t
+      (hasDerivAt_const t u |>.mul (hasDerivAt_id t) |>.congr_deriv (by ring))
+  have h_sub : HasDerivAt (fun s => 1 - s / T) (- (1/T)) t := by
+    convert (hasDerivAt_const t (1:ℝ)).sub ((hasDerivAt_id t).div_const T) using 1; ring
+  have h_sindiv : HasDerivAt (fun s => Real.sin (u * s) / u) (Real.cos (u * t)) t := by
+    convert h_sin.div_const u using 1; field_simp
+  have h_cosdiv : HasDerivAt (fun s => Real.cos (u * s) / (T * u^2))
+      (-(Real.sin (u * t) * u) / (T * u^2)) t := by
+    convert h_cos.div_const (T * u^2) using 1; ring
+  convert (h_sub.mul h_sindiv).sub h_cosdiv using 1; field_simp; ring
+
+/-- IBP: `∫₀ᵀ (1-t/T) cos(ut) dt = (1-cos(uT))/(Tu²)` for `u ≠ 0`. -/
+private lemma cesaro_cos_interval_integral (u T : ℝ) (hu : u ≠ 0) (hT : 0 < T) :
+    ∫ t in (0 : ℝ)..T, (1 - t/T) * Real.cos (u * t) =
+    (1 - Real.cos (u * T)) / (T * u ^ 2) := by
+  rw [intervalIntegral.integral_eq_sub_of_hasDerivAt
+    (fun t _ => hasDerivAt_cesaro_antideriv u T t hu (ne_of_gt hT))
+    (((continuous_const.sub (continuous_id.div_const T)).mul
+      (Real.continuous_cos.comp (continuous_const.mul continuous_id'))).intervalIntegrable 0 T)]
+  simp [Real.sin_zero, Real.cos_zero]; field_simp; ring
+
+/-- `∫₀ᵀ (1-t/T) dt = T/2` (the `u = 0` case). -/
+private lemma cesaro_cos_at_zero (T : ℝ) (hT : 0 < T) :
+    ∫ t in (0 : ℝ)..T, (1 - t / T) = T / 2 := by
+  have hderiv : ∀ t ∈ Set.uIcc (0 : ℝ) T,
+      HasDerivAt (fun s => s - s ^ 2 / (2 * T)) (1 - t / T) t := by
+    intro t _
+    have h := (hasDerivAt_id t).sub (((hasDerivAt_id t).pow 2).div_const (2 * T))
+    convert h using 1; simp; ring
+  rw [intervalIntegral.integral_eq_sub_of_hasDerivAt hderiv
+    ((continuous_const.sub (continuous_id.div_const T)).intervalIntegrable 0 T)]
+  field_simp; ring
+
+/-- Key identity: `(1/π) ∫₀ᵀ (1-t/T) cos(ut) dt = fejerKernel T u`. -/
+private lemma cesaro_cos_eq_fejerKernel {T : ℝ} (hT : 0 < T) (u : ℝ) :
+    1 / Real.pi * ∫ t in Set.Icc (0 : ℝ) T, (1 - t/T) * Real.cos (u * t) =
+    fejerKernel T u := by
+  rw [setIntegral_congr_set Ioc_ae_eq_Icc.symm,
+      ← intervalIntegral.integral_of_le hT.le]
+  by_cases hu : u = 0
+  · subst hu; simp only [zero_mul, Real.cos_zero, mul_one]
+    rw [cesaro_cos_at_zero T hT, fejerKernel_zero]; field_simp
+  · rw [cesaro_cos_interval_integral u T hu hT, fejerKernel_ne_zero hu]
+    have := Real.cos_two_mul (u * T / 2)
+    simp only [show 2 * (u * T / 2) = u * T from by ring] at this
+    field_simp; nlinarith [Real.sin_sq_add_cos_sq (u * T / 2)]
+
+/-- **Fejér CDF identity.**
+`Ψ_F(u) = 1/2 + (1/π) ∫₀ᵀ (1-t/T) sin(ut)/t dt`.
+
+Proof via ODE uniqueness: both sides have derivative `fejerKernel T u` and agree at `u = 0`. -/
+lemma fejerCDF_eq_cesaro (T : ℝ) (hT : 0 < T) (u : ℝ) :
+    fejerCDF T u = 1/2 + (1/Real.pi) * ∫ t in Set.Icc 0 T,
+      (1 - t/T) * (Real.sin (u * t) / t) := by
+  -- H(u) = fejerCDF T u - 1/2 - (1/π) ∫ Cesàro. Show H' ≡ 0, H(0) = 0.
+  have hH' : ∀ x, HasDerivAt (fun u => fejerCDF T u - 1/2 -
+      1/Real.pi * ∫ t in Set.Icc (0 : ℝ) T, (1 - t/T) * (Real.sin (u * t) / t)) 0 x := by
+    intro x
+    -- CDF derivative = fejerKernel T x
+    have h_cdf := hasDerivAt_fejerCDF hT x
+    -- Cesàro derivative = (1/π) ∫ cos
+    have h_cesaro : HasDerivAt
+        (fun u => 1/Real.pi * ∫ t in Set.Icc (0 : ℝ) T, (1 - t/T) * (Real.sin (u * t) / t))
+        (1/Real.pi * ∫ t in Set.Icc (0 : ℝ) T, (1 - t/T) * Real.cos (x * t)) x := by
+      simpa using (hasDerivAt_const x (1/Real.pi)).mul (hasDerivAt_cesaro_sinc hT x)
+    -- (1/π) ∫ cos = fejerKernel T x
+    have hcos_eq := cesaro_cos_eq_fejerKernel hT x
+    -- So CDF' - 0 - Cesàro' = fejerKernel - 0 - fejerKernel = 0
+    have hsub := (h_cdf.sub (hasDerivAt_const x (1/2 : ℝ))).sub h_cesaro
+    simp only [sub_zero] at hsub
+    convert hsub using 1; linarith [hcos_eq]
+  -- H(0) = 0
+  have hH0 : fejerCDF T 0 - 1/2 -
+      1/Real.pi * ∫ t in Set.Icc (0 : ℝ) T, (1 - t/T) * (Real.sin (0 * t) / t) = 0 := by
+    simp [fejerCDF_zero hT]
+  linarith [is_const_of_deriv_eq_zero
+    (fun y => (hH' y).differentiableAt) (fun y => (hH' y).deriv) u 0]
 
 end FejerKernel
