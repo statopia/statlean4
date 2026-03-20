@@ -256,10 +256,59 @@ WebSearch "arXiv <定理名> short proof elementary"
 - 用法：`grep -i 'condexp' theme/mathlib_full_type_index.tsv`
 - Mathlib 升级后重新生成：`lake env lean scripts/gen_full_type_index.lean > theme/mathlib_full_type_index.tsv`
 
-### 增量编译
-- 验证单个 declaration 时用 `bash scripts/check_snippet.sh <file> <start_line> <end_line>`
-- 比 `lake build Statlean.Foo` 快 3-5x，适合 tactic 试错循环
-- 全模块验证仍用 `lake build Statlean.<Module>`
+### 增量编译 + Build 循环最小化（强制，硬性规则）
+
+**禁止**在未做预验证的情况下直接 `lake build`。每次 build 前必须先做至少一种预验证。
+
+**三级验证（按速度排序，优先用快的）**：
+
+**Level 0: API 预查（0 秒，写代码前必做）**
+```bash
+# 在写 tactic 之前确认 API 存在 + 签名
+echo '#check @API_Name' | lake env lean --stdin
+# 或查索引
+grep -i 'api_name' theme/mathlib_full_type_index.tsv
+```
+- **写任何 Mathlib API 调用之前**必须先 `#check` 确认名字和参数顺序
+- 违反 = API 名猜错 → 白等一次 build（30-150 秒浪费）
+- **给 subagent 的 prompt 必须包含**："每个 Mathlib API 使用前先 `#check` 验证签名"
+
+**Level 1: temp file 原型（5 秒）**
+```bash
+cat > /tmp/test_lemma.lean << 'EOF'
+import Mathlib
+import Statlean.Fourier.JacksonKernel  -- 按需 import
+-- 测试单个引理
+example (T : ℝ) (hT : 0 < T) : ... := by
+  exact?  -- 或 tactic 试验
+EOF
+lake env lean /tmp/test_lemma.lean
+```
+- 适用于：新引理的 tactic 探索、API 组合测试
+- 比 snippet check 更灵活（可以 import 任意模块）
+- **新引理的前 3 次 tactic 尝试应在 temp file 中完成**，确认方向正确后再写入目标文件
+
+**Level 2: snippet check（10 秒）**
+```bash
+bash scripts/check_snippet.sh <file> <start_line> <end_line>
+```
+- 适用于：已有文件中修改单个 declaration
+- 比 `lake build` 快 3-15x
+
+**Level 3: 模块 build（30-150 秒）**
+```bash
+lake build Statlean.<Module>
+```
+- **仅在以下时机使用**：
+  - Level 0-2 全部通过后的最终验证
+  - import 链变更后
+  - 提交 commit 前
+- **比例要求**：Level 0-2 验证次数 ≥ 3 × Level 3 次数
+
+**subagent build 循环上限**：
+- 每个 subagent 的 `lake build` 次数不应超过 5 次
+- 如果超过 5 次 build 仍有错误 → 停下来用 Level 0 (#check) 重新确认所有 API
+- DPI 教训：80 次 lake build ≈ 3.5h 纯编译 = 42% 墙钟时间
 
 ---
 
