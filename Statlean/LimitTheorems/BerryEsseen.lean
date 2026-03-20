@@ -9,14 +9,12 @@ import Statlean.Fourier.JacksonKernel
 # Berry-Esseen Theorem
 
 ## Status
-- **3 sorry** in this file (was 1):
+- **2 sorry** in this file (was 3):
   1. `fejer_convolution_bound`: |∫ Ψ_F d(μ-ν)| ≤ I/(2π)
      - Proof plan: fejerCDF_eq_cesaro + cesaro_fubini_truncated (on [δ,T]) +
-       cesaro_fourier_bound + DCT (δ→0, dominator ≤ 4)
-     - Blocker: DCT implementation requires ~80 lines
-  2. `fejerCDF_density_bound`: ∫ (Ψ_F(y+a-x) - Ψ_F(y-a-x)) dν ≤ 2aM
-     - Proof plan: Tonelli (swap integral of K_F indicator) + density bound on ν
-     - Alternative: ν ≤ M·λ + ∫ h dλ = 2a (Tonelli)
+       cesaro_fourier_bound + DCT (δ→0, dominator ≤ 2)
+     - Blocker: DCT needs uniform bound via Abel-Dirichlet test + sine integral bound
+  2. ~~`fejerCDF_density_bound`~~: **PROVED** via Tonelli swap (lintegral_lintegral_swap)
   3. `esseen_smoothing_ineq` (I < 2π/3 case only): needs Lévy CDF inversion
 - `esseen_smoothing_ineq` I ≥ 2π/3 case: **PROVED** (bracket + tail + arithmetic)
   - New infrastructure: fejerCDF_bracket_{upper,lower}, cdf_le_fejerCDF_integral,
@@ -57,15 +55,14 @@ The proof follows the classical Fourier-analytic approach:
 
 6. **Main theorem** (`berry_esseen_theorem`): Direct consequence of step 5.
 
-## Remaining sorry (3 in this file)
+## Remaining sorry (2 in this file)
 
 ### 1. `fejer_convolution_bound` (B-grade, ~80 lines)
 |∫ Ψ_F(u-x) d(μ-ν)| ≤ I/(2π). Uses DCT to take δ→0 in the truncated
-cesaro_fourier_bound on [δ,T]. Dominator: |Ψ_{F,δ}| ≤ 4 (constant bound).
+cesaro_fourier_bound on [δ,T]. Dominator: |Ψ_{F,δ}| ≤ 2 (Abel-Dirichlet bound).
 
-### 2. `fejerCDF_density_bound` (B-grade, ~50 lines)
-∫ (Ψ_F(y+a-x) - Ψ_F(y-a-x)) dν ≤ 2aM. Uses Tonelli to swap integral
-of K_F with ν, then applies the density bound ν(Icc c d) ≤ M(d-c).
+### ~~2. `fejerCDF_density_bound`~~ — PROVED
+Proof via Tonelli (lintegral_lintegral_swap) + density bound ν(Icc) ≤ M·length.
 
 ### 3. `esseen_smoothing_ineq` I < 2π/3 case (A-grade, ~200 lines)
 The deep case: requires Lévy CDF inversion or compact-support Fourier kernel.
@@ -1429,6 +1426,7 @@ private lemma fejer_convolution_bound
   -- DCT gives ∫ F_n dμ → ∫ Ψ_F dμ. The bound I/(2π) is preserved in the limit.
   sorry
 
+set_option maxHeartbeats 800000 in
 /-- **Fejér CDF density bound.**
 For ν with M-Lipschitz CDF and a ≥ 0:
   `∫ (Ψ_F(y+a-x) - Ψ_F(y-a-x)) dν ≤ 2aM`
@@ -1440,7 +1438,103 @@ private lemma fejerCDF_density_bound
     (hν_density : ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
     {T : ℝ} (hT : 0 < T) (y a : ℝ) (ha : 0 < a) :
     ∫ x, (fejerCDF T (y + a - x) - fejerCDF T (y - a - x)) ∂ν ≤ 2 * a * M := by
-  sorry
+  have hnn : ∀ x, 0 ≤ fejerCDF T (y + a - x) - fejerCDF T (y - a - x) := fun x =>
+    sub_nonneg.mpr (fejerCDF_monotone hT (by linarith))
+  have hmeas := (measurable_fejerCDF_sub hT (y + a)).sub (measurable_fejerCDF_sub hT (y - a))
+  -- Convert Bochner integral to lintegral (h ≥ 0)
+  rw [integral_eq_lintegral_of_nonneg_ae (ae_of_all _ hnn) hmeas.aestronglyMeasurable]
+  apply ENNReal.toReal_le_of_le_ofReal (by positivity : (0 : ℝ) ≤ 2 * a * M)
+  -- Define the product function G(x,v) = ofReal(K_F(v)) · 𝟏_{Ioc(y-a-x)(y+a-x)}(v)
+  set G : ℝ → ℝ → ENNReal := fun x v =>
+    ENNReal.ofReal (fejerKernel T v) *
+    (Set.Ioc (y - a - x) (y + a - x)).indicator (fun _ => (1 : ENNReal)) v
+  -- Indicator swap: v ∈ Ioc(y-a-x)(y+a-x) ↔ x ∈ Ioc(y-a-v)(y+a-v)
+  have ind_swap : ∀ x v, v ∈ Set.Ioc (y - a - x) (y + a - x) ↔
+      x ∈ Set.Ioc (y - a - v) (y + a - v) := by
+    intro x v; constructor <;> intro ⟨h1, h2⟩ <;> exact ⟨by linarith, by linarith⟩
+  -- Step 1: ofReal(h(x)) = ∫⁻ v, G x v (fejerCDF diff = set integral of K_F)
+  have step1 : ∀ x, ENNReal.ofReal (fejerCDF T (y + a - x) - fejerCDF T (y - a - x)) =
+      ∫⁻ v, G x v := by
+    intro x
+    -- fejerCDF T hi - fejerCDF T lo = ∫ v in Ioc lo hi, K_F v
+    have hdiff : fejerCDF T (y + a - x) - fejerCDF T (y - a - x) =
+        ∫ v in Set.Ioc (y - a - x) (y + a - x), fejerKernel T v := by
+      unfold fejerCDF
+      have hunion : Set.Iic (y - a - x) ∪ Set.Ioc (y - a - x) (y + a - x) =
+          Set.Iic (y + a - x) := by
+        ext w; simp only [Set.mem_union, Set.mem_Iic, Set.mem_Ioc]
+        constructor
+        · rintro (h | ⟨h1, h2⟩) <;> linarith
+        · intro hw; by_cases hwlo : w ≤ y - a - x
+          · left; exact hwlo
+          · right; exact ⟨not_le.mp hwlo, hw⟩
+      rw [← hunion, setIntegral_union
+          (by rw [Set.disjoint_iff]; intro w ⟨h1, h2⟩
+              simp only [Set.mem_Iic] at h1; simp only [Set.mem_Ioc] at h2; linarith)
+          measurableSet_Ioc (fejerKernel_integrable hT).integrableOn
+          (fejerKernel_integrable hT).integrableOn]
+      ring
+    rw [hdiff]
+    rw [ofReal_integral_eq_lintegral_ofReal
+        ((fejerKernel_integrable hT).integrableOn.mono_set Set.Ioc_subset_Iic_self)
+        (ae_of_all _ (fun v => fejerKernel_nonneg hT v))]
+    -- ∫⁻ v in Ioc, ofReal(K_F v) = ∫⁻ v, G x v
+    -- G x v = ofReal(K_F v) * indicator_{Ioc}(1)(v) = indicator_{Ioc}(ofReal∘K_F)(v)
+    rw [← lintegral_indicator measurableSet_Ioc]
+    congr 1; ext v; simp only [G, Set.indicator]
+    split_ifs <;> simp
+  -- Step 2: G is measurable on the product
+  have hG_meas : Measurable (Function.uncurry G) := by
+    apply Measurable.mul
+    · exact (fejerKernel_measurable T).ennreal_ofReal.comp measurable_snd
+    · apply measurable_one.indicator
+      exact (measurableSet_lt (measurable_const.sub measurable_fst) measurable_snd).inter
+        (measurableSet_le measurable_snd (measurable_const.sub measurable_fst))
+  -- Step 3: Tonelli swap ∫⁻_ν ∫⁻_vol G = ∫⁻_vol ∫⁻_ν G
+  conv_lhs => rw [show (fun x => ENNReal.ofReal (fejerCDF T (y + a - x) -
+    fejerCDF T (y - a - x))) = (fun x => ∫⁻ v, G x v) from funext step1]
+  rw [lintegral_lintegral_swap hG_meas.aemeasurable]
+  -- Step 4: Compute inner integral ∫⁻_ν G(x,v) dν(x) = ofReal(K_F v) · ν(Ioc(y-a-v)(y+a-v))
+  have step4 : ∀ v, ∫⁻ x, G x v ∂ν = ENNReal.ofReal (fejerKernel T v) *
+      ν (Set.Ioc (y - a - v) (y + a - v)) := by
+    intro v
+    -- Swap the indicator: 𝟏_{Ioc(y-a-x)(y+a-x)}(v) = 𝟏_{Ioc(y-a-v)(y+a-v)}(x)
+    have : (fun x => G x v) = fun x => ENNReal.ofReal (fejerKernel T v) *
+        (Set.Ioc (y - a - v) (y + a - v)).indicator (fun _ => (1 : ENNReal)) x := by
+      ext x; simp only [G, Set.indicator]
+      split_ifs with h1 h2 h2
+      · rfl
+      · exfalso; exact h2 ((ind_swap x v).mp h1)
+      · exfalso; exact h1 ((ind_swap x v).mpr h2)
+      · rfl
+    rw [show (fun x => G x v) = fun x => ENNReal.ofReal (fejerKernel T v) *
+        (Set.Ioc (y - a - v) (y + a - v)).indicator (fun _ => (1 : ENNReal)) x from this]
+    simp only [lintegral_const_mul _ ((measurable_indicator_const_iff 1).mpr measurableSet_Ioc)]
+    simp only [show (Set.Ioc (y - a - v) (y + a - v)).indicator
+        (fun (_ : ℝ) => (1 : ENNReal)) = (Set.Ioc (y - a - v) (y + a - v)).indicator 1 from rfl,
+      lintegral_indicator_one measurableSet_Ioc]
+  -- Step 5: Bound ν(Ioc) ≤ ofReal(M · 2a)
+  have step5 : ∀ v, ν (Set.Ioc (y - a - v) (y + a - v)) ≤ ENNReal.ofReal (M * (2 * a)) := by
+    intro v
+    calc ν (Set.Ioc (y - a - v) (y + a - v))
+        ≤ ν (Set.Icc (y - a - v) (y + a - v)) := measure_mono Set.Ioc_subset_Icc_self
+      _ ≤ ENNReal.ofReal (M * ((y + a - v) - (y - a - v))) := hν_density _ _ (by linarith)
+      _ = ENNReal.ofReal (M * (2 * a)) := by congr 1; ring
+  -- Step 6: Combine
+  simp_rw [step4]
+  calc ∫⁻ v, ENNReal.ofReal (fejerKernel T v) * ν (Set.Ioc (y - a - v) (y + a - v))
+      ≤ ∫⁻ v, ENNReal.ofReal (fejerKernel T v) * ENNReal.ofReal (M * (2 * a)) := by
+        apply lintegral_mono; intro v; exact mul_le_mul_left' (step5 v) _
+    _ = ENNReal.ofReal (M * (2 * a)) * ∫⁻ v, ENNReal.ofReal (fejerKernel T v) := by
+        rw [lintegral_mul_const _ (fejerKernel_measurable T).ennreal_ofReal]
+        ring
+    _ = ENNReal.ofReal (M * (2 * a)) * ENNReal.ofReal 1 := by
+        congr 1
+        rw [← ofReal_integral_eq_lintegral_ofReal (fejerKernel_integrable hT)
+            (ae_of_all _ (fun v => fejerKernel_nonneg hT v)),
+            fejerKernel_integral_one hT]
+    _ = ENNReal.ofReal (2 * a * M) := by
+        simp only [ENNReal.ofReal_one, mul_one]; congr 1; ring
 
 /-- **Fejér CDF inversion remainder bound** (Esseen 1945).
 
@@ -1468,7 +1562,7 @@ is controlled by the Lipschitz condition on `ν`'s CDF.
 
 **Reference**: Esseen (1945), Feller Vol II §XV.3, Petrov Ch. V.
 -/
--- sorry count: 3 (fejer_convolution_bound + fejerCDF_density_bound + I<2π/3 case)
+-- sorry count: 2 (fejer_convolution_bound + I<2π/3 case; fejerCDF_density_bound PROVED)
 -- Case I ≥ 2π/3: PROVED via bracket inequality with a = 12/(πT)
 -- Case I < 2π/3: sorry (needs Lévy CDF inversion, A-grade ~200 lines)
 private lemma esseen_smoothing_ineq
