@@ -1084,6 +1084,60 @@ lemma fejerCDF_mem_Icc {T : ℝ} (hT : 0 < T) (u : ℝ) :
     fejerCDF T u ∈ Set.Icc (0 : ℝ) 1 :=
   ⟨fejerCDF_nonneg hT u, fejerCDF_le_one hT u⟩
 
+/-- Tail bound for the Fejér CDF: `1 - Ψ_F(a) ≤ 2/(πTa)` for `a > 0`.
+Proof: `1 - Ψ_F(a) = ∫_a^∞ K_F(x) dx ≤ ∫_a^∞ 2/(πTx²) dx = 2/(πTa)`,
+using `sin²(xT/2) ≤ 1` in `K_F(x) = 2sin²(xT/2)/(πTx²)`. -/
+lemma fejerCDF_tail_bound {T : ℝ} (hT : 0 < T) {a : ℝ} (ha : 0 < a) :
+    1 - fejerCDF T a ≤ 2 / (Real.pi * T * a) := by
+  -- 1 - Ψ_F(a) = ∫_{Ioi a} K_F(x) dx
+  have h1F : 1 - fejerCDF T a = ∫ x in Set.Ioi a, fejerKernel T x := by
+    have htotal := integral_add_compl (s := Set.Iic a) measurableSet_Iic
+      (fejerKernel_integrable hT)
+    rw [fejerKernel_integral_one hT] at htotal
+    have hcompl : (Set.Iic a)ᶜ = Set.Ioi a := by ext x; simp
+    rw [hcompl] at htotal
+    show 1 - ∫ v in Set.Iic a, fejerKernel T v = _
+    linarith
+  rw [h1F]
+  -- Bound K_F(x) by T/(2π) pointwise, then use compact tail bound.
+  -- For x ∈ Ioi a: K_F(x) ≤ 2/(πTx²) ≤ 2/(πTa²) (since x > a).
+  -- But ∫_a^∞ 1 · K_F is the tail, and ∫_a^∞ K_F ≤ 1.
+  -- Better: pointwise K_F(x) ≤ 2/(πTx²), and monotonically bound ∫ by 1/x² integral.
+  -- Use: ∫_a^∞ K_F(x) dx ≤ ∫_a^∞ 2/(πTx²) dx = 2/(πTa).
+  -- The improper integral ∫_a^∞ 1/x² dx = 1/a is computed via rpow.
+  have ha2 : (-2 : ℝ) < -1 := by norm_num
+  have hrpow_val : ∫ x in Set.Ioi a, x ^ ((-2 : ℝ)) = 1 / a := by
+    rw [integral_Ioi_rpow_of_lt ha2 ha]
+    simp only [show (-2 : ℝ) + 1 = -1 from by norm_num]
+    rw [Real.rpow_neg_one a, neg_div_neg_eq, one_div, div_one]
+  have hrpow_int : IntegrableOn (fun x => x ^ ((-2 : ℝ))) (Set.Ioi a) :=
+    integrableOn_Ioi_rpow_of_lt ha2 ha
+  calc ∫ x in Set.Ioi a, fejerKernel T x
+      ≤ 2 / (Real.pi * T) * ∫ x in Set.Ioi a, x ^ ((-2 : ℝ)) := by
+        rw [← integral_const_mul]
+        apply setIntegral_mono_on (fejerKernel_integrable hT).integrableOn
+          (hrpow_int.const_mul _) measurableSet_Ioi
+        intro x hx
+        have hx_pos : 0 < x := lt_trans ha hx
+        rw [fejerKernel_ne_zero (ne_of_gt hx_pos)]
+        -- Goal: 2 sin²(xT/2) / (πTx²) ≤ (2/(πT)) · x^(-2)
+        -- RHS = 2/(πTx²) using x^(-2) = 1/x² for x > 0
+        -- LHS ≤ 2/(πTx²) using sin² ≤ 1
+        have hx2 : (0 : ℝ) < x ^ 2 := sq_pos_of_pos hx_pos
+        have hden : (0 : ℝ) < Real.pi * T * x ^ 2 := by positivity
+        rw [show 2 / (Real.pi * T) * x ^ ((-2 : ℝ)) =
+            2 / (Real.pi * T * x ^ 2) from by
+          rw [show x ^ ((-2 : ℝ)) = (x ^ 2)⁻¹ from by
+            rw [show ((-2 : ℝ)) = -(2 : ℕ) from by norm_num,
+                Real.rpow_neg hx_pos.le, Real.rpow_natCast]
+          ]; field_simp]
+        apply div_le_div_of_nonneg_right _ hden.le
+        calc 2 * Real.sin (x * T / 2) ^ 2
+            ≤ 2 * 1 := by gcongr; exact Real.sin_sq_le_one _
+          _ = 2 := mul_one _
+    _ = 2 / (Real.pi * T) * (1 / a) := by rw [hrpow_val]
+    _ = 2 / (Real.pi * T * a) := by ring
+
 /-! ### Fejér CDF identity
 
 The Fejér CDF satisfies `Ψ_F(u) = 1/2 + (1/π) ∫₀ᵀ (1-t/T) sin(ut)/t dt`.
