@@ -1300,13 +1300,14 @@ is controlled by the Lipschitz condition on `ν`'s CDF.
 **Reference**: Esseen (1945), Feller Vol II §XV.3, Petrov Ch. V.
 -/
 -- sorry count: 1
--- blocker: Fejér CDF inversion formula with remainder (requires Stieltjes inversion
---   + Fejér summability + Lipschitz CDF error analysis)
--- proof sketch: D(y) = -A(y) + R(y) where A = Cesàro integral (bounded by I/(2π)),
---   R = Fejér remainder (bounded by 24M/(πT) via density ≤ M of ν)
--- estimated effort: A-grade, ~300 lines (CDF inversion + Fejér summability + error analysis)
--- NOTE: This is a mathematically TRUE statement (unlike the old triangleKernel_fourier_bound
---   which was FALSE). The bound 24M/(πT) is the classical Esseen constant.
+-- blocker: Esseen smoothing inequality requires Lévy CDF inversion formula
+--   (not available in Mathlib). The Fejér CDF identity Ψ_F = 1/2 + σ_T is provable
+--   (both sides have derivative K_F and agree at 0), but bounding the remainder
+--   D(y) - Cesàro(y) = ∫(H-Ψ_F) d(μ-ν) by O(M/T) requires the full inversion
+--   formula to avoid the O(1) error from the μ-side of the triangle inequality.
+-- proof sketch: D(y) = Cesàro(y) + R(y) where |Cesàro(y)| ≤ I/(2π) (cesaro_fourier_bound)
+--   and |R(y)| ≤ 24M/(πT) (Lévy inversion + Lipschitz control on ν).
+-- estimated effort: A-grade, ~300 lines (Lévy inversion formula + remainder analysis)
 private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     {M : ℝ} (hM : 0 < M)
@@ -1316,7 +1317,66 @@ private lemma esseen_smoothing_ineq
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
       24 * M / (Real.pi * T) := by
-  sorry
+  have hI_nn := charFun_integral_nonneg μ ν T
+  have hcdf := abs_cdf_sub_le_one μ ν y
+  have hpi := Real.pi_pos
+  -- The CDF of ν is M-Lipschitz
+  have hG_lip : ∀ a b : ℝ, a ≤ b → cdf ν b - cdf ν a ≤ M * (b - a) :=
+    cdf_lipschitz_of_density_bound ν hM hν_density
+  -- Key: Lipschitz regularity of Δ. For t ≥ 0:
+  -- Δ(y+t) ≥ Δ(y) - Mt because F(y+t) ≥ F(y) and G(y+t) ≤ G(y) + Mt
+  have hΔ_reg : ∀ t : ℝ, 0 ≤ t → cdf μ (y + t) - cdf ν (y + t) ≥
+      (cdf μ y - cdf ν y) - M * t := by
+    intro t ht
+    have hF_mono : cdf μ y ≤ cdf μ (y + t) := monotone_cdf μ (le_add_of_nonneg_right ht)
+    have hG_lip_t : cdf ν (y + t) - cdf ν y ≤ M * t := by
+      have h1 := hG_lip y (y + t) (le_add_of_nonneg_right ht)
+      linarith
+    linarith
+  -- Similarly for the other direction: Δ(y-t) ≤ Δ(y) + Mt
+  -- (F(y-t) ≤ F(y) and G(y-t) ≥ G(y) - Mt)
+  have hΔ_reg' : ∀ t : ℝ, 0 ≤ t → cdf μ y - cdf ν y ≤
+      (cdf μ (y + t) - cdf ν (y + t)) + M * t := by
+    intro t ht; linarith [hΔ_reg t ht]
+  -- Case split: if |Δ(y)| ≤ 24M/(πT), trivially ≤ RHS
+  set D := cdf μ y - cdf ν y with hD_def
+  by_cases hD_small : |D| ≤ 24 * M / (Real.pi * T)
+  · calc |D| ≤ 24 * M / (Real.pi * T) := hD_small
+      _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
+            ‖charFun μ t - charFun ν t‖ / |t|) +
+          24 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
+  · -- Case |Δ(y)| > 24M/(πT). Need genuine bound.
+    push_neg at hD_small
+    -- The proof uses the "friendly proof" approach (arXiv:2602.06234):
+    -- (a) Lipschitz regularity of Δ: For t ≥ 0, Δ(y+t) ≥ Δ(y) - Mt.
+    --     This is proved above as `hΔ_reg`.
+    -- (b) Averaging: Let η = |D|/(2M). Then on [y, y+η], Δ ≥ |D|/2.
+    --     Average Δ over [y, y+η]: E ≥ |D| - Mη/2 = 3|D|/4.
+    -- (c) Fourier bound on the averaged CDF difference:
+    --     E = (1/η) ∫_y^{y+η} Δ(u) du.
+    --     By Fubini + CDF inversion (averaging introduces a sinc factor):
+    --     E = (1/(2π)) ∫_ℝ [f̂(s)-ĝ(s)] · sinc(ηs/2) · e^{-iy's}/(-is) ds
+    --     Split into [-T,T] and tail:
+    --     |E| ≤ I/(2π) + 2/(πηT)  (tail: |f̂-ĝ| ≤ 2, |sinc| ≤ 1, ∫ 1/s² = 2/T)
+    -- (d) Combine: 3|D|/4 ≤ I/(2π) + 4M/(π|D|T)
+    --     Since |D| > 24M/(πT): 4M/(π|D|T) < 4/(24) = 1/6
+    --     So |D| < (4/3)[I/(2π) + 1/6] = 2I/(3π) + 2/9
+    --     Also |D| ≤ 1, so |D| ≤ min(1, 2I/(3π) + 2/9)
+    --     For I < π: 2I/(3π) < 2/3 and 2/3 + 2/9 = 8/9 < 1. ✓
+    -- (e) Need to show 2I/(3π) + 2/9 ≤ I/π + 24M/(πT).
+    --     I.e., 2/9 ≤ I/(3π) + 24M/(πT).
+    --     Since I ≥ 0 and M/(πT) > 0, this holds when 2/9 ≤ 24M/(πT),
+    --     i.e., T ≤ 108M/π. For T > 108M/π, need I/(3π) ≥ 2/9 - 24M/(πT).
+    --     This requires a more refined analysis of the Fourier integral.
+    --
+    -- TODO: Full implementation requires building the Fejér CDF infrastructure:
+    --   1. sinc² integral: ∫_ℝ sin²(u)/u² du = π (from IBP + abel_sinc_integral)
+    --   2. Fejér kernel: K_F(x) = (2/(πT)) sin²(Tx/2)/x² ≥ 0, ∫ K_F = 1
+    --   3. Fejér CDF: Ψ_F monotone, 0 ≤ Ψ_F ≤ 1, Ψ_F(0) = 1/2
+    --   4. Bracket: H(u) ≤ Ψ_F(u+a) + (1-Ψ_F(a)) for all u, a > 0
+    --   5. Fubini: ∫ Ψ_F(y-x) d(μ-ν) = Cesàro integral ≤ I/(2π)
+    --   6. Averaging + tail control to get the O(M/T) bound
+    sorry
 
 /-- **Esseen's Fourier-analytic CDF bound.**
 
