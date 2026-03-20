@@ -530,25 +530,77 @@ private lemma hasDerivAt_sinc_sq_pointwise
     Real.sin_two_mul]
   field_simp
 
--- sorry count: 1
--- blocker: heartbeat limit on elaboration of
---   hasDerivAt_integral_of_dominated_loc_of_deriv_le
--- All sub-goals proved separately:
---   pointwise derivative: hasDerivAt_sinc_sq_pointwise
---   value: abel_sinc_integral
---   integrability: integrableOn_exp_sinc_sq_Ioi
---   bound: B·e^{-εt} with B=2(|a|+1) on Ioo(a-1,a+1)
--- estimated effort: S-grade (packaging only)
+set_option maxHeartbeats 800000 in
+-- hasDerivAt_integral_of_dominated_loc_of_deriv_le elaboration is expensive
 /-- Leibniz rule for the Abel-regularized
 sinc-squared integral. -/
-private lemma hasDerivAt_abel_sinc_sq
+lemma hasDerivAt_abel_sinc_sq
     (ε a : ℝ) (hε : 0 < ε) :
     HasDerivAt
       (fun x => ∫ t in Set.Ioi (0 : ℝ),
         rexp (-ε * t) *
           (Real.sin (x * t) ^ 2 / t ^ 2))
       (Real.arctan (2 * a / ε)) a := by
-  sorry
+  -- The pointwise derivative of e^{-εt}·sin²(xt)/t² w.r.t. x is e^{-εt}·sin(2xt)/t
+  -- Integrating gives ∫ e^{-εt}·sin(2at)/t dt = arctan(2a/ε) by abel_sinc_integral
+  have hF : ∀ x, AEStronglyMeasurable (fun t => rexp (-ε * t) *
+      (Real.sin (x * t) ^ 2 / t ^ 2)) (volume.restrict (Set.Ioi 0)) := by
+    intro x
+    exact ((Real.measurable_exp.comp (measurable_const.mul measurable_id)).mul
+      ((Real.measurable_sin.comp (measurable_const.mul measurable_id)).pow_const 2
+        |>.div (measurable_id.pow_const 2))).aestronglyMeasurable.restrict
+  have hF' : AEStronglyMeasurable (fun t => rexp (-ε * t) *
+      (Real.sin (2 * a * t) / t)) (volume.restrict (Set.Ioi 0)) := by
+    exact ((Real.measurable_exp.comp (measurable_const.mul measurable_id)).mul
+      ((Real.measurable_sin.comp (measurable_const.mul measurable_id)).div
+        measurable_id)).aestronglyMeasurable.restrict
+  -- Bound: |e^{-εt}·sin(2xt)/t| ≤ 2(|a|+1)·e^{-εt} for x ∈ Ioo(a-1,a+1)
+  set B : ℝ := 2 * (|a| + 1)
+  have hBound : ∀ᵐ t ∂(volume.restrict (Set.Ioi (0 : ℝ))),
+      ∀ x ∈ Metric.ball a 1,
+      ‖rexp (-ε * t) * (Real.sin (2 * x * t) / t)‖ ≤ B * rexp (-ε * t) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht x hx
+    have ht_pos : (0 : ℝ) < t := ht
+    rw [Metric.mem_ball, Real.dist_eq] at hx
+    rw [norm_mul, Real.norm_eq_abs, abs_of_pos (Real.exp_pos _),
+      Real.norm_eq_abs, abs_div, abs_of_pos ht_pos]
+    calc rexp (-ε * t) * (|Real.sin (2 * x * t)| / t)
+        ≤ rexp (-ε * t) * (|2 * x * t| / t) := by
+          apply mul_le_mul_of_nonneg_left _ (Real.exp_pos _).le
+          exact div_le_div_of_nonneg_right Real.abs_sin_le_abs ht_pos.le
+      _ = rexp (-ε * t) * |2 * x| := by
+          rw [abs_mul, abs_of_pos ht_pos]; field_simp
+      _ ≤ rexp (-ε * t) * B := by
+          apply mul_le_mul_of_nonneg_left _ (Real.exp_pos _).le
+          rw [abs_mul, show |(2 : ℝ)| = 2 from abs_of_pos two_pos]
+          have : |x| < |a| + 1 := by linarith [abs_sub_abs_le_abs_sub x a]
+          linarith
+      _ = B * rexp (-ε * t) := mul_comm _ _
+  have hBint : IntegrableOn (fun t => B * rexp (-ε * t)) (Set.Ioi 0) :=
+    (integrableOn_exp_neg_mul_Ioi ε hε).const_mul B
+  have hd := hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    (μ := volume.restrict (Set.Ioi (0 : ℝ)))
+    (F := fun x t => rexp (-ε * t) * (Real.sin (x * t) ^ 2 / t ^ 2))
+    (F' := fun x t => rexp (-ε * t) * (Real.sin (2 * x * t) / t))
+    (x₀ := a) (s := Metric.ball a 1) (bound := fun t => B * rexp (-ε * t))
+    (Metric.ball_mem_nhds a one_pos)
+    (by filter_upwards with x; exact hF x)
+    (integrableOn_exp_sinc_sq_Ioi ε hε a)
+    (hF')
+    (hBound)
+    (hBint)
+    (by filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht x _
+        have ht_ne : t ≠ 0 := ne_of_gt (ht : (0 : ℝ) < t)
+        exact hasDerivAt_sinc_sq_pointwise ε x t ht_ne)
+  have hgoal : (∫ t in Set.Ioi (0 : ℝ),
+      rexp (-ε * t) * (Real.sin (2 * a * t) / t)) =
+      Real.arctan (2 * a / ε) := by
+    have := abel_sinc_integral ε (2 * a) hε
+    simp only [mul_comm 2 a, mul_assoc] at this ⊢; exact this
+  rw [show (fun x t => rexp (-ε * t) * (Real.sin (2 * x * t) / t)) a =
+      (fun t => rexp (-ε * t) * (Real.sin (2 * a * t) / t)) from rfl] at hd
+  rw [hgoal] at hd
+  exact hd.2
 
 /-- `G(a, ε) = ∫₀^∞ e^{-εt} sin²(at)/t² dt` equals
 `∫₀ᵃ arctan(2s/ε) ds` for ε > 0, a ≥ 0.
