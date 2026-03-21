@@ -161,6 +161,26 @@ API 名错误修复: build 报 unknown identifier 时:
 
 每证完一个子引理立即写入 .lean 文件并验证，不要攒到最后。
 如果 stuck，sorry 暂留并继续下一个子引理，不要停下来分析。
+
+Mathlib API 搜索顺序（逐级升级，不跳级）:
+  0. 路线 key_api → `grep -i '<name>' theme/mathlib_full_type_index.tsv`
+  1. `grep -i '<keyword>' theme/statlean_api_index.tsv` + `theme/mathlib_full_type_index.tsv`
+  2. `echo '#check @Name' | lake env lean --stdin` 或 `exact?`
+  3. grep Mathlib 源码（必须注明"索引无此条目，升级到 grep"）
+
+proof_knowledge 匹配（写代码前先做）:
+  `grep -i '<goal关键词>' theme/proof_knowledge.yaml`
+  匹配到 → 按 strategy 执行。匹配到 anti:true → 跳过该路线。
+
+发现死路或 FALSE 声明 → 立即写 anti-pattern 到 /tmp/new_knowledge.yaml:
+  ```yaml
+  new_knowledge:
+    - level: L3
+      trigger: "<goal 形状>"
+      anti: true
+      strategy: "DO NOT <路线>. <原因>."
+      confidence: 4
+  ```
 ```
 
 **段 2: sorry 上下文（由主会话提供，agent 不需要自己 Read）**
