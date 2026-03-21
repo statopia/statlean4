@@ -267,12 +267,22 @@ Agent 返回后根据结果调整：
 - ✅ build 次数上限
 - ✅ "先 extract_signatures.py 获取索引。禁止 Read >50 行。"
 
-**Agent 返回后的强制检查**：
-1. 检查 sorry 数是否减少（`grep -c ' sorry$' <file>`）
-2. 检查 build 是否通过（`lake build <module>`）
-3. 如果 sorry 未减少且 stuck_rounds ≥ 3 → 触发 R6
-4. 如果 sorry 未减少且 stuck_rounds ≥ 5 → 触发反例搜索
-5. **核心指标**：agent 成功 = sorry 数减少。sorry 不变 = 该轮浪费（无论分析多精彩）
+**Agent 前后的自动化检查（用脚本代替记忆）**：
+
+**启动前**：`bash scripts/agent_workflow.sh pre <file> <sorry_line>`
+- 自动提取 sorry 上下文、搜索 proof_knowledge、检查 stuck_rounds
+- 输出直接 paste 到 agent prompt 段 2
+
+**返回后**：`bash scripts/agent_workflow.sh post <file> <之前的sorry数>`
+- 自动检查 sorry 变化、分类复杂度、提示下一步
+
+**sorry 减少后**：`bash scripts/agent_workflow.sh commit <file> '<message>'`
+- 自动 build + commit（build 失败则阻止 commit）
+
+**sorry 未减少**：`bash scripts/agent_workflow.sh stuck <sorry_id>`
+- 自动增加 stuck_rounds、检查 R6/反例搜索触发条件
+
+**核心指标**：agent 成功 = sorry 数减少。sorry 不变 = 该轮浪费。
 
 ---
 
