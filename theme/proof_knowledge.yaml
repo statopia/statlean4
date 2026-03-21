@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 115
+entry_count: 117
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -183,6 +183,14 @@ L3_strategies:
     workflow: "1. AEStronglyMeasurable of product via hprod.aestronglyMeasurable.mul hg.comp_snd; 2. ae-slice condition from hprod.prod_left_ae + .mul_const; 3. norm-integral = ∫h·|g| via integral_mul_const + simp; 4. (integrable_prod_iff' hG_aesm).mpr ⟨cond1, cond2⟩; 5. .prod_right_ae"
     key_api: ["integrable_prod_iff'", 'Integrable.prod_right_ae', 'Integrable.prod_left_ae', 'integral_mul_const']
     source: DPI entropy_convex_mixture hcross_int
+    confidence: 5
+
+  - trigger: "sSup |D| ≤ I/π + C·M/T via bracket"
+    strategy: "DO NOT use Fejér bracket to prove |D| ≤ (1/π)I + CM/T. Bracket gives 1/(2π) coefficient + additive constant 1/3 from tail 2(1-Ψ_F(a)). The 1/3 CANNOT be absorbed when I and M/T are both small. Must use integral method (Durrett) or Fourier inversion instead."
+    confidence: 5
+
+  - trigger: "esseen smoothing ineq I < 2π/3 case"
+    strategy: "DO NOT try variable-a bracket (a=S/(4M)) for the I < 2π/3 case. Quadratic bound S² ≤ SI/π + 32M/(πT) is too weak when I/π + 48M/(πT) < 2/3. Algebraically proven impossible."
     confidence: 5
 
 # ═══════════════════════════════════════════

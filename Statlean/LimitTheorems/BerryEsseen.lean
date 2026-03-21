@@ -1843,6 +1843,8 @@ private lemma fejer_kernel_cdf_identity
     · ring
   simp_rw [heq, integral_const_mul, integral_indicator_one measurableSet_Iic, cdf_eq_real]
 
+-- reason: uses set I / set Δ / set c / set z₁ causing many isDefEq checks in linarith
+set_option maxHeartbeats 800000 in
 /-- **Fejér CDF inversion remainder bound** (Esseen 1945).
 
 For probability measures `μ`, `ν` where `ν` has `M`-Lipschitz CDF, the CDF
@@ -2038,10 +2040,404 @@ private lemma esseen_smoothing_ineq
         have hS_pos : 0 < S := lt_of_lt_of_le (by positivity) hS_small.le
         -- Prove: S ≤ I/π + 48M/(πT), then transfer to all z.
         have hS_bound : S ≤ 1 / Real.pi * I + 48 * M / (Real.pi * T) := by
-          -- The sSup argument: at any near-argmax, the Fejér convolution gives
-          -- S/2 - 24M/(πT) ≤ I/(2π), so S ≤ I/π + 48M/(πT).
-          -- This uses fejer_convolution_bound + one-sided regularity + |D| ≤ S.
-          sorry
+          -- The shifted-argmax argument: pick near-argmax z₀, shift by Δ=S/(4M),
+          -- lower-bound ∫ K(v)*D(z₁-v) dv ≥ S/2-ε-24M/(πT) using:
+          --   (a) D(z₁-v) ≥ S/2-ε on [-Δ,Δ] by one-sided regularity
+          --   (b) D(z₁-v) ≥ -S everywhere, so ∫_compl K*D ≥ -S*∫_compl K
+          --   (c) ∫_compl K ≤ 4/(πTΔ) = 16M/(πTS), so (3S/2)*∫_compl K ≤ 24M/(πT)
+          -- Upper-bound by fejer_convolution_bound: ∫ K*D ≤ I/(2π)
+          -- Conclude: S/2-ε-24M/(πT) ≤ I/(2π), so S ≤ I/π+48M/(πT)+2ε
+          -- Take ε→0.
+          -- Integrability of the charfun ratio (needed for fejer_convolution_bound):
+          have hint : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
+              (Set.Icc (-T) T) := by
+            -- This follows from finite first moments of μ and ν. The bounded-density
+            -- condition on ν gives E_ν[|X|] < ∞, which combined with |e^{itX}-1| ≤ |t||X|
+            -- gives |charFun ν t - 1| ≤ |t|*E_ν[|X|], hence the ratio is O(1).
+            -- For μ, no moment condition is stated here; a sorry is warranted until
+            -- esseen_smoothing_ineq adds an integrability hypothesis.
+            sorry
+          -- Set Δ = S/(4M): the shift parameter
+          set Δ := S / (4 * M) with hΔ_def
+          have hΔ_pos : 0 < Δ := by positivity
+          -- Tail bound: ∫_(Icc(-Δ,Δ))ᶜ K ≤ 4/(πTΔ) = 16M/(πTS)
+          have h_tail_compl : ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ≤
+              4 / (Real.pi * T * Δ) := by
+            have hfin := fejerKernel_integrable hT
+            have h_right : ∫ v in Set.Ioi Δ, fejerKernel T v = 1 - fejerCDF T Δ := by
+              have hsum := integral_add_compl (s := Set.Iic Δ) measurableSet_Iic hfin
+              rw [fejerKernel_integral_one hT] at hsum
+              have hIoi : ∫ v in Set.Ioi Δ, fejerKernel T v =
+                  ∫ v in (Set.Iic Δ)ᶜ, fejerKernel T v := by
+                apply setIntegral_congr_set; apply Filter.EventuallyEq.symm
+                rw [Filter.eventuallyEq_set]; filter_upwards with v; simp [Set.mem_Ioi]
+              rw [hIoi]
+              linarith [show fejerCDF T Δ = ∫ v in Set.Iic Δ, fejerKernel T v from rfl]
+            have h_left_eq : ∫ v in Set.Iio (-Δ), fejerKernel T v =
+                ∫ v in Set.Ioi Δ, fejerKernel T v := by
+              have hcov : ∀ (g : ℝ → ℝ), ∫ (x : ℝ) in Neg.neg '' Set.Ioi Δ, g x =
+                  ∫ (x : ℝ) in Set.Ioi Δ, g (-x) := fun g => by
+                have := integral_image_eq_integral_deriv_smul_of_antitone
+                  (s := Set.Ioi Δ) (f := Neg.neg) (f' := fun _ => -1) (g := g)
+                  measurableSet_Ioi (fun x _ => (hasDerivAt_neg x).hasDerivWithinAt)
+                  (fun x _ y _ hxy => by simp; linarith)
+                simp only [neg_neg, one_smul] at this; exact this
+              rw [show Set.Iio (-Δ) = Neg.neg '' Set.Ioi Δ by
+                ext v; simp only [Set.mem_Iio, Set.mem_image, Set.mem_Ioi]
+                exact ⟨fun h => ⟨-v, by linarith, neg_neg v⟩,
+                       fun ⟨w, hw, hwv⟩ => by rw [← hwv]; linarith⟩]
+              rw [hcov (fejerKernel T)]; congr 1; ext v; exact fejerKernel_neg T v
+            have hcompl_eq : (Set.Icc (-Δ) Δ)ᶜ = Set.Iio (-Δ) ∪ Set.Ioi Δ := by
+              ext v
+              simp only [Set.mem_compl_iff, Set.mem_Icc, Set.mem_union, Set.mem_Iio,
+                         Set.mem_Ioi, not_and_or, not_le]
+            have hdisj : Disjoint (Set.Iio (-Δ)) (Set.Ioi Δ) :=
+              Set.disjoint_left.mpr fun v h1 h2 => by
+                simp [Set.mem_Iio, Set.mem_Ioi] at h1 h2; linarith
+            rw [hcompl_eq, setIntegral_union hdisj measurableSet_Ioi
+                hfin.integrableOn hfin.integrableOn, h_left_eq, h_right]
+            have htail := fejerCDF_tail_bound hT hΔ_pos
+            calc (1 - fejerCDF T Δ) + (1 - fejerCDF T Δ)
+                ≤ 2 / (Real.pi * T * Δ) + 2 / (Real.pi * T * Δ) := by linarith
+              _ = 4 / (Real.pi * T * Δ) := by ring
+          -- 4/(πTΔ) = 16M/(πTS): tail bound in terms of M, T, S
+          have h_tail_val : 4 / (Real.pi * T * Δ) = 16 * M / (Real.pi * T * S) := by
+            rw [hΔ_def]; field_simp; ring
+          -- Kernel integrates to 1 on Icc + compl
+          have h_Icc_int_eq : ∫ v in Set.Icc (-Δ) Δ, fejerKernel T v =
+              1 - ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v := by
+            have := integral_add_compl (s := Set.Icc (-Δ) Δ)
+              measurableSet_Icc (fejerKernel_integrable hT)
+            rw [fejerKernel_integral_one hT] at this; linarith
+          -- For any ε > 0, derive S ≤ 1/π*I + 48M/(πT) + 2ε
+          rw [← sub_le_iff_le_add]
+          apply le_of_forall_pos_le_add
+          intro ε hε
+          -- Get near-argmax z₀ with |D(z₀)| > S - ε/2
+          have hS_lt_sup : S - ε / 2 < iSup (fun z => |cdf μ z - cdf ν z|) := by
+            linarith [show S = iSup (fun z => |cdf μ z - cdf ν z|) from hS_def.symm]
+          obtain ⟨z₀, hz₀⟩ := exists_lt_of_lt_ciSup hS_lt_sup
+          -- z₀ satisfies |D(z₀)| > S - ε/2
+          -- Case split on sign of D(z₀)
+          by_cases hD_pos : 0 ≤ cdf μ z₀ - cdf ν z₀
+          · -- Positive case: D(z₀) ≥ S - ε/2 > 0. Shift right: z₁ = z₀ + Δ.
+            have hDz₀_lb : S - ε / 2 < cdf μ z₀ - cdf ν z₀ := by
+              rw [abs_of_nonneg hD_pos] at hz₀; linarith
+            set z₁ := z₀ + Δ
+            -- Regularity: for v ∈ [-Δ, Δ], D(z₁-v) = D(z₀ + (Δ-v)) ≥ D(z₀) - M*(Δ-v) ≥ S/2-ε/2
+            have hD_Icc_lb : ∀ v ∈ Set.Icc (-Δ) Δ,
+                S / 2 - ε / 2 ≤ cdf μ (z₁ - v) - cdf ν (z₁ - v) := by
+              intro v hv
+              have hv_range := Set.mem_Icc.mp hv
+              -- z₁ - v = z₀ + (Δ - v), and Δ - v ∈ [0, 2Δ]
+              have h_shift : z₁ - v = z₀ + (Δ - v) := by ring
+              rw [h_shift]
+              have hΔv_nn : 0 ≤ Δ - v := by linarith [hv_range.2]
+              -- cdf μ (z₀ + (Δ-v)) ≥ cdf μ z₀ (monotone)
+              have hF_mono : cdf μ z₀ ≤ cdf μ (z₀ + (Δ - v)) :=
+                monotone_cdf μ (le_add_of_nonneg_right hΔv_nn)
+              -- cdf ν (z₀ + (Δ-v)) ≤ cdf ν z₀ + M*(Δ-v) (M-Lipschitz)
+              have hG_lip_local : cdf ν (z₀ + (Δ - v)) - cdf ν z₀ ≤ M * (Δ - v) := by
+                have h1 := hG_lip z₀ (z₀ + (Δ - v)) (le_add_of_nonneg_right hΔv_nn)
+                linarith
+              -- D(z₀ + (Δ-v)) ≥ D(z₀) - M*(Δ-v) ≥ (S-ε/2) - M*2Δ = S/2-ε/2
+              have hMΔ : M * (Δ - v) ≤ M * (2 * Δ) := by
+                apply mul_le_mul_of_nonneg_left _ hM.le
+                linarith [hv_range.1]
+              have h2Δ : M * (2 * Δ) = S / 2 := by
+                rw [hΔ_def]; field_simp; ring
+              linarith
+            -- The kernel-weighted integral of D at z₁ is well-defined
+            -- ∫ K(v) * D(z₁-v) dv = ∫ fejerCDF(z₁-x) dμ - ∫ fejerCDF(z₁-x) dν
+            -- (by fejer_kernel_cdf_identity, using mul_bdd for integrability)
+            have hK_cdfμ_int : Integrable (fun v => fejerKernel T v * cdf μ (z₁ - v)) :=
+              (fejerKernel_integrable hT).mul_bdd
+                ((cdf μ).mono.measurable.comp (measurable_const.sub measurable_id)
+                 |>.aestronglyMeasurable)
+                (Filter.Eventually.of_forall fun v => by
+                  simp only [Real.norm_eq_abs]; rw [abs_le]
+                  exact ⟨by linarith [cdf_nonneg μ (z₁-v)], cdf_le_one μ (z₁-v)⟩)
+            have hK_cdfν_int : Integrable (fun v => fejerKernel T v * cdf ν (z₁ - v)) :=
+              (fejerKernel_integrable hT).mul_bdd
+                ((cdf ν).mono.measurable.comp (measurable_const.sub measurable_id)
+                 |>.aestronglyMeasurable)
+                (Filter.Eventually.of_forall fun v => by
+                  simp only [Real.norm_eq_abs]; rw [abs_le]
+                  exact ⟨by linarith [cdf_nonneg ν (z₁-v)], cdf_le_one ν (z₁-v)⟩)
+            have h_conv_eq : ∫ x, fejerCDF T (z₁ - x) ∂μ - ∫ x, fejerCDF T (z₁ - x) ∂ν =
+                ∫ v, fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) := by
+              rw [fejer_kernel_cdf_identity μ hT z₁, fejer_kernel_cdf_identity ν hT z₁,
+                  ← integral_sub hK_cdfμ_int hK_cdfν_int]
+              congr 1; ext v; ring
+            -- Upper bound via fejer_convolution_bound: ≤ I/(2π)
+            have h_upper_bound :
+                ∫ v, fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) ≤
+                1 / (2 * Real.pi) * I := by
+              rw [← h_conv_eq]
+              have hfcb := fejer_convolution_bound μ ν T hT z₁ hint
+              rw [hI_def]
+              linarith [le_abs_self (∫ x, fejerCDF T (z₁ - x) ∂μ -
+                ∫ x, fejerCDF T (z₁ - x) ∂ν)]
+            -- Integrability of K * D(z₁-·) over ℝ (by difference of K*cdf μ and K*cdf ν)
+            have hKD_int : Integrable (fun v => fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v))) := by
+              have : (fun v => fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v))) =
+                  fun v => fejerKernel T v * cdf μ (z₁ - v) - fejerKernel T v * cdf ν (z₁ - v) := by
+                ext; ring
+              rw [this]; exact hK_cdfμ_int.sub hK_cdfν_int
+            -- Lower bound: (S/2-ε/2)*∫_Icc K ≤ ∫_Icc K*D
+            have h_lower_Icc : (S / 2 - ε / 2) * ∫ v in Set.Icc (-Δ) Δ, fejerKernel T v ≤
+                ∫ v in Set.Icc (-Δ) Δ, fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) := by
+              rw [show (S / 2 - ε / 2) * ∫ v in Set.Icc (-Δ) Δ, fejerKernel T v =
+                  ∫ v in Set.Icc (-Δ) Δ, (S / 2 - ε / 2) * fejerKernel T v by
+                rw [← integral_const_mul (μ := volume.restrict (Set.Icc (-Δ) Δ))]]
+              apply setIntegral_mono_on
+              · exact (fejerKernel_integrable hT).integrableOn.const_mul _
+              · exact hKD_int.integrableOn
+              · exact measurableSet_Icc
+              · intro v hv
+                nlinarith [fejerKernel_nonneg hT v, hD_Icc_lb v hv]
+            -- Lower bound: -(S*∫_compl K) ≤ ∫_compl K*D
+            have h_lower_compl : -(S * ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v) ≤
+                ∫ v in (Set.Icc (-Δ) Δ)ᶜ,
+                  fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) := by
+              rw [show -(S * ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v) =
+                  ∫ v in (Set.Icc (-Δ) Δ)ᶜ, (-S) * fejerKernel T v by
+                rw [← integral_const_mul (μ := volume.restrict (Set.Icc (-Δ) Δ)ᶜ)]
+                ring_nf; rw [integral_neg]]
+              apply setIntegral_mono_on
+              · exact (fejerKernel_integrable hT).integrableOn.const_mul _
+              · exact hKD_int.integrableOn
+              · exact measurableSet_Icc.compl
+              · intro v _
+                nlinarith [fejerKernel_nonneg hT v,
+                           neg_abs_le (cdf μ (z₁ - v) - cdf ν (z₁ - v)),
+                           hDz_le_S (z₁ - v)]
+            -- (3S/2)*∫_compl K ≤ 24M/(πT)
+            have h_S_tail : (3 * S / 2) * ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ≤
+                24 * M / (Real.pi * T) := by
+              calc (3 * S / 2) * ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v
+                  ≤ (3 * S / 2) * (4 / (Real.pi * T * Δ)) :=
+                    mul_le_mul_of_nonneg_left h_tail_compl (by linarith [hS_pos.le])
+                _ = (3 * S / 2) * (16 * M / (Real.pi * T * S)) := by rw [h_tail_val]
+                _ = 24 * M / (Real.pi * T) := by field_simp; ring
+            -- Conclude: S/2-ε/2 - (3S/2)*∫_compl K ≤ ∫ K*D ≤ I/(2π)
+            -- → S/2-ε/2 ≤ I/(2π) + 24M/(πT) → S ≤ I/π + 48M/(πT) + ε
+            have hc_nn : 0 ≤ ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v :=
+              setIntegral_nonneg measurableSet_Icc.compl fun v _ => fejerKernel_nonneg hT v
+            have h_double : 2 * (1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T)) =
+                1 / Real.pi * I + 48 * M / (Real.pi * T) := by
+              field_simp; ring
+            -- Use ∂ℙ-annotated forms to bridge integral_add_compl with other hypotheses.
+            -- (integral_add_compl gives ∂ℙ; bridges via `exact h` work for no-annot → ∂ℙ)
+            have h_split :
+                (∫ v in Set.Icc (-Δ) Δ,
+                  fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) ∂ℙ) +
+                ∫ v in (Set.Icc (-Δ) Δ)ᶜ,
+                  fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) ∂ℙ =
+                ∫ v, fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) ∂ℙ :=
+              integral_add_compl (s := Set.Icc (-Δ) Δ) measurableSet_Icc hKD_int
+            have h_ub_p : ∫ v, fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) ∂ℙ ≤
+                1 / (2 * Real.pi) * I := h_upper_bound
+            have h_low_Icc_p : (S / 2 - ε / 2) *
+                (∫ v in Set.Icc (-Δ) Δ, fejerKernel T v ∂ℙ) ≤
+                ∫ v in Set.Icc (-Δ) Δ,
+                  fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) ∂ℙ := h_lower_Icc
+            have h_low_compl_p : -(S * (∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ)) ≤
+                ∫ v in (Set.Icc (-Δ) Δ)ᶜ,
+                  fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) ∂ℙ := h_lower_compl
+            have h_S_tail_p : (3 * S / 2) *
+                (∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ) ≤
+                24 * M / (Real.pi * T) := h_S_tail
+            have h_Icc_p : (∫ v in Set.Icc (-Δ) Δ, fejerKernel T v ∂ℙ) =
+                1 - (∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ) := h_Icc_int_eq
+            have hc_nn_p : 0 ≤ (∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ) := hc_nn
+            -- Let c = ∫_Iccᶜ K ∂ℙ for brevity
+            set c := ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ with hc_def
+            -- h_Icc_p: ∫_Icc K = 1-c, so h_low_Icc_p gives (S/2-ε/2)*(1-c) ≤ ∫_Icc KD
+            have h_low_Icc_sub : (S / 2 - ε / 2) * (1 - c) ≤
+                ∫ v in Set.Icc (-Δ) Δ,
+                  fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) ∂ℙ := by
+              have := h_low_Icc_p; rw [h_Icc_p] at this; exact this
+            -- Combined lower bound: (S/2-ε/2)*(1-c) - S*c ≤ ∫ KD
+            have h_lb_combined :
+                (S / 2 - ε / 2) * (1 - c) - S * c ≤
+                ∫ v, fejerKernel T v * (cdf μ (z₁ - v) - cdf ν (z₁ - v)) ∂ℙ := by
+              rw [← h_split]; linarith [h_low_Icc_sub, h_low_compl_p]
+            -- From lb+ub: (S/2-ε/2)*(1-c) - S*c ≤ I/(2π)
+            have h_key : (S / 2 - ε / 2) * (1 - c) - S * c ≤ 1 / (2 * Real.pi) * I :=
+              h_lb_combined.trans h_ub_p
+            -- Explicit sum: (S/2-ε/2)*(1-c) - S*c + (3S/2)*c ≤ I/(2π) + 24M/(πT)
+            have h_sum : (S / 2 - ε / 2) * (1 - c) - S * c + (3 * S / 2) * c ≤
+                1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) :=
+              add_le_add h_key h_S_tail_p
+            -- LHS simplifies via ring to S/2-ε/2+(ε/2)*c
+            have h_ring : (S / 2 - ε / 2) * (1 - c) - S * c + (3 * S / 2) * c =
+                S / 2 - ε / 2 + ε / 2 * c := by ring
+            -- So S/2-ε/2+(ε/2)*c ≤ I/(2π) + 24M/(πT)
+            have h_half_plus : S / 2 - ε / 2 + ε / 2 * c ≤
+                1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) := h_ring ▸ h_sum
+            -- Since (ε/2)*c ≥ 0: for conclusion S ≤ I/π + 48M/(πT) + ε
+            have hec_nn : (0 : ℝ) ≤ ε / 2 * c :=
+              mul_nonneg (by linarith) hc_nn_p
+            linarith [h_double, h_half_plus, hec_nn]
+          · -- Negative case: D(z₀) < 0, so -D(z₀) > S - ε/2. Shift left: z₁ = z₀ - Δ.
+            push_neg at hD_pos
+            have hDz₀_lb : S - ε / 2 < -(cdf μ z₀ - cdf ν z₀) := by
+              rw [abs_of_neg hD_pos] at hz₀; linarith only [hz₀]
+            set z₁ := z₀ - Δ
+            -- Regularity: for v ∈ [-Δ, Δ], -(D(z₁-v)) ≥ S/2-ε/2
+            have hD_Icc_lb : ∀ v ∈ Set.Icc (-Δ) Δ,
+                S / 2 - ε / 2 ≤ -(cdf μ (z₁ - v) - cdf ν (z₁ - v)) := by
+              intro v hv
+              have hv_range := Set.mem_Icc.mp hv
+              -- z₁ - v = z₀ - (Δ + v), and Δ + v ∈ [0, 2Δ]
+              have h_shift : z₁ - v = z₀ - (Δ + v) := by simp [z₁]; ring
+              rw [h_shift, neg_sub]
+              -- cdf ν (z₀ - (Δ+v)) ≥ cdf ν z₀ - M*(Δ+v) ... and cdf μ (z₀-(Δ+v)) ≤ cdf μ z₀
+              have hΔv_nn : 0 ≤ Δ + v := by linarith [hv_range.1]
+              have hF_mono : cdf μ (z₀ - (Δ + v)) ≤ cdf μ z₀ :=
+                monotone_cdf μ (by linarith)
+              have hG_lip_local : cdf ν z₀ - cdf ν (z₀ - (Δ + v)) ≤ M * (Δ + v) := by
+                have h1 := hG_lip (z₀ - (Δ + v)) z₀ (by linarith)
+                linarith
+              have hMΔ : M * (Δ + v) ≤ M * (2 * Δ) := by
+                apply mul_le_mul_of_nonneg_left _ hM.le
+                linarith [hv_range.2]
+              have h2Δ : M * (2 * Δ) = S / 2 := by rw [hΔ_def]; field_simp; ring
+              linarith
+            -- Integrability of K * (-D(z₁-·)) over ℝ (using mul_bdd)
+            have hK_cdfμ_int' : Integrable (fun v => fejerKernel T v * cdf μ (z₁ - v)) :=
+              (fejerKernel_integrable hT).mul_bdd
+                ((cdf μ).mono.measurable.comp (measurable_const.sub measurable_id)
+                 |>.aestronglyMeasurable)
+                (Filter.Eventually.of_forall fun v => by
+                  simp only [Real.norm_eq_abs]; rw [abs_le]
+                  exact ⟨by linarith [cdf_nonneg μ (z₁-v)], cdf_le_one μ (z₁-v)⟩)
+            have hK_cdfν_int' : Integrable (fun v => fejerKernel T v * cdf ν (z₁ - v)) :=
+              (fejerKernel_integrable hT).mul_bdd
+                ((cdf ν).mono.measurable.comp (measurable_const.sub measurable_id)
+                 |>.aestronglyMeasurable)
+                (Filter.Eventually.of_forall fun v => by
+                  simp only [Real.norm_eq_abs]; rw [abs_le]
+                  exact ⟨by linarith [cdf_nonneg ν (z₁-v)], cdf_le_one ν (z₁-v)⟩)
+            have hKD_int : Integrable
+                (fun v => fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v)))) := by
+              have : (fun v => fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v)))) =
+                  fun v => fejerKernel T v * cdf ν (z₁ - v) - fejerKernel T v * cdf μ (z₁ - v) := by
+                ext; ring
+              rw [this]; exact hK_cdfν_int'.sub hK_cdfμ_int'
+            have h_conv_eq : -(∫ x, fejerCDF T (z₁ - x) ∂μ - ∫ x, fejerCDF T (z₁ - x) ∂ν) =
+                ∫ v, fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) := by
+              rw [fejer_kernel_cdf_identity μ hT z₁, fejer_kernel_cdf_identity ν hT z₁,
+                  ← integral_sub hK_cdfμ_int' hK_cdfν_int', ← integral_neg]
+              congr 1; ext v; ring
+            -- Upper bound: -(conv) ≤ I/(2π)
+            have h_upper_bound :
+                ∫ v, fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) ≤
+                1 / (2 * Real.pi) * I := by
+              rw [← h_conv_eq]
+              have hfcb := fejer_convolution_bound μ ν T hT z₁ hint
+              rw [hI_def]
+              linarith [neg_abs_le (∫ x, fejerCDF T (z₁ - x) ∂μ -
+                ∫ x, fejerCDF T (z₁ - x) ∂ν)]
+            -- Lower bound: (S/2-ε/2)*∫_Icc K ≤ ∫_Icc K*(-D)
+            have h_lower_Icc : (S / 2 - ε / 2) * ∫ v in Set.Icc (-Δ) Δ, fejerKernel T v ≤
+                ∫ v in Set.Icc (-Δ) Δ,
+                  fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) := by
+              rw [show (S / 2 - ε / 2) * ∫ v in Set.Icc (-Δ) Δ, fejerKernel T v =
+                  ∫ v in Set.Icc (-Δ) Δ, (S / 2 - ε / 2) * fejerKernel T v by
+                rw [← integral_const_mul (μ := volume.restrict (Set.Icc (-Δ) Δ))]]
+              apply setIntegral_mono_on
+              · exact (fejerKernel_integrable hT).integrableOn.const_mul _
+              · exact hKD_int.integrableOn
+              · exact measurableSet_Icc
+              · intro v hv
+                nlinarith [fejerKernel_nonneg hT v, hD_Icc_lb v hv]
+            -- Lower bound: -(S*∫_compl K) ≤ ∫_compl K*(-D)
+            have h_lower_compl : -(S * ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v) ≤
+                ∫ v in (Set.Icc (-Δ) Δ)ᶜ,
+                  fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) := by
+              rw [show -(S * ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v) =
+                  ∫ v in (Set.Icc (-Δ) Δ)ᶜ, (-S) * fejerKernel T v by
+                rw [← integral_const_mul (μ := volume.restrict (Set.Icc (-Δ) Δ)ᶜ)]
+                ring_nf; rw [integral_neg]]
+              apply setIntegral_mono_on
+              · exact (fejerKernel_integrable hT).integrableOn.const_mul _
+              · exact hKD_int.integrableOn
+              · exact measurableSet_Icc.compl
+              · intro v _
+                -- Need (-S)*K ≤ K*(-(D)), i.e., D ≤ S (upper half of |D| ≤ S)
+                have hK := fejerKernel_nonneg hT v
+                have hD_ub : cdf μ (z₁ - v) - cdf ν (z₁ - v) ≤ S :=
+                  (abs_le.mp (hDz_le_S (z₁ - v))).2
+                nlinarith
+            -- (3S/2)*∫_compl K ≤ 24M/(πT)
+            have h_S_tail : (3 * S / 2) * ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ≤
+                24 * M / (Real.pi * T) := by
+              calc (3 * S / 2) * ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v
+                  ≤ (3 * S / 2) * (4 / (Real.pi * T * Δ)) :=
+                    mul_le_mul_of_nonneg_left h_tail_compl (by linarith [hS_pos.le])
+                _ = (3 * S / 2) * (16 * M / (Real.pi * T * S)) := by rw [h_tail_val]
+                _ = 24 * M / (Real.pi * T) := by field_simp; ring
+            -- Conclude: S/2-ε/2 - (3S/2)*∫_compl K ≤ ∫ K*(-D) ≤ I/(2π)
+            -- → S ≤ I/π + 48M/(πT) + ε
+            have hc_nn : 0 ≤ ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v :=
+              setIntegral_nonneg measurableSet_Icc.compl fun v _ => fejerKernel_nonneg hT v
+            have h_double : 2 * (1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T)) =
+                1 / Real.pi * I + 48 * M / (Real.pi * T) := by
+              field_simp; ring
+            -- Use ∂ℙ-annotated forms to bridge integral_add_compl with other hypotheses.
+            have h_split :
+                (∫ v in Set.Icc (-Δ) Δ,
+                  fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) ∂ℙ) +
+                ∫ v in (Set.Icc (-Δ) Δ)ᶜ,
+                  fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) ∂ℙ =
+                ∫ v, fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) ∂ℙ :=
+              integral_add_compl (s := Set.Icc (-Δ) Δ) measurableSet_Icc hKD_int
+            have h_ub_p : ∫ v, fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) ∂ℙ ≤
+                1 / (2 * Real.pi) * I := h_upper_bound
+            have h_low_Icc_p : (S / 2 - ε / 2) *
+                (∫ v in Set.Icc (-Δ) Δ, fejerKernel T v ∂ℙ) ≤
+                ∫ v in Set.Icc (-Δ) Δ,
+                  fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) ∂ℙ := h_lower_Icc
+            have h_low_compl_p : -(S * (∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ)) ≤
+                ∫ v in (Set.Icc (-Δ) Δ)ᶜ,
+                  fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) ∂ℙ := h_lower_compl
+            have h_S_tail_p : (3 * S / 2) *
+                (∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ) ≤
+                24 * M / (Real.pi * T) := h_S_tail
+            have h_Icc_p : (∫ v in Set.Icc (-Δ) Δ, fejerKernel T v ∂ℙ) =
+                1 - (∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ) := h_Icc_int_eq
+            have hc_nn_p : 0 ≤ (∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ) := hc_nn
+            -- Let c = ∫_Iccᶜ K ∂ℙ for brevity
+            set c := ∫ v in (Set.Icc (-Δ) Δ)ᶜ, fejerKernel T v ∂ℙ with hc_def
+            -- h_Icc_p: ∫_Icc K = 1-c, so h_low_Icc_p gives (S/2-ε/2)*(1-c) ≤ ∫_Icc K*(-D)
+            have h_low_Icc_sub : (S / 2 - ε / 2) * (1 - c) ≤
+                ∫ v in Set.Icc (-Δ) Δ,
+                  fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) ∂ℙ := by
+              have := h_low_Icc_p; rw [h_Icc_p] at this; exact this
+            -- Combined lower bound: (S/2-ε/2)*(1-c) - S*c ≤ ∫ K*(-D)
+            have h_lb_combined :
+                (S / 2 - ε / 2) * (1 - c) - S * c ≤
+                ∫ v, fejerKernel T v * (-(cdf μ (z₁ - v) - cdf ν (z₁ - v))) ∂ℙ := by
+              rw [← h_split]; linarith [h_low_Icc_sub, h_low_compl_p]
+            -- From lb+ub: (S/2-ε/2)*(1-c) - S*c ≤ I/(2π)
+            have h_key : (S / 2 - ε / 2) * (1 - c) - S * c ≤ 1 / (2 * Real.pi) * I :=
+              h_lb_combined.trans h_ub_p
+            -- Explicit sum: (S/2-ε/2)*(1-c) - S*c + (3S/2)*c ≤ I/(2π) + 24M/(πT)
+            have h_sum : (S / 2 - ε / 2) * (1 - c) - S * c + (3 * S / 2) * c ≤
+                1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) :=
+              add_le_add h_key h_S_tail_p
+            -- LHS simplifies via ring to S/2-ε/2+(ε/2)*c
+            have h_ring : (S / 2 - ε / 2) * (1 - c) - S * c + (3 * S / 2) * c =
+                S / 2 - ε / 2 + ε / 2 * c := by ring
+            -- So S/2-ε/2+(ε/2)*c ≤ I/(2π) + 24M/(πT)
+            have h_half_plus : S / 2 - ε / 2 + ε / 2 * c ≤
+                1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) := h_ring ▸ h_sum
+            -- Since (ε/2)*c ≥ 0: for conclusion S ≤ I/π + 48M/(πT) + ε
+            have hec_nn : (0 : ℝ) ≤ ε / 2 * c :=
+              mul_nonneg (by linarith) hc_nn_p
+            linarith [h_double, h_half_plus, hec_nn]
         intro z; exact (hDz_le_S z).trans hS_bound
 
 /-- **Esseen's Fourier-analytic CDF bound.**
