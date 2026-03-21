@@ -51,6 +51,9 @@ post)
     # === POST-AGENT: check sorry + classify + suggest next action ===
     FILE="$1"; BEFORE="$2"
     [ -z "$FILE" ] && { echo "Usage: agent_workflow.sh post <file> <before_sorry>"; exit 1; }
+    # Find sorry line for context extraction
+    LINE_HINT=$(grep -n ' sorry$' "$FILE" 2>/dev/null | head -1 | cut -d: -f1)
+    LINE_HINT=${LINE_HINT:-1}
 
     AFTER=$(grep -c ' sorry$' "$FILE" 2>/dev/null || echo "?")
     echo "=== RESULT: sorry $BEFORE → $AFTER ==="
@@ -61,10 +64,48 @@ post)
         echo "  2. git add $FILE && git commit -m 'prove: ...'"
         echo "  3. Run: agent_workflow.sh commit $FILE 'prove: <lemma>'"
     else
-        echo "❌ SORRY NOT REDUCED. Actions:"
+        echo "❌ SORRY NOT REDUCED."
+        echo ""
+        # Check stuck count and output EXACT next commands
+        STUCK=$(grep -A5 "$(basename $FILE .lean)" theme/input/sorry_backlog.yaml 2>/dev/null | grep -o 'stuck_rounds: [0-9]*' | grep -o '[0-9]*')
+        STUCK=${STUCK:-0}
+        NEW_STUCK=$((STUCK + 1))
+        echo "stuck_rounds: $STUCK → $NEW_STUCK"
+        echo ""
+
+        if [ "$NEW_STUCK" -ge 3 ]; then
+            # Extract keywords from sorry context for WebSearch query
+            KEYWORDS=$(sed -n "$((LINE_HINT-5)),$((LINE_HINT+5))p" "$FILE" 2>/dev/null | grep -oE '[A-Za-z]{5,}' | sort -u | head -5 | tr '\n' ' ')
+
+            echo "╔══════════════════════════════════════════════════════╗"
+            echo "║  R6 REQUIRED: WebSearch BEFORE next agent launch    ║"
+            echo "║  Copy-paste these commands:                         ║"
+            echo "╚══════════════════════════════════════════════════════╝"
+            echo ""
+            echo '>>> WebSearch "Lean 4 Mathlib '"$KEYWORDS"'proof formalization 2025 2026"'
+            echo '>>> WebSearch "'"$KEYWORDS"'elementary proof technique arXiv"'
+            echo ""
+            echo "After WebSearch: python3 scripts/gen_agent_prompt.py $FILE <line> --route '<from search>'"
+        fi
+
+        if [ "$NEW_STUCK" -ge 5 ]; then
+            echo ""
+            echo "╔══════════════════════════════════════════════════════╗"
+            echo "║  COUNTEREXAMPLE SEARCH REQUIRED                    ║"
+            echo "║  Check: is the sorry statement actually TRUE?      ║"
+            echo "╚══════════════════════════════════════════════════════╝"
+        fi
+
+        echo ""
+        echo "NEXT STEPS (in order):"
         echo "  1. agent_workflow.sh stuck <sorry_id>"
-        echo "  2. Extract findings from agent result → add to next prompt 段 3"
-        echo "  3. Consider: main session writes (limit 1 build)"
+        if [ "$NEW_STUCK" -ge 3 ]; then
+            echo "  2. DO THE WEBSEARCH ABOVE (mandatory, not optional)"
+            echo "  3. THEN gen_agent_prompt.py with route from search"
+        else
+            echo "  2. Extract findings → add to next prompt"
+            echo "  3. gen_agent_prompt.py $FILE <line> --route '...'"
+        fi
     fi
     ;;
 
