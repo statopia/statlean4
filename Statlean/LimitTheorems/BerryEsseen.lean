@@ -1803,35 +1803,57 @@ private lemma fejerCDF_density_bound
     _ = ENNReal.ofReal (2 * a * M) := by
         simp only [ENNReal.ofReal_one, mul_one]; congr 1; ring
 
+/-- **Kernel identity for Fejér convolution**: the integral of fejerCDF against a
+probability measure equals the kernel convolution with the CDF.
+`∫ Ψ_F(c-x) dμ(x) = ∫ K_F(v) · cdf μ (c-v) dv`.
+Proof by Tonelli swap (Fubini for nonneg integrands). -/
+private lemma fejer_kernel_cdf_identity
+    (μ : Measure ℝ) [IsProbabilityMeasure μ]
+    {T : ℝ} (hT : 0 < T) (c : ℝ) :
+    ∫ x, fejerCDF T (c - x) ∂μ =
+    ∫ v, fejerKernel T v * cdf μ (c - v) := by
+  simp_rw [show ∀ x, fejerCDF T (c - x) =
+      ∫ v, (Set.Iic (c - x)).indicator (fejerKernel T) v from
+    fun x => by unfold fejerCDF; rw [integral_indicator measurableSet_Iic]]
+  set f : ℝ → ℝ → ℝ := fun x v => (Set.Iic (c - x)).indicator (fejerKernel T) v
+  have hset_meas : MeasurableSet {p : ℝ × ℝ | p.2 ∈ Set.Iic (c - p.1)} := by
+    have : {p : ℝ × ℝ | p.2 ∈ Set.Iic (c - p.1)} = {p : ℝ × ℝ | p.1 + p.2 ≤ c} := by
+      ext ⟨x, v⟩; simp [Set.mem_Iic]; constructor <;> intro h <;> linarith
+    rw [this]; exact measurableSet_le (measurable_fst.add measurable_snd) measurable_const
+  have hf_smeas : StronglyMeasurable (Function.uncurry f) :=
+    StronglyMeasurable.indicator
+      ((fejerKernel_measurable T).stronglyMeasurable.comp_snd) hset_meas
+  have hf_int : Integrable (Function.uncurry f) (μ.prod volume) := by
+    apply Integrable.mono ((fejerKernel_integrable hT).comp_snd μ)
+      hf_smeas.aestronglyMeasurable
+    apply ae_of_all; intro ⟨x, v⟩
+    show ‖(Set.Iic (c - x)).indicator (fejerKernel T) v‖ ≤ ‖fejerKernel T v‖
+    by_cases hv : v ∈ Set.Iic (c - x)
+    · rw [Set.indicator_of_mem hv]
+    · rw [Set.indicator_of_notMem hv, norm_zero]; exact norm_nonneg _
+  rw [integral_integral_swap hf_int]
+  congr 1; ext v
+  have heq : ∀ x, f x v =
+      fejerKernel T v * (Set.Iic (c - v)).indicator (1 : ℝ → ℝ) x := by
+    intro x; simp only [f, Set.indicator, Set.mem_Iic, Pi.one_apply]
+    split_ifs with h1 h2 h2
+    · ring
+    · exfalso; exact h2 (by linarith)
+    · exfalso; exact h1 (by linarith)
+    · ring
+  simp_rw [heq, integral_const_mul, integral_indicator_one measurableSet_Iic, cdf_eq_real]
+
 /-- **Fejér CDF inversion remainder bound** (Esseen 1945).
 
 For probability measures `μ`, `ν` where `ν` has `M`-Lipschitz CDF, the CDF
-difference is bounded by the characteristic function integral:
+difference is bounded by the characteristic function integral plus a `1/T` error:
 
   `|cdf μ y - cdf ν y| ≤ (1/π) ∫_{-T}^T ‖Δ(t)‖/|t| dt + 24M/(πT)`
 
-Mathematically, this follows from the Fejér summability of the CDF inversion
-formula: `D(y) = -(1/π) ∫_0^T (1-t/T) Im[e^{-iyt} Δ(t)]/t dt + R(y)` where
-the remainder `R(y)` satisfies `|R(y)| ≤ 24M/(πT)`. The Cesàro integral
-is bounded by `I/(2π) ≤ I/π`, giving the result.
-
-**Note**: The previous proof attempted to use the triangle kernel Fourier bound
-`|∫ D(y-x) K_T(x) dx| ≤ I/(2π)`, which is FALSE by Paley-Wiener (the triangle
-kernel's FT is sinc², NOT compactly supported in [-T,T]). The correct approach
-uses the Fejér CDF inversion formula with Cesàro summability, where the remainder
-is controlled by the Lipschitz condition on `ν`'s CDF.
-
-**Proof sketch** (not yet formalized):
-1. CDF inversion: `F(y) = 1/2 + (1/(2π)) ∫_{-T}^T (1-|t|/T) f(t) e^{-iyt}/(-it) dt + R_F(y)`
-2. For `ν` with density ≤ M: `|R_G(y)| ≤ C·M/T` (Fejér kernel smoothing error)
-3. For general `μ`: `R_F(y)` bounded via integration by parts against Fejér kernel
-4. Combined: `|R(y)| = |R_F(y) - R_G(y)| ≤ 24M/(πT)`
-
-**Reference**: Esseen (1945), Feller Vol II §XV.3, Petrov Ch. V.
--/
--- sorry count: 2 (fejer_convolution_bound + I<2π/3 case; fejerCDF_density_bound PROVED)
+**Reference**: Esseen (1945), Feller Vol II §XV.3, Petrov Ch. V. -/
+-- sorry count: 1 (I < 2π/3 case)
 -- Case I ≥ 2π/3: PROVED via bracket inequality with a = 12/(πT)
--- Case I < 2π/3: sorry (needs Lévy CDF inversion, A-grade ~200 lines)
+-- Case I < 2π/3: needs Fejér kernel convolution identity + sup-norm argument
 private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     {M : ℝ} (hM : 0 < M)
@@ -1988,14 +2010,10 @@ private lemma esseen_smoothing_ineq
         _ ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) +
             1 / (2 * Real.pi) * I := by linarith
         _ = 1 / Real.pi * I + 24 * M / (Real.pi * T) := by ring
-    · -- Case I < 2π/3: the Fejér bracket gives |D| ≤ I/(2π) + 24M/(πT) + 1/3,
-      -- but absorbing the 1/3 into I/(2π) requires I ≥ 2π/3.
-      -- When I < 2π/3 the 1/(2π) coefficient is structurally too weak (need 1/π).
-      -- Closing this case requires either:
-      --   (a) Lévy CDF inversion formula (direct Fourier inversion), or
-      --   (b) sinc⁴ kernel whose FT support gives the full 1/π coefficient.
-      -- Both require ~200 lines of new infrastructure.
-      -- Blocker: A-grade sorry, estimated ~200 lines + new kernel/inversion lemma.
+        _ = 1 / Real.pi * I + 24 * M / (Real.pi * T) := by ring
+    · -- Case I < 2π/3: deep case, needs the Fejér kernel convolution identity
+      -- ∫ Ψ(c-x) d(μ-ν) = ∫ K(v) D(c-v) dv combined with the sup-norm argument.
+      -- See fejer_kernel_cdf_identity for the identity proof.
       push_neg at hI_large
       sorry
 
