@@ -4,9 +4,29 @@
 # If so, blocks the Agent call and outputs a reminder to WebSearch first.
 
 STUCK_FILE="/tmp/statlean_stuck_counts.txt"
+BEFORE_FILE="/tmp/statlean_sorry_before.txt"
 
 # Read the agent prompt from stdin to extract the target file
 INPUT=$(cat)
+
+# Try to extract the .lean file from the agent prompt
+LEAN_FILE=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    prompt = d.get('tool_input', {}).get('prompt', '')
+    import re
+    m = re.search(r'(Statlean/[A-Za-z/]+\.lean)', prompt)
+    if m: print(m.group(1))
+except: pass
+" 2>/dev/null)
+
+# Save before-state for PostToolUse hook
+if [ -n "$LEAN_FILE" ] && [ -f "$LEAN_FILE" ]; then
+    SORRY_BEFORE=$(grep -c ' sorry$' "$LEAN_FILE" 2>/dev/null || echo 0)
+    echo "$LEAN_FILE" > "$BEFORE_FILE"
+    echo "$SORRY_BEFORE" >> "$BEFORE_FILE"
+fi
 
 # Find the highest stuck count across all sorries
 MAX_STUCK=0
