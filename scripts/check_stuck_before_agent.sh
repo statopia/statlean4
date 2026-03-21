@@ -4,10 +4,19 @@
 # If so, blocks the Agent call and outputs a reminder to WebSearch first.
 
 STUCK_FILE="/tmp/statlean_stuck_counts.txt"
-BEFORE_FILE="/tmp/statlean_sorry_before.txt"
 
-# Read the agent prompt from stdin to extract the target file
+# Read the agent prompt from stdin to extract the target file and tool_use_id
 INPUT=$(cat)
+
+# Extract tool_use_id for per-agent state isolation (fixes parallel race condition)
+TOOL_USE_ID=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('tool_use_id', 'unknown'))
+except: print('unknown')
+" 2>/dev/null)
+BEFORE_FILE="/tmp/statlean_sorry_before_${TOOL_USE_ID}.txt"
 
 # Try to extract the .lean file from the agent prompt
 LEAN_FILE=$(echo "$INPUT" | python3 -c "
@@ -21,7 +30,7 @@ try:
 except: pass
 " 2>/dev/null)
 
-# Save before-state for PostToolUse hook
+# Save before-state for PostToolUse hook (per-agent file, no race condition)
 if [ -n "$LEAN_FILE" ] && [ -f "$LEAN_FILE" ]; then
     SORRY_BEFORE=$(grep -c ' sorry$' "$LEAN_FILE" 2>/dev/null || echo 0)
     echo "$LEAN_FILE" > "$BEFORE_FILE"

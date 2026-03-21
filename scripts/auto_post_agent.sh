@@ -4,9 +4,19 @@
 # No manual intervention needed.
 
 STUCK_FILE="/tmp/statlean_stuck_counts.txt"
-BEFORE_FILE="/tmp/statlean_sorry_before.txt"
 
-# Read saved "before" state
+# Extract tool_use_id to find the matching per-agent before-state file
+INPUT=$(cat)
+TOOL_USE_ID=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('tool_use_id', 'unknown'))
+except: print('unknown')
+" 2>/dev/null)
+BEFORE_FILE="/tmp/statlean_sorry_before_${TOOL_USE_ID}.txt"
+
+# Read saved "before" state (per-agent, no race condition)
 if [ ! -f "$BEFORE_FILE" ]; then
     exit 0  # No before state, skip
 fi
