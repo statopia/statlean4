@@ -183,29 +183,44 @@ proof_knowledge 匹配（写代码前先做）:
   ```
 ```
 
-**段 2: 代码骨架（由主会话提供，消除 agent Read 的必要性）**
+**段 2: 按任务复杂度分级提供信息**
 
-**原则**: 不是给 agent "上下文"让它自己想写什么。而是直接给 agent **要写的代码骨架**。
+**原则**: 提供**刚好足够**的信息让 agent 完成任务，不多不少。
 
-主会话在发送 prompt 前**必须**：
-1. 自己理解 sorry 上下文和证明路线
-2. 写出 **tactic 骨架**（带 sorry 的 have 块序列）
-3. 把骨架直接贴入 prompt，agent 只需填充每个 sorry
+| 复杂度 | prompt 内容 | 示例 |
+|--------|------------|------|
+| **低**（新定义+性质） | 代码骨架 + API 列表 (~20 行) | sinc4Kernel 定义+4 性质 |
+| **中**（单个引理证明） | sorry±15 行上下文 + API 签名 + 路线 (~50 行) | cesaro_integral_bound |
+| **高**（多步 API 组合） | sorry±15 行 + scope 假设 + 代码骨架 + API 签名 (~100 行) | fejer_convolution_bound |
+| **很高**（全局重构/sSup） | **不委派**。主会话自己写代码，或拆成多个中等任务 | esseen_smoothing_ineq |
 
-格式:
+**低复杂度格式** (agent 不需要 Read):
 ```
-**代码骨架**（在 <file> L<N> 处插入，agent 填充每个 sorry）:
-
-  have h1 : <type1> := by
-    sorry -- 用 <API_1> + <提示>
-  have h2 : <type2> := by
-    sorry -- 用 <API_2>
-  linarith [h1, h2]  -- 或 exact/calc 组装
+在 <file> 末尾添加:
+  def foo := ...
+  lemma foo_nonneg : ... := by sorry  -- 用 <API>
+  lemma foo_integral : ... := by sorry  -- 用 <API>
 ```
 
-**为什么这样做**: agent 不需要 Read 2000 行文件来理解上下文，
-只需要看 20 行骨架就知道每个 sorry 的 goal type 和可用的 API。
-这是 sinc4Kernel agent (46K tokens, 1 build) vs 旧 agent (268K, 11 builds) 的关键差异。
+**中复杂度格式** (agent 可能需要 Read ≤ 30 行):
+```
+sorry 上下文 (L<N>±15):
+<30 行代码>
+
+scope 假设: hT, hM, hI_nn, ...
+证明路线: 用 <API_1> 得 h1, 用 <API_2> 得 h2, linarith 组装
+```
+
+**高复杂度格式** (agent 可能需要 Read ≤ 50 行):
+```
+sorry 上下文 + scope 假设 (同上)
+代码骨架:
+  have h1 : <type> := by sorry -- <提示>
+  have h2 : <type> := by sorry -- <提示>
+  <组装 tactic>
+```
+
+**很高复杂度**: 主会话先拆成 2-3 个中等子任务，分别委派。
 
 **段 3: 证明路线 + 前任发现（≤ 300 字）**
 主会话提供的简要证明路线 + 之前 agent 在同一 sorry 上的关键发现。
