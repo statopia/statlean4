@@ -136,15 +136,31 @@
 
 **模板结构（3 段）**：
 
-**段 1: 指令头（7 行，照抄不改）**
+**段 1: 指令头（照抄到 agent prompt 中，不删减）**
 ```
 目标: 证明 <lemma_name> (文件 <file>:<line>)
 验收标准: sorry 数从 N 降到 M（或 "sorry 关闭"）
 约束: 只修改 <file>。不做理论分析。直接写 Lean 代码。
-预验证: 每个 Mathlib API 使用前先 `echo '#check @API' | lake env lean --stdin` 验证签名。
-build 上限: ≤ 5 次 lake build，超过则停下来用 Level 0 重新确认所有 API。
-文件读取: 禁止 Read >50 行。用 grep 定位行号后 Read ±15 行。
 已有 API: [列出本次需要的已证引理名称]
+
+=== 以下是强制执行的工作规则，违反任何一条 = 浪费 token ===
+
+文件读取: 禁止 Read >50 行。用 `grep -n` 定位行号后 Read ±15 行。
+  禁止对 >200 行文件直接 Read。先 `python3 scripts/extract_signatures.py <file>`。
+
+编译验证（每次 lake build 之前必须完成至少一项）:
+  Level 0 — API 预查: `echo '#check @API_Name' | lake env lean --stdin`（0 秒，写任何 API 前必做）
+  Level 1 — temp file: `cat > /tmp/test.lean << 'EOF' ... EOF && lake env lean /tmp/test.lean`（5 秒，新引理前 3 次 tactic 尝试在此完成）
+  Level 2 — snippet: `bash scripts/check_snippet.sh <file> <start> <end>`（10 秒，修改单个 declaration 后）
+  Level 3 — module build: `lake build Statlean.<Module>`（仅在 Level 0-2 通过后使用，≤ 5 次）
+
+API 名错误修复: build 报 unknown identifier 时:
+  1. `grep -i '<name>' theme/api_gotchas.tsv`
+  2. `grep -i '<name>' theme/mathlib_full_type_index.tsv`
+  不要猜第二个名字直接写代码。
+
+每证完一个子引理立即写入 .lean 文件并验证，不要攒到最后。
+如果 stuck，sorry 暂留并继续下一个子引理，不要停下来分析。
 ```
 
 **段 2: sorry 上下文（由主会话提供，agent 不需要自己 Read）**
