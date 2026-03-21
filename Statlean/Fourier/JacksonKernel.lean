@@ -1348,3 +1348,67 @@ lemma fejerCDF_eq_cesaro (T : ℝ) (hT : 0 < T) (u : ℝ) :
     (fun y => (hH' y).differentiableAt) (fun y => (hH' y).deriv) u 0]
 
 end FejerKernel
+
+/-! ## Sinc⁴ Kernel
+
+The sinc⁴ kernel is the self-convolution of the triangle kernel:
+`sinc4Kernel T x = ∫ t, triangleKernel T t * triangleKernel T (x - t)`.
+
+This is a non-negative, integrable kernel with `∫ sinc4Kernel T = 1` and
+support contained in `[-2/T, 2/T]`.
+-/
+
+section Sinc4Kernel
+
+/-- The sinc⁴ kernel: self-convolution of the triangle kernel. -/
+noncomputable def sinc4Kernel (T : ℝ) : ℝ → ℝ :=
+  convolution (triangleKernel T) (triangleKernel T) (ContinuousLinearMap.mul ℝ ℝ) volume
+
+lemma sinc4Kernel_eq (T : ℝ) (x : ℝ) :
+    sinc4Kernel T x = ∫ t, triangleKernel T t * triangleKernel T (x - t) := by
+  simp [sinc4Kernel, convolution, ContinuousLinearMap.mul_apply']
+
+/-- The sinc⁴ kernel is non-negative. -/
+lemma sinc4Kernel_nonneg {T : ℝ} (hT : 0 < T) (x : ℝ) :
+    0 ≤ sinc4Kernel T x := by
+  rw [sinc4Kernel_eq]
+  apply integral_nonneg
+  intro t
+  exact mul_nonneg (triangleKernel_nonneg hT t) (triangleKernel_nonneg hT (x - t))
+
+/-- The sinc⁴ kernel is integrable. -/
+lemma sinc4Kernel_integrable {T : ℝ} (hT : 0 < T) :
+    Integrable (sinc4Kernel T) volume :=
+  ((triangleKernel_hasCompactSupport hT).continuous_convolution_right
+      (ContinuousLinearMap.mul ℝ ℝ)
+      (triangleKernel_continuous T).locallyIntegrable
+      (triangleKernel_continuous T)).integrable_of_hasCompactSupport
+    ((triangleKernel_hasCompactSupport hT).convolution
+      (ContinuousLinearMap.mul ℝ ℝ)
+      (triangleKernel_hasCompactSupport hT))
+
+/-- The sinc⁴ kernel integrates to 1. -/
+lemma sinc4Kernel_integral {T : ℝ} (hT : 0 < T) :
+    ∫ x, sinc4Kernel T x = 1 := by
+  have h := integral_convolution (ContinuousLinearMap.mul ℝ ℝ)
+    (triangleKernel_integrable hT) (triangleKernel_integrable hT)
+  simp only [sinc4Kernel] at h ⊢
+  rw [h, ContinuousLinearMap.mul_apply', triangleKernel_integral hT, one_mul]
+
+/-- The sinc⁴ kernel vanishes outside `[-2/T, 2/T]`. -/
+lemma sinc4Kernel_zero_of_abs_ge {T : ℝ} (hT : 0 < T) {x : ℝ}
+    (hx : |x| ≥ 2 / T) : sinc4Kernel T x = 0 := by
+  rw [sinc4Kernel_eq]
+  apply integral_eq_zero_of_ae
+  apply ae_of_all
+  intro t
+  by_cases ht : |t| ≥ 1 / T
+  · simp [triangleKernel_zero_of_abs_ge hT ht]
+  · push_neg at ht
+    have hab : |x - t| ≥ 1 / T := by
+      have h1 : |x| - |t| ≤ |x - t| := abs_sub_abs_le_abs_sub x t
+      have h2 : 2 / T - 1 / T = 1 / T := by ring
+      linarith
+    simp [triangleKernel_zero_of_abs_ge hT hab, mul_zero]
+
+end Sinc4Kernel
