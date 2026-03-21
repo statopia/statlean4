@@ -2015,10 +2015,34 @@ private lemma esseen_smoothing_ineq
             have : 48 * M / (Real.pi * T) = 24 * M / (Real.pi * T) + 24 * M / (Real.pi * T) := by ring
             linarith
     · -- Case I < 2π/3: sup-norm (sSup) convolution argument.
-      -- Uses fejer_kernel_cdf_identity + integral splitting with sup-norm bound.
-      -- Key: S = sup|D| satisfies S/2 - 24M/(πT) ≤ I/(2π), giving S ≤ I/π + 48M/(πT).
       push_neg at hI_large
-      sorry
+      -- Prove ∀ z, |D(z)| ≤ target, then instantiate at y.
+      suffices h_all : ∀ z, |cdf μ z - cdf ν z| ≤
+          1 / Real.pi * I + 48 * M / (Real.pi * T) from h_all y
+      -- Setup: S = sup |D|, bounded by 1
+      have hD_bdd : ∀ z : ℝ, |cdf μ z - cdf ν z| ≤ 1 := abs_cdf_sub_le_one μ ν
+      have hbdd : BddAbove (Set.range (fun z => |cdf μ z - cdf ν z|)) := by
+        use 1; rintro _ ⟨z, rfl⟩; exact hD_bdd z
+      set S := iSup (fun z => |cdf μ z - cdf ν z|) with hS_def
+      have hS_le_one : S ≤ 1 := ciSup_le fun z => hD_bdd z
+      -- Every |D(z)| ≤ S
+      have hDz_le_S : ∀ z, |cdf μ z - cdf ν z| ≤ S := fun z => le_ciSup hbdd z
+      -- If S ≤ target: done
+      by_cases hS_small : S ≤ 48 * M / (Real.pi * T)
+      · intro z; calc |cdf μ z - cdf ν z| ≤ S := hDz_le_S z
+          _ ≤ 48 * M / (Real.pi * T) := hS_small
+          _ ≤ 1 / Real.pi * I + 48 * M / (Real.pi * T) :=
+            le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
+      · push_neg at hS_small
+        -- S > 48M/(πT) > 0. Get near-argmax z₀.
+        have hS_pos : 0 < S := lt_of_lt_of_le (by positivity) hS_small.le
+        -- Prove: S ≤ I/π + 48M/(πT), then transfer to all z.
+        have hS_bound : S ≤ 1 / Real.pi * I + 48 * M / (Real.pi * T) := by
+          -- The sSup argument: at any near-argmax, the Fejér convolution gives
+          -- S/2 - 24M/(πT) ≤ I/(2π), so S ≤ I/π + 48M/(πT).
+          -- This uses fejer_convolution_bound + one-sided regularity + |D| ≤ S.
+          sorry
+        intro z; exact (hDz_le_S z).trans hS_bound
 
 /-- **Esseen's Fourier-analytic CDF bound.**
 
