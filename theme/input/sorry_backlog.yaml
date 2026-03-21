@@ -27,17 +27,37 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: limittheorems.berryesseen.levy_cdf_diff_fourier_bound
+- id: limittheorems.berryesseen.esseen_smoothing_ineq_small_I
   file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 1065
-  sorry_lines: [1065, 1074]
-  theorem: levy_cdf_diff_fourier_bound
-  type: unknown
+  line: 2044
+  sorry_lines: [2044]
+  theorem: esseen_smoothing_ineq
+  type: infrastructure
   depth: 1
-  priority: 99
-  estimated_lines: 50
+  priority: 5
+  stuck_rounds: 2
+  estimated_lines: 150
   dependencies: []
-  unlocks: []
+  unlocks: [berry_esseen_theorem]
+  engineering_route: |
+    The sorry is in the I < 2π/3, S > 48M/(πT) branch of esseen_smoothing_ineq.
+    Need: S ≤ I/π + 48M/(πT).
+
+    DEAD END (confirmed by 2 agents + main session analysis):
+    - Bracket approach gives S ≤ I/(2π) + 24M/(πT) + 1/3.
+    - The 1/3 constant CANNOT be absorbed when I/(2π) + 24M/(πT) < 1/3.
+    - Variable-a bracket and quadratic sSup argument both insufficient.
+    - IntegrableOn is NOT guaranteed without additional hypothesis.
+
+    VIABLE ROUTES (choose one):
+    A. Integral method (Durrett): Integrate D over near-argmax interval [z₀, z₀+S/(4M)].
+       D ≥ S/4 on this interval (regularity). So S²/(16M) ≤ ∫ D dy.
+       Bound ∫ D dy using Fejér convolution (not bracket). ~150 lines.
+    B. Abel/Lévy inversion: Prove D(y) = lim_{ε→0} (1/π) ∫ e^{-εt} Im(Δ e^{-ity})/t dt.
+       Use abel_sinc_integral + DCT. Requires IntegrableOn on all of ℝ. ~150 lines.
+       Only works for Berry-Esseen specifically (exponential charfun decay).
+    C. Add IntegrableOn hypothesis to esseen_smoothing_ineq. Then route A works
+       for the I/(2π)+24M/(πT) ≥ 1/3 case. For < 1/3 case, still needs route A or B.
 
 - id: lsi.entropy_subadditivity_not_integrable_log
   file: Statlean/Entropy/LogSobolev.lean
