@@ -136,15 +136,14 @@
 
 **模板结构（3 段）**：
 
-**段 1: 指令头（照抄到 agent prompt 的 >>>最前面<<<，在任何数学内容之前）**
-```
-!!! CRITICAL OPERATIONAL RULES — READ BEFORE ANYTHING ELSE !!!
-!!! 违反任何一条 = 浪费 token，agent 结果将被丢弃 !!!
+**段 1: 指令头**
 
-目标: 证明 <lemma_name> (文件 <file>:<line>)
-验收标准: sorry 数从 N 降到 M（或 "sorry 关闭"）
-约束: 只修改 <file>。不做理论分析。直接写 Lean 代码。
-已有 API: [列出本次需要的已证引理名称]
+**原则: 让 agent 不需要 Read 就能工作。不是靠规则禁止 Read，而是靠提供完整信息让 Read 不必要。**
+
+```
+目标: 在 <file> 的 L<N> 处插入以下代码骨架并填充 sorry:
+验收标准: sorry 数从 N 降到 M
+约束: 只修改 <file>。build ≤ 5 次。
 
 文件读取: 禁止 Read >50 行。用 `grep -n` 定位行号后 Read ±15 行。
   禁止对 >200 行文件直接 Read。先 `python3 scripts/extract_signatures.py <file>`。
@@ -184,23 +183,29 @@ proof_knowledge 匹配（写代码前先做）:
   ```
 ```
 
-**段 2: sorry 上下文（由主会话提供，agent 不需要自己 Read）**
+**段 2: 代码骨架（由主会话提供，消除 agent Read 的必要性）**
+
+**原则**: 不是给 agent "上下文"让它自己想写什么。而是直接给 agent **要写的代码骨架**。
+
 主会话在发送 prompt 前**必须**：
-1. `grep -n ' sorry$' <file>` 找到 sorry 行号
-2. `Read <file> offset=<行号-15> limit=30` 读 sorry ±15 行上下文
-3. 把读到的 30 行代码**直接贴入 prompt**
-4. 列出 scope 中的所有可用假设（hypothesis names + types）
+1. 自己理解 sorry 上下文和证明路线
+2. 写出 **tactic 骨架**（带 sorry 的 have 块序列）
+3. 把骨架直接贴入 prompt，agent 只需填充每个 sorry
 
 格式:
 ```
-**sorry 上下文** (L<N>-L<N+30>):
-<直接贴入的 30 行代码>
+**代码骨架**（在 <file> L<N> 处插入，agent 填充每个 sorry）:
 
-**scope 中的假设**:
-- hT : 0 < T
-- hM : 0 < M
-- ...
+  have h1 : <type1> := by
+    sorry -- 用 <API_1> + <提示>
+  have h2 : <type2> := by
+    sorry -- 用 <API_2>
+  linarith [h1, h2]  -- 或 exact/calc 组装
 ```
+
+**为什么这样做**: agent 不需要 Read 2000 行文件来理解上下文，
+只需要看 20 行骨架就知道每个 sorry 的 goal type 和可用的 API。
+这是 sinc4Kernel agent (46K tokens, 1 build) vs 旧 agent (268K, 11 builds) 的关键差异。
 
 **段 3: 证明路线 + 前任发现（≤ 300 字）**
 主会话提供的简要证明路线 + 之前 agent 在同一 sorry 上的关键发现。
