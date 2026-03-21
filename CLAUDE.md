@@ -136,14 +136,15 @@
 
 **模板结构（3 段）**：
 
-**段 1: 指令头（照抄到 agent prompt 中，不删减）**
+**段 1: 指令头（照抄到 agent prompt 的 >>>最前面<<<，在任何数学内容之前）**
 ```
+!!! CRITICAL OPERATIONAL RULES — READ BEFORE ANYTHING ELSE !!!
+!!! 违反任何一条 = 浪费 token，agent 结果将被丢弃 !!!
+
 目标: 证明 <lemma_name> (文件 <file>:<line>)
 验收标准: sorry 数从 N 降到 M（或 "sorry 关闭"）
 约束: 只修改 <file>。不做理论分析。直接写 Lean 代码。
 已有 API: [列出本次需要的已证引理名称]
-
-=== 以下是强制执行的工作规则，违反任何一条 = 浪费 token ===
 
 文件读取: 禁止 Read >50 行。用 `grep -n` 定位行号后 Read ±15 行。
   禁止对 >200 行文件直接 Read。先 `python3 scripts/extract_signatures.py <file>`。
