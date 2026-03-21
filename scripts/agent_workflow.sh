@@ -66,8 +66,10 @@ post)
     else
         echo "❌ SORRY NOT REDUCED."
         echo ""
-        # Check stuck count and output EXACT next commands
-        STUCK=$(grep -A5 "$(basename $FILE .lean)" theme/input/sorry_backlog.yaml 2>/dev/null | grep -o 'stuck_rounds: [0-9]*' | grep -o '[0-9]*')
+        # Check stuck count from persistent file
+        STUCK_FILE="/tmp/statlean_stuck_counts.txt"
+        SORRY_ID=$(basename "$FILE" .lean)
+        STUCK=$(grep "^${SORRY_ID}:" "$STUCK_FILE" 2>/dev/null | cut -d: -f2 | tr -d ' ')
         STUCK=${STUCK:-0}
         NEW_STUCK=$((STUCK + 1))
         echo "stuck_rounds: $STUCK → $NEW_STUCK"
@@ -129,22 +131,39 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
     ;;
 
 stuck)
-    # === INCREMENT STUCK COUNT ===
+    # === INCREMENT STUCK COUNT (persistent, using a simple file) ===
     SORRY_ID="$1"
     [ -z "$SORRY_ID" ] && { echo "Usage: agent_workflow.sh stuck <sorry_id>"; exit 1; }
 
-    echo "Incrementing stuck_rounds for $SORRY_ID..."
-    # Simple: just print the instruction since YAML editing is fragile in bash
-    echo "TODO: In theme/input/sorry_backlog.yaml, find '$SORRY_ID' and increment stuck_rounds"
-    echo ""
-    STUCK=$(grep -A5 "$SORRY_ID" theme/input/sorry_backlog.yaml 2>/dev/null | grep -o 'stuck_rounds: [0-9]*' | grep -o '[0-9]*')
+    # Use a simple file for persistence (YAML editing in bash is fragile)
+    STUCK_FILE="/tmp/statlean_stuck_counts.txt"
+    touch "$STUCK_FILE"
+
+    # Read current count
+    STUCK=$(grep "^${SORRY_ID}:" "$STUCK_FILE" 2>/dev/null | cut -d: -f2 | tr -d ' ')
     STUCK=${STUCK:-0}
     NEW=$((STUCK + 1))
-    echo "Current: $STUCK → New: $NEW"
+
+    # Write new count (replace or append)
+    if grep -q "^${SORRY_ID}:" "$STUCK_FILE" 2>/dev/null; then
+        sed -i "s/^${SORRY_ID}:.*/${SORRY_ID}: ${NEW}/" "$STUCK_FILE"
+    else
+        echo "${SORRY_ID}: ${NEW}" >> "$STUCK_FILE"
+    fi
+
+    echo "stuck_rounds: $STUCK → $NEW (saved to $STUCK_FILE)"
+
     if [ "$NEW" -ge 5 ]; then
-        echo "⚠️  COUNTEREXAMPLE SEARCH REQUIRED"
+        echo ""
+        echo "╔══════════════════════════════════════════════════════╗"
+        echo "║  COUNTEREXAMPLE SEARCH REQUIRED (stuck ≥ 5)        ║"
+        echo "║  Is the sorry statement actually TRUE?              ║"
+        echo "╚══════════════════════════════════════════════════════╝"
     elif [ "$NEW" -ge 3 ]; then
-        echo "⚠️  R6 REQUIRED (WebSearch for engineering route)"
+        echo ""
+        echo "╔══════════════════════════════════════════════════════╗"
+        echo "║  R6 REQUIRED: WebSearch BEFORE next agent (stuck≥3)║"
+        echo "╚══════════════════════════════════════════════════════╝"
     fi
     ;;
 
