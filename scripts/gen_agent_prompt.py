@@ -33,24 +33,16 @@ def read_lines(filepath, start, count):
     return "\n".join(lines)
 
 def get_agent_rules():
-    """Extract the agent rules block from CLAUDE.md."""
-    try:
-        with open("CLAUDE.md") as f:
-            content = f.read()
-        # Find the template block between ``` markers after "段 1:"
-        match = re.search(
-            r'段 1: 指令头.*?```\n(.*?)```',
-            content, re.DOTALL
-        )
-        if match:
-            return match.group(1).strip()
-    except Exception:
-        pass
-    # Fallback: hardcoded minimal rules
-    return """约束: 直接写 Lean 代码。不做理论分析。
-预验证: echo '#check @API' | lake env lean --stdin
-build 上限: ≤ 5 次 lake build
-文件读取: 禁止 Read >50 行。用 grep 定位行号后 Read ±15 行。"""
+    """Hardcoded operational rules. Not extracted from CLAUDE.md because
+    extraction is fragile and the rules rarely change."""
+    return """=== 强制操作规则 ===
+约束: 只修改目标文件。直接写 Lean 代码。不做理论分析。
+build: ≤ 5 次 lake build。每次 build 前先做 Level 0 或 Level 1。
+Level 0: echo '#check @API_Name' | lake env lean --stdin（写 API 前必做）
+Level 1: cat > /tmp/test.lean << 'TESTEOF'\\nimport Mathlib\\n...\\nTESTEOF && lake env lean /tmp/test.lean
+文件读取: 禁止 Read >50 行。用 grep -n 定位行号后 Read ±15 行。
+API 名错误: grep -i '<name>' theme/api_gotchas.tsv → theme/mathlib_full_type_index.tsv
+每证完一个子引理立即写入文件。stuck → sorry 暂留 + 继续。"""
 
 def main():
     if len(sys.argv) < 3:
@@ -78,25 +70,14 @@ def main():
     except Exception:
         sorry_count = "?"
 
-    # Clean rules: replace template placeholders with actual values
-    rules_filled = rules.replace("<file>", filepath)
-    rules_filled = rules_filled.replace("<lemma_name>", f"sorry at L{sorry_line}")
-    rules_filled = rules_filled.replace(
-        "sorry 数从 N 降到 M（或 \"sorry 关闭\"）",
-        f"sorry 数从 {sorry_count} 降到 {sorry_count - 1 if isinstance(sorry_count, int) else '?'}"
-    )
-    # Remove the generic "目标:" and "验收标准:" lines (we provide our own)
-    lines = rules_filled.split('\n')
-    lines = [l for l in lines if not l.startswith('目标:') and not l.startswith('验收标准:')
-             and not l.startswith('已有 API:')]
-
     # Build prompt
+    target_sorry = sorry_count - 1 if isinstance(sorry_count, int) else '?'
     prompt = f"""目标: 关闭 {filepath}:{sorry_line} 的 sorry
-验收标准: sorry 数从 {sorry_count} 降到 {sorry_count - 1 if isinstance(sorry_count, int) else '?'}
+验收标准: sorry 数从 {sorry_count} 降到 {target_sorry}
 约束: 只修改 {filepath}。直接写 Lean 代码。
 已有 API: [由主会话在此补充]
 
-{"chr(10)".join(lines)}
+{rules}
 
 **sorry 上下文** (L{max(1,sorry_line-15)}-L{sorry_line+15}):
 {context}
