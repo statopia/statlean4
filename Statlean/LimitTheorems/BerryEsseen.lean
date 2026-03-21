@@ -1988,7 +1988,14 @@ private lemma esseen_smoothing_ineq
         _ ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) +
             1 / (2 * Real.pi) * I := by linarith
         _ = 1 / Real.pi * I + 24 * M / (Real.pi * T) := by ring
-    · -- Case I < 2π/3: deep case, needs Lévy CDF inversion
+    · -- Case I < 2π/3: the Fejér bracket gives |D| ≤ I/(2π) + 24M/(πT) + 1/3,
+      -- but absorbing the 1/3 into I/(2π) requires I ≥ 2π/3.
+      -- When I < 2π/3 the 1/(2π) coefficient is structurally too weak (need 1/π).
+      -- Closing this case requires either:
+      --   (a) Lévy CDF inversion formula (direct Fourier inversion), or
+      --   (b) sinc⁴ kernel whose FT support gives the full 1/π coefficient.
+      -- Both require ~200 lines of new infrastructure.
+      -- Blocker: A-grade sorry, estimated ~200 lines + new kernel/inversion lemma.
       push_neg at hI_large
       sorry
 
