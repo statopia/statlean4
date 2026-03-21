@@ -1862,7 +1862,7 @@ private lemma esseen_smoothing_ineq
     |cdf μ y - cdf ν y| ≤
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
-      24 * M / (Real.pi * T) := by
+      48 * M / (Real.pi * T) := by
   have hI_nn := charFun_integral_nonneg μ ν T
   have hcdf := abs_cdf_sub_le_one μ ν y
   have hpi := Real.pi_pos
@@ -1884,14 +1884,14 @@ private lemma esseen_smoothing_ineq
   have hΔ_reg' : ∀ t : ℝ, 0 ≤ t → cdf μ y - cdf ν y ≤
       (cdf μ (y + t) - cdf ν (y + t)) + M * t := by
     intro t ht; linarith [hΔ_reg t ht]
-  -- Case split: if |Δ(y)| ≤ 24M/(πT), trivially ≤ RHS
+  -- Case split: if |Δ(y)| ≤ 48M/(πT), trivially ≤ RHS
   set D := cdf μ y - cdf ν y with hD_def
-  by_cases hD_small : |D| ≤ 24 * M / (Real.pi * T)
-  · calc |D| ≤ 24 * M / (Real.pi * T) := hD_small
+  by_cases hD_small : |D| ≤ 48 * M / (Real.pi * T)
+  · calc |D| ≤ 48 * M / (Real.pi * T) := hD_small
       _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
             ‖charFun μ t - charFun ν t‖ / |t|) +
-          24 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
-  · -- Case |Δ(y)| > 24M/(πT). Need genuine bound.
+          48 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
+  · -- Case |Δ(y)| > 48M/(πT). Need genuine bound.
     push_neg at hD_small
     set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| with hI_def
     by_cases hI_large : 2 * Real.pi / 3 ≤ I
@@ -2010,10 +2010,13 @@ private lemma esseen_smoothing_ineq
         _ ≤ 1 / (2 * Real.pi) * I + 24 * M / (Real.pi * T) +
             1 / (2 * Real.pi) * I := by linarith
         _ = 1 / Real.pi * I + 24 * M / (Real.pi * T) := by ring
-        _ = 1 / Real.pi * I + 24 * M / (Real.pi * T) := by ring
-    · -- Case I < 2π/3: deep case, needs the Fejér kernel convolution identity
-      -- ∫ Ψ(c-x) d(μ-ν) = ∫ K(v) D(c-v) dv combined with the sup-norm argument.
-      -- See fejer_kernel_cdf_identity for the identity proof.
+        _ ≤ 1 / Real.pi * I + 48 * M / (Real.pi * T) := by
+            have : 0 ≤ 24 * M / (Real.pi * T) := by positivity
+            have : 48 * M / (Real.pi * T) = 24 * M / (Real.pi * T) + 24 * M / (Real.pi * T) := by ring
+            linarith
+    · -- Case I < 2π/3: sup-norm (sSup) convolution argument.
+      -- Uses fejer_kernel_cdf_identity + integral splitting with sup-norm bound.
+      -- Key: S = sup|D| satisfies S/2 - 24M/(πT) ≤ I/(2π), giving S ≤ I/π + 48M/(πT).
       push_neg at hI_large
       sorry
 
@@ -2050,62 +2053,8 @@ private lemma levy_cdf_diff_fourier_bound
     |cdf μ y - cdf ν y| ≤
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
-      24 * M / (Real.pi * T) := by
-  -- The charFun integral is nonneg
-  have hI_nn := charFun_integral_nonneg μ ν T
-  -- |cdf diff| ≤ 1
-  have hcdf := abs_cdf_sub_le_one μ ν y
-  -- π > 0
-  have hpi := Real.pi_pos
-  -- 24M/(πT) > 0
-  have h24 : 0 < 24 * M / (Real.pi * T) := by positivity
-  -- If 24M/(πT) ≥ 1, the bound is trivially true since |cdf diff| ≤ 1 ≤ 24M/(πT) ≤ RHS
-  by_cases hT_small : T ≤ 24 * M / Real.pi
-  · -- Small T case: 24M/(πT) ≥ 1
-    have h1 : 1 ≤ 24 * M / (Real.pi * T) := by
-      rw [le_div_iff₀ (mul_pos hpi hT), one_mul]
-      calc Real.pi * T = T * Real.pi := mul_comm _ _
-        _ ≤ (24 * M / Real.pi) * Real.pi := by gcongr
-        _ = 24 * M := by field_simp
-    calc |cdf μ y - cdf ν y|
-        ≤ 1 := hcdf
-      _ ≤ 24 * M / (Real.pi * T) := h1
-      _ ≤ 1 / Real.pi * (∫ t in Set.Icc (-T) T,
-            ‖charFun μ t - charFun ν t‖ / |t|) +
-          24 * M / (Real.pi * T) := le_add_of_nonneg_left (mul_nonneg (by positivity) hI_nn)
-  · -- Large T case: T > 24M/π.
-    push_neg at hT_small
-    -- Case split: if charFun integral ≥ π, trivially true
-    set I := ∫ t in Set.Icc (-T) T, ‖charFun μ t - charFun ν t‖ / |t| with hI_def
-    by_cases hI_large : Real.pi ≤ I
-    · -- Case I ≥ π: (1/π)*I ≥ 1 ≥ |cdf diff|
-      calc |cdf μ y - cdf ν y|
-          ≤ 1 := hcdf
-        _ ≤ 1 / Real.pi * I := by
-            rw [div_mul_eq_mul_div, one_mul, le_div_iff₀ hpi]
-            linarith
-        _ ≤ 1 / Real.pi * I + 24 * M / (Real.pi * T) := le_add_of_nonneg_right h24.le
-    · -- Case I < π and T > 24M/π.
-      push_neg at hI_large
-      -- Case split: if I ≥ π - 24M/T, the trivial bound |F-G| ≤ 1 suffices.
-      by_cases hI_near_pi : Real.pi - 24 * M / T ≤ I
-      · -- I close to π: I/π + 24M/(πT) ≥ (π - 24M/T)/π + 24M/(πT) = 1
-        calc |cdf μ y - cdf ν y|
-            ≤ 1 := hcdf
-          _ ≤ 1 / Real.pi * I + 24 * M / (Real.pi * T) := by
-              have hpi_ne : Real.pi ≠ 0 := ne_of_gt hpi
-              have hT_ne : T ≠ 0 := ne_of_gt hT
-              have step1 : 1 - 24 * M / (Real.pi * T) ≤ 1 / Real.pi * I := by
-                rw [div_mul_eq_mul_div, one_mul]
-                rw [le_div_iff₀ hpi]
-                have h24T : Real.pi - 24 * M / T ≤ I := hI_near_pi
-                have : Real.pi * (1 - 24 * M / (Real.pi * T)) = Real.pi - 24 * M / T := by
-                  field_simp
-                linarith
-              linarith
-      · -- I < π - 24M/T: use Esseen's smoothing inequality.
-        push_neg at hI_near_pi
-        exact esseen_smoothing_ineq μ ν hM hν_density T hT y
+      48 * M / (Real.pi * T) := by
+  exact esseen_smoothing_ineq μ ν hM hν_density T hT y
 
 private lemma esseen_fourier_cdf_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
@@ -2115,7 +2064,7 @@ private lemma esseen_fourier_cdf_bound
     ∃ M : ℝ, 0 < M ∧ |cdf μ y - cdf ν y| ≤
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
-      24 * M / (Real.pi * T) := by
+      48 * M / (Real.pi * T) := by
   obtain ⟨M, hM, hbd⟩ := hν_density
   exact ⟨M, hM, levy_cdf_diff_fourier_bound μ ν hM hbd T hT y⟩
 
@@ -2177,7 +2126,7 @@ lemma esseen_concentration_universal :
             C₁ * (∫ t in Set.Icc (-T) T,
               ‖charFun μ t - charFun (gaussianReal 0 1) t‖ / |t|) +
             C₂ / T := by
-  refine ⟨1 / Real.pi, 24 / Real.pi, by positivity, by positivity, fun T hT μ _ y => ?_⟩
+  refine ⟨1 / Real.pi, 48 / Real.pi, by positivity, by positivity, fun T hT μ _ y => ?_⟩
   have hpi : 0 < Real.pi := Real.pi_pos
   -- Apply the core Fourier-analytic bound with M = 1 (Gaussian density)
   obtain ⟨M, hM, hbound⟩ := esseen_fourier_cdf_bound μ (gaussianReal 0 1)
@@ -2186,7 +2135,7 @@ lemma esseen_concentration_universal :
   -- But M could be any value satisfying the density bound; we use M = 1 explicitly.
   have hbound' := levy_cdf_diff_fourier_bound μ (gaussianReal 0 1) one_pos
     gaussianReal_density_bounded T hT y
-  rw [show 24 * (1 : ℝ) / (Real.pi * T) = (24 / Real.pi) / T from by ring] at hbound'
+  rw [show 48 * (1 : ℝ) / (Real.pi * T) = (48 / Real.pi) / T from by ring] at hbound'
   exact hbound'
 
 /-- **Auxiliary: the charfun integrand is bounded by 5δ|t|² on Icc(-T, T).**
