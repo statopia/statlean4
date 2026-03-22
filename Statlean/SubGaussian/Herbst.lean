@@ -65,6 +65,26 @@ lemma herbstBound_neg
     _ ≤ (-s) ^ 2 * L ^ 2 / 2 := hs
     _ = s ^ 2 * L ^ 2 / 2 := by ring_nf
 
+/-! ## Sub-lemma: MGF bound (the Herbst argument from Gaussian LSI) -/
+
+/-- **Herbst MGF bound**: For centered L-Lipschitz functions of Gaussian vectors,
+the MGF satisfies `E[exp(s·X)] ≤ exp(L²·s²/2)`.
+
+This is the core of the Herbst argument. The proof uses the Gaussian LSI
+(`gaussian_log_sobolev`) to bound the entropy of `exp(s·X)`, which yields
+the differential inequality `sΛ'(s) - Λ(s) ≤ s²L²/2` for the CGF
+`Λ(s) = log E[exp(s·X)]`. Integration gives `Λ(s) ≤ s²L²/2`. -/
+private lemma mgf_le_exp_of_lipschitz_stdGaussianPi
+    (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
+    (hf : LipschitzWith L f)
+    (t : ℝ) :
+    let X := fun x => f x - ∫ y, f y ∂stdGaussianPi n
+    mgf X (stdGaussianPi n) t ≤ Real.exp (↑(L ^ 2) * t ^ 2 / 2) := by
+  intro X
+  -- The proof uses the Gaussian LSI + entropy method (Herbst argument).
+  -- Route: LSI → Ent(e^{sX}) ≤ s²L²/2·E[e^{sX}] → Λ(s) ≤ s²L²/2.
+  sorry
+
 /-! ## Sorry-bearing declarations -/
 
 private lemma hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi
@@ -73,8 +93,9 @@ private lemma hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi
     HasSubgaussianMGF
       (fun x => f x - ∫ y, f y ∂stdGaussianPi n)
       (L ^ 2)
-      (stdGaussianPi n) := by
-  sorry
+      (stdGaussianPi n) :=
+  ⟨fun t => integrable_exp_centered_of_lipschitz_stdGaussianPi n f L hf t,
+   fun t => mgf_le_exp_of_lipschitz_stdGaussianPi n f L hf t⟩
 
 theorem herbst_argument_core
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
