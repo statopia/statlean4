@@ -8,16 +8,21 @@ import Mathlib.Probability.Moments.SubGaussian
 - `HerbstBound` — cumulant generating function bound for a fixed function
 - `UniversalHerbstBound` — universal Herbst interface for Lipschitz functions
 
-## Proved (1 sorry — LSI application blocked)
+## Proved (6 sorry — Gaussian mollification infrastructure)
 - `herbst_argument_of_bound` — from `HerbstBound` hypothesis
 - `herbstBound_neg` — stability under negation
 - `mgf_le_of_entropyPi_bound` — ODE/Grönwall step: entropy bound → MGF bound (PROVED)
 - `mgf_le_exp_of_lipschitz_stdGaussianPi` — Herbst MGF bound (proved given LSI step)
 - `hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi` — assembled from sub-lemmas
+- `gaussianMollify_lipschitz` — mollification preserves Lipschitz constant (PROVED)
 
-## Sorry gap
-- `entropyPi_exp_le_of_lipschitz` — LSI application for Lipschitz f
-  (needs Rademacher or smooth approximation; `gaussian_log_sobolev` requires C¹)
+## Sorry gaps (Gaussian mollification sub-lemmas)
+- `gaussianMollify_tendsto` — f_ε → f pointwise as ε → 0
+- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L
+- `gaussianMollify_memLp_exp` — exp(s·(f_ε - E[f_ε])) ∈ L² under Gaussian
+- `gaussianMollify_memLp_grad_exp` — ∂ᵢf_ε · exp(·) ∈ L² under Gaussian
+- `entropyPi_tendsto_of_uniform` — entropy continuity under convergence
+- `entropyPi_exp_le_of_lipschitz` — main assembly (limit argument)
 -/
 
 open MeasureTheory ProbabilityTheory Filter Topology
@@ -193,31 +198,51 @@ private noncomputable def gaussianMollify (n : ℕ) (ε : ℝ) (f : (Fin n → �
     (Fin n → ℝ) → ℝ :=
   fun x => ∫ y, f (x + ε • y) ∂stdGaussianPi n
 
-/-- Gaussian mollification of an L-Lipschitz function is L-Lipschitz. -/
+/-- The affine map `y ↦ x + ε • y` is Lipschitz with constant `|ε|`. -/
+private lemma lipschitzWith_affine {n : ℕ} (x : Fin n → ℝ) (ε : ℝ) :
+    LipschitzWith ⟨|ε|, abs_nonneg ε⟩ (fun y : Fin n → ℝ => x + ε • y) := by
+  rw [lipschitzWith_iff_dist_le_mul]
+  intro a b
+  simp [dist_eq_norm]
+  rw [← smul_sub, norm_smul]
+  simp
+
+/-- Lipschitz f composed with affine map is integrable under Gaussian. -/
+private lemma lipschitz_comp_affine_integrable (n : ℕ) (f : (Fin n → ℝ) → ℝ)
+    (L : ℝ≥0) (hf : LipschitzWith L f) (x : Fin n → ℝ) (ε : ℝ) :
+    Integrable (fun y => f (x + ε • y)) (stdGaussianPi n) :=
+  integrable_of_lipschitz_stdGaussianPi n _ _
+    (hf.comp (lipschitzWith_affine x ε))
+
+/-- Gaussian mollification of an L-Lipschitz function is L-Lipschitz.
+Proof: |f_ε(x) - f_ε(x')| = |∫(f(x+εy) - f(x'+εy))dγ| ≤ ∫|f(x+εy)-f(x'+εy)|dγ
+≤ ∫ L·‖(x+εy)-(x'+εy)‖ dγ = L·‖x-x'‖ since translation doesn't change distance. -/
 private lemma gaussianMollify_lipschitz (n : ℕ) (ε : ℝ) (f : (Fin n → ℝ) → ℝ)
     (L : ℝ≥0) (hf : LipschitzWith L f) :
     LipschitzWith L (gaussianMollify n ε f) := by
-  -- |f_ε(x) - f_ε(x')| = |∫(f(x+εy) - f(x'+εy))dγ| ≤ ∫|f(x+εy) - f(x'+εy)|dγ
-  -- ≤ ∫ L·‖(x+εy) - (x'+εy)‖ dγ = L·‖x - x'‖
+  rw [lipschitzWith_iff_dist_le_mul]
   intro x x'
-  simp only [gaussianMollify, edist_dist]
-  rw [dist_comm]
-  calc dist (∫ y, f (x + ε • y) ∂stdGaussianPi n) (∫ y, f (x' + ε • y) ∂stdGaussianPi n)
-      = ‖∫ y, (f (x + ε • y) - f (x' + ε • y)) ∂stdGaussianPi n‖ := by
-        rw [← integral_sub
-          (hf.continuous.comp (continuous_const.add (continuous_const.mul continuous_id))).integrable
-          (hf.continuous.comp (continuous_const.add (continuous_const.mul continuous_id))).integrable]
-        simp [dist_eq_norm]
-    _ ≤ ∫ y, ‖f (x + ε • y) - f (x' + ε • y)‖ ∂stdGaussianPi n :=
+  simp only [gaussianMollify]
+  have hint1 := lipschitz_comp_affine_integrable n f L hf x ε
+  have hint2 := lipschitz_comp_affine_integrable n f L hf x' ε
+  have htrans : ∀ y : Fin n → ℝ,
+      dist (x + ε • y) (x' + ε • y) = dist x x' := by
+    intro y; simp [dist_eq_norm, add_sub_add_comm]
+  rw [dist_eq_norm, ← integral_sub hint1 hint2]
+  calc ‖∫ y, (f (x + ε • y) - f (x' + ε • y)) ∂stdGaussianPi n‖
+      ≤ ∫ y, ‖f (x + ε • y) - f (x' + ε • y)‖ ∂stdGaussianPi n :=
         norm_integral_le_integral_norm _
     _ ≤ ∫ _, (L : ℝ) * dist x x' ∂stdGaussianPi n := by
-        apply integral_mono_of_nonneg (ae_of_all _ (fun y => norm_nonneg _))
+        apply integral_mono_of_nonneg (ae_of_all _ (fun _ => norm_nonneg _))
           (integrable_const _) (ae_of_all _ (fun y => ?_))
-        rw [Real.norm_eq_abs, abs_of_nonneg (sub_nonneg.mpr (hf.dist_le_mul _ _ ▸ sorry) ▸ sorry)]
-        sorry -- dist (x + ε • y) (x' + ε • y) = dist x x', then apply hf.dist_le_mul
+        calc ‖f (x + ε • y) - f (x' + ε • y)‖
+            = dist (f (x + ε • y)) (f (x' + ε • y)) :=
+              (dist_eq_norm _ _).symm
+          _ ≤ L * dist (x + ε • y) (x' + ε • y) :=
+              hf.dist_le_mul _ _
+          _ = L * dist x x' := by rw [htrans]
     _ = (L : ℝ) * dist x x' := by
-        rw [integral_const, measure_univ, ENNReal.one_toReal, one_smul]
-  sorry -- assemble into edist inequality
+        simp [integral_const]
 
 /-- Gaussian mollification converges pointwise to `f` as `ε → 0` for Lipschitz `f`.
 More precisely, `|f_ε(x) - f(x)| ≤ L · |ε| · E[‖Z‖]`. -/
@@ -228,30 +253,24 @@ private lemma gaussianMollify_tendsto (n : ℕ) (f : (Fin n → ℝ) → ℝ)
   -- and |f(x + εy) - f(x)| ≤ L·|ε|·‖y‖ (dominated by L·‖y‖ which is integrable)
   sorry
 
-/-- Gaussian mollification of Lipschitz f has partial derivatives satisfying HasDerivAt
-along each coordinate, with the gradient of f_ε satisfying ∑ᵢ (∂ᵢf_ε)² ≤ L².
+/-- Gaussian mollification of Lipschitz f is C¹ with bounded gradient.
 
-The partial derivative is given by the Stein identity:
-  ∂ᵢf_ε(x) = (1/ε) · ∫ f(x + εy) · yᵢ dγ(y)
-But since f_ε is smooth (Gaussian convolution) and L-Lipschitz, we have ‖∇f_ε‖ ≤ L
-(Lipschitz smooth functions have gradient norm bounded by Lipschitz constant). -/
-private lemma gaussianMollify_hasDerivAt (n : ℕ) (ε : ℝ) (hε : 0 < ε)
-    (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f) (x : Fin n → ℝ) (i : Fin n) :
-    ∃ d : ℝ, HasDerivAt (fun s => gaussianMollify n ε f (Function.update x i s)) d (x i) ∧
-      d ^ 2 ≤ (L : ℝ) ^ 2 := by
-  -- f_ε is differentiable (convolution with smooth kernel) and L-Lipschitz
-  -- So |∂ᵢf_ε(x)| ≤ ‖∇f_ε(x)‖ ≤ L, hence d² ≤ L²
-  sorry
+For `f_ε = gaussianMollify n ε f` with `f` L-Lipschitz, there exists a gradient function
+`gradf_ε` such that:
+1. `HasDerivAt` along each coordinate (f_ε is differentiable)
+2. `∑ᵢ (gradf_ε i x)² ≤ L²` (gradient norm bounded by Lipschitz constant)
+3. Each partial derivative is continuous along its coordinate
 
-/-- The gradient of Gaussian mollification has continuous partial derivatives along
-each coordinate. -/
-private lemma gaussianMollify_grad_continuous (n : ℕ) (ε : ℝ) (hε : 0 < ε)
-    (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f)
-    (gradf_ε : Fin n → (Fin n → ℝ) → ℝ)
-    (hgrad : ∀ x i, HasDerivAt (fun s => gaussianMollify n ε f (Function.update x i s))
-      (gradf_ε i x) (x i)) :
-    ∀ x i, Continuous (fun s => gradf_ε i (Function.update x i s)) := by
-  -- f_ε is smooth (C^∞), so all partial derivatives are continuous
+The derivative exists because f_ε is a convolution with a smooth Gaussian kernel.
+The gradient bound follows from f_ε being L-Lipschitz (smooth + Lipschitz → ‖∇f‖ ≤ L).
+Continuity of partial derivatives follows from f_ε being C^∞. -/
+private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε : 0 < ε)
+    (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f) :
+    ∃ gradf_ε : Fin n → (Fin n → ℝ) → ℝ,
+      (∀ x i, HasDerivAt (fun s => gaussianMollify n ε f (Function.update x i s))
+        (gradf_ε i x) (x i)) ∧
+      (∀ x, ∑ i, (gradf_ε i x) ^ 2 ≤ (L : ℝ) ^ 2) ∧
+      (∀ x i, Continuous (fun s => gradf_ε i (Function.update x i s))) := by
   sorry
 
 /-- MemLp property for exp(s · (f_ε - E[f_ε])) under Gaussian measure.
@@ -324,27 +343,14 @@ private lemma entropyPi_exp_le_of_lipschitz
     intro ε hε
     set f_ε := gaussianMollify n ε f
     set X_ε := fun x => f_ε x - ∫ y, f_ε y ∂μ
-    -- Extract gradient and its properties from gaussianMollify_hasDerivAt
-    have hexist := fun x i => gaussianMollify_hasDerivAt n ε hε f L hf x i
-    -- Choose the gradient function
-    choose gradf_ε hgradf_ε using hexist
-    have hderiv : ∀ x i, HasDerivAt (fun s => f_ε (Function.update x i s))
-        (gradf_ε x i) (x i) := fun x i => (hgradf_ε x i).1
-    have hgrad_sq_bound : ∀ x i, (gradf_ε x i) ^ 2 ≤ (L : ℝ) ^ 2 :=
-      fun x i => (hgradf_ε x i).2
-    -- Sum of gradient squares ≤ n · L² ... but we need ≤ L²
-    -- Actually, for Lipschitz functions, ∑ᵢ (∂ᵢf)² ≤ ‖∇f‖² ≤ L²
-    -- The individual bound d² ≤ L² is weaker; we need the joint bound.
-    -- We sorry this step (it requires a more refined gradient extraction).
-    have hgrad_bound : ∀ x, ∑ i, (gradf_ε x i) ^ 2 ≤ (L : ℝ) ^ 2 := by
-      sorry -- requires joint gradient bound from Lipschitz, not just coordinate-wise
-    have hcont := gaussianMollify_grad_continuous n ε hε f L hf
-      (fun i x => gradf_ε x i) (fun x i => hderiv x i)
+    -- Extract C¹ structure with gradient bound from combined lemma
+    obtain ⟨gradf_ε, hderiv, hgrad_bound, hcont⟩ :=
+      gaussianMollify_C1_with_gradient_bound n ε hε f L hf
     have hf_memLp := fun s => gaussianMollify_memLp_exp n ε f L hf s
-    have hgradf_memLp := fun i s => gaussianMollify_memLp_grad_exp n ε f L hf
-      (fun i x => gradf_ε x i) hgrad_bound i s
-    exact entropyPi_exp_le_of_C1 n f_ε L (fun i x => gradf_ε x i) hderiv hcont
-      hgrad_bound hf_memLp hgradf_memLp t
+    have hgradf_memLp := fun i s =>
+      gaussianMollify_memLp_grad_exp n ε f L hf gradf_ε hgrad_bound i s
+    exact entropyPi_exp_le_of_C1 n f_ε L gradf_ε
+      hderiv hcont hgrad_bound hf_memLp hgradf_memLp t
 
   -- Step 2: f_ε → f pointwise as ε → 0, hence X_ε → X and exp(t·X_ε) → exp(t·X)
   -- Step 3: By DCT, both sides of the inequality converge, preserving ≤
