@@ -1860,7 +1860,10 @@ private lemma esseen_smoothing_ineq
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     {M : ℝ} (hM : 0 < M)
     (hν_density : ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
-    (T : ℝ) (hT : 0 < T) (y : ℝ) :
+    (T : ℝ) (hT : 0 < T)
+    (hint_global : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
+      (Set.Icc (-T) T))
+    (y : ℝ) :
     |cdf μ y - cdf ν y| ≤
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
@@ -1901,10 +1904,7 @@ private lemma esseen_smoothing_ineq
       -- The charFun integral is positive, so the integrand is IntegrableOn
       have hI_pos : 0 < I := lt_of_lt_of_le (by positivity) hI_large
       have hint : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
-          (Set.Icc (-T) T) := by
-        by_contra h
-        have : I = 0 := integral_undef (show ¬Integrable _ (volume.restrict _) from h)
-        linarith
+          (Set.Icc (-T) T) := hint_global
       -- Set bracket parameter a = 12/(πT)
       set a := 12 / (Real.pi * T) with ha_def
       have ha_pos : 0 < a := by positivity
@@ -2050,13 +2050,7 @@ private lemma esseen_smoothing_ineq
           -- Take ε→0.
           -- Integrability of the charfun ratio (needed for fejer_convolution_bound):
           have hint : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
-              (Set.Icc (-T) T) := by
-            -- This follows from finite first moments of μ and ν. The bounded-density
-            -- condition on ν gives E_ν[|X|] < ∞, which combined with |e^{itX}-1| ≤ |t||X|
-            -- gives |charFun ν t - 1| ≤ |t|*E_ν[|X|], hence the ratio is O(1).
-            -- For μ, no moment condition is stated here; a sorry is warranted until
-            -- esseen_smoothing_ineq adds an integrability hypothesis.
-            sorry
+              (Set.Icc (-T) T) := hint_global
           -- Set Δ = S/(4M): the shift parameter
           set Δ := S / (4 * M) with hΔ_def
           have hΔ_pos : 0 < Δ := by positivity
@@ -2469,24 +2463,30 @@ private lemma levy_cdf_diff_fourier_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     {M : ℝ} (hM : 0 < M)
     (hν_density : ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
-    (T : ℝ) (hT : 0 < T) (y : ℝ) :
+    (T : ℝ) (hT : 0 < T)
+    (hint : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
+      (Set.Icc (-T) T))
+    (y : ℝ) :
     |cdf μ y - cdf ν y| ≤
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
       48 * M / (Real.pi * T) := by
-  exact esseen_smoothing_ineq μ ν hM hν_density T hT y
+  exact esseen_smoothing_ineq μ ν hM hν_density T hT hint y
 
 private lemma esseen_fourier_cdf_bound
     (μ ν : Measure ℝ) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
     (hν_density : ∃ M : ℝ, 0 < M ∧
       ∀ a b : ℝ, a ≤ b → ν (Set.Icc a b) ≤ ENNReal.ofReal (M * (b - a)))
-    (T : ℝ) (hT : 0 < T) (y : ℝ) :
+    (T : ℝ) (hT : 0 < T)
+    (hint : IntegrableOn (fun t => ‖charFun μ t - charFun ν t‖ / |t|)
+      (Set.Icc (-T) T))
+    (y : ℝ) :
     ∃ M : ℝ, 0 < M ∧ |cdf μ y - cdf ν y| ≤
       (1 / Real.pi) * (∫ t in Set.Icc (-T) T,
         ‖charFun μ t - charFun ν t‖ / |t|) +
       48 * M / (Real.pi * T) := by
   obtain ⟨M, hM, hbd⟩ := hν_density
-  exact ⟨M, hM, levy_cdf_diff_fourier_bound μ ν hM hbd T hT y⟩
+  exact ⟨M, hM, levy_cdf_diff_fourier_bound μ ν hM hbd T hT hint y⟩
 
 /-- The Gaussian density `gaussianPDFReal 0 1 x ≤ 1` for all `x`. -/
 private lemma gaussianPDFReal_le_one (x : ℝ) : gaussianPDFReal 0 1 x ≤ 1 := by
@@ -2542,19 +2542,15 @@ lemma esseen_concentration_universal :
     ∃ C₁ C₂ : ℝ, 0 < C₁ ∧ 0 < C₂ ∧
       ∀ (T : ℝ), 0 < T →
         ∀ (μ : Measure ℝ) [IsProbabilityMeasure μ],
+          IntegrableOn (fun t => ‖charFun μ t - charFun (gaussianReal 0 1) t‖ / |t|)
+            (Set.Icc (-T) T) →
           ∀ y : ℝ, |cdf μ y - cdf (gaussianReal 0 1) y| ≤
             C₁ * (∫ t in Set.Icc (-T) T,
               ‖charFun μ t - charFun (gaussianReal 0 1) t‖ / |t|) +
             C₂ / T := by
-  refine ⟨1 / Real.pi, 48 / Real.pi, by positivity, by positivity, fun T hT μ _ y => ?_⟩
-  have hpi : 0 < Real.pi := Real.pi_pos
-  -- Apply the core Fourier-analytic bound with M = 1 (Gaussian density)
-  obtain ⟨M, hM, hbound⟩ := esseen_fourier_cdf_bound μ (gaussianReal 0 1)
-    ⟨1, one_pos, gaussianReal_density_bounded⟩ T hT y
-  -- Since M = 1 from Gaussian: 24*1/(π*T) = (24/π)/T
-  -- But M could be any value satisfying the density bound; we use M = 1 explicitly.
+  refine ⟨1 / Real.pi, 48 / Real.pi, by positivity, by positivity, fun T hT μ _ hint y => ?_⟩
   have hbound' := levy_cdf_diff_fourier_bound μ (gaussianReal 0 1) one_pos
-    gaussianReal_density_bounded T hT y
+    gaussianReal_density_bounded T hT hint y
   rw [show 48 * (1 : ℝ) / (Real.pi * T) = (48 / Real.pi) / T from by ring] at hbound'
   exact hbound'
 
@@ -3030,8 +3026,39 @@ lemma esseen_charfun_integral_bound :
   have hS_meas : Measurable S :=
     (Finset.measurable_sum Finset.univ (fun i _ => hm i)).div_const _
   have : IsProbabilityMeasure (μ.map S) := isProbabilityMeasure_map hS_meas.aemeasurable
+  -- Integrability of the charfun ratio on Icc(-T', T').
+  -- Since T' = σ³√n/(16ρ) ≤ σ³√n/ρ, the Taylor bound range covers Icc(-T', T').
+  -- charfun_integrand_bound gives ‖Δ(t)‖/|t| ≤ 5δt² ≤ 5δT'² (constant bound).
+  -- Integrability: charfun_integrand_bound gives ‖Δ(t)‖/|t| ≤ 5δt² ≤ 5δT'² on Icc(-T', T')
+  -- (since T' ≤ σ³√n/ρ = Taylor range). Constant bound on compact set → integrable.
+  -- T' ≤ σ³√n/ρ so Icc(-T',T') ⊆ Taylor range
+  have hT'_le : T' ≤ σ ^ 3 * Real.sqrt ↑n / ρ := by
+    rw [T'_def]; exact div_le_div_of_nonneg_left hden_pos.le hρ_pos (by linarith)
+  have hint_charfun : IntegrableOn
+      (fun t => ‖charFun (μ.map S) t - charFun (gaussianReal 0 1) t‖ / |t|)
+      (Set.Icc (-T') T') := by
+    set B := 5 * (ρ / (σ ^ 3 * Real.sqrt ↑n)) * T' ^ 2
+    apply Integrable.of_bound (C := B) (μ := volume.restrict (Set.Icc (-T') T'))
+    · exact (measurable_norm.comp (measurable_charFun.sub measurable_charFun)).div
+        measurable_norm |>.aestronglyMeasurable
+    · filter_upwards [ae_restrict_mem measurableSet_Icc] with t ht
+      rw [Real.norm_eq_abs, abs_of_nonneg (div_nonneg (norm_nonneg _) (abs_nonneg _))]
+      have ht_range : t ∈ Set.Icc (-(σ ^ 3 * Real.sqrt ↑n / ρ)) (σ ^ 3 * Real.sqrt ↑n / ρ) :=
+        ⟨le_trans (by linarith [hT'_le]) ht.1, le_trans ht.2 hT'_le⟩
+      have h := charfun_integrand_bound hn_pos hσ hm hindep hmean hvar h3 hLp t ht_range
+      simp only [S] at h
+      calc ‖charFun (Measure.map S μ) t - charFun (gaussianReal 0 1) t‖ / |t|
+          ≤ 5 * (ρ / (σ ^ 3 * Real.sqrt ↑n)) * t ^ 2 := h
+        _ ≤ B := by
+            show _ ≤ 5 * (ρ / (σ ^ 3 * Real.sqrt ↑n)) * T' ^ 2
+            have ht2 : t ^ 2 ≤ T' ^ 2 := by
+              rw [sq_le_sq]
+              rw [abs_of_pos hT'_pos]
+              exact abs_le.mpr ⟨by linarith [ht.1], ht.2⟩
+            have : 0 ≤ ρ / (σ ^ 3 * Real.sqrt ↑n) := by positivity
+            nlinarith
   -- Apply Esseen's inequality with T': |F-Φ| ≤ C₁ * I(T') + C₂/T'
-  have hess := hesseen T' hT'_pos (μ.map S) y
+  have hess := hesseen T' hT'_pos (μ.map S) hint_charfun y
   -- Apply the integral bound: I(T') ≤ C₃ * δ
   have hint := hintegral hn hσ hm hindep hiid hmean hvar h3 hLp
   -- Key: C₂/T' = 16C₂ * ρ/(σ³√n)
