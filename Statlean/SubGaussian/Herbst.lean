@@ -331,14 +331,29 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
   let gradf_ε : Fin n → (Fin n → ℝ) → ℝ :=
     fun i x => deriv (fun s => gaussianMollify n ε f (Function.update x i s)) (x i)
   refine ⟨gradf_ε, ?_, ?_, ?_, ?_⟩
-  · -- (1) HasDerivAt: mollification is differentiable along each coordinate.
-    -- This follows from differentiating the Gaussian kernel (which is smooth)
-    -- via `hasFDerivAt_integral_of_dominated_loc_of_lip'`.
-    -- The key is that s ↦ f(update x i s + ε·y) is Lipschitz in s uniformly in y,
-    -- and the pointwise derivative exists (by differentiating the density, not f).
-    -- BLOCKER: Mathlib lacks `HasDerivAt` for Gaussian density (gaussianPDFReal).
-    -- Route: change variables to make s appear in the Gaussian kernel,
-    -- differentiate the kernel, apply Leibniz rule.
+  · -- (1) HasDerivAt: coordinate slice of f_ε is differentiable.
+    -- Route: Convert to Lebesgue integral with Gaussian density kernel,
+    -- differentiate the KERNEL (smooth) not f, via Leibniz rule.
+    -- Key APIs: integral_gaussianReal_eq_integral_smul, hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    -- The derivative of gaussianPDFReal w.r.t. mean: ∂/∂μ[φ(μ,σ,x)] = φ·(x-μ)/σ²
+    -- gradf_ε i x = (1/ε) ∫ f(x+εy)·yᵢ dγ(y) (Stein's identity for Gaussian convolution)
+    intro x i
+    -- The coord slice s ↦ gaussianMollify n ε f (update x i s)
+    -- = ∫ f(fun j => if j=i then s+ε*yⱼ else xⱼ+ε*yⱼ) dγ(y)
+    -- is L-Lipschitz (gaussianMollify_coord_lipschitz) hence differentiable a.e. (Rademacher).
+    -- For the HasDerivAt at the SPECIFIC point x i:
+    -- Use hasFDerivAt_integral_of_dominated_loc_of_lip with F(s,y) Lipschitz in s.
+    -- The condition "HasFDerivAt for a.e. y" follows from:
+    --   For each y, s ↦ F(s,y) is L-Lipschitz, hence diff a.e. in s (Rademacher).
+    --   By Fubini on the product space (s,y): for a.e. s, diff for a.e. y.
+    --   (This uses that the non-diff set is measurable and has product measure 0.)
+    -- Since we need this at a SPECIFIC s₀ = x i, this is a subtle point.
+    -- For GAUSSIAN convolution specifically, the function IS smooth at ALL points
+    -- (convolution with Schwartz function), but proving this requires kernel differentiation.
+    -- Gaussian convolution is C^∞, so HasDerivAt holds everywhere.
+    -- Formal proof requires kernel differentiation (Leibniz rule on Gaussian density).
+    -- Key steps: convert ∫dγ to ∫·φ·dλ, differentiate φ w.r.t. mean, use
+    -- hasDerivAt_integral_of_dominated_loc_of_deriv_le with smooth kernel derivative.
     sorry
   · -- (2) Gradient bound: ∑ᵢ (∂ᵢf_ε)² ≤ L².
     -- From (1), gradf_ε i x = deriv of coord slice at x i.
