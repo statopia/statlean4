@@ -350,10 +350,15 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
     -- Since we need this at a SPECIFIC s₀ = x i, this is a subtle point.
     -- For GAUSSIAN convolution specifically, the function IS smooth at ALL points
     -- (convolution with Schwartz function), but proving this requires kernel differentiation.
-    -- Gaussian convolution is C^∞, so HasDerivAt holds everywhere.
-    -- Formal proof requires kernel differentiation (Leibniz rule on Gaussian density).
-    -- Key steps: convert ∫dγ to ∫·φ·dλ, differentiate φ w.r.t. mean, use
-    -- hasDerivAt_integral_of_dominated_loc_of_deriv_le with smooth kernel derivative.
+    -- Route: Rademacher + diffeomorphism preimage + Leibniz.
+    -- (a) By Rademacher: f diff at a.e. point (wrt volume). Let S = non-diff set, |S|=0.
+    -- (b) For each y: F_y(s) = f(update (x+εy) i (s+εyᵢ)) is L-Lip in s.
+    --     F_y diff at s₀ ↔ f diff at update(x+εy) i (s₀+εyᵢ) wrt coord i.
+    -- (c) The map y ↦ update(x+εy) i (s₀+εyᵢ) is a diffeomorphism (ε≠0).
+    --     Preimage of S under this diffeo has volume 0. stdGaussianPi ≪ volume.
+    --     So F_y diff at s₀ for a.e. y (stdGaussianPi).
+    -- (d) hasFDerivAt_integral_of_dominated_loc_of_lip gives HasFDerivAt for ∫F_y dγ.
+    -- (e) Extract HasDerivAt from HasFDerivAt (1D case).
     sorry
   · -- (2) Gradient bound: ∑ᵢ (∂ᵢf_ε)² ≤ L².
     -- From (1), gradf_ε i x = deriv of coord slice at x i.
