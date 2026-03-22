@@ -131,15 +131,42 @@ private lemma mgf_le_of_entropyPi_bound
   have hDeriv0 : deriv (mgf X μ) 0 = 0 := by
     rw [deriv_mgf (hInterior 0)]; simp only
     simp_rw [zero_mul, Real.exp_zero, mul_one]; exact hmean
-  -- The entropy identity gives:
-  -- Ent(e^{sX}) = s·∫X·exp(sX) - M(s)·log M(s) [entropyPi_exp_eq]
-  -- Combined with hent: s·∫X·exp(sX) - M(s)·log M(s) ≤ s²c·M(s)
-  -- So: s·M'(s) - M(s)·log M(s) ≤ s²c·M(s)
-  -- i.e. s·M'(s)/M(s) - log M(s) ≤ s²c
-  -- i.e. s·Λ'(s) - Λ(s) ≤ s²c where Λ = log∘M
-  -- For s ≠ 0: d/ds[Λ(s)/s] = (sΛ'(s)-Λ(s))/s² ≤ c
-  -- Integrate: Λ(t)/t - Λ'(0) ≤ ct, and Λ'(0) = M'(0)/M(0) = 0/1 = 0.
-  -- So Λ(t) ≤ ct², i.e., M(t) ≤ exp(ct²).
+  -- Step 1: The key ODE inequality.
+  -- Entropy identity + bound → s·Λ'(s) - Λ(s) ≤ s²c
+  have hODE : ∀ s, s * deriv (fun t => Real.log (mgf X μ t)) s -
+      Real.log (mgf X μ s) ≤ s ^ 2 * c := by
+    intro s
+    have hent_s := hent s
+    rw [entropyPi_exp_eq X s μ] at hent_s
+    -- Λ'(s) = M'(s)/M(s) = (∫X·exp(sX))/(mgf s)
+    have hlog_deriv : HasDerivAt (fun t => Real.log (mgf X μ t))
+        ((mgf X μ s)⁻¹ * ∫ x, X x * Real.exp (s * X x) ∂μ) s :=
+      (Real.hasDerivAt_log (ne_of_gt (hMgfPos s))).comp s (hDeriv s)
+    rw [hlog_deriv.deriv]
+    -- Goal: s * (M⁻¹ * I) - log M ≤ s²c
+    -- This equals (s*I - M*log M)/M, and we need ≤ s²c.
+    -- Equivalently: s*I - M*log M ≤ s²c*M, which is hent_s.
+    have hM_pos' := hMgfPos s
+    have hM_ne : (mgf X μ s) ≠ 0 := ne_of_gt hM_pos'
+    -- Rewrite LHS as (s*I - M*log M) / M
+    have h_eq : s * ((mgf X μ s)⁻¹ * ∫ x, X x * Real.exp (s * X x) ∂μ) -
+        Real.log (mgf X μ s) =
+        (s * (∫ x, X x * Real.exp (s * X x) ∂μ) -
+         mgf X μ s * Real.log (mgf X μ s)) / mgf X μ s := by
+      field_simp
+    rw [h_eq]
+    exact (div_le_iff₀ hM_pos').mpr hent_s
+  -- Step 2: Suffices to show log(mgf t) ≤ ct² for all t.
+  suffices hlog : ∀ t, Real.log (mgf X μ t) ≤ c * t ^ 2 by
+    intro t
+    exact (Real.log_le_iff_le_exp (hMgfPos t)).mp (hlog t)
+  -- Step 3: Use the ODE to bound log(mgf).
+  -- Define φ(t) = log(mgf(t))/t for t ≠ 0. The ODE gives φ'(t) ≤ c.
+  -- Since φ(0+) = Λ'(0) = 0, we get φ(t) ≤ ct, so log(mgf(t)) ≤ ct².
+  -- For the formal proof, use norm_image_sub_le_of_norm_deriv_le_segment
+  -- on the function h(t) = log(mgf(t)) - ct² on [0, T].
+  -- h(0) = 0 and h'(t) = Λ'(t) - 2ct = (sΛ'(s)-Λ(s))/s - 2ct + Λ(t)/t ... complex.
+  -- Simpler: directly bound using the integral of the ODE.
   sorry
 
 /-- **Herbst MGF bound**: For centered L-Lipschitz functions of Gaussian vectors,
