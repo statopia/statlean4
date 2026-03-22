@@ -2,7 +2,7 @@
 
 A Lean 4 + Mathlib library formalizing core theorems of mathematical statistics, covering estimation theory, sufficiency, limit theorems, concentration inequalities, regression, and Gaussian analysis.
 
-**Scale**: 61 Lean files · ~30,000 lines · 434+ public theorems · 51 verified (zero-sorry) modules · **only 2 sorry remaining**
+**Scale**: 61 Lean files · ~30,000 lines · 434+ public theorems · 51 verified (zero-sorry) modules · **4 sorry remaining (2 infrastructure gaps)**
 
 > **Want to contribute? See [INSTRUCTION.md](INSTRUCTION.md)**
 
