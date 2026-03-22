@@ -114,7 +114,32 @@ private lemma mgf_le_of_entropyPi_bound
     (hent : ∀ s, entropyPi (stdGaussianPi n) (fun x => Real.exp (s * X x)) ≤
       s ^ 2 * c * ∫ x, Real.exp (s * X x) ∂stdGaussianPi n) :
     ∀ t, mgf X (stdGaussianPi n) t ≤ Real.exp (c * t ^ 2) := by
-  -- The ODE/Grönwall argument
+  set μ := stdGaussianPi n
+  -- integrableExpSet = univ since hint gives integrability for all s
+  have hExpSet : integrableExpSet X μ = Set.univ := by
+    ext s; simp only [integrableExpSet, Set.mem_setOf_eq, Set.mem_univ, iff_true]; exact hint s
+  have hInterior : ∀ s, s ∈ interior (integrableExpSet X μ) := by
+    rw [hExpSet, interior_univ]; exact fun s => Set.mem_univ s
+  -- mgf is differentiable with derivative ∫ X·exp(sX)
+  have hDeriv : ∀ s, HasDerivAt (mgf X μ) (∫ x, X x * Real.exp (s * X x) ∂μ) s :=
+    fun s => hasDerivAt_mgf (hInterior s)
+  -- mgf(0) = 1 (probability measure)
+  have hMgf0 : mgf X μ 0 = 1 := by simp [mgf]
+  -- mgf > 0 (exp > 0)
+  have hMgfPos : ∀ s, 0 < mgf X μ s := fun s => mgf_pos (hint s)
+  -- deriv(mgf)(0) = E[X] = 0
+  have hDeriv0 : deriv (mgf X μ) 0 = 0 := by
+    rw [deriv_mgf (hInterior 0)]; simp only
+    simp_rw [zero_mul, Real.exp_zero, mul_one]; exact hmean
+  -- The entropy identity gives:
+  -- Ent(e^{sX}) = s·∫X·exp(sX) - M(s)·log M(s) [entropyPi_exp_eq]
+  -- Combined with hent: s·∫X·exp(sX) - M(s)·log M(s) ≤ s²c·M(s)
+  -- So: s·M'(s) - M(s)·log M(s) ≤ s²c·M(s)
+  -- i.e. s·M'(s)/M(s) - log M(s) ≤ s²c
+  -- i.e. s·Λ'(s) - Λ(s) ≤ s²c where Λ = log∘M
+  -- For s ≠ 0: d/ds[Λ(s)/s] = (sΛ'(s)-Λ(s))/s² ≤ c
+  -- Integrate: Λ(t)/t - Λ'(0) ≤ ct, and Λ'(0) = M'(0)/M(0) = 0/1 = 0.
+  -- So Λ(t) ≤ ct², i.e., M(t) ≤ exp(ct²).
   sorry
 
 /-- **Herbst MGF bound**: For centered L-Lipschitz functions of Gaussian vectors,
