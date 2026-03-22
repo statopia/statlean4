@@ -8,15 +8,19 @@ import Mathlib.Probability.Moments.SubGaussian
 - `HerbstBound` — cumulant generating function bound for a fixed function
 - `UniversalHerbstBound` — universal Herbst interface for Lipschitz functions
 
-## Proved (zero sorry)
+## Proved (1 sorry — LSI application blocked)
 - `herbst_argument_of_bound` — from `HerbstBound` hypothesis
 - `herbstBound_neg` — stability under negation
+- `mgf_le_of_entropyPi_bound` — ODE/Grönwall step: entropy bound → MGF bound (PROVED)
+- `mgf_le_exp_of_lipschitz_stdGaussianPi` — Herbst MGF bound (proved given LSI step)
+- `hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi` — assembled from sub-lemmas
 
 ## Sorry gap
-- `hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi` — needs LSI + Grönwall
+- `entropyPi_exp_le_of_lipschitz` — LSI application for Lipschitz f
+  (needs Rademacher or smooth approximation; `gaussian_log_sobolev` requires C¹)
 -/
 
-open MeasureTheory ProbabilityTheory
+open MeasureTheory ProbabilityTheory Filter
 open scoped NNReal
 
 noncomputable section
@@ -156,18 +160,136 @@ private lemma mgf_le_of_entropyPi_bound
       field_simp
     rw [h_eq]
     exact (div_le_iff₀ hM_pos').mpr hent_s
-  -- Step 2: Suffices to show log(mgf t) ≤ ct² for all t.
-  suffices hlog : ∀ t, Real.log (mgf X μ t) ≤ c * t ^ 2 by
-    intro t
-    exact (Real.log_le_iff_le_exp (hMgfPos t)).mp (hlog t)
-  -- Step 3: Use the ODE to bound log(mgf).
-  -- Define φ(t) = log(mgf(t))/t for t ≠ 0. The ODE gives φ'(t) ≤ c.
-  -- Since φ(0+) = Λ'(0) = 0, we get φ(t) ≤ ct, so log(mgf(t)) ≤ ct².
-  -- For the formal proof, use norm_image_sub_le_of_norm_deriv_le_segment
-  -- on the function h(t) = log(mgf(t)) - ct² on [0, T].
-  -- h(0) = 0 and h'(t) = Λ'(t) - 2ct = (sΛ'(s)-Λ(s))/s - 2ct + Λ(t)/t ... complex.
-  -- Simpler: directly bound using the integral of the ODE.
-  sorry
+  -- Step 2: Λ = log ∘ mgf
+  let Λ : ℝ → ℝ := fun s => Real.log (mgf X μ s)
+  have hΛ_zero : Λ 0 = 0 := by simp [Λ, hMgf0]
+  have hΛderiv : ∀ s, HasDerivAt Λ ((∫ x, X x * Real.exp (s * X x) ∂μ) / mgf X μ s) s :=
+    fun s => (hDeriv s).log (hMgfPos s).ne'
+  have hΛderiv_zero : HasDerivAt Λ 0 0 := by
+    convert hΛderiv 0 using 1; simp [hMgf0, hmean]
+  -- Λ'(s) = deriv Λ s
+  have hΛderiv_eq : ∀ s, deriv (fun t => Real.log (mgf X μ t)) s =
+      (∫ x, X x * Real.exp (s * X x) ∂μ) / mgf X μ s :=
+    fun s => (hΛderiv s).deriv
+  -- Restate hODE in terms of Λ
+  have hODE' : ∀ s, s * ((∫ x, X x * Real.exp (s * X x) ∂μ) / mgf X μ s) - Λ s ≤ s ^ 2 * c := by
+    intro s; rw [← hΛderiv_eq]; exact hODE s
+  -- k(s) = Λ(s)/s - c*s is antitone on Ioi 0 and Iio 0
+  let k : ℝ → ℝ := fun s => Λ s / s - c * s
+  have hkDeriv : ∀ s ≠ 0, HasDerivAt k
+      ((s * ((∫ x, X x * Real.exp (s * X x) ∂μ) / mgf X μ s) - Λ s) / s ^ 2 - c) s := by
+    intro s hs
+    have hdiv : HasDerivAt (fun s => Λ s / s)
+        ((s * ((∫ x, X x * Real.exp (s * X x) ∂μ) / mgf X μ s) - Λ s) / s ^ 2) s := by
+      have h := (hΛderiv s).div (hasDerivAt_id s) hs
+      simp only [id] at h; convert h using 1; field_simp
+    have hlin : HasDerivAt (fun s => c * s) c s := by simpa using (hasDerivAt_id s).const_mul c
+    simpa using hdiv.sub hlin
+  have hk_deriv_le : ∀ s ≠ 0, deriv k s ≤ 0 := fun s hs => by
+    rw [(hkDeriv s hs).deriv]
+    linarith [(div_le_iff₀ (pow_two_pos_of_ne_zero hs)).mpr
+      (by linarith [hODE' s, mul_comm c (s ^ 2)] :
+        s * ((∫ x, X x * Real.exp (s * X x) ∂μ) / mgf X μ s) - Λ s ≤ c * s ^ 2)]
+  have hk_cont : ∀ (S : Set ℝ), (∀ s ∈ S, s ≠ 0) → ContinuousOn k S := fun S hS => by
+    apply ContinuousOn.sub
+    · apply ContinuousOn.div
+      · apply ContinuousOn.comp Real.continuousOn_log
+        · exact (continuous_mgf hint).continuousOn
+        · intro s _; simp only [Set.mem_compl_iff, Set.mem_singleton_iff]; exact (hMgfPos s).ne'
+      · exact continuousOn_id
+      · exact fun s hs => hS s hs
+    · exact (continuous_const.mul continuous_id).continuousOn
+  have hk_anti_Ioi : AntitoneOn k (Set.Ioi 0) := by
+    apply antitoneOn_of_deriv_nonpos (convex_Ioi 0)
+      (hk_cont _ (fun s hs => (Set.mem_Ioi.mp hs).ne'))
+    · rw [interior_Ioi]
+      intro s hs
+      exact (hkDeriv s hs.ne').differentiableAt.differentiableWithinAt
+    · rw [interior_Ioi]; exact fun s hs => hk_deriv_le s hs.ne'
+  have hk_anti_Iio : AntitoneOn k (Set.Iio 0) := by
+    apply antitoneOn_of_deriv_nonpos (convex_Iio 0)
+      (hk_cont _ (fun s hs => (Set.mem_Iio.mp hs).ne))
+    · rw [interior_Iio]
+      intro s hs
+      exact (hkDeriv s hs.ne).differentiableAt.differentiableWithinAt
+    · rw [interior_Iio]; exact fun s hs => hk_deriv_le s hs.ne
+  -- Limit of k at 0+ and 0-
+  have hΛdiv_lim_Ioi : Tendsto (fun s => Λ s / s) (nhdsWithin 0 (Set.Ioi 0)) (nhds 0) := by
+    have hf := hΛderiv_zero.hasDerivAtFilter (L := nhdsWithin 0 (Set.Ioi 0))
+    rw [hasDerivAtFilter_iff_tendsto] at hf; simp [hΛ_zero] at hf
+    rw [tendsto_zero_iff_norm_tendsto_zero]
+    refine (hf nhdsWithin_le_nhds).congr' ?_
+    filter_upwards [self_mem_nhdsWithin] with s hs
+    rw [Set.mem_Ioi] at hs
+    simp [Real.norm_eq_abs, abs_of_pos hs, div_eq_mul_inv, mul_comm]
+  have hΛdiv_lim_Iio : Tendsto (fun s => Λ s / s) (nhdsWithin 0 (Set.Iio 0)) (nhds 0) := by
+    have hf := hΛderiv_zero.hasDerivAtFilter (L := nhdsWithin 0 (Set.Iio 0))
+    rw [hasDerivAtFilter_iff_tendsto] at hf; simp [hΛ_zero] at hf
+    rw [tendsto_zero_iff_norm_tendsto_zero]
+    refine (hf nhdsWithin_le_nhds).congr' ?_
+    filter_upwards [self_mem_nhdsWithin] with s hs
+    rw [Set.mem_Iio] at hs
+    simp only [Real.norm_eq_abs]; rw [abs_of_neg hs, abs_div, abs_of_neg hs]; ring
+  have hcs_lim : ∀ (S : Set ℝ), Tendsto (fun s => c * s) (nhdsWithin 0 S) (nhds 0) := fun S => by
+    have h : Tendsto (fun s => c * s) (nhds (0 : ℝ)) (nhds (c * 0)) :=
+      tendsto_const_nhds.mul tendsto_id
+    simp at h; exact h.mono_left nhdsWithin_le_nhds
+  have hk_lim_Ioi : Tendsto k (nhdsWithin 0 (Set.Ioi 0)) (nhds 0) :=
+    by simpa using hΛdiv_lim_Ioi.sub (hcs_lim _)
+  have hk_lim_Iio : Tendsto k (nhdsWithin 0 (Set.Iio 0)) (nhds 0) :=
+    by simpa using hΛdiv_lim_Iio.sub (hcs_lim _)
+  -- Antitone + limit 0 helper for Ioi
+  have anti_Ioi : ∀ {f : ℝ → ℝ}, AntitoneOn f (Set.Ioi 0) →
+      Tendsto f (nhdsWithin 0 (Set.Ioi 0)) (nhds 0) → ∀ t > 0, f t ≤ 0 := by
+    intro f h_anti h_lim t ht
+    by_contra hft; push_neg at hft
+    have h1 : {x | f x < f t} ∈ nhdsWithin 0 (Set.Ioi 0) := h_lim.eventually (Iio_mem_nhds hft)
+    rw [mem_nhdsWithin] at h1
+    obtain ⟨s, hs_open, hs0, hs_sub⟩ := h1; rw [Metric.isOpen_iff] at hs_open
+    obtain ⟨r, hr, hr_sub⟩ := hs_open 0 hs0; set ε := min (r / 2) t
+    have hε_pos : 0 < ε := lt_min (by linarith) ht
+    have hε_in_ball : ε ∈ Metric.ball 0 r := by
+      simp only [Metric.mem_ball, dist_zero_right, Real.norm_eq_abs, abs_of_pos hε_pos]
+      linarith [min_le_left (r / 2) t]
+    have hfε_lt : f ε < f t := hs_sub ⟨hr_sub hε_in_ball, Set.mem_Ioi.mpr hε_pos⟩
+    have hfε_ge : f t ≤ f ε := h_anti (Set.mem_Ioi.mpr hε_pos) (Set.mem_Ioi.mpr ht) (min_le_right _ _)
+    linarith
+  -- Antitone + limit 0 helper for Iio
+  have anti_Iio : ∀ {f : ℝ → ℝ}, AntitoneOn f (Set.Iio 0) →
+      Tendsto f (nhdsWithin 0 (Set.Iio 0)) (nhds 0) → ∀ t < 0, 0 ≤ f t := by
+    intro f h_anti h_lim t ht
+    by_contra hft; push_neg at hft
+    have h1 : {x | f t < f x} ∈ nhdsWithin 0 (Set.Iio 0) := h_lim.eventually (Ioi_mem_nhds hft)
+    rw [mem_nhdsWithin] at h1
+    obtain ⟨s, hs_open, hs0, hs_sub⟩ := h1; rw [Metric.isOpen_iff] at hs_open
+    obtain ⟨r, hr, hr_sub⟩ := hs_open 0 hs0; set ε := max (-(r / 2)) t
+    have hε_neg : ε < 0 := max_lt (by linarith) ht
+    have hε_in_ball : ε ∈ Metric.ball 0 r := by
+      simp only [Metric.mem_ball, dist_zero_right, Real.norm_eq_abs, abs_of_neg hε_neg]
+      linarith [le_max_left (-(r / 2)) t]
+    have hfε_gt : f t < f ε := hs_sub ⟨hr_sub hε_in_ball, Set.mem_Iio.mpr hε_neg⟩
+    have hfε_le : f ε ≤ f t := h_anti (Set.mem_Iio.mpr ht) (Set.mem_Iio.mpr hε_neg) (le_max_right _ _)
+    linarith
+  -- Conclude for all t
+  intro t
+  rcases lt_trichotomy t 0 with ht | ht | ht
+  · -- t < 0: k(t) ≥ 0 → Λ(t) ≤ c*t²
+    have hkt : 0 ≤ k t := anti_Iio hk_anti_Iio hk_lim_Iio t ht
+    have hΛt : Λ t ≤ c * t ^ 2 := by
+      simp only [k] at hkt
+      calc Λ t = Λ t / t * t := by rw [div_mul_cancel₀]; exact ht.ne
+        _ ≤ c * t * t := by nlinarith [ht]
+        _ = c * t ^ 2 := by ring
+    exact (Real.log_le_iff_le_exp (hMgfPos t)).mp hΛt
+  · subst ht; simp [hMgf0]
+  · -- t > 0: k(t) ≤ 0 → Λ(t) ≤ c*t²
+    have hkt : k t ≤ 0 := anti_Ioi hk_anti_Ioi hk_lim_Ioi t ht
+    have hΛt : Λ t ≤ c * t ^ 2 := by
+      simp only [k] at hkt
+      calc Λ t = Λ t / t * t := by rw [div_mul_cancel₀]; exact ht.ne'
+        _ ≤ c * t * t := by nlinarith
+        _ = c * t ^ 2 := by ring
+    exact (Real.log_le_iff_le_exp (hMgfPos t)).mp hΛt
 
 /-- **Herbst MGF bound**: For centered L-Lipschitz functions of Gaussian vectors,
 the MGF satisfies `E[exp(s·X)] ≤ exp(L²·s²/2)`. -/

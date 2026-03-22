@@ -1,6 +1,6 @@
-version: v142
-generated: 2026-03-18
-total_sorry: 5
+version: v143
+generated: 2026-03-22
+total_sorry: 2
 
 sorry_items:
 
@@ -16,57 +16,13 @@ sorry_items:
   dependencies: [ou.gaussian_lsi_wiring, lsi.entropy_subadditivity_of_nonneg]
   unlocks: []
 
-- id: entropy.logsobolev.gaussian_lsi_1d_ibp_core
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 2725
-  theorem: gaussian_lsi_1d_ibp_core
+- id: fourier.esseensmoothing.cdf_smoothing_error_bound
+  file: Statlean/Fourier/EsseenSmoothing.lean
+  line: 102
+  theorem: cdf_smoothing_error_bound
   type: unknown
   depth: 1
   priority: 99
   estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: limittheorems.berryesseen.esseen_smoothing_ineq_small_I
-  file: Statlean/LimitTheorems/BerryEsseen.lean
-  line: 2044
-  sorry_lines: [2044]
-  theorem: esseen_smoothing_ineq
-  type: infrastructure
-  depth: 1
-  priority: 5
-  stuck_rounds: 2
-  estimated_lines: 150
-  dependencies: []
-  unlocks: [berry_esseen_theorem]
-  engineering_route: |
-    The sorry is in the I < 2π/3, S > 48M/(πT) branch of esseen_smoothing_ineq.
-    Need: S ≤ I/π + 48M/(πT).
-
-    DEAD END (confirmed by 2 agents + main session analysis):
-    - Bracket approach gives S ≤ I/(2π) + 24M/(πT) + 1/3.
-    - The 1/3 constant CANNOT be absorbed when I/(2π) + 24M/(πT) < 1/3.
-    - Variable-a bracket and quadratic sSup argument both insufficient.
-    - IntegrableOn is NOT guaranteed without additional hypothesis.
-
-    VIABLE ROUTES (choose one):
-    A. Integral method (Durrett): Integrate D over near-argmax interval [z₀, z₀+S/(4M)].
-       D ≥ S/4 on this interval (regularity). So S²/(16M) ≤ ∫ D dy.
-       Bound ∫ D dy using Fejér convolution (not bracket). ~150 lines.
-    B. Abel/Lévy inversion: Prove D(y) = lim_{ε→0} (1/π) ∫ e^{-εt} Im(Δ e^{-ity})/t dt.
-       Use abel_sinc_integral + DCT. Requires IntegrableOn on all of ℝ. ~150 lines.
-       Only works for Berry-Esseen specifically (exponential charfun decay).
-    C. Add IntegrableOn hypothesis to esseen_smoothing_ineq. Then route A works
-       for the I/(2π)+24M/(πT) ≥ 1/3 case. For < 1/3 case, still needs route A or B.
-
-- id: lsi.entropy_subadditivity_not_integrable_log
-  file: Statlean/Entropy/LogSobolev.lean
-  line: 4267
-  theorem: entropy_subadditivity_not_integrable_log
-  type: False
-  depth: 2
-  priority: 99
-  blocker: "LIKELY FALSE under Lean's ∫=0 convention. Counterexample: g(x₁,x₂) = h₁(x₁)·h₂(x₂) with both hᵢ·log(hᵢ) ∉ L¹(γ) and 0 < (∫h₁)(∫h₂) < 1. Then LHS = -(∫g)·log(∫g) > 0 but RHS = 0 (each condEntropyAt_i involves non-integrable hⱼ·log(hⱼ), making it non-integrable on product → Lean integral = 0). Becomes dead code once integrable_sq_mul_log_sq_of_memLp is proved, since actual usage path (g = f²) always has integrable g·log(g)."
-  estimated_lines: 0
   dependencies: []
   unlocks: []
