@@ -183,9 +183,20 @@ private lemma entropyPi_exp_le_of_C1
       _ = t ^ 2 * (L : ℝ) ^ 2 / 2 * ∫ x, Real.exp (t * X x) ∂μ := by ring
   linarith
 
-/-- Entropy bound for Lipschitz functions.
-Uses entropyPi_exp_le_of_C1 + smooth approximation (Rademacher's theorem).
-Currently sorry: Rademacher is not in Mathlib. -/
+/-- **Entropy bound for Lipschitz functions under Gaussian measure.**
+
+This is a well-known result in probability theory: for L-Lipschitz `f` under
+standard Gaussian, `Ent(exp(tX)) ≤ t²L²/2 · E[exp(tX)]` where `X = f - E[f]`.
+
+**Proof route** (not yet formalized): Gaussian mollification.
+For ε > 0, define `f_ε(x) = E[f(x + εZ)]` where `Z ~ N(0,I)`. Then:
+1. `f_ε` is C¹ with `|∂ᵢf_ε| ≤ L` (Gaussian convolution smoothing)
+2. `f_ε → f` uniformly as `ε → 0` (Lipschitz + Gaussian concentration)
+3. Apply `entropyPi_exp_le_of_C1` to `f_ε` (all hypotheses satisfied)
+4. Pass to limit via DCT (entropy + MGF continuous under uniform convergence)
+
+The gap is in step 1-2: Gaussian mollification infrastructure is not yet built.
+The C¹ case (`entropyPi_exp_le_of_C1`) IS fully proved above. -/
 private lemma entropyPi_exp_le_of_lipschitz
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
     (hf : LipschitzWith L f) (t : ℝ) :
@@ -193,9 +204,8 @@ private lemma entropyPi_exp_le_of_lipschitz
     entropyPi (stdGaussianPi n) (fun x => Real.exp (t * X x)) ≤
       t ^ 2 * (L : ℝ) ^ 2 / 2 * ∫ x, Real.exp (t * X x) ∂stdGaussianPi n := by
   intro X
-  -- Rademacher's theorem: Lipschitz → differentiable a.e. → smooth approximation
-  -- → apply entropyPi_exp_le_of_C1 → pass to limit.
-  -- Blocked by: Rademacher's theorem not in Mathlib.
+  -- Blocked by: Gaussian mollification infrastructure (smooth Lipschitz approximation).
+  -- The C¹ case is fully proved (entropyPi_exp_le_of_C1 above).
   sorry
 
 /-- **From entropy bound to MGF bound** (the Grönwall/ODE step):
