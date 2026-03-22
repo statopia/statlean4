@@ -18,9 +18,12 @@ import Mathlib.Probability.Moments.SubGaussian
 - `gaussianMollify_tendsto` — f_ε → f pointwise as ε → 0 (PROVED)
 - `gaussianMollify_memLp_exp` — exp(s·(f_ε - E[f_ε])) ∈ L² under Gaussian (PROVED)
 - `gaussianMollify_memLp_grad_exp` — ∂ᵢf_ε · exp(·) ∈ L² under Gaussian (PROVED)
+- `lipschitzWith_update` — coordinate update is 1-Lipschitz (PROVED)
+- `lipschitz_coord_slice` — coordinate slice of Lipschitz is Lipschitz (PROVED)
+- `gaussianMollify_coord_lipschitz` — coord slice of mollification is L-Lipschitz (PROVED)
 
 ## Sorry gaps (harder mollification sub-lemmas)
-- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L (Leibniz rule)
+- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L (4 sub-sorry)
 - `entropyPi_tendsto_of_uniform` — entropy continuity under DCT
 - `entropyPi_exp_le_of_lipschitz` — main assembly (limit argument, depends on above)
 -/
@@ -290,6 +293,32 @@ For `f_ε = gaussianMollify n ε f` with `f` L-Lipschitz, there exists a gradien
 The derivative exists because f_ε is a convolution with a smooth Gaussian kernel.
 The gradient bound follows from f_ε being L-Lipschitz (smooth + Lipschitz → ‖∇f‖ ≤ L).
 Continuity of partial derivatives follows from f_ε being C^∞. -/
+-- The coordinate slice `s ↦ update x i s` is 1-Lipschitz.
+private lemma lipschitzWith_update {n : ℕ} (x : Fin n → ℝ) (i : Fin n) :
+    LipschitzWith 1 (fun s : ℝ => Function.update x i s) := by
+  intro s t
+  simp only [edist_pi_def, Function.update_apply, ENNReal.coe_one, one_mul]
+  apply Finset.sup_le
+  intro j _
+  split_ifs with h
+  · exact le_refl _
+  · simp [edist_self]
+
+-- Coordinate slice of L-Lipschitz function is L-Lipschitz.
+private lemma lipschitz_coord_slice {n : ℕ} (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
+    (hf : LipschitzWith L f) (x : Fin n → ℝ) (i : Fin n) :
+    LipschitzWith L (fun s => f (Function.update x i s)) := by
+  have h1 := lipschitzWith_update x i
+  have h2 : LipschitzWith (L * 1) (f ∘ (fun s => Function.update x i s)) := hf.comp h1
+  simpa [Function.comp] using h2
+
+-- Coordinate slice of mollification is L-Lipschitz.
+private lemma gaussianMollify_coord_lipschitz (n : ℕ) (ε : ℝ)
+    (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f)
+    (x : Fin n → ℝ) (i : Fin n) :
+    LipschitzWith L (fun s => gaussianMollify n ε f (Function.update x i s)) :=
+  lipschitz_coord_slice _ L (gaussianMollify_lipschitz n ε f L hf) x i
+
 private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε : 0 < ε)
     (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f) :
     ∃ gradf_ε : Fin n → (Fin n → ℝ) → ℝ,
@@ -298,7 +327,37 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       (∀ x, ∑ i, (gradf_ε i x) ^ 2 ≤ (L : ℝ) ^ 2) ∧
       (∀ x i, Continuous (fun s => gradf_ε i (Function.update x i s))) ∧
       (∀ i, Measurable (gradf_ε i)) := by
-  sorry
+  -- Define gradient as the deriv of coordinate slices
+  let gradf_ε : Fin n → (Fin n → ℝ) → ℝ :=
+    fun i x => deriv (fun s => gaussianMollify n ε f (Function.update x i s)) (x i)
+  refine ⟨gradf_ε, ?_, ?_, ?_, ?_⟩
+  · -- (1) HasDerivAt: mollification is differentiable along each coordinate.
+    -- This follows from differentiating the Gaussian kernel (which is smooth)
+    -- via `hasFDerivAt_integral_of_dominated_loc_of_lip'`.
+    -- The key is that s ↦ f(update x i s + ε·y) is Lipschitz in s uniformly in y,
+    -- and the pointwise derivative exists (by differentiating the density, not f).
+    -- BLOCKER: Mathlib lacks `HasDerivAt` for Gaussian density (gaussianPDFReal).
+    -- Route: change variables to make s appear in the Gaussian kernel,
+    -- differentiate the kernel, apply Leibniz rule.
+    sorry
+  · -- (2) Gradient bound: ∑ᵢ (∂ᵢf_ε)² ≤ L².
+    -- From (1), gradf_ε i x = deriv of coord slice at x i.
+    -- By `norm_fderiv_le_of_lipschitz` on the full f_ε (L-Lipschitz, sup norm):
+    --   ‖fderiv ℝ f_ε x‖_op ≤ L
+    -- For linear functional on (Fin n → ℝ) with sup norm:
+    --   ‖ℓ‖_op = ∑ᵢ |ℓ(eᵢ)| = ∑ᵢ |∂ᵢf_ε|
+    -- So ∑ |∂ᵢf_ε| ≤ L, hence ∑ (∂ᵢf_ε)² ≤ (∑ |∂ᵢf_ε|)² ≤ L².
+    -- BLOCKER: needs Differentiable from (1) + fderiv ↔ partial deriv bridge.
+    sorry
+  · -- (3) Continuity: s ↦ gradf_ε i (update x i s) is continuous.
+    -- f_ε is C^∞ (convolution with Gaussian), so its derivative is continuous.
+    -- BLOCKER: same as (1), needs smoothness of mollification.
+    sorry
+  · -- (4) Measurability: gradf_ε i is measurable.
+    -- Follows from gradf_ε being continuous (which follows from f_ε being C^∞).
+    -- Alternatively: deriv of a Lipschitz function is measurable (Rademacher).
+    -- BLOCKER: same as (1)/(3).
+    sorry
 
 /-- MemLp property for exp(s · (f_ε - E[f_ε])) under Gaussian measure.
 Follows from f_ε being L-Lipschitz (hence sub-Gaussian growth). -/
