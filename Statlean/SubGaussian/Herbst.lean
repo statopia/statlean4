@@ -279,8 +279,7 @@ private lemma gaussianMollify_memLp_exp (n : ℕ) (ε : ℝ)
     (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f) (s : ℝ) :
     MemLp (fun x => Real.exp (s * (gaussianMollify n ε f x -
       ∫ y, gaussianMollify n ε f y ∂stdGaussianPi n))) 2 (stdGaussianPi n) := by
-  -- f_ε is L-Lipschitz, so |f_ε(x) - f_ε(0)| ≤ L·‖x‖
-  -- exp(s·(f_ε(x) - c)) has Gaussian tail, hence in all L^p
+  -- f_ε is L-Lipschitz (gaussianMollify_lipschitz) → MemLp via Gaussian tails
   sorry
 
 /-- MemLp property for gradf_ε · exp(s · (f_ε - E[f_ε])) under Gaussian measure. -/
