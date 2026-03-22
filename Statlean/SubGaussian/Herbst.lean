@@ -85,12 +85,32 @@ private lemma entropyPi_exp_eq {n : ℕ} (X : (Fin n → ℝ) → ℝ) (t : ℝ)
       fun x => t * (X x * Real.exp (t * X x)) from by ext x; ring]
   exact integral_const_mul t _
 
-/-- **Entropy bound from Gaussian LSI + Lipschitz**:
-For centered L-Lipschitz X under Gaussian, `Ent(e^{tX}) ≤ t²L²/2 · E[e^{tX}]`.
+/-- Entropy bound for C¹ functions with bounded gradient.
+Applies gaussian_log_sobolev to g = exp(t·X/2). -/
+private lemma entropyPi_exp_le_of_C1
+    (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
+    (gradf : Fin n → (Fin n → ℝ) → ℝ)
+    (hderiv : ∀ x i, HasDerivAt (fun s => f (Function.update x i s)) (gradf i x) (x i))
+    (hcont : ∀ x i, Continuous (fun s => gradf i (Function.update x i s)))
+    (hgrad_bound : ∀ x, ∑ i, (gradf i x) ^ 2 ≤ (L : ℝ) ^ 2)
+    (hf_memLp : ∀ s, MemLp (fun x => Real.exp (s * (f x - ∫ y, f y ∂stdGaussianPi n)))
+      2 (stdGaussianPi n))
+    (hgradf_memLp : ∀ i s, MemLp (fun x => gradf i x * Real.exp (s * (f x - ∫ y, f y ∂stdGaussianPi n)))
+      2 (stdGaussianPi n))
+    (t : ℝ) :
+    let X := fun x => f x - ∫ y, f y ∂stdGaussianPi n
+    entropyPi (stdGaussianPi n) (fun x => Real.exp (t * X x)) ≤
+      t ^ 2 * (L : ℝ) ^ 2 / 2 * ∫ x, Real.exp (t * X x) ∂stdGaussianPi n := by
+  intro X
+  -- Apply gaussian_log_sobolev to g = exp(t/2 · X), gradg i = exp(t/2·X) · (t/2 · gradf i)
+  -- Then g² = exp(tX), ∑∫(gradg i)² = t²/4 · ∫|∇f|²·exp(tX) ≤ t²L²/4 · E[exp(tX)]
+  -- LSI: Ent(g²) ≤ 2·t²L²/4·E[exp(tX)] = t²L²/2 · E[exp(tX)]
+  -- Sorry: verifying MemLp/HasDerivAt/Continuous for exp(t/2·X) is technical.
+  sorry
 
-Proof: Apply gaussian_log_sobolev to g = e^{tX/2}. Then g² = e^{tX} and
-∂ᵢg = (t/2)·(∂ᵢf)·g, so ∑∫(∂ᵢg)² = t²/4 · ∫|∇f|²·e^{tX} ≤ t²L²/4 · E[e^{tX}].
-LSI gives Ent(g²) ≤ 2 · t²L²/4 · E[e^{tX}] = t²L²/2 · E[e^{tX}]. -/
+/-- Entropy bound for Lipschitz functions.
+Uses entropyPi_exp_le_of_C1 + smooth approximation (Rademacher's theorem).
+Currently sorry: Rademacher is not in Mathlib. -/
 private lemma entropyPi_exp_le_of_lipschitz
     (n : ℕ) (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0)
     (hf : LipschitzWith L f) (t : ℝ) :
@@ -98,8 +118,9 @@ private lemma entropyPi_exp_le_of_lipschitz
     entropyPi (stdGaussianPi n) (fun x => Real.exp (t * X x)) ≤
       t ^ 2 * (L : ℝ) ^ 2 / 2 * ∫ x, Real.exp (t * X x) ∂stdGaussianPi n := by
   intro X
-  -- Apply gaussian_log_sobolev to g(x) = exp(t/2 · X(x))
-  -- Needs: MemLp g 2, gradient, HasDerivAt, Continuous
+  -- Rademacher's theorem: Lipschitz → differentiable a.e. → smooth approximation
+  -- → apply entropyPi_exp_le_of_C1 → pass to limit.
+  -- Blocked by: Rademacher's theorem not in Mathlib.
   sorry
 
 /-- **From entropy bound to MGF bound** (the Grönwall/ODE step):
