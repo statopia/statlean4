@@ -102,11 +102,86 @@ private lemma entropyPi_exp_le_of_C1
     entropyPi (stdGaussianPi n) (fun x => Real.exp (t * X x)) ≤
       t ^ 2 * (L : ℝ) ^ 2 / 2 * ∫ x, Real.exp (t * X x) ∂stdGaussianPi n := by
   intro X
-  -- Apply gaussian_log_sobolev to g = exp(t/2 · X), gradg i = exp(t/2·X) · (t/2 · gradf i)
-  -- Then g² = exp(tX), ∑∫(gradg i)² = t²/4 · ∫|∇f|²·exp(tX) ≤ t²L²/4 · E[exp(tX)]
-  -- LSI: Ent(g²) ≤ 2·t²L²/4·E[exp(tX)] = t²L²/2 · E[exp(tX)]
-  -- Sorry: verifying MemLp/HasDerivAt/Continuous for exp(t/2·X) is technical.
-  sorry
+  set μ := stdGaussianPi n with hμ
+  -- Apply gaussian_log_sobolev to g = exp(t/2 · X(x)), gradg i x = t/2 · gradf i x · g x.
+  -- Then g(x)² = exp(t·X(x)), and ∑∫(gradg i)² = (t/2)²·∑∫(gradf i)²·exp(tX)
+  --   ≤ (t/2)²·L²·E[exp(tX)] by hgrad_bound.
+  -- LSI gives: Ent(g²) ≤ 2·(t/2)²·L²·E[exp(tX)] = t²L²/2 · E[exp(tX)].
+  let g : (Fin n → ℝ) → ℝ := fun x => Real.exp (t / 2 * X x)
+  let gradg : Fin n → (Fin n → ℝ) → ℝ := fun i x => t / 2 * gradf i x * g x
+  -- g(x)² = exp(t · X(x))
+  have hg_sq : ∀ x, g x ^ 2 = Real.exp (t * X x) := fun x => by
+    simp only [g]; rw [← Real.exp_nat_mul]; congr 1; ring
+  -- MemLp g 2 μ: g x = exp(t/2 · X x) = exp((t/2) · (f x - c)) = hf_memLp(t/2)
+  have hg_memLp : MemLp g 2 μ := hf_memLp (t / 2)
+  -- MemLp (gradg i) 2 μ from hgradf_memLp i (t/2)
+  have hgradg_memLp : ∀ i, MemLp (gradg i) 2 μ := fun i => by
+    have h := (hgradf_memLp i (t / 2)).const_mul (t / 2)
+    convert h using 1; ext x; simp [gradg, g]; ring
+  -- HasDerivAt for s ↦ g(update x i s): chain rule exp ∘ (t/2 · (f ∘ update x i - c))
+  have hgradg_deriv : ∀ x i, HasDerivAt (fun s => g (Function.update x i s)) (gradg i x) (x i) := by
+    intro x i
+    have hscale : HasDerivAt (fun s => t / 2 * (f (Function.update x i s) - ∫ z, f z ∂μ))
+        (t / 2 * gradf i x) (x i) := by
+      simpa using ((hderiv x i).sub_const _).const_mul (t / 2)
+    convert hscale.exp using 1; simp [gradg, g, X]; ring
+  -- Continuity of s ↦ gradg i (update x i s): product of continuous functions
+  have hgradg_cont : ∀ x i, Continuous (fun s => gradg i (Function.update x i s)) := by
+    intro x i; simp only [gradg, g, X]
+    -- s ↦ f(update x i s) is continuous from HasDerivAt for all s (by varying the basepoint)
+    have hf_diff : Differentiable ℝ (fun s => f (Function.update x i s)) := fun s => by
+      have h := hderiv (Function.update x i s) i
+      simp only [Function.update_self] at h
+      have heq : (fun t => f (Function.update (Function.update x i s) i t)) =
+                 (fun t => f (Function.update x i t)) := by ext t; simp [Function.update_idem]
+      rw [heq] at h; exact h.differentiableAt
+    exact (continuous_const.mul (hcont x i)).mul
+      (Real.continuous_exp.comp (continuous_const.mul (hf_diff.continuous.sub continuous_const)))
+  -- Apply gaussian_log_sobolev to g, gradg
+  have hLSI := gaussian_log_sobolev n g gradg hg_memLp hgradg_memLp hgradg_deriv hgradg_cont
+  rw [show (fun x => g x ^ 2) = (fun x => Real.exp (t * X x)) from funext hg_sq] at hLSI
+  -- Integrability of (gradf i x)² · exp(t · X x): from (gradf i · exp(t/2 · X))² ∈ L¹
+  have hint_gradf2_exp : ∀ i, Integrable (fun x => (gradf i x) ^ 2 * Real.exp (t * X x)) μ := fun i => by
+    have h := (hgradf_memLp i (t / 2)).integrable_sq
+    refine h.congr (Filter.Eventually.of_forall (fun x => ?_))
+    simp only; rw [mul_pow, ← Real.exp_nat_mul]; ring_nf; congr 1; simp [X]; ring
+  -- Integrability of exp(t · X x): from g² ∈ L¹
+  have hint_exp : Integrable (fun x => Real.exp (t * X x)) μ := by
+    have h := hg_memLp.integrable_sq
+    refine h.congr (Filter.Eventually.of_forall (fun x => ?_))
+    simp only; rw [← Real.exp_nat_mul]; ring_nf
+  -- ∑∫(gradf i x)² · exp(tX) ≤ L² · E[exp(tX)] by hgrad_bound
+  have hsum_bound : ∑ i : Fin n, ∫ x, (gradf i x) ^ 2 * Real.exp (t * X x) ∂μ ≤
+      (L : ℝ) ^ 2 * ∫ x, Real.exp (t * X x) ∂μ := by
+    have hint_sum : Integrable (fun x => (∑ i, (gradf i x) ^ 2) * Real.exp (t * X x)) μ := by
+      rw [show (fun x => (∑ i, (gradf i x) ^ 2) * Real.exp (t * X x)) =
+           fun x => ∑ i, ((gradf i x) ^ 2 * Real.exp (t * X x)) from by ext x; rw [Finset.sum_mul]]
+      exact integrable_finset_sum _ (fun i _ => hint_gradf2_exp i)
+    calc ∑ i, ∫ x, (gradf i x) ^ 2 * Real.exp (t * X x) ∂μ
+        = ∫ x, ∑ i, (gradf i x) ^ 2 * Real.exp (t * X x) ∂μ :=
+          (integral_finset_sum _ (fun i _ => hint_gradf2_exp i)).symm
+      _ = ∫ x, (∑ i, (gradf i x) ^ 2) * Real.exp (t * X x) ∂μ := by congr 1; ext x; rw [Finset.sum_mul]
+      _ ≤ ∫ x, (L : ℝ) ^ 2 * Real.exp (t * X x) ∂μ :=
+          integral_mono hint_sum (hint_exp.const_mul _)
+            (fun x => mul_le_mul_of_nonneg_right (hgrad_bound x) (Real.exp_pos _).le)
+      _ = (L : ℝ) ^ 2 * ∫ x, Real.exp (t * X x) ∂μ := integral_const_mul _ _
+  -- ∑∫(gradg i x)² = (t/2)² · ∑∫(gradf i x)² · exp(tX)
+  have hstep : ∑ i : Fin n, ∫ x, (gradg i x) ^ 2 ∂μ =
+      (t / 2) ^ 2 * ∑ i, ∫ x, (gradf i x) ^ 2 * Real.exp (t * X x) ∂μ := by
+    have hgradg_sq : ∀ i x, (gradg i x) ^ 2 = (t / 2) ^ 2 * (gradf i x) ^ 2 * Real.exp (t * X x) :=
+      fun i x => by simp only [gradg]; rw [mul_pow, mul_pow, ← Real.exp_nat_mul]; ring_nf
+    simp_rw [hgradg_sq]; rw [Finset.mul_sum]; congr 1; ext i
+    rw [show (fun x => (t / 2) ^ 2 * gradf i x ^ 2 * Real.exp (t * X x)) =
+         fun x => (t / 2) ^ 2 * ((gradf i x) ^ 2 * Real.exp (t * X x)) from by ext x; ring]
+    exact integral_const_mul _ _
+  -- Combine: 2 · ∑∫(gradg i)² ≤ t²L²/2 · E[exp(tX)]
+  have hfinal : 2 * ∑ i, ∫ x, (gradg i x) ^ 2 ∂μ ≤ t ^ 2 * (L : ℝ) ^ 2 / 2 * ∫ x, Real.exp (t * X x) ∂μ := by
+    rw [hstep]
+    calc 2 * ((t / 2) ^ 2 * ∑ i, ∫ x, (gradf i x) ^ 2 * Real.exp (t * X x) ∂μ)
+        ≤ 2 * ((t / 2) ^ 2 * ((L : ℝ) ^ 2 * ∫ x, Real.exp (t * X x) ∂μ)) :=
+          mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_left hsum_bound (sq_nonneg _)) (by norm_num)
+      _ = t ^ 2 * (L : ℝ) ^ 2 / 2 * ∫ x, Real.exp (t * X x) ∂μ := by ring
+  linarith
 
 /-- Entropy bound for Lipschitz functions.
 Uses entropyPi_exp_le_of_C1 + smooth approximation (Rademacher's theorem).
