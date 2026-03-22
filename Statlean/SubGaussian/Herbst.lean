@@ -8,21 +8,21 @@ import Mathlib.Probability.Moments.SubGaussian
 - `HerbstBound` — cumulant generating function bound for a fixed function
 - `UniversalHerbstBound` — universal Herbst interface for Lipschitz functions
 
-## Proved (6 sorry — Gaussian mollification infrastructure)
+## Proved (3 sorry remaining — harder mollification steps)
 - `herbst_argument_of_bound` — from `HerbstBound` hypothesis
 - `herbstBound_neg` — stability under negation
 - `mgf_le_of_entropyPi_bound` — ODE/Grönwall step: entropy bound → MGF bound (PROVED)
 - `mgf_le_exp_of_lipschitz_stdGaussianPi` — Herbst MGF bound (proved given LSI step)
 - `hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi` — assembled from sub-lemmas
 - `gaussianMollify_lipschitz` — mollification preserves Lipschitz constant (PROVED)
+- `gaussianMollify_tendsto` — f_ε → f pointwise as ε → 0 (PROVED)
+- `gaussianMollify_memLp_exp` — exp(s·(f_ε - E[f_ε])) ∈ L² under Gaussian (PROVED)
+- `gaussianMollify_memLp_grad_exp` — ∂ᵢf_ε · exp(·) ∈ L² under Gaussian (PROVED)
 
-## Sorry gaps (Gaussian mollification sub-lemmas)
-- `gaussianMollify_tendsto` — f_ε → f pointwise as ε → 0
-- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L
-- `gaussianMollify_memLp_exp` — exp(s·(f_ε - E[f_ε])) ∈ L² under Gaussian
-- `gaussianMollify_memLp_grad_exp` — ∂ᵢf_ε · exp(·) ∈ L² under Gaussian
-- `entropyPi_tendsto_of_uniform` — entropy continuity under convergence
-- `entropyPi_exp_le_of_lipschitz` — main assembly (limit argument)
+## Sorry gaps (harder mollification sub-lemmas)
+- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L (Leibniz rule)
+- `entropyPi_tendsto_of_uniform` — entropy continuity under DCT
+- `entropyPi_exp_le_of_lipschitz` — main assembly (limit argument, depends on above)
 -/
 
 open MeasureTheory ProbabilityTheory Filter Topology
@@ -249,9 +249,35 @@ More precisely, `|f_ε(x) - f(x)| ≤ L · |ε| · E[‖Z‖]`. -/
 private lemma gaussianMollify_tendsto (n : ℕ) (f : (Fin n → ℝ) → ℝ)
     (L : ℝ≥0) (hf : LipschitzWith L f) (x : Fin n → ℝ) :
     Tendsto (fun ε => gaussianMollify n ε f x) (𝓝 0) (𝓝 (f x)) := by
-  -- f_ε(x) = ∫ f(x + εy) dγ(y) → f(x) as ε → 0 since f(x + εy) → f(x) pointwise
-  -- and |f(x + εy) - f(x)| ≤ L·|ε|·‖y‖ (dominated by L·‖y‖ which is integrable)
-  sorry
+  haveI : IsProbabilityMeasure (stdGaussianPi n) := by unfold stdGaussianPi; infer_instance
+  haveI : IsFiniteMeasure (stdGaussianPi n) := by
+    change IsFiniteMeasure (Measure.pi (fun _ : Fin n => stdGaussian)); infer_instance
+  simp only [gaussianMollify]
+  conv_rhs => rw [show f x = ∫ _y : Fin n → ℝ, f x ∂stdGaussianPi n by simp [integral_const]]
+  rw [← tendsto_sub_nhds_zero_iff]
+  -- Bound: ‖∫f(x+εy) dγ - f(x)‖ ≤ L * |ε| * ∫‖y‖ dγ → 0
+  apply squeeze_zero_norm (a := fun ε => (L : ℝ) * (|ε| * ∫ y, ‖y‖ ∂stdGaussianPi n))
+  · intro ε
+    show ‖∫ y, f (x + ε • y) ∂stdGaussianPi n - ∫ _y : Fin n → ℝ, f x ∂stdGaussianPi n‖ ≤
+        (L : ℝ) * (|ε| * ∫ y, ‖y‖ ∂stdGaussianPi n)
+    rw [(integral_sub (lipschitz_comp_affine_integrable n f L hf x ε)
+      (integrable_const (f x))).symm]
+    calc ‖∫ y, (f (x + ε • y) - f x) ∂stdGaussianPi n‖
+        ≤ ∫ y, ‖f (x + ε • y) - f x‖ ∂stdGaussianPi n := norm_integral_le_integral_norm _
+      _ ≤ ∫ y, (L : ℝ) * (|ε| * ‖y‖) ∂stdGaussianPi n := by
+            apply integral_mono_of_nonneg (ae_of_all _ (fun _ => norm_nonneg _))
+            · exact (integrable_id_stdGaussianPi n).norm.const_mul _ |>.const_mul _
+            · apply ae_of_all; intro y
+              calc ‖f (x + ε • y) - f x‖ = dist (f (x + ε • y)) (f x) := (dist_eq_norm _ _).symm
+                _ ≤ (L : ℝ) * dist (x + ε • y) x := hf.dist_le_mul _ _
+                _ = (L : ℝ) * (|ε| * ‖y‖) := by
+                    simp only [dist_eq_norm, add_sub_cancel_left, norm_smul, Real.norm_eq_abs]
+      _ = (L : ℝ) * (|ε| * ∫ y, ‖y‖ ∂stdGaussianPi n) := by
+            rw [integral_const_mul, integral_const_mul]
+  · have hcont : Continuous (fun ε : ℝ => (L : ℝ) * (|ε| * ∫ y, ‖y‖ ∂stdGaussianPi n)) :=
+      continuous_const.mul (continuous_abs.mul continuous_const)
+    have h0 : (fun ε : ℝ => (L : ℝ) * (|ε| * ∫ y, ‖y‖ ∂stdGaussianPi n)) 0 = 0 := by simp
+    have := hcont.tendsto 0; simp only [h0] at this; exact this
 
 /-- Gaussian mollification of Lipschitz f is C¹ with bounded gradient.
 
@@ -270,7 +296,8 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       (∀ x i, HasDerivAt (fun s => gaussianMollify n ε f (Function.update x i s))
         (gradf_ε i x) (x i)) ∧
       (∀ x, ∑ i, (gradf_ε i x) ^ 2 ≤ (L : ℝ) ^ 2) ∧
-      (∀ x i, Continuous (fun s => gradf_ε i (Function.update x i s))) := by
+      (∀ x i, Continuous (fun s => gradf_ε i (Function.update x i s))) ∧
+      (∀ i, Measurable (gradf_ε i)) := by
   sorry
 
 /-- MemLp property for exp(s · (f_ε - E[f_ε])) under Gaussian measure.
@@ -279,20 +306,53 @@ private lemma gaussianMollify_memLp_exp (n : ℕ) (ε : ℝ)
     (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f) (s : ℝ) :
     MemLp (fun x => Real.exp (s * (gaussianMollify n ε f x -
       ∫ y, gaussianMollify n ε f y ∂stdGaussianPi n))) 2 (stdGaussianPi n) := by
-  -- f_ε is L-Lipschitz (gaussianMollify_lipschitz) → MemLp via Gaussian tails
-  sorry
+  -- f_ε is L-Lipschitz, so exp(s*(f_ε(x) - E[f_ε])) ∈ L² (Gaussian sub-Gaussian tails)
+  set g := gaussianMollify n ε f
+  have hLip := gaussianMollify_lipschitz n ε f L hf
+  have hmeas : AEStronglyMeasurable (fun x => Real.exp (s * (g x - ∫ y, g y ∂stdGaussianPi n)))
+      (stdGaussianPi n) :=
+    Continuous.aestronglyMeasurable
+      (Real.continuous_exp.comp (continuous_const.mul (hLip.continuous.sub continuous_const)))
+  rw [memLp_two_iff_integrable_sq_norm hmeas]
+  -- ‖exp(s*(g(x)-c))‖² = exp(2s*(g(x)-c)), which is integrable by Gaussian tails
+  simp_rw [Real.norm_eq_abs, abs_of_pos (Real.exp_pos _), sq, ← Real.exp_add]
+  ring_nf
+  convert integrable_exp_centered_of_lipschitz_stdGaussianPi n g L hLip (2 * s) using 2
+  ring
 
 /-- MemLp property for gradf_ε · exp(s · (f_ε - E[f_ε])) under Gaussian measure. -/
 private lemma gaussianMollify_memLp_grad_exp (n : ℕ) (ε : ℝ)
     (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f)
     (gradf_ε : Fin n → (Fin n → ℝ) → ℝ)
     (hgrad_bound : ∀ x, ∑ i, (gradf_ε i x) ^ 2 ≤ (L : ℝ) ^ 2)
+    (hgrad_meas : ∀ i, Measurable (gradf_ε i))
     (i : Fin n) (s : ℝ) :
     MemLp (fun x => gradf_ε i x * Real.exp (s * (gaussianMollify n ε f x -
       ∫ y, gaussianMollify n ε f y ∂stdGaussianPi n))) 2 (stdGaussianPi n) := by
-  -- |gradf_ε i x| ≤ L (bounded), exp factor is in all L^p (as above)
-  -- Product of bounded × L^p is L^p
-  sorry
+  -- |gradf_ε i x| ≤ L (bounded) → gradf_ε i ∈ L^∞
+  -- exp factor ∈ L² (Lipschitz sub-Gaussian growth)
+  -- Product: L^∞ × L² → L² via MemLp.mul
+  set g := gaussianMollify n ε f
+  have hLip := gaussianMollify_lipschitz n ε f L hf
+  have hexp_memLp : MemLp (fun x => Real.exp (s * (g x - ∫ y, g y ∂stdGaussianPi n))) 2
+      (stdGaussianPi n) := by
+    have hmeas : AEStronglyMeasurable (fun x => Real.exp (s * (g x - ∫ y, g y ∂stdGaussianPi n)))
+        (stdGaussianPi n) :=
+      Continuous.aestronglyMeasurable
+        (Real.continuous_exp.comp (continuous_const.mul (hLip.continuous.sub continuous_const)))
+    rw [memLp_two_iff_integrable_sq_norm hmeas]
+    simp_rw [Real.norm_eq_abs, abs_of_pos (Real.exp_pos _), sq, ← Real.exp_add]; ring_nf
+    convert integrable_exp_centered_of_lipschitz_stdGaussianPi n g L hLip (2 * s) using 2; ring
+  -- gradf_ε i is pointwise bounded by L, hence in L^∞
+  have hgradf_top : MemLp (gradf_ε i) ⊤ (stdGaussianPi n) :=
+    memLp_top_of_bound (hgrad_meas i).aestronglyMeasurable (L : ℝ)
+      (ae_of_all _ (fun x => by
+        rw [Real.norm_eq_abs]
+        apply abs_le_of_sq_le_sq _ (NNReal.coe_nonneg L)
+        exact (Finset.single_le_sum (f := fun j => (gradf_ε j x) ^ 2)
+          (fun j _ => sq_nonneg _) (Finset.mem_univ i)).trans (hgrad_bound x)))
+  -- L^∞ × L² → L² by Hölder
+  exact hexp_memLp.mul hgradf_top
 
 /-- Entropy is continuous under uniform convergence of non-negative integrands.
 If g_k → g uniformly, g_k ≥ 0, and there is an integrable dominator,
@@ -343,11 +403,11 @@ private lemma entropyPi_exp_le_of_lipschitz
     set f_ε := gaussianMollify n ε f
     set X_ε := fun x => f_ε x - ∫ y, f_ε y ∂μ
     -- Extract C¹ structure with gradient bound from combined lemma
-    obtain ⟨gradf_ε, hderiv, hgrad_bound, hcont⟩ :=
+    obtain ⟨gradf_ε, hderiv, hgrad_bound, hcont, hgrad_meas⟩ :=
       gaussianMollify_C1_with_gradient_bound n ε hε f L hf
     have hf_memLp := fun s => gaussianMollify_memLp_exp n ε f L hf s
     have hgradf_memLp := fun i s =>
-      gaussianMollify_memLp_grad_exp n ε f L hf gradf_ε hgrad_bound i s
+      gaussianMollify_memLp_grad_exp n ε f L hf gradf_ε hgrad_bound hgrad_meas i s
     exact entropyPi_exp_le_of_C1 n f_ε L gradf_ε
       hderiv hcont hgrad_bound hf_memLp hgradf_memLp t
 
