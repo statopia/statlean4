@@ -37,9 +37,44 @@ This follows from each `gaussianReal 0 1` being `volume.withDensity (gaussianPDF
 hence `≪ volume`, and product of absolutely continuous measures being absolutely continuous. -/
 lemma stdGaussianPi_absolutelyContinuous (n : ℕ) :
     (stdGaussianPi n).AbsolutelyContinuous (volume : Measure (Fin n → ℝ)) := by
-  -- Each component gaussianReal 0 1 ≪ volume (it has a density).
-  -- The product of AC measures is AC. Proof via Fubini on null sets.
-  sorry
+  -- Proof by induction using piFinSuccAbove decomposition into binary product.
+  induction n with
+  | zero =>
+    intro S hvolS
+    -- Fin 0 → ℝ is a singleton type; if volume(S) = 0 then S = ∅.
+    have hS_empty : S = ∅ := by
+      by_contra hne
+      have ⟨x, hx⟩ := Set.nonempty_iff_ne_empty.2 hne
+      have hS_univ : S = Set.univ := Set.eq_univ_of_forall fun y => by
+        rwa [Subsingleton.elim x y] at hx
+      have hvol_univ : (volume : Measure (Fin 0 → ℝ)) Set.univ = 1 := by
+        change (Measure.pi (fun _ : Fin 0 => (volume : Measure ℝ))) Set.univ = 1
+        rw [show (Set.univ : Set (Fin 0 → ℝ)) =
+          Set.univ.pi (fun _ => Set.univ) from by ext; simp]
+        rw [Measure.pi_pi]; simp
+      simp_all
+    simp [hS_empty]
+  | succ n ih =>
+    -- Decompose via MeasurableEquiv.piFinSuccAbove: (Fin(n+1) → ℝ) ≃ ℝ × (Fin n → ℝ)
+    -- under which stdGaussianPi (n+1) ↦ stdGaussian ×ₘ stdGaussianPi n
+    -- and volume ↦ volume ×ₘ volume.
+    have hac_mapped : (stdGaussianPi (n + 1)).map
+        (MeasurableEquiv.piFinSuccAbove (fun (_ : Fin (n + 1)) => ℝ) 0) ≪
+      (volume : Measure (Fin (n + 1) → ℝ)).map
+        (MeasurableEquiv.piFinSuccAbove (fun (_ : Fin (n + 1)) => ℝ) 0) := by
+      unfold stdGaussianPi
+      rw [(measurePreserving_piFinSuccAbove
+            (fun (_ : Fin (n + 1)) => stdGaussian) 0).map_eq,
+        (volume_preserving_piFinSuccAbove (fun (_ : Fin (n + 1)) => ℝ) 0).map_eq]
+      exact (gaussianReal_absolutelyContinuous 0 one_ne_zero).prod ih
+    let e := MeasurableEquiv.piFinSuccAbove (fun (_ : Fin (n + 1)) => ℝ) 0
+    rw [show (stdGaussianPi (n + 1) : Measure (Fin (n + 1) → ℝ)) =
+        ((stdGaussianPi (n + 1)).map e).map e.symm
+        from by rw [MeasurableEquiv.map_symm_map],
+      show (volume : Measure (Fin (n + 1) → ℝ)) =
+        ((volume : Measure (Fin (n + 1) → ℝ)).map e).map e.symm
+        from by rw [MeasurableEquiv.map_symm_map]]
+    exact hac_mapped.map e.symm.measurable
 
 /-! ## Integrability infrastructure for Gaussian density -/
 
