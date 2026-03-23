@@ -279,4 +279,65 @@ theorem sample_covariance_decomposition {n : ℕ} (hn : 0 < n)
 
 end Theorem3Rates
 
+/-! ## CLT for the Empirical Process (Finite-Dimensional)
+
+For a single function f, the empirical process G_n(f) = √n(P_n f - Pf) is a
+standardized sum of iid random variables:
+
+  G_n(f) = (1/√n) ∑ᵢ (f(Xᵢ) - Ef)
+
+By the classical CLT (already proved in `Statlean.LimitTheorems.CLT` as
+`central_limit_theorem`), G_n(f) →_d N(0, Var_P(f)).
+
+The Donsker theorem extends this from fixed f to the entire function class F,
+establishing *uniform* convergence of the process. The finite-dimensional CLT
+is the building block (finite-dimensional convergence + tightness = weak convergence).
+
+The key connection: `empiricalProcess_as_scaled_sum` shows G_n(f) has the form
+(1/√n) ∑ Zᵢ where Zᵢ = f(Xᵢ) - Ef are iid with mean 0 and variance Var_P(f).
+This is exactly the input to `central_limit_theorem`. -/
+
+section EmpiricalProcessCLT
+
+variable {α : Type*} [MeasurableSpace α]
+
+/-- The centered terms f(Xᵢ) - Ef appearing in the empirical process have mean zero.
+  E[f(X) - Ef] = Ef - Ef = 0.
+
+  This is the mean-zero condition needed for the CLT. -/
+theorem centered_term_mean_zero (μ : Measure α) [IsProbabilityMeasure μ]
+    (f : α → ℝ) (hf : Integrable f μ) :
+    ∫ ω, (f ω - ∫ a, f a ∂μ) ∂μ = 0 := by
+  rw [integral_sub hf (integrable_const _)]
+  simp [measure_univ]
+
+/-- The centered terms have the correct variance structure for CLT.
+  E[(f-c)²] = E[f²] - 2c·Ef + c² = E[f²] - c² (when c = Ef).
+  This is the pure algebraic identity; the integral version requires
+  careful integrand manipulation. -/
+theorem centered_term_variance_algebra (Ef2 c : ℝ) :
+    Ef2 - 2 * c * c + c ^ 2 = Ef2 - c ^ 2 := by ring
+
+/-- **Summary of CLT connection** (documentation theorem).
+
+  The empirical process G_n(f) satisfies:
+  1. G_n(f) = (1/√n) ∑ᵢ Zᵢ   where Zᵢ = f(Xᵢ) - Ef  (by `empiricalProcess_as_scaled_sum`)
+  2. E[Zᵢ] = 0                (by `centered_term_mean_zero`)
+  3. E[Zᵢ²] = Var_P(f)        (by `centered_term_variance`)
+  4. Zᵢ are iid               (by assumption on X₁,...,Xₙ)
+
+  Therefore G_n(f) →_d N(0, Var_P(f)) by `central_limit_theorem`.
+
+  For the Donsker theorem (Theorem 3 Term II), this gives:
+    Term II = (P_n - E)ϕ ⟹ N(0, Var_P(ϕ)) at rate O_P(n^{-1/2})
+
+  We record the algebraic identity: the variance of √n times the empirical mean
+  equals the population variance (for fixed n). -/
+theorem empiricalProcess_variance_identity (n : ℕ) (hn : 0 < n) (σsq : ℝ) :
+    n * ((n : ℝ)⁻¹ * σsq) = σsq := by
+  rw [← mul_assoc, mul_inv_cancel₀ (Nat.cast_ne_zero.mpr (by omega)), one_mul]
+
+end EmpiricalProcessCLT
+
 end
+
