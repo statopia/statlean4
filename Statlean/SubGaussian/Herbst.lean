@@ -585,9 +585,7 @@ private lemma entropyPi_tendsto_of_uniform {n : ℕ}
     (hconv : ∀ x, Tendsto (fun k => g_seq k x) atTop (𝓝 (g x)))
     (hdom : ∃ D : (Fin n → ℝ) → ℝ, Integrable D μ ∧
       Integrable (fun x => D x * |Real.log (D x)|) μ ∧
-      ∀ k x, |g_seq k x| ≤ D x ∧ |g x| ≤ D x)
-    (hbound : ∀ k, entropyPi μ (g_seq k) ≤
-      entropyPi μ g + 1) :  -- technical: entropy sequence is bounded
+      ∀ k x, |g_seq k x| ≤ D x ∧ |g x| ≤ D x) :
     Tendsto (fun k => entropyPi μ (g_seq k)) atTop (𝓝 (entropyPi μ g)) := by
   simp only [entropyPi]
   obtain ⟨D, hD_int, hDlog_int, hdom_bound⟩ := hdom
@@ -619,6 +617,37 @@ private lemma entropyPi_tendsto_of_uniform {n : ℕ}
         (Real.continuous_mul_log.tendsto _).comp (hconv a)
   -- Combine: (∫g_k·log g_k - (∫g_k)·log(∫g_k)) → (∫g·log g - (∫g)·log(∫g))
   exact h_ent_tendsto.sub h_mul_log_tendsto
+
+-- Helper: y * exp(a*y) ≤ exp((a+1)*y) for a ≥ 0 (since y ≤ exp(y))
+private lemma mul_exp_le_exp_succ (a y : ℝ) (ha : 0 ≤ a) :
+    y * Real.exp (a * y) ≤ Real.exp ((a + 1) * y) := by
+  calc y * Real.exp (a * y)
+      ≤ Real.exp y * Real.exp (a * y) := by
+        gcongr; linarith [Real.add_one_le_exp y]
+    _ = Real.exp ((a + 1) * y) := by rw [← Real.exp_add]; ring_nf
+
+-- Helper: exp(a*(‖x‖+c)) is integrable under stdGaussianPi when a ≥ 0
+private lemma integrable_exp_norm_add_const (n : ℕ) (a c : ℝ) (ha : 0 ≤ a) :
+    Integrable (fun x : Fin n → ℝ => Real.exp (a * (‖x‖ + c)))
+      (stdGaussianPi n) := by
+  have : (fun x : Fin n → ℝ => Real.exp (a * (‖x‖ + c))) =
+      fun x => Real.exp (a * c) * Real.exp (a * ‖x‖) := by
+    ext x; rw [← Real.exp_add]; congr 1; ring
+  rw [this]
+  exact (integrable_exp_norm_stdGaussianPi_nonneg n a ha).const_mul _
+
+-- Helper: (‖x‖+c) * exp(a*(‖x‖+c)) is integrable (for D*|log D| bounds)
+private lemma integrable_mul_exp_norm_add_const (n : ℕ) (a c : ℝ) (ha : 0 ≤ a) (hc : 0 ≤ c) :
+    Integrable (fun x : Fin n → ℝ => (‖x‖ + c) * Real.exp (a * (‖x‖ + c)))
+      (stdGaussianPi n) := by
+  refine Integrable.mono' (integrable_exp_norm_add_const n (a + 1) c (by linarith)) ?_ ?_
+  · exact (continuous_norm.add continuous_const).mul
+      (Real.continuous_exp.comp (continuous_const.mul (continuous_norm.add continuous_const)))
+      |>.aestronglyMeasurable
+  · exact ae_of_all _ (fun x => by
+      show ‖(‖x‖ + c) * Real.exp (a * (‖x‖ + c))‖ ≤ _
+      rw [Real.norm_eq_abs, abs_of_nonneg (by positivity)]
+      exact mul_exp_le_exp_succ a (‖x‖ + c) ha)
 
 /-- **Entropy bound for Lipschitz functions under Gaussian measure.**
 
@@ -661,11 +690,216 @@ private lemma entropyPi_exp_le_of_lipschitz
     exact entropyPi_exp_le_of_C1 n f_ε L gradf_ε
       hderiv hcont hgrad_bound hf_memLp hgradf_memLp t
 
-  -- Step 2+3: Pass to limit ε → 0 via sequential approximation.
-  -- Use ε_k = 1/(k+1) → 0.
-  -- hC1_bound gives inequality for each ε_k.
-  -- Both sides converge (DCT + entropy continuity), preserving ≤.
-  sorry -- limit argument: sequentialize ε→0, apply DCT + entropyPi_tendsto_of_uniform
+  -- Step 2: Define the approximation sequence ε_k = 1/(k+1) → 0
+  haveI : IsProbabilityMeasure μ := by show IsProbabilityMeasure (stdGaussianPi n); unfold stdGaussianPi; infer_instance
+  set c_norm := ∫ y, ‖y‖ ∂μ  -- E[‖Y‖] under Gaussian
+  have hc_norm_nn : 0 ≤ c_norm := integral_nonneg (fun _ => norm_nonneg _)
+  set ε_seq : ℕ → ℝ := fun k => 1 / ((k : ℝ) + 1)
+  have hε_pos : ∀ k, 0 < ε_seq k := fun k => by positivity
+  have hε_tendsto : Tendsto ε_seq atTop (𝓝 0) := by
+    simp_rw [ε_seq, one_div]
+    exact ((tendsto_natCast_atTop_atTop (R := ℝ)).atTop_add tendsto_const_nhds).inv_tendsto_atTop
+  -- Define f_ε_k, X_ε_k, g_seq_k, g
+  set f_seq : ℕ → (Fin n → ℝ) → ℝ := fun k => gaussianMollify n (ε_seq k) f
+  set X_seq : ℕ → (Fin n → ℝ) → ℝ := fun k x => f_seq k x - ∫ y, f_seq k y ∂μ
+  set g_seq : ℕ → (Fin n → ℝ) → ℝ := fun k x => Real.exp (t * X_seq k x)
+  set g : (Fin n → ℝ) → ℝ := fun x => Real.exp (t * X x)
+  -- Key: each f_{ε_k} is L-Lipschitz
+  have hf_seq_lip : ∀ k, LipschitzWith L (f_seq k) :=
+    fun k => gaussianMollify_lipschitz n (ε_seq k) f L hf
+  -- Step 2a: Pointwise convergence f_{ε_k}(x) → f(x)
+  have hf_ptwise : ∀ x, Tendsto (fun k => f_seq k x) atTop (𝓝 (f x)) := by
+    intro x
+    exact (gaussianMollify_tendsto n f L hf x).comp hε_tendsto
+  -- Step 2b: ∫ f_{ε_k} → ∫ f by DCT (dominator: |f(0)| + L*‖x‖ + L*c_norm)
+  have hf_seq_int : ∀ k, Integrable (f_seq k) μ :=
+    fun k => integrable_of_lipschitz_stdGaussianPi n _ L (hf_seq_lip k)
+  have hf_int : Integrable f μ := integrable_of_lipschitz_stdGaussianPi n f L hf
+  have hInt_tendsto : Tendsto (fun k => ∫ y, f_seq k y ∂μ) atTop (𝓝 (∫ y, f y ∂μ)) := by
+    -- f_seq k = gaussianMollify n (ε_seq k) f is L-Lipschitz, so ‖f_seq k x‖ ≤ bound(x).
+    -- Dominator: D_f(x) = |f(0)| + L * ‖x‖ + L * c_norm
+    -- works because |f_seq k(x)| ≤ |f_seq k(x) - f_seq k(0)| + |f_seq k(0)|
+    --   ≤ L*‖x‖ + |f_seq k(0)|, and |f_seq k(0)| ≤ ∫|f(ε_k y)| ≤ |f(0)| + L*c_norm.
+    set D_f := fun x : Fin n → ℝ => ‖f 0‖ + (L : ℝ) * (‖x‖ + c_norm) with hD_f_def
+    have hD_f_int : Integrable D_f μ :=
+      (integrable_const _).add
+        ((((integrable_id_stdGaussianPi n).norm.add (integrable_const c_norm)).const_mul _))
+    have hD_f_bound : ∀ k, ∀ᵐ x ∂μ, ‖f_seq k x‖ ≤ D_f x := by
+      intro k; exact ae_of_all _ (fun x => by
+        have hLip_k := hf_seq_lip k
+        -- |f_seq k x - f_seq k 0| ≤ L * ‖x‖
+        have h1 : ‖f_seq k x - f_seq k 0‖ ≤ (L : ℝ) * ‖x‖ := by
+          calc ‖f_seq k x - f_seq k 0‖
+              = dist (f_seq k x) (f_seq k 0) := (dist_eq_norm _ _).symm
+            _ ≤ (L : ℝ) * dist x 0 := hLip_k.dist_le_mul x 0
+            _ = (L : ℝ) * ‖x‖ := by rw [dist_zero_right]
+        -- |f_seq k 0| ≤ |f 0| + L * c_norm (by Jensen + Lip)
+        have h2 : ‖f_seq k 0‖ ≤ ‖f 0‖ + (L : ℝ) * c_norm := by
+          show ‖gaussianMollify n (ε_seq k) f 0‖ ≤ _
+          simp only [gaussianMollify]
+          calc ‖∫ y, f (0 + ε_seq k • y) ∂μ‖
+              ≤ ∫ y, ‖f (0 + ε_seq k • y)‖ ∂μ := norm_integral_le_integral_norm _
+            _ ≤ ∫ y, (‖f 0‖ + (L : ℝ) * ‖y‖) ∂μ := by
+                apply integral_mono_of_nonneg (ae_of_all _ (fun _ => norm_nonneg _))
+                · exact (integrable_const _).add
+                    ((integrable_id_stdGaussianPi n).norm.const_mul _)
+                · exact ae_of_all _ (fun y => by
+                    calc ‖f (0 + ε_seq k • y)‖
+                        ≤ ‖f (0 + ε_seq k • y) - f 0‖ + ‖f 0‖ := by
+                          linarith [norm_le_insert' (f (0 + ε_seq k • y)) (f 0)]
+                      _ ≤ (L : ℝ) * ‖0 + ε_seq k • y‖ + ‖f 0‖ := by
+                          gcongr
+                          calc ‖f (0 + ε_seq k • y) - f 0‖
+                              = dist (f (0 + ε_seq k • y)) (f 0) := (dist_eq_norm _ _).symm
+                            _ ≤ (L : ℝ) * dist (0 + ε_seq k • y) 0 :=
+                                hf.dist_le_mul _ _
+                            _ = (L : ℝ) * ‖0 + ε_seq k • y‖ := by rw [dist_zero_right]
+                      _ ≤ (L : ℝ) * ‖y‖ + ‖f 0‖ := by
+                          gcongr
+                          calc ‖(0 : Fin n → ℝ) + ε_seq k • y‖
+                              = ‖ε_seq k • y‖ := by simp
+                            _ = |ε_seq k| * ‖y‖ := by rw [norm_smul, Real.norm_eq_abs]
+                            _ ≤ 1 * ‖y‖ := by
+                                gcongr
+                                rw [abs_of_pos (hε_pos k)]
+                                show ε_seq k ≤ 1
+                                simp only [ε_seq]
+                                rw [div_le_iff₀ (by positivity : (0:ℝ) < (↑k : ℝ) + 1)]
+                                linarith
+                            _ = ‖y‖ := one_mul _
+                      _ = ‖f 0‖ + (L : ℝ) * ‖y‖ := by ring)
+            _ = ‖f 0‖ + (L : ℝ) * c_norm := by
+                rw [integral_add (integrable_const _)
+                  ((integrable_id_stdGaussianPi n).norm.const_mul _),
+                  integral_const, integral_const_mul]
+                have hm : μ.real Set.univ = 1 := by simp [Measure.real, measure_univ]
+                rw [hm, one_smul]
+        calc ‖f_seq k x‖
+            ≤ ‖f_seq k x - f_seq k 0‖ + ‖f_seq k 0‖ := by
+              linarith [norm_le_insert' (f_seq k x) (f_seq k 0)]
+          _ ≤ (L : ℝ) * ‖x‖ + (‖f 0‖ + (L : ℝ) * c_norm) := by linarith
+          _ = ‖f 0‖ + (L : ℝ) * (‖x‖ + c_norm) := by ring)
+    apply tendsto_integral_of_dominated_convergence D_f
+    · exact fun k => (hf_seq_lip k).continuous.aestronglyMeasurable
+    · exact hD_f_int
+    · exact hD_f_bound
+    · exact ae_of_all _ hf_ptwise
+  -- Step 2c: X_{ε_k}(x) → X(x) pointwise
+  have hX_ptwise : ∀ x, Tendsto (fun k => X_seq k x) atTop (𝓝 (X x)) :=
+    fun x => (hf_ptwise x).sub hInt_tendsto
+  -- Step 2d: g_k(x) = exp(t * X_{ε_k}(x)) → g(x) = exp(t * X(x)) pointwise
+  have hg_ptwise : ∀ x, Tendsto (fun k => g_seq k x) atTop (𝓝 (g x)) :=
+    fun x => (Real.continuous_exp.tendsto _).comp ((hX_ptwise x).const_mul t)
+  -- Step 2e: Uniform dominator for |g_k(x)|.
+  -- For any L-Lip h: |h(x) - ∫h| ≤ L*(‖x‖ + c_norm) (triangle + Jensen)
+  -- So |g_k(x)| = exp(t*(X_{ε_k}(x))) ≤ exp(|t|*L*(‖x‖ + c_norm)) = D(x)
+  set D : (Fin n → ℝ) → ℝ := fun x => Real.exp (|t| * (L : ℝ) * (‖x‖ + c_norm))
+  have hD_bound : ∀ k x, |g_seq k x| ≤ D x ∧ |g x| ≤ D x := by
+    intro k x
+    constructor
+    · -- |g_k(x)| = exp(t * X_{ε_k}(x)) ≤ exp(|t| * |X_{ε_k}(x)|)
+      rw [abs_of_pos (Real.exp_pos _)]
+      apply Real.exp_le_exp_of_le
+      -- |X_{ε_k}(x)| ≤ L * (‖x‖ + c_norm) since f_{ε_k} is L-Lip
+      have hcent : |X_seq k x| ≤ (L : ℝ) * (‖x‖ + c_norm) := by
+        show |f_seq k x - ∫ y, f_seq k y ∂μ| ≤ _
+        rw [show f_seq k x - ∫ y, f_seq k y ∂μ =
+            ∫ y, (f_seq k x - f_seq k y) ∂μ from by
+          rw [integral_sub (integrable_const _) (hf_seq_int k)]; simp [integral_const]]
+        calc |∫ y, (f_seq k x - f_seq k y) ∂μ|
+            ≤ ∫ y, |f_seq k x - f_seq k y| ∂μ := abs_integral_le_integral_abs
+          _ ≤ ∫ y, ((L : ℝ) * (‖x‖ + ‖y‖)) ∂μ := by
+              apply integral_mono_of_nonneg (ae_of_all _ (fun _ => abs_nonneg _))
+              · exact (integrable_const ‖x‖).add ((integrable_id_stdGaussianPi n).norm)
+                  |>.const_mul _
+              · exact ae_of_all _ (fun y => by
+                  have := (hf_seq_lip k).dist_le_mul x y; rw [Real.dist_eq] at this
+                  calc |f_seq k x - f_seq k y| ≤ (L : ℝ) * dist x y := this
+                    _ = (L : ℝ) * ‖x - y‖ := by rw [dist_eq_norm]
+                    _ ≤ (L : ℝ) * (‖x‖ + ‖y‖) := by gcongr; exact norm_sub_le x y)
+          _ = (L : ℝ) * (‖x‖ + c_norm) := by
+              simp_rw [mul_add]
+              rw [integral_add (integrable_const _)
+                ((integrable_id_stdGaussianPi n).norm.const_mul _),
+                integral_const, integral_const_mul]
+              have hm : μ.real Set.univ = 1 := by simp [Measure.real, measure_univ]
+              rw [hm, one_smul]
+      calc t * X_seq k x ≤ |t * X_seq k x| := le_abs_self _
+        _ = |t| * |X_seq k x| := abs_mul _ _
+        _ ≤ |t| * ((L : ℝ) * (‖x‖ + c_norm)) :=
+            mul_le_mul_of_nonneg_left hcent (abs_nonneg _)
+        _ = |t| * (L : ℝ) * (‖x‖ + c_norm) := by ring
+    · -- Same bound for g: |g(x)| ≤ D(x)
+      rw [abs_of_pos (Real.exp_pos _)]
+      apply Real.exp_le_exp_of_le
+      have hcent : |X x| ≤ (L : ℝ) * (‖x‖ + c_norm) := by
+        show |f x - ∫ y, f y ∂μ| ≤ _
+        rw [show f x - ∫ y, f y ∂μ = ∫ y, (f x - f y) ∂μ from by
+          rw [integral_sub (integrable_const _) hf_int]; simp [integral_const]]
+        calc |∫ y, (f x - f y) ∂μ|
+            ≤ ∫ y, |f x - f y| ∂μ := abs_integral_le_integral_abs
+          _ ≤ ∫ y, ((L : ℝ) * (‖x‖ + ‖y‖)) ∂μ := by
+              apply integral_mono_of_nonneg (ae_of_all _ (fun _ => abs_nonneg _))
+              · exact (integrable_const ‖x‖).add ((integrable_id_stdGaussianPi n).norm)
+                  |>.const_mul _
+              · exact ae_of_all _ (fun y => by
+                  have := hf.dist_le_mul x y; rw [Real.dist_eq] at this
+                  calc |f x - f y| ≤ (L : ℝ) * dist x y := this
+                    _ = (L : ℝ) * ‖x - y‖ := by rw [dist_eq_norm]
+                    _ ≤ (L : ℝ) * (‖x‖ + ‖y‖) := by gcongr; exact norm_sub_le x y)
+          _ = (L : ℝ) * (‖x‖ + c_norm) := by
+              simp_rw [mul_add]
+              rw [integral_add (integrable_const _)
+                ((integrable_id_stdGaussianPi n).norm.const_mul _),
+                integral_const, integral_const_mul]
+              have hm : μ.real Set.univ = 1 := by simp [Measure.real, measure_univ]
+              rw [hm, one_smul]
+      calc t * X x ≤ |t * X x| := le_abs_self _
+        _ = |t| * |X x| := abs_mul _ _
+        _ ≤ |t| * ((L : ℝ) * (‖x‖ + c_norm)) :=
+            mul_le_mul_of_nonneg_left hcent (abs_nonneg _)
+        _ = |t| * (L : ℝ) * (‖x‖ + c_norm) := by ring
+  -- D is integrable
+  have hD_int : Integrable D μ :=
+    integrable_exp_norm_add_const n (|t| * (L : ℝ)) c_norm (by positivity)
+  -- D * |log D| is integrable (needed for entropyPi_tendsto_of_uniform)
+  set a_dom := |t| * (L : ℝ) with ha_dom_def
+  have ha_dom_nn : 0 ≤ a_dom := by positivity
+  have hDlog_int : Integrable (fun x => D x * |Real.log (D x)|) μ := by
+    -- D(x) = exp(a_dom * (‖x‖ + c_norm)), log D(x) = a_dom * (‖x‖ + c_norm) ≥ 0
+    -- So D(x) * |log D(x)| = a_dom * (‖x‖+c_norm) * exp(a_dom*(‖x‖+c_norm))
+    suffices h : Integrable (fun x : Fin n → ℝ =>
+        a_dom * ((‖x‖ + c_norm) * Real.exp (a_dom * (‖x‖ + c_norm)))) μ from by
+      apply h.congr (ae_of_all _ (fun x => by
+        simp only [D, ha_dom_def.symm, Real.log_exp]
+        rw [abs_of_nonneg (by positivity : 0 ≤ a_dom * (‖x‖ + c_norm))]
+        ring))
+    exact (integrable_mul_exp_norm_add_const n a_dom c_norm ha_dom_nn hc_norm_nn).const_mul _
+  -- g_seq measurable
+  have hg_meas : ∀ k, AEStronglyMeasurable (g_seq k) μ :=
+    fun k => (Real.continuous_exp.comp (continuous_const.mul
+      ((hf_seq_lip k).continuous.sub continuous_const))).aestronglyMeasurable
+  -- Step 3a: ∫ g_k → ∫ g by DCT (for RHS convergence)
+  have h_int_g_tendsto : Tendsto (fun k => ∫ x, g_seq k x ∂μ) atTop
+      (𝓝 (∫ x, g x ∂μ)) := by
+    apply tendsto_integral_of_dominated_convergence D
+    · exact hg_meas
+    · exact hD_int
+    · intro k; exact ae_of_all _ (fun x => by
+        rw [Real.norm_eq_abs]; exact (hD_bound k x).1)
+    · exact ae_of_all _ hg_ptwise
+  -- Step 3b: RHS converges: t²L²/2 * ∫ g_k → t²L²/2 * ∫ g
+  have h_rhs_tendsto : Tendsto (fun k => t ^ 2 * (L : ℝ) ^ 2 / 2 * ∫ x, g_seq k x ∂μ)
+      atTop (𝓝 (t ^ 2 * (L : ℝ) ^ 2 / 2 * ∫ x, g x ∂μ)) :=
+    h_int_g_tendsto.const_mul (t ^ 2 * (L : ℝ) ^ 2 / 2)
+  -- Step 3c: LHS converges: entropyPi μ (g_seq k) → entropyPi μ g
+  have h_lhs_tendsto : Tendsto (fun k => entropyPi μ (g_seq k)) atTop
+      (𝓝 (entropyPi μ g)) :=
+    entropyPi_tendsto_of_uniform μ g g_seq hg_meas hg_ptwise
+      ⟨D, hD_int, hDlog_int, fun k x => hD_bound k x⟩
+  -- Step 4: Pass inequality to limit
+  exact le_of_tendsto_of_tendsto h_lhs_tendsto h_rhs_tendsto
+    (Eventually.of_forall (fun k => hC1_bound (ε_seq k) (hε_pos k)))
 
 /-- **From entropy bound to MGF bound** (the Grönwall/ODE step):
 If `Ent(e^{tX}) ≤ c·t² · E[e^{tX}]` for all t, and E[X]=0,
