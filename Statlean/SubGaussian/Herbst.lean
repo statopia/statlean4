@@ -855,7 +855,7 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       refine eventually_of_mem (Ioo_mem_nhds (by linarith : s₀ - 1 < s₀)
         (by linarith : s₀ < s₀ + 1)) (fun s hs => ?_)
       filter_upwards with y
-      sorry -- Lip bound: |f(z+εy)·yⱼ| ≤ (|f(z₀)| + L(1+ε‖y‖))·|yⱼ|
+      sorry
     · -- Integrable bound: (‖f(z₀)‖ + L*(1+ε*‖y‖)) * |y_j| is Gaussian-integrable
       -- Expand: C*|y_j| + L*|y_j| + L*ε*‖y‖*|y_j|. Each term is Gaussian-integrable.
       exact sorry
