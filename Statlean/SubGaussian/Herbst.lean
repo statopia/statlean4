@@ -661,11 +661,11 @@ private lemma entropyPi_exp_le_of_lipschitz
     exact entropyPi_exp_le_of_C1 n f_ε L gradf_ε
       hderiv hcont hgrad_bound hf_memLp hgradf_memLp t
 
-  -- Step 2: f_ε → f pointwise as ε → 0, hence X_ε → X and exp(t·X_ε) → exp(t·X)
-  -- Step 3: By DCT, both sides of the inequality converge, preserving ≤
-  -- This uses gaussianMollify_tendsto for pointwise convergence
-  -- and Lipschitz growth control for domination.
-  sorry
+  -- Step 2+3: Pass to limit ε → 0 via sequential approximation.
+  -- Use ε_k = 1/(k+1) → 0.
+  -- hC1_bound gives inequality for each ε_k.
+  -- Both sides converge (DCT + entropy continuity), preserving ≤.
+  sorry -- limit argument: sequentialize ε→0, apply DCT + entropyPi_tendsto_of_uniform
 
 /-- **From entropy bound to MGF bound** (the Grönwall/ODE step):
 If `Ent(e^{tX}) ≤ c·t² · E[e^{tX}]` for all t, and E[X]=0,
