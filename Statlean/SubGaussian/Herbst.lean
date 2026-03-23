@@ -483,7 +483,13 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
     -- A v = ∑ j, gradf_ε j x * v j
     -- Need: the directional derivative of f_ε at x in direction v equals A v.
     -- Use the Leibniz rule for direction v (same as coord proof but general direction).
-    sorry -- HasLineDerivAt via Leibniz rule for general direction v
+    -- HasLineDerivAt = HasDerivAt (t ↦ f_ε(x+tv)) (A v) 0
+    -- Leibniz rule for direction v: same pattern as coord HasDerivAt proof.
+    -- F(t,y) = f((x+εy)+tv), Lip in t with constant L·‖v‖.
+    -- ae HasDerivAt from Rademacher ae_lineDifferentiableAt + QMP transfer.
+    -- Value: ∫lineDeriv f (x+εy) v dγ = ∑ vⱼ · ∫∂ⱼf(x+εy)dγ = A v
+    -- (by ae Fréchet diff → lineDeriv = fderiv(v) = ∑vⱼ·∂ⱼf, then linearity of integral)
+    sorry
   refine ⟨gradf_ε, hHasDeriv, ?_, ?_, ?_⟩
   · -- (2) Gradient bound: ∑(∂ᵢf_ε)² ≤ L².
     -- Route: chain rule gives ∂ᵢf_ε(x) = (fderiv ℝ f_ε x)(eᵢ).
