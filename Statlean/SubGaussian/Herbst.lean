@@ -10,7 +10,7 @@ import Mathlib.Analysis.Calculus.FDeriv.Pi
 - `HerbstBound` — cumulant generating function bound for a fixed function
 - `UniversalHerbstBound` — universal Herbst interface for Lipschitz functions
 
-## Proved (1 sorry remaining — gradient continuity)
+## Proved (1 sorry remaining — Stein identity for Gaussian mollification derivative)
 - `herbst_argument_of_bound` — from `HerbstBound` hypothesis
 - `herbstBound_neg` — stability under negation
 - `mgf_le_of_entropyPi_bound` — ODE/Grönwall step: entropy bound → MGF bound (PROVED)
@@ -24,8 +24,10 @@ import Mathlib.Analysis.Calculus.FDeriv.Pi
 - `lipschitz_coord_slice` — coordinate slice of Lipschitz is Lipschitz (PROVED)
 - `gaussianMollify_coord_lipschitz` — coord slice of mollification is L-Lipschitz (PROVED)
 
-## Sorry gaps (harder mollification sub-lemmas)
-- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L (1 sub-sorry: gradient continuity)
+## Sorry gaps (1 remaining)
+- `gaussianMollify_C1_with_gradient_bound` — 1 sorry: Stein identity for coordinate derivative
+  `gradf_ε j (update x j s) = ε⁻¹ * ∫ f(update x j s + ε•y) * yⱼ dγ(y)`
+  Route: Fubini decomposition of stdGaussianPi + 1D stein_identity in j-th coordinate
 - `entropyPi_tendsto_of_uniform` — entropy continuity under DCT
 - `entropyPi_exp_le_of_lipschitz` — main assembly (limit argument, depends on above)
 -/
@@ -855,10 +857,72 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       refine eventually_of_mem (Ioo_mem_nhds (by linarith : s₀ - 1 < s₀)
         (by linarith : s₀ < s₀ + 1)) (fun s hs => ?_)
       filter_upwards with y
-      sorry
+      -- Bound: ‖f(a) * yⱼ‖ ≤ (‖f(b)‖ + L*(1+ε*‖y‖)) * |yⱼ|
+      -- where a = update x j s + ε•y, b = update x j s₀
+      set a := Function.update x j s + ε • y
+      set b := Function.update x j s₀
+      rw [Real.norm_eq_abs, abs_mul, Real.norm_eq_abs]
+      apply mul_le_mul_of_nonneg_right _ (abs_nonneg _)
+      have h1 : |f a - f b| ≤ (L : ℝ) * dist a b := by
+        rw [← Real.dist_eq]; exact hf.dist_le_mul a b
+      have h2 : |f a| ≤ |f b| + |f a - f b| :=
+        by linarith [abs_sub_abs_le_abs_sub (f a) (f b)]
+      have h3 : dist a b ≤ 1 + ε * ‖y‖ := by
+        have hd1 : dist a (b + ε • y) =
+            dist (Function.update x j s) (Function.update x j s₀) := by
+          show dist (Function.update x j s + ε • y)
+            (Function.update x j s₀ + ε • y) = _
+          exact dist_add_right _ _ _
+        have hd2 : dist (b + ε • y) b = ‖ε • y‖ := by simp [dist_eq_norm]
+        calc dist a b
+            ≤ dist a (b + ε • y) + dist (b + ε • y) b :=
+              dist_triangle a (b + ε • y) b
+          _ = dist (Function.update x j s) (Function.update x j s₀) + ‖ε • y‖ :=
+              by rw [hd1, hd2]
+          _ ≤ dist s s₀ + ε * ‖y‖ := by
+              have : dist (Function.update x j s) (Function.update x j s₀) ≤
+                  dist s s₀ := by
+                rw [dist_pi_le_iff dist_nonneg]; intro i
+                by_cases hij : i = j
+                · subst hij; simp [Function.update_self]
+                · simp [Function.update_of_ne hij]
+              rw [norm_smul, Real.norm_eq_abs, abs_of_pos hε]; linarith
+          _ ≤ 1 + ε * ‖y‖ := by
+              rw [Real.dist_eq]
+              have h_lt : |s - s₀| < 1 := by
+                rw [abs_sub_lt_iff]; constructor <;> linarith [hs.1, hs.2]
+              linarith
+      nlinarith [NNReal.coe_nonneg L]
     · -- Integrable bound: (‖f(z₀)‖ + L*(1+ε*‖y‖)) * |y_j| is Gaussian-integrable
-      -- Expand: C*|y_j| + L*|y_j| + L*ε*‖y‖*|y_j|. Each term is Gaussian-integrable.
-      exact sorry
+      -- Decompose as (C+L)*|yⱼ| + L*ε*(‖y‖*|yⱼ|), each part Gaussian-integrable.
+      have h_abs_j : Integrable (fun y : Fin n → ℝ => |y j|) (stdGaussianPi n) :=
+        (integrable_of_lipschitz_stdGaussianPi n _ 1 (LipschitzWith.eval j)).norm
+      have h_norm_abs : Integrable (fun y : Fin n → ℝ => ‖y‖ * |y j|)
+          (stdGaussianPi n) := by
+        refine Integrable.mono'
+          ((integrable_exp_norm_stdGaussianPi_nonneg n 1 zero_le_one).const_mul 2) ?_ ?_
+        · exact (continuous_norm.mul
+            (continuous_apply j |>.abs)).aestronglyMeasurable
+        · filter_upwards with y
+          rw [Real.norm_eq_abs,
+            abs_of_nonneg (mul_nonneg (norm_nonneg _) (abs_nonneg _))]
+          have h1 : |y j| ≤ ‖y‖ := norm_le_pi_norm y j
+          have h2 : ‖y‖ * |y j| ≤ ‖y‖ * ‖y‖ :=
+            mul_le_mul_of_nonneg_left h1 (norm_nonneg _)
+          have h3 : ‖y‖ * ‖y‖ ≤ 2 * Real.exp (1 * ‖y‖) := by
+            rw [one_mul]
+            have htaylor := Real.sum_le_exp_of_nonneg (norm_nonneg y) 3
+            simp [Finset.sum_range_succ, Nat.factorial] at htaylor
+            have : ‖y‖ ^ 2 / 2 ≤ Real.exp ‖y‖ := by linarith [norm_nonneg y]
+            linarith [sq ‖y‖]
+          linarith
+      have key : (fun y : Fin n → ℝ =>
+          (‖f (Function.update x j s₀)‖ + ↑L * (1 + ε * ‖y‖)) * |y j|) = fun y =>
+          (‖f (Function.update x j s₀)‖ + ↑L) * |y j| +
+          (↑L * ε) * (‖y‖ * |y j|) := by
+        ext y; ring
+      rw [key]
+      exact (h_abs_j.const_mul _).add (h_norm_abs.const_mul _)
     · -- ae continuity: for all y, s ↦ f(update x j s + εy) * y_j is continuous
       filter_upwards with y
       exact (hf.continuous.comp (by fun_prop)).continuousAt.mul continuousAt_const
