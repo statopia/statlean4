@@ -26,7 +26,7 @@ import Statlean.CharFun.Taylor
 -- Fourier analysis infrastructure
 import Statlean.Fourier.JacksonKernel
 import Statlean.Fourier.CDFInversion
-import Statlean.Fourier.EsseenSmoothing
+
 
 -- Limit theorems
 import Statlean.LimitTheorems.Convergence

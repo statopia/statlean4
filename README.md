@@ -216,11 +216,10 @@ Statlean/
 
 ---
 
-## Remaining Sorry (2)
+## Remaining Sorry (1)
 
 | Module | Sorry | Description | Blocker |
 |--------|-------|-------------|---------|
-| EsseenSmoothing | 1 | Alternative smoothing lemma (unused by Berry-Esseen) | Independent |
 | Herbst | 1 | `hasSubgaussianMGF` of Lipschitz functions | Needs LSI + Grönwall |
 
 ```
@@ -228,7 +227,6 @@ Dependency DAG:
   BerryEsseen (0 sorry) ✅     ── fully proved
   OrnsteinUhlenbeck (0 sorry) ✅ ──→ LogSobolev (0 sorry) ✅
                                   └─→ Herbst (1 sorry, needs LSI + Grönwall)
-  EsseenSmoothing (1 sorry)   ── independent, not used by main theorems
 ```
 
 Full backlog → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
