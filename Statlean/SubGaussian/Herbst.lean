@@ -848,10 +848,7 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
           show LipschitzWith (L * ⟨|ε|, abs_nonneg ε⟩) (f ∘ (fun y => Function.update x j s + ε • y))
           exact hf.comp (lipschitzWith_affine (Function.update x j s) ε)
         have hibp := gaussian_ibp_coord j φ (L * ⟨|ε|, abs_nonneg ε⟩) hφ_lip
-        -- hibp : ∫ lineDeriv φ y eⱼ dγⁿ = ∫ φ(y) * y_j dγⁿ
-        -- Chain rule: lineDeriv φ y eⱼ = ε * lineDeriv f (update x j s + ε•y) eⱼ
-        -- deriv of f_ε at s = ∫ lineDeriv f (update x j s + ε•y) eⱼ dγ
-        -- So deriv = (1/ε) * ∫ lineDeriv φ y eⱼ dγ = (1/ε) * ∫ φ(y)*y_j dγ = ε⁻¹ * ∫ f(...)*y_j dγ
+        -- Chain rule + IBP: the derivative equals ε⁻¹ * weighted integral
         sorry
       simp_rw [show (fun s => gradf_ε j (Function.update x j s)) =
         (fun s => ε⁻¹ * ∫ y, f (Function.update x j s + ε • y) *
