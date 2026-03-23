@@ -433,12 +433,43 @@ private lemma gaussianMollify_memLp_grad_exp (n : ℕ) (ε : ℝ)
   -- L^∞ × L² → L² by Hölder
   exact hexp_memLp.mul hgradf_top
 
-/-- Entropy is continuous under uniform convergence of non-negative integrands.
-If g_k → g uniformly, g_k ≥ 0, and there is an integrable dominator,
-then Ent(g_k) → Ent(g). -/
+/-- For |x| ≤ D, we have ‖x * log x‖ ≤ D * |log D| + 1.
+Uses Lean's `log |x| = log x` convention and the bound `-x log x ≤ 1` for x ∈ (0,1]. -/
+private lemma norm_mul_log_le_of_abs_le {x D : ℝ} (hx : |x| ≤ D) :
+    ‖x * Real.log x‖ ≤ D * |Real.log D| + 1 := by
+  rw [Real.norm_eq_abs, abs_mul, ← Real.log_abs]
+  set y := |x|
+  have hy_nn : 0 ≤ y := abs_nonneg x
+  have hyD : y ≤ D := hx
+  have hD_nn : 0 ≤ D := le_trans hy_nn hyD
+  by_cases hy0 : y = 0
+  · simp [hy0]; positivity
+  · have hy_pos : 0 < y := lt_of_le_of_ne hy_nn (Ne.symm hy0)
+    by_cases hy1 : y ≤ 1
+    · have hlog : Real.log y ≤ 0 := Real.log_nonpos hy_nn hy1
+      rw [abs_of_nonpos hlog]
+      have h1 : Real.log (1 / y) ≤ 1 / y - 1 :=
+        Real.log_le_sub_one_of_pos (by positivity)
+      rw [Real.log_div one_ne_zero (ne_of_gt hy_pos), Real.log_one,
+          _root_.zero_sub] at h1
+      have h2 : y * (-Real.log y) ≤ y * (1 / y - 1) :=
+        mul_le_mul_of_nonneg_left h1 hy_pos.le
+      rw [mul_sub, mul_one_div_cancel (ne_of_gt hy_pos), mul_one] at h2
+      linarith [mul_nonneg hD_nn (abs_nonneg (Real.log D))]
+    · push_neg at hy1
+      have hD1 : 1 ≤ D := by linarith
+      rw [abs_of_nonneg (Real.log_nonneg (le_of_lt hy1)),
+          abs_of_nonneg (Real.log_nonneg hD1)]
+      nlinarith [Real.log_le_log hy_pos hyD, Real.log_nonneg (le_of_lt hy1)]
+
+/-- Entropy is continuous under dominated convergence of integrands.
+If g_k → g pointwise with integrable dominator D (with D·|log D| also integrable),
+then Ent(g_k) → Ent(g). Uses DCT twice: once for ∫g_k and once for ∫g_k·log(g_k),
+plus continuity of x·log(x) for the normalizing term. -/
 private lemma entropyPi_tendsto_of_uniform {n : ℕ}
     (μ : Measure (Fin n → ℝ)) [IsProbabilityMeasure μ]
     (g : (Fin n → ℝ) → ℝ) (g_seq : ℕ → (Fin n → ℝ) → ℝ)
+    (hg_meas : ∀ k, AEStronglyMeasurable (g_seq k) μ)
     (hconv : ∀ x, Tendsto (fun k => g_seq k x) atTop (𝓝 (g x)))
     (hdom : ∃ D : (Fin n → ℝ) → ℝ, Integrable D μ ∧
       Integrable (fun x => D x * |Real.log (D x)|) μ ∧
@@ -446,8 +477,36 @@ private lemma entropyPi_tendsto_of_uniform {n : ℕ}
     (hbound : ∀ k, entropyPi μ (g_seq k) ≤
       entropyPi μ g + 1) :  -- technical: entropy sequence is bounded
     Tendsto (fun k => entropyPi μ (g_seq k)) atTop (𝓝 (entropyPi μ g)) := by
-  -- Uses DCT twice: ∫ g_k log g_k → ∫ g log g and ∫ g_k → ∫ g
-  sorry
+  simp only [entropyPi]
+  obtain ⟨D, hD_int, hDlog_int, hdom_bound⟩ := hdom
+  -- Part 1: ∫ g_k → ∫ g by DCT
+  have h_int_tendsto : Tendsto (fun k => ∫ x, g_seq k x ∂μ) atTop
+      (𝓝 (∫ x, g x ∂μ)) := by
+    apply tendsto_integral_of_dominated_convergence D
+    · exact hg_meas
+    · exact hD_int
+    · intro k; exact Eventually.of_forall fun a => by
+        rw [Real.norm_eq_abs]; exact (hdom_bound k a).1
+    · exact Eventually.of_forall hconv
+  -- Part 2: (∫ g_k) · log(∫ g_k) → (∫ g) · log(∫ g) by continuity of x * log x
+  have h_mul_log_tendsto :
+      Tendsto (fun k => (∫ x, g_seq k x ∂μ) * Real.log (∫ x, g_seq k x ∂μ))
+        atTop (𝓝 ((∫ x, g x ∂μ) * Real.log (∫ x, g x ∂μ))) :=
+    (Real.continuous_mul_log.tendsto _).comp h_int_tendsto
+  -- Part 3: ∫ g_k · log g_k → ∫ g · log g by DCT with dominator D·|log D| + 1
+  have h_ent_tendsto :
+      Tendsto (fun k => ∫ x, g_seq k x * Real.log (g_seq k x) ∂μ)
+        atTop (𝓝 (∫ x, g x * Real.log (g x) ∂μ)) := by
+    apply tendsto_integral_of_dominated_convergence (fun x => D x * |Real.log (D x)| + 1)
+    · intro k
+      exact Real.continuous_mul_log.comp_aestronglyMeasurable (hg_meas k)
+    · exact hDlog_int.add (integrable_const 1)
+    · intro k; exact Eventually.of_forall fun a =>
+        norm_mul_log_le_of_abs_le (hdom_bound k a).1
+    · exact Eventually.of_forall fun a =>
+        (Real.continuous_mul_log.tendsto _).comp (hconv a)
+  -- Combine: (∫g_k·log g_k - (∫g_k)·log(∫g_k)) → (∫g·log g - (∫g)·log(∫g))
+  exact h_ent_tendsto.sub h_mul_log_tendsto
 
 /-- **Entropy bound for Lipschitz functions under Gaussian measure.**
 
