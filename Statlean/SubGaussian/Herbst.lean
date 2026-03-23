@@ -463,10 +463,9 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       h_lip (integrable_const _) h_diff
     exact hkey.differentiableAt
   refine ⟨gradf_ε, hHasDeriv, ?_, ?_, ?_⟩
-  · -- (2) Gradient bound: ∑ᵢ (∂ᵢf_ε)² ≤ L².
-    -- Route: f_ε is L-Lip (sup norm) → ‖fderiv‖_op ≤ L → each |∂ᵢf_ε| ≤ L
-    -- → ∑(∂ᵢf_ε)² ≤ (∑|∂ᵢf_ε|)² ≤ L² (by Cauchy-Schwarz / norm bound)
-    -- Needs: (1) HasDerivAt + fderiv ↔ partial deriv bridge
+  · -- (2) Gradient bound: ∑(∂ᵢf_ε)² ≤ L².
+    -- Route: ∑(∂ᵢf)² ≤ (∑|∂ᵢf|)² (algebraic) ≤ ‖fderiv‖² (L∞ dual = ℓ¹) ≤ L²
+    -- Key APIs: norm_fderiv_le_of_lipschitz, hasFDerivAt_update (chain rule for partial)
     sorry
   · -- (3) Continuity of gradient.
     -- Route: Leibniz rule for continuous dependence (similar to (1) but for continuity)
