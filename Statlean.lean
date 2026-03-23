@@ -37,6 +37,7 @@ import Statlean.LimitTheorems.USLLN
 -- Phase 2: Empirical Process Theory
 import Statlean.EmpiricalProcess.CoveringNumber
 import Statlean.EmpiricalProcess.Dudley
+import Statlean.EmpiricalProcess.Donsker
 
 -- Phase 3: Least-Squares Framework
 import Statlean.Regression.Basic
