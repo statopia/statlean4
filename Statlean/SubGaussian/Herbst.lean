@@ -10,7 +10,7 @@ import Mathlib.Analysis.Calculus.FDeriv.Pi
 - `HerbstBound` — cumulant generating function bound for a fixed function
 - `UniversalHerbstBound` — universal Herbst interface for Lipschitz functions
 
-## Proved (1 sorry remaining — Stein identity for Gaussian mollification derivative)
+## Proved (zero sorry)
 - `herbst_argument_of_bound` — from `HerbstBound` hypothesis
 - `herbstBound_neg` — stability under negation
 - `mgf_le_of_entropyPi_bound` — ODE/Grönwall step: entropy bound → MGF bound (PROVED)
@@ -25,7 +25,7 @@ import Mathlib.Analysis.Calculus.FDeriv.Pi
 - `gaussianMollify_coord_lipschitz` — coord slice of mollification is L-Lipschitz (PROVED)
 
 ## Sorry gaps (1 remaining)
-- `gaussianMollify_C1_with_gradient_bound` — 1 sorry: Stein identity for coordinate derivative
+- `gaussianMollify_C1_with_gradient_bound` — PROVED (zero sorry)
   `gradf_ε j (update x j s) = ε⁻¹ * ∫ f(update x j s + ε•y) * yⱼ dγ(y)`
   Route: Fubini decomposition of stdGaussianPi + 1D stein_identity in j-th coordinate
 - `entropyPi_tendsto_of_uniform` — entropy continuity under DCT
@@ -840,16 +840,112 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
         rw [Function.update_self] at hd
         simp only [Function.update_idem] at hd
         -- hd : HasDerivAt (t ↦ f_ε(update x j t)) (gradf_ε j (update x j s)) s
-        rw [← hd.deriv]
-        -- Now show: deriv (t ↦ ∫ f(update x j t + ε•y) dγ(y)) s = ε⁻¹ * ∫ f(update x j s + ε•y) * y_j dγ(y)
+        -- Unfold f_ε in hd so it uses the integral form
+        simp only [f_ε, gaussianMollify] at hd
+        -- hd : HasDerivAt (fun t => ∫ f(update x j t + εy) dγ) (gradf_ε j (update x j s)) s
         -- Apply gaussian_ibp_coord to φ(y) = f(update x j s + ε•y)
         set φ : (Fin n → ℝ) → ℝ := fun y => f (Function.update x j s + ε • y) with hφ_def
         have hφ_lip : LipschitzWith (L * ⟨|ε|, abs_nonneg ε⟩) φ := by
           show LipschitzWith (L * ⟨|ε|, abs_nonneg ε⟩) (f ∘ (fun y => Function.update x j s + ε • y))
           exact hf.comp (lipschitzWith_affine (Function.update x j s) ε)
         have hibp := gaussian_ibp_coord j φ (L * ⟨|ε|, abs_nonneg ε⟩) hφ_lip
-        -- Chain rule + IBP: the derivative equals ε⁻¹ * weighted integral
-        sorry
+        -- Step 1: Leibniz — deriv (∫ f(update x j t + εy) dγ)(s) = ∫ coord_deriv dγ
+        set z := Function.update x j s
+        have hae_z := ae_differentiableAt_coord_slice hf z ε hε.ne' j
+        have hz_j : z j = s := Function.update_self j s x
+        have hae_s : ∀ᵐ y ∂stdGaussianPi n,
+            DifferentiableAt ℝ (fun t => f (Function.update x j t + ε • y)) s := by
+          filter_upwards [hae_z] with y hy
+          have hfn : (fun s' => f (Function.update z j s' + ε • y)) =
+              (fun s' => f (Function.update x j s' + ε • y)) := by
+            ext t; rw [Function.update_idem]
+          rwa [hz_j, hfn] at hy
+        obtain ⟨_, hLeib⟩ := hasDerivAt_integral_of_dominated_loc_of_lip
+          (F := fun t y => f (Function.update x j t + ε • y))
+          (F' := fun y => deriv (fun t => f (Function.update x j t + ε • y)) s)
+          Filter.univ_mem
+          (.of_forall fun t => (hf.continuous.comp (continuous_const.add
+            (continuous_const.smul continuous_id))).aestronglyMeasurable)
+          (lipschitz_comp_affine_integrable n f L hf z ε)
+          (by -- AEStronglyMeasurable of deriv
+            have h_aesm_z := aestronglyMeasurable_deriv_coord hf hae_z
+            refine h_aesm_z.congr ?_
+            filter_upwards with y
+            rw [hz_j]; congr 1; ext t; rw [Function.update_idem])
+          (.of_forall fun y => by
+            have hnnabs : Real.nnabs (L : ℝ) = L := by
+              ext; simp [Real.nnabs, abs_of_nonneg L.coe_nonneg]
+            rw [hnnabs]; apply LipschitzWith.lipschitzOnWith
+            have h3 := hf.comp
+              ((isometry_add_right (ε • y)).lipschitz.comp (lipschitzWith_update x j))
+            simpa using h3)
+          (integrable_const _)
+          (hae_s.mono fun y hy => hy.hasDerivAt)
+        -- hLeib : HasDerivAt (fun t => ∫ f(update x j t + εy) dγ) (∫ coord_deriv dγ) s
+        -- Step 2: coord_deriv = lineDeriv (ae), so ∫ coord_deriv = ∫ lineDeriv
+        have h_deriv_eq_lineDeriv : ∀ᵐ y ∂stdGaussianPi n,
+            deriv (fun t => f (Function.update x j t + ε • y)) s =
+            lineDeriv ℝ f (Function.update x j s + ε • y)
+              (Pi.single j (1 : ℝ)) := by
+          filter_upwards [hae_s] with y hy
+          set g := fun t : ℝ => f (Function.update x j t + ε • y)
+          set ej : Fin n → ℝ := Pi.single j 1
+          show deriv g s = lineDeriv ℝ f (Function.update x j s + ε • y) ej
+          unfold lineDeriv
+          have h_fn_eq : (fun u : ℝ => f ((Function.update x j s + ε • y) + u • ej)) =
+              (fun u => g (u + s)) := by
+            ext u; simp only [g]; congr 1; ext k
+            simp only [Function.update_apply, Pi.add_apply, Pi.smul_apply, smul_eq_mul,
+              Pi.single_apply, ej]
+            by_cases hk : k = j <;> simp [hk] <;> ring
+          rw [h_fn_eq, deriv_comp_add_const g s 0, zero_add]
+        -- Combine: gradf_ε j z = ∫ coord_deriv (by HasDerivAt uniqueness)
+        have h_gradf_int : gradf_ε j z =
+            ∫ y, deriv (fun t => f (Function.update x j t + ε • y)) s
+              ∂stdGaussianPi n := hd.unique hLeib
+        -- Then: ∫ coord_deriv = ∫ lineDeriv (by ae equality)
+        rw [h_gradf_int, integral_congr_ae h_deriv_eq_lineDeriv]
+        -- Step 3: Chain rule + IBP — ∫ lineDeriv f (z+εy) eⱼ dγ = ε⁻¹ * ∫ f(z+εy) * yⱼ dγ
+        -- Chain rule: lineDeriv φ y eⱼ = ε * lineDeriv f (z+εy) eⱼ
+        have h_chain : ∀ y, lineDeriv ℝ φ y (Pi.single j (1 : ℝ)) =
+            ε * lineDeriv ℝ f (Function.update x j s + ε • y)
+              (Pi.single j (1 : ℝ)) := by
+          intro y; simp only [φ, lineDeriv]
+          -- LHS: deriv (t ↦ f(z + ε(y + t•eⱼ))) 0
+          -- = deriv (t ↦ f(z + εy + εt•eⱼ)) 0
+          -- = deriv ((u ↦ f(z+εy + u•eⱼ)) ∘ (ε * ·)) 0
+          -- = ε * deriv (u ↦ f(z+εy + u•eⱼ)) 0 = RHS
+          set g : ℝ → ℝ := fun u => f (Function.update x j s + ε • y +
+            u • (Pi.single j (1 : ℝ) : Fin n → ℝ))
+          have h_comp : (fun t : ℝ =>
+              f (Function.update x j s + ε • (y + t • (Pi.single j (1 : ℝ) :
+                Fin n → ℝ)))) = g ∘ (ε * ·) := by
+            ext t; simp only [g, Function.comp_def]; congr 1; ext i
+            simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul, Pi.single_apply]
+            split_ifs <;> ring
+          rw [h_comp, show g ∘ (ε * ·) = (fun t => g (ε * t)) from rfl,
+            deriv_comp_mul_left ε g 0, mul_zero, smul_eq_mul]
+        -- From hibp + chain rule: ε * ∫ lineDeriv f ... dγ = ∫ φ(y) yⱼ dγ
+        -- So ∫ lineDeriv f ... dγ = ε⁻¹ * ∫ f(...) yⱼ dγ
+        rw [show ∫ y, lineDeriv ℝ f (Function.update x j s + ε • y)
+              (Pi.single j (1 : ℝ)) ∂stdGaussianPi n =
+            ε⁻¹ * ∫ y, f (Function.update x j s + ε • y) * y j
+              ∂stdGaussianPi n from by
+          have : ∫ y, lineDeriv ℝ φ y (Pi.single j (1 : ℝ)) ∂stdGaussianPi n =
+              ε * ∫ y, lineDeriv ℝ f (Function.update x j s + ε • y)
+                (Pi.single j (1 : ℝ)) ∂stdGaussianPi n := by
+            rw [show ∫ y, lineDeriv ℝ φ y (Pi.single j (1 : ℝ)) ∂stdGaussianPi n =
+                ∫ y, ε * lineDeriv ℝ f (Function.update x j s + ε • y)
+                  (Pi.single j (1 : ℝ)) ∂stdGaussianPi n from
+              integral_congr_ae (ae_of_all _ h_chain),
+              integral_const_mul]
+          rw [hibp] at this
+          -- this : ∫ φ(y) * yⱼ dγ = ε * ∫ lineDeriv f ... dγ
+          -- Goal: ∫ lineDeriv f ... dγ = ε⁻¹ * ∫ f(z+εy) * yⱼ dγ
+          have hε_ne : ε ≠ 0 := ne_of_gt hε
+          simp only [φ] at this
+          rw [eq_comm, ← eq_inv_mul_iff_mul_eq₀ hε_ne] at this
+          exact this]
       simp_rw [show (fun s => gradf_ε j (Function.update x j s)) =
         (fun s => ε⁻¹ * ∫ y, f (Function.update x j s + ε • y) *
           (y j) ∂stdGaussianPi n) from funext h_eq]
