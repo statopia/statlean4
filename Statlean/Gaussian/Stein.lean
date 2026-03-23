@@ -105,6 +105,31 @@ lemma stein_identity_of_lipschitz
     (h : ℝ → ℝ) (C : ℝ≥0) (hLip : LipschitzWith C h)
     (hInt : Integrable h stdGaussian) :
     ∫ x, x * h x ∂stdGaussian = ∫ x, deriv h x ∂stdGaussian := by
+  -- Approximate h by Steklov averages h_k (C¹), apply stein_identity, take limit.
+  set δ : ℕ → ℝ := fun k => 1 / ((k : ℝ) + 1)
+  have hδ_pos : ∀ k, 0 < δ k := fun k => by positivity
+  -- Steklov average
+  set S : ℕ → ℝ → ℝ := fun k x => (2 * δ k)⁻¹ * ∫ t in (x - δ k)..(x + δ k), h t
+  -- S k has HasDerivAt at all x (from steklov_hasDerivAt)
+  set S' : ℕ → ℝ → ℝ := fun k x => (2 * δ k)⁻¹ * (h (x + δ k) - h (x - δ k))
+  have hS_deriv : ∀ k x, HasDerivAt (S k) (S' k x) x :=
+    fun k x => steklov_hasDerivAt h hLip.continuous (δ k) (hδ_pos k) x
+  -- S k is C-Lipschitz (Steklov of C-Lip is C-Lip)
+  have hS_lip : ∀ k, LipschitzWith C (S k) := by
+    intro k; sorry -- Steklov average preserves Lip constant
+  -- |S' k x| ≤ C (difference quotient of Lip function)
+  have hS'_bound : ∀ k x, |S' k x| ≤ C := by
+    intro k x; simp only [S', δ]
+    rw [abs_mul, abs_of_nonneg (inv_nonneg.mpr (by positivity : 0 ≤ 2 * (1 / ((k : ℝ) + 1))))]
+    calc (2 * (1 / ((k : ℝ) + 1)))⁻¹ * |h (x + 1 / ((k : ℝ) + 1)) - h (x - 1 / ((k : ℝ) + 1))|
+        ≤ (2 * (1 / ((k : ℝ) + 1)))⁻¹ * (C * |x + 1/((k:ℝ)+1) - (x - 1/((k:ℝ)+1))|) := by
+          gcongr; rw [← Real.dist_eq]; exact hLip.dist_le_mul _ _
+      _ = (C : ℝ) := by
+          have hk : (0 : ℝ) < (k : ℝ) + 1 := by positivity
+          rw [show x + 1 / ((k : ℝ) + 1) - (x - 1 / ((k : ℝ) + 1)) = 2 / ((k : ℝ) + 1) by ring]
+          rw [abs_of_nonneg (by positivity)]
+          field_simp
+  -- Apply stein_identity to each S k, then take limit.
   sorry
 
 end Lipschitz
