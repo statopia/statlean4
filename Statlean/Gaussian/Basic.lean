@@ -32,6 +32,15 @@ abbrev stdGaussian : Measure ℝ := gaussianReal 0 1
 def stdGaussianPi (n : ℕ) : Measure (Fin n → ℝ) :=
   Measure.pi (fun _ => stdGaussian)
 
+/-- `stdGaussianPi n` is absolutely continuous with respect to Lebesgue measure.
+This follows from each `gaussianReal 0 1` being `volume.withDensity (gaussianPDF 0 1)`,
+hence `≪ volume`, and product of absolutely continuous measures being absolutely continuous. -/
+lemma stdGaussianPi_absolutelyContinuous (n : ℕ) :
+    (stdGaussianPi n).AbsolutelyContinuous (volume : Measure (Fin n → ℝ)) := by
+  -- Each component gaussianReal 0 1 ≪ volume (it has a density).
+  -- The product of AC measures is AC. Proof via Fubini on null sets.
+  sorry
+
 /-! ## Integrability infrastructure for Gaussian density -/
 
 /-- If `h ∈ L²(γ)`, then `h · φ ∈ L¹(Lebesgue)` where `φ` is the Gaussian density. -/
