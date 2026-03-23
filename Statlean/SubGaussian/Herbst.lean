@@ -821,11 +821,76 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
     -- As z varies continuously, the integral converges by DCT (integrand bounded by L).
     -- Applying to eⱼ preserves continuity.
     intro x j
-    -- g(s) = f_ε(update x j s) is DifferentiableAt everywhere and L-Lip.
-    -- gradf_ε j (update x j s) = deriv g s = fderiv f_ε (update x j s) (Pi.single j 1).
-    -- Continuity of s ↦ fderiv f_ε (update x j s): composition of continuous (update) with
-    -- the continuous function z ↦ fderiv f_ε z (which is the Bochner integral formula).
-    sorry
+    -- Route: gradf_ε j (update x j s) = ε⁻¹ * ∫ f(update x j s + εy) * y_j dγ(y)
+    -- (Gaussian integration by parts / kernel differentiation).
+    -- The RHS is continuous by continuousAt_of_dominated since the integrand
+    -- f(update x j s + εy) * y_j is continuous in s for ALL y.
+    set f_ε := gaussianMollify n ε f
+    -- It suffices to show the weight-formula integral is continuous
+    suffices h_cont : Continuous (fun s => ε⁻¹ * ∫ y, f (Function.update x j s + ε • y) *
+        (y j) ∂stdGaussianPi n) by
+      -- gradf_ε j (update x j s) equals this formula by Gaussian integration by parts.
+      have h_eq : ∀ s, gradf_ε j (Function.update x j s) = ε⁻¹ * ∫ y,
+          f (Function.update x j s + ε • y) * (y j) ∂stdGaussianPi n := by
+        intro s; exact sorry
+      simp_rw [show (fun s => gradf_ε j (Function.update x j s)) =
+        (fun s => ε⁻¹ * ∫ y, f (Function.update x j s + ε • y) *
+          (y j) ∂stdGaussianPi n) from funext h_eq]
+      exact h_cont
+    -- Prove: s ↦ ε⁻¹ * ∫ f(update x j s + εy) * y_j dγ(y) is continuous
+    suffices h_int_cont : Continuous (fun s => ∫ y, f (Function.update x j s + ε • y) *
+        (y j) ∂stdGaussianPi n) from h_int_cont.const_smul ε⁻¹ |>.congr (fun s => by ring)
+    rw [continuous_iff_continuousAt]; intro s₀
+    apply continuousAt_of_dominated
+    · -- AEStronglyMeasurable for all s near s₀
+      filter_upwards with s
+      exact (hf.continuous.comp (continuous_const.add
+        (continuous_const.smul continuous_id))).aestronglyMeasurable.mul
+        (continuous_apply j).aestronglyMeasurable
+    · -- Local bound for s near s₀: use Lipschitz to bound |f(z+εy)|
+      refine eventually_of_mem (Ioo_mem_nhds (by linarith : s₀ - 1 < s₀)
+        (by linarith : s₀ < s₀ + 1)) (fun s hs => ?_)
+      filter_upwards with y
+      rw [Real.norm_eq_abs, abs_mul]
+      have hL_nn : (0 : ℝ) ≤ L := L.coe_nonneg
+      calc |f (Function.update x j s + ε • y)| * |y j|
+          ≤ (‖f (Function.update x j s₀)‖ + (L : ℝ) * (1 + ε * ‖y‖)) * |y j| := by
+            apply mul_le_mul_of_nonneg_right _ (abs_nonneg _)
+            calc |f (Function.update x j s + ε • y)|
+                ≤ |f (Function.update x j s₀)| + (L : ℝ) *
+                  ‖Function.update x j s + ε • y - Function.update x j s₀‖ := by
+                  have h1 := hf.dist_le_mul (Function.update x j s + ε • y)
+                    (Function.update x j s₀)
+                  rw [dist_eq_norm, dist_eq_norm, Real.norm_eq_abs] at h1
+                  linarith [le_abs_self _]
+              _ ≤ ‖f (Function.update x j s₀)‖ + (L : ℝ) * (1 + ε * ‖y‖) := by
+                  rw [Real.norm_eq_abs]
+                  apply add_le_add_left; apply mul_le_mul_of_nonneg_left _ hL_nn
+                  calc ‖Function.update x j s + ε • y - Function.update x j s₀‖
+                      ≤ ‖Function.update x j s - Function.update x j s₀‖ + ‖ε • y‖ := by
+                        rw [show Function.update x j s + ε • y - Function.update x j s₀ =
+                          (Function.update x j s - Function.update x j s₀) + ε • y from
+                          by ext; simp; ring]
+                        exact norm_add_le _ _
+                    _ ≤ 1 + ε * ‖y‖ := by
+                      apply add_le_add
+                      · calc ‖Function.update x j s - Function.update x j s₀‖
+                            = ‖(Pi.single j (s - s₀) : Fin n → ℝ)‖ := by
+                              congr 1; ext k
+                              simp [Function.update_apply, Pi.single_apply]
+                              split_ifs <;> simp
+                          _ ≤ |s - s₀| := by
+                              rw [pi_norm_le_iff_of_nonneg (abs_nonneg _)]
+                              intro k; simp [Pi.single_apply]
+                              split_ifs <;> simp [abs_nonneg]
+                          _ ≤ 1 := le_of_lt (abs_lt.mpr
+                              ⟨by linarith [hs.1], by linarith [hs.2]⟩)
+                      · rw [norm_smul, Real.norm_eq_abs, abs_of_pos hε]
+    · -- Integrable bound: (‖f(z₀)‖ + L*(1+ε*‖y‖)) * |y_j| is Gaussian-integrable
+      exact sorry
+    · -- ae continuity: for all y, s ↦ f(update x j s + εy) * y_j is continuous
+      filter_upwards with y
+      exact (hf.continuous.comp (by fun_prop)).continuousAt.mul continuousAt_const
   · -- (4) Measurability: gradf_ε i = pointwise limit of measurable diff quotients.
     intro i
     set f_ε := gaussianMollify n ε f
