@@ -432,41 +432,22 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
   -- Define gradient as the deriv of coordinate slices
   let gradf_ε : Fin n → (Fin n → ℝ) → ℝ :=
     fun i x => deriv (fun s => gaussianMollify n ε f (Function.update x i s)) (x i)
-  refine ⟨gradf_ε, ?_, ?_, ?_, ?_⟩
-  · -- (1) HasDerivAt: the parametric integral is differentiable at every point.
-    -- Route: Leibniz rule (hasDerivAt_integral_of_dominated_loc_of_lip) +
-    -- Rademacher + stdGaussianPi ≪ volume.
-    -- Key steps:
-    --   (a) Rademacher: f ae-diff wrt volume → ae-diff wrt γⁿ (stdGaussianPi_ac)
-    --   (b) Affine preimage: ae-diff at x+εy for ae y ∂γⁿ
-    --   (c) Chain rule: DifferentiableAt → HasDerivAt for coord slice
-    --   (d) Apply hasDerivAt_integral_of_dominated_loc_of_lip
-    -- API: LipschitzWith.ae_differentiableAt_of_real, stdGaussianPi_absolutelyContinuous,
-    --       hasDerivAt_integral_of_dominated_loc_of_lip
+  -- First prove HasDerivAt (goal 1) so it's available in all subsequent goals.
+  have hHasDeriv : ∀ x i, HasDerivAt (fun s => gaussianMollify n ε f (Function.update x i s))
+      (gradf_ε i x) (x i) := by
+    -- Leibniz rule + Rademacher + AC.
     intro x i
-    -- Suffices: DifferentiableAt, then .hasDerivAt gives the result.
     apply DifferentiableAt.hasDerivAt
-    -- Use hasFDerivAt_integral_of_dominated_loc_of_lip:
-    -- F(s, y) = f(update x i s + ε•y), F' y = smulRight 1 (deriv_s F(·, y) (x i))
-    -- Conditions: Lipschitz in s (uniform), integrable at x i, ae diff at x i.
     have hae := ae_differentiableAt_coord_slice hf x ε hε.ne' i
-    -- Use hasDerivAt_integral_of_dominated_loc_of_lip (scalar Leibniz rule)
     have h_lip : ∀ᵐ y ∂stdGaussianPi n,
         LipschitzOnWith (Real.nnabs (L : ℝ))
           (fun s => f (Function.update x i s + ε • y)) Set.univ := .of_forall fun y => by
       have hnnabs : Real.nnabs (L : ℝ) = L := by
         ext; simp [Real.nnabs, abs_of_nonneg L.coe_nonneg]
-      rw [hnnabs]
-      apply LipschitzWith.lipschitzOnWith
-      -- f is L-Lip, (· + ε•y) is isometry, (update x i ·) is 1-Lip
+      rw [hnnabs]; apply LipschitzWith.lipschitzOnWith
       show LipschitzWith L (fun s => f (Function.update x i s + ε • y))
-      have h1 : LipschitzWith 1 (fun s => Function.update x i s) :=
-        lipschitzWith_update x i
-      have h2 : LipschitzWith 1 (fun z : Fin n → ℝ => z + ε • y) :=
-        (isometry_add_right (ε • y)).lipschitz
-      have h3 := hf.comp (h2.comp h1)
-      simp only [mul_one] at h3
-      convert h3 using 1
+      have h3 := hf.comp ((isometry_add_right (ε • y)).lipschitz.comp (lipschitzWith_update x i))
+      simp only [mul_one] at h3; convert h3 using 1
     have h_diff : ∀ᵐ y ∂stdGaussianPi n,
         HasDerivAt (fun s => f (Function.update x i s + ε • y))
           (deriv (fun s => f (Function.update x i s + ε • y)) (x i)) (x i) :=
@@ -481,7 +462,7 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       (aestronglyMeasurable_deriv_coord hf hae)
       h_lip (integrable_const _) h_diff
     exact hkey.differentiableAt
-    -- (old hasFDerivAt code removed, replaced by hasDerivAt above)
+  refine ⟨gradf_ε, hHasDeriv, ?_, ?_, ?_⟩
   · -- (2) Gradient bound: ∑ᵢ (∂ᵢf_ε)² ≤ L².
     -- Route: f_ε is L-Lip (sup norm) → ‖fderiv‖_op ≤ L → each |∂ᵢf_ε| ≤ L
     -- → ∑(∂ᵢf_ε)² ≤ (∑|∂ᵢf_ε|)² ≤ L² (by Cauchy-Schwarz / norm bound)
@@ -491,9 +472,24 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
     -- Route: Leibniz rule for continuous dependence (similar to (1) but for continuity)
     -- Needs: (1) + second application of parametric integral theory
     sorry
-  · -- (4) Measurability of gradient: pointwise limit of measurable diff quotients.
+  · -- (4) Measurability: gradf_ε i = pointwise limit of measurable diff quotients.
     intro i
-    sorry
+    set f_ε := gaussianMollify n ε f
+    have hf_ε_cont : Continuous f_ε := (gaussianMollify_lipschitz n ε f L hf).continuous
+    -- Difference quotient approximation
+    set u : ℕ → (Fin n → ℝ) → ℝ := fun k x =>
+      ((k : ℝ) + 1) * (f_ε (Function.update x i (x i + 1 / ((k : ℝ) + 1))) - f_ε x)
+    -- Each u k is measurable (continuous, in fact)
+    have hu_meas : ∀ k, Measurable (u k) := fun k => by
+      apply Continuous.measurable
+      exact continuous_const.mul
+        ((hf_ε_cont.comp (continuous_id.update i
+          ((continuous_apply i).add continuous_const))).sub hf_ε_cont)
+    -- Pointwise convergence: u k x → gradf_ε i x (by HasDerivAt)
+    have hu_tendsto : Tendsto u atTop (𝓝 (gradf_ε i)) := by
+      rw [tendsto_pi_nhds]; intro x
+      convert hasDerivAt_tendsto_seq (hHasDeriv x i) using 3 <;> simp [one_div, Function.update_self]
+    exact measurable_of_tendsto_metrizable hu_meas hu_tendsto
 
 /-- MemLp property for exp(s · (f_ε - E[f_ε])) under Gaussian measure.
 Follows from f_ε being L-Lipschitz (hence sub-Gaussian growth). -/
