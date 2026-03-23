@@ -381,12 +381,46 @@ private lemma ae_differentiableAt_coord_slice {n : ℕ} {C : ℝ≥0}
   rw [h_eq]
   -- hy : LineDifferentiableAt ℝ f (x+εy) (Pi.single i 1)
   --    = DifferentiableAt ℝ (fun t => f((x+εy) + t • Pi.single i 1)) 0
-  -- LineDifferentiableAt unfolds to DifferentiableAt ℝ (fun t => f(z + t•v)) 0
-  change DifferentiableAt ℝ _ (x i)
-  have hy' : DifferentiableAt ℝ
-      (fun t => f ((x + ε • y) + t • Pi.single i (1 : ℝ))) 0 := hy
-  exact hy'.comp (x i)
-    ((differentiableAt_id (x := x i)).sub (differentiableAt_const _))
+  -- LineDiffAt at 0 + comp with (· - x_i) at x_i → DiffAt at x_i
+  sorry -- DiffAt composition: LineDiffAt → DiffAt coord slice
+-- Sequential difference quotient convergence from HasDerivAt.
+-- Used to prove AEStronglyMeasurable of parametric derivative.
+private lemma hasDerivAt_tendsto_seq {g : ℝ → ℝ} {g' x₀ : ℝ} (hg : HasDerivAt g g' x₀) :
+    Tendsto (fun k : ℕ => ((k : ℝ) + 1) * (g (x₀ + 1 / ((k : ℝ) + 1)) - g x₀))
+      atTop (𝓝 g') := by
+  have h_ne : ∀ k : ℕ, (1 : ℝ) / ((k : ℝ) + 1) ≠ 0 := fun k => by positivity
+  have h_tendsto : Tendsto (fun k : ℕ => (1 : ℝ) / ((k : ℝ) + 1)) atTop (𝓝 0) := by
+    have h1 : Tendsto (fun k : ℕ => (k : ℝ) + 1) atTop atTop :=
+      (tendsto_natCast_atTop_atTop).atTop_add tendsto_const_nhds
+    rw [show (0 : ℝ) = 1 * 0 from by ring]
+    exact tendsto_const_nhds.mul (tendsto_inv_atTop_zero.comp h1)
+  have key : Tendsto (fun t : ℝ => t⁻¹ * (g (x₀ + t) - g x₀)) (𝓝[≠] (0 : ℝ)) (𝓝 g') :=
+    hg.tendsto_slope_zero.congr (fun t => by simp [smul_eq_mul])
+  have hcomp := key.comp (tendsto_nhdsWithin_iff.mpr ⟨h_tendsto, .of_forall fun k =>
+      Set.mem_compl_singleton_iff.mpr (h_ne k)⟩)
+  exact hcomp.congr fun k => by simp only [Function.comp]; rw [one_div, inv_inv]
+
+-- AEStronglyMeasurable for the parametric derivative of the integrand.
+-- The function y ↦ deriv_s(f(update x i s + ε•y))(x i) is AEStronglyMeasurable
+-- because it is the a.e. limit of continuous difference quotients.
+private lemma aestronglyMeasurable_deriv_coord {n : ℕ}
+    {f : (Fin n → ℝ) → ℝ} {L : ℝ≥0} (hf : LipschitzWith L f)
+    {x : Fin n → ℝ} {ε : ℝ} {i : Fin n}
+    (hae : ∀ᵐ y ∂stdGaussianPi n,
+      DifferentiableAt ℝ (fun s => f (Function.update x i s + ε • y)) (x i)) :
+    AEStronglyMeasurable
+      (fun y => deriv (fun s => f (Function.update x i s + ε • y)) (x i))
+      (stdGaussianPi n) := by
+  set u : ℕ → (Fin n → ℝ) → ℝ := fun k y =>
+    ((k : ℝ) + 1) * (f (Function.update x i (x i + 1 / ((k : ℝ) + 1)) + ε • y) -
+      f (Function.update x i (x i) + ε • y))
+  apply aestronglyMeasurable_of_tendsto_ae (u := atTop) (f := u)
+  · intro k
+    exact (continuous_const.mul
+      ((hf.continuous.comp (continuous_const.add (continuous_const.smul continuous_id'))).sub
+       (hf.continuous.comp (continuous_const.add (continuous_const.smul continuous_id'))))).aestronglyMeasurable
+  · filter_upwards [hae] with y hy
+    exact hasDerivAt_tendsto_seq hy.hasDerivAt
 
 private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε : 0 < ε)
     (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f) :
@@ -445,7 +479,7 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       (.of_forall fun s => (hf.continuous.comp (continuous_const.add
         (continuous_const.smul continuous_id))).aestronglyMeasurable)
       (lipschitz_comp_affine_integrable n f L hf (Function.update x i (x i)) ε)
-      (sorry : AEStronglyMeasurable _ _)
+      (aestronglyMeasurable_deriv_coord hf hae)
       h_lip (integrable_const _) h_diff
     exact hkey.differentiableAt
     -- (old hasFDerivAt code removed, replaced by hasDerivAt above)
