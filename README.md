@@ -2,7 +2,7 @@
 
 A Lean 4 + Mathlib library formalizing core theorems of mathematical statistics, covering estimation theory, sufficiency, limit theorems, concentration inequalities, regression, and Gaussian analysis.
 
-**Scale**: 61 Lean files · ~30,000 lines · 434+ public theorems · 51 verified (zero-sorry) modules · **4 sorry remaining (2 infrastructure gaps)**
+**Scale**: 61+ Lean files · ~32,000 lines · 450+ public theorems · **ZERO sorry — fully machine-verified**
 
 > **Want to contribute? See [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -17,6 +17,12 @@ The complete Berry-Esseen theorem with all 20+ supporting lemmas, forming the de
 $$\sup_y |F_{S_n}(y) - \Phi(y)| \leq \frac{C\rho}{\sigma^3 \sqrt{n}}$$
 
 The proof chain includes: characteristic function Taylor expansion → exponential decay bounds → telescope product bounds → Abel-regularized sinc integral → Fejér kernel bracket inequality (with a novel **shifted-argmax technique** for the hard case) → Esseen concentration inequality → Berry-Esseen theorem.
+
+### Gaussian Lipschitz Concentration — Full Herbst Pipeline (Zero Sorry)
+
+Complete proof chain from Log-Sobolev to concentration: Gaussian LSI → entropy bound for C¹ → Gaussian mollification (Rademacher + Leibniz + Fréchet diff) → Lipschitz limit (DCT) → Herbst ODE/Grönwall → sub-Gaussian MGF → concentration inequality.
+
+$$\Pr[|f(X) - \mathbb{E}f(X)| \geq t] \leq 2\exp\!\left(-\frac{t^2}{2L^2}\right), \quad X \sim \gamma^n,\; f \text{ Lipschitz}$$
 
 ### Gaussian Log-Sobolev Inequality — 1D + n-dimensional (Zero Sorry)
 
@@ -106,8 +112,10 @@ Including a complete OU semigroup theory: Mehler formula, invariance, space inte
 | Entropy non-negativity (Jensen) + conditional entropy | `Entropy/Basic.lean` |
 | **Data Processing Inequality (DPI)** | `Entropy/LogSobolev.lean` |
 | Entropy convexity + sub-additivity | `Entropy/LogSobolev.lean` |
-| Herbst Argument (sub-Gaussian MGF) | `SubGaussian/Herbst.lean` |
-| Gaussian Lipschitz Concentration | `SubGaussian/Lipschitz.lean` |
+| **Herbst Argument** (sub-Gaussian MGF from LSI) | `SubGaussian/Herbst.lean` |
+| **Gaussian Lipschitz Concentration** | `SubGaussian/Lipschitz.lean` |
+| **Stein Identity for Lipschitz Functions** (Steklov approximation) | `Gaussian/Stein.lean` |
+| **Gaussian Integration by Parts** (n-dim, Fubini + 1D Stein) | `Gaussian/Stein.lean` |
 
 ### Hypothesis Testing
 
@@ -216,20 +224,23 @@ Statlean/
 
 ---
 
-## Remaining Sorry (1)
+## Sorry Status: ZERO
 
-| Module | Sorry | Description | Blocker |
-|--------|-------|-------------|---------|
-| Herbst | 1 | `hasSubgaussianMGF` of Lipschitz functions | Needs LSI + Grönwall |
+**All theorems are fully machine-verified.** No sorry, no axioms beyond Lean's core + Mathlib.
 
 ```
-Dependency DAG:
-  BerryEsseen (0 sorry) ✅     ── fully proved
-  OrnsteinUhlenbeck (0 sorry) ✅ ──→ LogSobolev (0 sorry) ✅
-                                  └─→ Herbst (1 sorry, needs LSI + Grönwall)
+Dependency DAG (all zero sorry ✅):
+  BerryEsseen ✅ ── charfun Taylor → exp decay → Fejér bracket → Esseen smoothing
+  OrnsteinUhlenbeck ✅ ──→ LogSobolev ✅ ──→ Herbst ✅ ──→ Lipschitz Concentration ✅
+  Stein (Lipschitz) ✅ ──→ Gaussian IBP ✅ ──→ Mollification C¹ ✅
 ```
 
-Full backlog → [`sorry_backlog.yaml`](theme/input/sorry_backlog.yaml)
+Key infrastructure for the Herbst argument (built from scratch):
+- **Rademacher transfer**: `stdGaussianPi ≪ volume` via piFinSuccAbove induction
+- **Leibniz rule**: `hasDerivAt_integral_of_dominated_loc_of_lip` for parametric integrals
+- **Fréchet differentiability**: `hasFDerivAt_of_hasLineDerivAt_of_closure` for Gaussian mollification
+- **Steklov approximation**: smooth C¹ approximation of Lipschitz functions for Stein identity
+- **Gaussian IBP**: n-dimensional integration by parts via Fubini + 1D Stein
 
 ---
 
@@ -250,11 +261,12 @@ lake build Statlean.Verified                                 # verify zero-sorry
 ## Acceptance Criteria
 
 ```bash
-lake build                       # zero errors
-lake build Statlean.Verified     # zero sorry warnings
+lake build                       # zero errors, zero sorry warnings
+lake build Statlean.Verified     # verified zero-sorry modules
+grep -rn '^\s*sorry' Statlean/   # returns nothing
 ```
 
-Sorry count is monotonically decreasing. Every commit passes `lake build` with zero errors.
+Every theorem is fully machine-verified. No sorry anywhere in the codebase.
 
 ---
 
