@@ -228,7 +228,45 @@ lemma stein_identity_of_lipschitz
         (hLip.continuous.comp (continuous_id.sub continuous_const)).aestronglyMeasurable) _
   -- S k is C-Lipschitz (Steklov of C-Lip is C-Lip)
   have hS_lip : ∀ k, LipschitzWith C (S k) := by
-    intro k; sorry -- Steklov average preserves Lip constant
+    intro k
+    intro x y
+    have h2δ_ne : (2 * δ k) ≠ 0 := by positivity
+    have h2δ_pos : (0 : ℝ) < 2 * δ k := by positivity
+    suffices hdist : dist (S k x) (S k y) ≤ ↑C * dist x y by
+      calc edist _ _ = ENNReal.ofReal (dist _ _) := edist_dist _ _
+        _ ≤ ENNReal.ofReal (↑C * dist x y) := ENNReal.ofReal_le_ofReal hdist
+        _ = ENNReal.ofReal ↑C * ENNReal.ofReal (dist x y) :=
+            ENNReal.ofReal_mul (NNReal.coe_nonneg C)
+        _ = ↑C * edist x y := by rw [ENNReal.ofReal_coe_nnreal, edist_dist]
+    have hIx : IntervalIntegrable (fun u => h (u + x)) volume (-δ k) (δ k) :=
+      (hLip.continuous.comp (continuous_id.add continuous_const)).intervalIntegrable _ _
+    have hIy : IntervalIntegrable (fun u => h (u + y)) volume (-δ k) (δ k) :=
+      (hLip.continuous.comp (continuous_id.add continuous_const)).intervalIntegrable _ _
+    show dist ((2 * δ k)⁻¹ * ∫ t in (x - δ k)..(x + δ k), h t)
+        ((2 * δ k)⁻¹ * ∫ t in (y - δ k)..(y + δ k), h t) ≤ ↑C * dist x y
+    rw [dist_eq_norm, dist_eq_norm]
+    have hx_shift : ∫ t in (x - δ k)..(x + δ k), h t = ∫ u in (-δ k)..(δ k), h (u + x) := by
+      conv_lhs => rw [show x - δ k = -δ k + x from by ring, show x + δ k = δ k + x from by ring]
+      rw [← integral_comp_add_right]
+    have hy_shift : ∫ t in (y - δ k)..(y + δ k), h t = ∫ u in (-δ k)..(δ k), h (u + y) := by
+      conv_lhs => rw [show y - δ k = -δ k + y from by ring, show y + δ k = δ k + y from by ring]
+      rw [← integral_comp_add_right]
+    have key : ((2 * δ k)⁻¹ * ∫ t in (x - δ k)..(x + δ k), h t) -
+        (2 * δ k)⁻¹ * ∫ t in (y - δ k)..(y + δ k), h t =
+        (2 * δ k)⁻¹ * ∫ u in (-δ k)..(δ k), (h (u + x) - h (u + y)) := by
+      rw [← mul_sub, hx_shift, hy_shift, ← intervalIntegral.integral_sub hIx hIy]
+    rw [key, norm_mul, norm_inv, norm_of_nonneg h2δ_pos.le]
+    calc (2 * δ k)⁻¹ * ‖∫ u in (-δ k)..(δ k), (h (u + x) - h (u + y))‖
+        ≤ (2 * δ k)⁻¹ * ∫ u in (-δ k)..(δ k), (↑C * ‖x - y‖) := by
+          gcongr
+          apply intervalIntegral.norm_integral_le_of_norm_le (by linarith)
+          · exact ae_of_all _ fun t _ht => by
+              calc ‖h (t + x) - h (t + y)‖ ≤ ↑C * dist (t + x) (t + y) := hLip.norm_sub_le _ _
+                _ = ↑C * ‖x - y‖ := by rw [dist_eq_norm]; congr 1; ring
+          · exact _root_.intervalIntegrable_const
+      _ = ↑C * ‖x - y‖ := by
+          rw [intervalIntegral.integral_const, smul_eq_mul,
+            show δ k - -δ k = 2 * δ k from by ring, inv_mul_cancel_left₀ h2δ_ne]
   -- Stein identity for each S k
   have hstein : ∀ k, ∫ x, x * S k x ∂stdGaussian = ∫ x, S' k x ∂stdGaussian := fun k =>
     stein_identity _ _
@@ -306,6 +344,47 @@ section GaussianIBP
 
 open Function
 
+set_option synthInstance.maxHeartbeats 80000
+
+/-- lineDeriv in coordinate direction eⱼ = deriv of the j-th coordinate slice. -/
+private lemma lineDeriv_eq_deriv_coord {n : ℕ} (j : Fin n) (g : (Fin n → ℝ) → ℝ)
+    (y : Fin n → ℝ) :
+    lineDeriv ℝ g y (Pi.single j 1 : Fin n → ℝ) =
+    deriv (fun s => g (update y j s)) (y j) := by
+  show deriv (fun t => g (y + t • (Pi.single j (1 : ℝ) : Fin n → ℝ))) 0 =
+    deriv (fun s => g (update y j s)) (y j)
+  conv_lhs => arg 1; ext t; rw [show y + t • (Pi.single j (1 : ℝ) : Fin n → ℝ) =
+    update y j (y j + t) from by
+      ext i; simp [Pi.add_apply, Pi.smul_apply, Pi.single_apply, update_apply]
+      split_ifs with h <;> simp_all]
+  rw [show deriv (fun t => g (update y j (y j + t))) 0 =
+      deriv (fun s => g (update y j s)) (y j + 0) from
+    deriv_comp_const_add (fun s => g (update y j s)) (y j) 0, add_zero]
+
+/-- update (insertNth j s z) j s' = insertNth j s' z -/
+private lemma update_insertNth_eq {m : ℕ} (j : Fin (m + 1)) (s s' : ℝ)
+    (z : Fin m → ℝ) :
+    update (Fin.insertNth (α := fun _ => ℝ) j s z) j s' =
+    Fin.insertNth (α := fun _ => ℝ) j s' z := by
+  rw [← Fin.insertNth_removeNth (α := fun _ => ℝ) j s'
+      (Fin.insertNth (α := fun _ => ℝ) j s z)]
+  congr 1; ext k; simp [Fin.removeNth, Fin.insertNth_apply_succAbove]
+
+/-- s ↦ insertNth j s z is 1-Lipschitz. -/
+private lemma lipschitz_insertNth {m : ℕ} (j : Fin (m + 1)) (z : Fin m → ℝ) :
+    LipschitzWith 1 (fun s : ℝ => Fin.insertNth (α := fun _ => ℝ) j s z) := by
+  intro a b
+  simp only [edist_pi_def, ENNReal.coe_one, one_mul]
+  apply Finset.sup_le; intro i _
+  by_cases h : i = j
+  · subst h; simp [Fin.insertNth_apply_same]
+  · obtain ⟨k, hk⟩ := Fin.exists_succAbove_eq h
+    rw [show (Fin.insertNth (α := fun _ => ℝ) j a z) i = z k from by
+          rw [← hk]; exact Fin.insertNth_apply_succAbove _ _ _ _,
+        show (Fin.insertNth (α := fun _ => ℝ) j b z) i = z k from by
+          rw [← hk]; exact Fin.insertNth_apply_succAbove _ _ _ _]
+    simp [edist_self]
+
 /-- Multi-dimensional Gaussian integration by parts in coordinate j:
 for Lipschitz g on ℝⁿ, `∫ (∂ⱼg)(y) dγⁿ(y) = ∫ g(y)·yⱼ dγⁿ(y)`.
 This is the score function identity for product Gaussians.
@@ -314,7 +393,110 @@ lemma gaussian_ibp_coord {n : ℕ} (j : Fin n) (g : (Fin n → ℝ) → ℝ) (C 
     (hLip : LipschitzWith C g) :
     ∫ y, lineDeriv ℝ g y (Pi.single j 1) ∂stdGaussianPi n =
     ∫ y, g y * (y j) ∂stdGaussianPi n := by
-  sorry
+  -- Step 1: Rewrite lineDeriv as deriv of coordinate slice
+  simp_rw [lineDeriv_eq_deriv_coord j g]
+  -- Step 2: n = m + 1 since j : Fin n
+  obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, (Nat.succ_pred_eq_of_pos (Fin.pos j)).symm⟩
+  -- Step 3: piFinSuccAbove decomposition
+  set e := MeasurableEquiv.piFinSuccAbove (fun _ : Fin (m + 1) => ℝ) j
+  set gamma := stdGaussian
+  set mu_rest : Measure (Fin m → ℝ) := Measure.pi (fun _ : Fin m => stdGaussian)
+  have hmp : MeasurePreserving e (stdGaussianPi (m + 1)) (gamma.prod mu_rest) :=
+    measurePreserving_piFinSuccAbove (fun _ : Fin (m + 1) => stdGaussian) j
+  have hmp_s := hmp.symm e
+  have he_symm : ∀ (s : ℝ) (z : Fin m → ℝ),
+      e.symm (s, z) = Fin.insertNth (α := fun _ => ℝ) j s z := by
+    intro s z; simp [e, MeasurableEquiv.piFinSuccAbove, Fin.insertNthEquiv]
+  -- Step 4: Define slice function h_z(s) = g(insertNth j s z)
+  set h_z : (Fin m → ℝ) → ℝ → ℝ := fun z s => g (Fin.insertNth (α := fun _ => ℝ) j s z)
+  -- Slice is C-Lipschitz
+  have h_lip : ∀ z, LipschitzWith C (h_z z) := fun z => by
+    have := hLip.comp (lipschitz_insertNth j z)
+    simpa [mul_one] using this
+  -- Slice is integrable against stdGaussian
+  have h_int : ∀ z, Integrable (h_z z) gamma := fun z =>
+    (lipschitz_memLp_gaussianReal (h_z z) C (h_lip z) 1).integrable le_rfl
+  -- 1D Stein identity per fiber
+  have h_stein : ∀ z,
+      ∫ s, s * h_z z s ∂gamma = ∫ s, deriv (h_z z) s ∂gamma :=
+    fun z => stein_identity_of_lipschitz (h_z z) C (h_lip z) (h_int z)
+  -- Step 5: Transform both integrals to product form via MeasurePreserving
+  have lhs_eq : ∫ y, deriv (fun s => g (update y j s)) (y j) ∂stdGaussianPi (m + 1) =
+      ∫ p : ℝ × (Fin m → ℝ), deriv (h_z p.2) p.1 ∂(gamma.prod mu_rest) := by
+    rw [← hmp_s.integral_comp e.symm.measurableEmbedding]
+    congr 1; ext ⟨s, z⟩
+    simp only [comp_def, e.apply_symm_apply, h_z, he_symm,
+      Fin.insertNth_apply_same (α := fun _ => ℝ)]
+    congr 1; ext s'; rw [update_insertNth_eq]
+  have rhs_eq : ∫ y, g y * (y j) ∂stdGaussianPi (m + 1) =
+      ∫ p : ℝ × (Fin m → ℝ), h_z p.2 p.1 * p.1 ∂(gamma.prod mu_rest) := by
+    rw [← hmp_s.integral_comp e.symm.measurableEmbedding]
+    congr 1; ext ⟨s, z⟩
+    simp only [comp_def, e.apply_symm_apply, h_z, he_symm,
+      Fin.insertNth_apply_same (α := fun _ => ℝ)]
+  rw [lhs_eq, rhs_eq]
+  -- Step 6: Fubini decomposition + fiber Stein identity
+  haveI : SFinite gamma := inferInstance
+  haveI : SFinite mu_rest := by
+    change SFinite (Measure.pi (fun _ : Fin m => stdGaussian))
+    exact inferInstance
+  -- Define curried functions for Fubini
+  set F : ℝ → (Fin m → ℝ) → ℝ := fun s z => deriv (h_z z) s
+  set G : ℝ → (Fin m → ℝ) → ℝ := fun s z => h_z z s * s
+  -- Integrability on product (for Fubini)
+  have hF_int : Integrable (uncurry F) (gamma.prod mu_rest) := by
+    -- |deriv(h_z z)(s)| ≤ C everywhere (0 when not diff, ≤ C when diff)
+    refine (MemLp.of_bound (C := (C : ℝ)) sorry (ae_of_all _ fun ⟨s, z⟩ => ?_)).integrable le_rfl
+    show ‖deriv (h_z z) s‖ ≤ C
+    by_cases hd : DifferentiableAt ℝ (h_z z) s
+    · exact norm_deriv_le_of_lipschitz (h_lip z)
+    · simp [deriv_zero_of_not_differentiableAt hd, NNReal.coe_nonneg]
+  have hG_int : Integrable (uncurry G) (gamma.prod mu_rest) := by
+    -- g(y)*y_j integrable on γⁿ, transport to product via e.symm
+    suffices h : Integrable (fun y => g y * y j) (stdGaussianPi (m + 1)) by
+      rw [show uncurry G = (fun y => g y * y j) ∘ e.symm from by
+        ext ⟨s, z⟩; simp [G, h_z, he_symm, Fin.insertNth_apply_same (α := fun _ => ℝ)]]
+      exact (hmp_s.integrable_comp_emb e.symm.measurableEmbedding).mpr h
+    -- g is Lipschitz ⇒ |g(y)| ≤ |g(0)| + C*‖y‖, |y_j| ≤ ‖y‖
+    -- So |g(y)*y_j| ≤ (|g(0)| + C*‖y‖)*‖y‖ ≤ |g(0)|*‖y‖ + C*‖y‖²
+    apply Integrable.mono
+      (g := fun y => (|g 0| + ↑C * ‖y‖) * ‖y‖)
+    · -- Dominator integrable
+      have h1 := (integrable_id_stdGaussianPi (m + 1)).norm
+      show Integrable (fun y => (|g 0| + ↑C * ‖y‖) * ‖y‖) (stdGaussianPi (m + 1))
+      rw [show (fun y : Fin (m+1) → ℝ => (|g 0| + ↑C * ‖y‖) * ‖y‖) =
+          (fun y => |g 0| * ‖y‖ + ↑C * ‖y‖ ^ 2) from by ext y; ring]
+      exact (h1.const_mul |g 0|).add ((sorry : Integrable (fun y : Fin (m+1) → ℝ => ‖y‖^2) _).const_mul ↑C)
+    · exact hLip.continuous.aestronglyMeasurable.mul
+        ((continuous_apply j).aestronglyMeasurable)
+    · apply ae_of_all; intro y
+      calc ‖g y * y j‖ = |g y| * |y j| := by rw [Real.norm_eq_abs, abs_mul]
+        _ ≤ (|g 0| + ↑C * ‖y‖) * |y j| := by
+            apply mul_le_mul_of_nonneg_right _ (abs_nonneg _)
+            calc |g y| ≤ |g 0| + |g y - g 0| := by
+                  linarith [abs_sub_abs_le_abs_sub (g y) (g 0)]
+              _ ≤ |g 0| + ↑C * dist y 0 := by
+                  gcongr; rw [← Real.dist_eq]; exact hLip.dist_le_mul y 0
+              _ = |g 0| + ↑C * ‖y‖ := by rw [dist_zero_right]
+        _ ≤ (|g 0| + ↑C * ‖y‖) * ‖y‖ :=
+            mul_le_mul_of_nonneg_left (norm_le_pi_norm y j) (by positivity)
+        _ = ‖(|g 0| + ↑C * ‖y‖) * ‖y‖‖ :=
+            (Real.norm_of_nonneg (mul_nonneg (by positivity) (norm_nonneg _))).symm
+  -- The product integrals equal the curried form
+  show ∫ p, F p.1 p.2 ∂(gamma.prod mu_rest) = ∫ p, G p.1 p.2 ∂(gamma.prod mu_rest)
+  -- Apply Fubini: ∫ F d(γ×γ^m) = ∫_s (∫_z F(s,z) dγ^m) dγ
+  change ∫ p, uncurry F p ∂(gamma.prod mu_rest) = ∫ p, uncurry G p ∂(gamma.prod mu_rest)
+  rw [integral_prod _ hF_int, integral_prod _ hG_int]
+  simp only [uncurry_def]
+  -- Swap to z outer, s inner
+  rw [integral_integral_swap hF_int, integral_integral_swap hG_int]
+  -- Now: ∫_z (∫_s F(s,z) dγ) dγ^m = ∫_z (∫_s G(s,z) dγ) dγ^m
+  congr 1; ext z
+  -- Inner integrals agree by 1D Stein
+  show ∫ s, deriv (h_z z) s ∂gamma = ∫ s, h_z z s * s ∂gamma
+  rw [show ∫ s, h_z z s * s ∂gamma = ∫ s, s * h_z z s ∂gamma from by
+    congr 1; ext s; ring]
+  exact (h_stein z).symm
 
 end GaussianIBP
 
