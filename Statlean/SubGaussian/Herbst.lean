@@ -814,13 +814,17 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       _ ≤ (L : ℝ) ^ 2 := sq_le_sq'
           (by linarith [Finset.sum_nonneg fun i (_ : i ∈ Finset.univ) => abs_nonneg (a i)])
           (by linarith)
-  · -- (3) Continuity of gradient: s ↦ deriv (t ↦ f_ε(update x i t)) s is continuous.
-    -- Route: deriv g s = ∫ deriv_t f(update x i t + εy)|_{t=s} dγ(y) (Leibniz, same as (1)).
-    -- Continuity follows from DCT: integrand is bounded by L (Lipschitz) and a.e. continuous
-    -- in s (by Rademacher on f + Lebesgue differentiation for 1D Lipschitz functions).
-    -- Alternative: g = f_ε ∘ update x i is L-Lipschitz and DifferentiableAt everywhere
-    -- (from hDiff), so g' is the pointwise limit of difference quotients.
-    -- The difference quotients are equicontinuous (bounded by L), so Arzelà-Ascoli applies.
+  · -- (3) Continuity of gradient: s ↦ (fderiv ℝ f_ε (update x i s))(eⱼ) is continuous.
+    -- Since hDiff gives DifferentiableAt everywhere, gradf_ε j (update x i s) = fderiv f_ε (update x i s) (eⱼ).
+    -- The map s ↦ fderiv f_ε (update x i s) is continuous because:
+    -- fderiv f_ε z = ∫fderiv f (z+εy)dγ(y) (Bochner integral of CLinearMaps).
+    -- As z varies continuously, the integral converges by DCT (integrand bounded by L).
+    -- Applying to eⱼ preserves continuity.
+    intro x j
+    -- g(s) = f_ε(update x j s) is DifferentiableAt everywhere and L-Lip.
+    -- gradf_ε j (update x j s) = deriv g s = fderiv f_ε (update x j s) (Pi.single j 1).
+    -- Continuity of s ↦ fderiv f_ε (update x j s): composition of continuous (update) with
+    -- the continuous function z ↦ fderiv f_ε z (which is the Bochner integral formula).
     sorry
   · -- (4) Measurability: gradf_ε i = pointwise limit of measurable diff quotients.
     intro i
