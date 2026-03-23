@@ -38,7 +38,9 @@ import Statlean.LimitTheorems.USLLN
 import Statlean.EmpiricalProcess.CoveringNumber
 import Statlean.EmpiricalProcess.Dudley
 import Statlean.EmpiricalProcess.Donsker
+import Statlean.EmpiricalProcess.StochasticOrder
 import Statlean.EmpiricalProcess.Symmetrization
+import Statlean.EmpiricalProcess.Chaining
 
 -- Phase 3: Least-Squares Framework
 import Statlean.Regression.Basic
