@@ -10,7 +10,7 @@ import Mathlib.Analysis.Calculus.FDeriv.Pi
 - `HerbstBound` — cumulant generating function bound for a fixed function
 - `UniversalHerbstBound` — universal Herbst interface for Lipschitz functions
 
-## Proved (2 sorry remaining — DifferentiableAt for gaussianMollify + gradient continuity)
+## Proved (1 sorry remaining — gradient continuity)
 - `herbst_argument_of_bound` — from `HerbstBound` hypothesis
 - `herbstBound_neg` — stability under negation
 - `mgf_le_of_entropyPi_bound` — ODE/Grönwall step: entropy bound → MGF bound (PROVED)
@@ -25,7 +25,7 @@ import Mathlib.Analysis.Calculus.FDeriv.Pi
 - `gaussianMollify_coord_lipschitz` — coord slice of mollification is L-Lipschitz (PROVED)
 
 ## Sorry gaps (harder mollification sub-lemmas)
-- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L (2 sub-sorry)
+- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L (1 sub-sorry: gradient continuity)
 - `entropyPi_tendsto_of_uniform` — entropy continuity under DCT
 - `entropyPi_exp_le_of_lipschitz` — main assembly (limit argument, depends on above)
 -/
@@ -422,6 +422,55 @@ private lemma aestronglyMeasurable_deriv_coord {n : ℕ}
   · filter_upwards [hae] with y hy
     exact hasDerivAt_tendsto_seq hy.hasDerivAt
 
+-- For a.e. y ∂γⁿ, the function f is line-differentiable at (x + ε•y) in direction v.
+-- Uses Rademacher + QMP transfer (same pattern as ae_differentiableAt_coord_slice).
+private lemma ae_lineDiffAt_direction {n : ℕ} {C : ℝ≥0}
+    {f : (Fin n → ℝ) → ℝ} (hf : LipschitzWith C f)
+    (x : Fin n → ℝ) (ε : ℝ) (hε : ε ≠ 0) (v : Fin n → ℝ) :
+    ∀ᵐ y ∂stdGaussianPi n,
+      LineDifferentiableAt ℝ f (x + ε • y) v := by
+  exact (qmp_affine_stdGaussianPi x ε hε).ae
+    (hf.ae_lineDifferentiableAt (v := v) (μ := (volume : Measure (Fin n → ℝ))))
+
+-- AEStronglyMeasurable for y ↦ lineDeriv ℝ f (x + ε•y) v.
+-- Proved as ae limit of continuous difference quotients (same pattern as aestronglyMeasurable_deriv_coord).
+private lemma aestronglyMeasurable_lineDeriv_direction {n : ℕ}
+    {f : (Fin n → ℝ) → ℝ} {L : ℝ≥0} (hf : LipschitzWith L f)
+    {x : Fin n → ℝ} {ε : ℝ} {v : Fin n → ℝ}
+    (hae : ∀ᵐ y ∂stdGaussianPi n, LineDifferentiableAt ℝ f (x + ε • y) v) :
+    AEStronglyMeasurable
+      (fun y => lineDeriv ℝ f (x + ε • y) v) (stdGaussianPi n) := by
+  -- lineDeriv ℝ f z v = deriv (fun t => f(z + t • v)) 0
+  -- Use ae limit of difference quotients: u_k(y) = (k+1) * (f(z + 1/(k+1) • v) - f(z))
+  set u : ℕ → (Fin n → ℝ) → ℝ := fun k y =>
+    ((k : ℝ) + 1) * (f (x + ε • y + (1 / ((k : ℝ) + 1)) • v) - f (x + ε • y))
+  apply aestronglyMeasurable_of_tendsto_ae (u := Filter.atTop) (f := u)
+  · intro k
+    exact (continuous_const.mul
+      ((hf.continuous.comp ((continuous_const.add (continuous_const.smul continuous_id')).add
+        continuous_const)).sub
+       (hf.continuous.comp (continuous_const.add (continuous_const.smul continuous_id'))))).aestronglyMeasurable
+  · filter_upwards [hae] with y hy
+    -- hy : LineDifferentiableAt ℝ f (x + ε • y) v
+    -- HasLineDerivAt unfolds to HasDerivAt (fun t => f((x+εy) + tv)) (lineDeriv ..) 0
+    have hld : HasDerivAt (fun t : ℝ => f ((x + ε • y) + t • v))
+        (lineDeriv ℝ f (x + ε • y) v) 0 := hy.hasLineDerivAt
+    -- Use hasDerivAt_tendsto_seq after reparametrizing
+    have htseq := hasDerivAt_tendsto_seq hld
+    -- htseq: ((k+1) * (f((x+εy) + 1/(k+1) • v) - f(x+εy))) → lineDeriv
+    -- u k y = (k+1) * (f(x+εy + 1/(k+1) • v) - f(x+εy))
+    refine htseq.congr fun k => ?_
+    simp only [u, zero_add, zero_smul, add_zero]
+
+-- For a.e. y ∂γⁿ, f is Fréchet-differentiable at (x + ε•y).
+-- This is the multi-dimensional Rademacher + QMP transfer.
+private lemma ae_differentiableAt_shifted {n : ℕ} {C : ℝ≥0}
+    {f : (Fin n → ℝ) → ℝ} (hf : LipschitzWith C f)
+    (x : Fin n → ℝ) (ε : ℝ) (hε : ε ≠ 0) :
+    ∀ᵐ y ∂stdGaussianPi n, DifferentiableAt ℝ f (x + ε • y) := by
+  exact (qmp_affine_stdGaussianPi x ε hε).ae
+    (hf.ae_differentiableAt (μ := (volume : Measure (Fin n → ℝ))))
+
 private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε : 0 < ε)
     (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f) :
     ∃ gradf_ε : Fin n → (Fin n → ℝ) → ℝ,
@@ -480,16 +529,230 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       (by simp [closure_univ] : Metric.sphere (0 : Fin n → ℝ) 1 ⊆ closure Set.univ)
     intro v _
     -- HasLineDerivAt ℝ f_ε (A v) x v = HasDerivAt (t ↦ f_ε(x+t•v)) (A v) 0
-    -- A v = ∑ j, gradf_ε j x * v j
-    -- Need: the directional derivative of f_ε at x in direction v equals A v.
-    -- Use the Leibniz rule for direction v (same as coord proof but general direction).
-    -- HasLineDerivAt = HasDerivAt (t ↦ f_ε(x+tv)) (A v) 0
-    -- Leibniz rule for direction v: same pattern as coord HasDerivAt proof.
-    -- F(t,y) = f((x+εy)+tv), Lip in t with constant L·‖v‖.
-    -- ae HasDerivAt from Rademacher ae_lineDifferentiableAt + QMP transfer.
-    -- Value: ∫lineDeriv f (x+εy) v dγ = ∑ vⱼ · ∫∂ⱼf(x+εy)dγ = A v
-    -- (by ae Fréchet diff → lineDeriv = fderiv(v) = ∑vⱼ·∂ⱼf, then linearity of integral)
-    sorry
+    -- Strategy: Leibniz for direction v + integral identification via ae Rademacher.
+    show HasDerivAt (fun (t : ℝ) => gaussianMollify n ε f (x + t • v)) (A v) (0 : ℝ)
+    -- Rewrite: f_ε(x+tv) = ∫ f(x+tv+εy) dγ
+    -- ae LineDifferentiableAt for direction v at (x + εy)
+    have hae_ld := ae_lineDiffAt_direction hf x ε hε.ne' v
+    -- ae DifferentiableAt at (x + εy) (full Fréchet)
+    have hae_diff := ae_differentiableAt_shifted hf x ε hε.ne'
+    -- ae HasDerivAt in t at t=0: use LineDifferentiableAt → HasLineDerivAt
+    have h_deriv_ae : ∀ᵐ y ∂stdGaussianPi n,
+        HasDerivAt (fun t => f (x + t • v + ε • y))
+          (lineDeriv ℝ f (x + ε • y) v) (0 : ℝ) := by
+      filter_upwards [hae_ld] with y hy
+      -- HasLineDerivAt ℝ f _ (x+εy) v = HasDerivAt (t ↦ f((x+εy)+tv)) _ 0
+      -- We need HasDerivAt (t ↦ f(x+tv+εy)) _ 0
+      -- These are the same since x+tv+εy = (x+εy)+tv
+      have hld : HasDerivAt (fun t : ℝ => f ((x + ε • y) + t • v))
+          (lineDeriv ℝ f (x + ε • y) v) 0 := hy.hasLineDerivAt
+      have h_fun_eq : (fun t : ℝ => f (x + t • v + ε • y)) =
+          (fun t : ℝ => f ((x + ε • y) + t • v)) := by
+        ext t; congr 1; ext j; simp [Pi.add_apply, Pi.smul_apply]; ring
+      rwa [h_fun_eq]
+    -- Lip bound: t ↦ f(x+tv+εy) is L·‖v‖-Lipschitz for each y
+    have h_lip_dir : ∀ y : Fin n → ℝ,
+        LipschitzWith ⟨(L : ℝ) * ‖v‖, by positivity⟩
+          (fun t : ℝ => f (x + t • v + ε • y)) := fun y => by
+      rw [lipschitzWith_iff_dist_le_mul]; intro t₁ t₂
+      calc dist (f (x + t₁ • v + ε • y)) (f (x + t₂ • v + ε • y))
+          ≤ L * dist (x + t₁ • v + ε • y) (x + t₂ • v + ε • y) := hf.dist_le_mul _ _
+        _ = L * dist (t₁ • v) (t₂ • v) := by
+            congr 1
+            have : (fun w : Fin n → ℝ => w + (x + ε • y)) = (· + (x + ε • y)) := rfl
+            rw [show x + t₁ • v + ε • y = t₁ • v + (x + ε • y) from by ext j; simp; ring,
+                show x + t₂ • v + ε • y = t₂ • v + (x + ε • y) from by ext j; simp; ring]
+            exact (isometry_add_right (x + ε • y)).dist_eq _ _
+        _ = L * (‖v‖ * dist t₁ t₂) := by
+            congr 1; rw [dist_eq_norm, dist_eq_norm, ← sub_smul, norm_smul]
+            ring
+        _ = ↑(⟨(L : ℝ) * ‖v‖, by positivity⟩ : ℝ≥0) * dist t₁ t₂ := by simp; ring
+    have h_lip : ∀ᵐ y ∂stdGaussianPi n,
+        LipschitzOnWith (Real.nnabs ((L : ℝ) * ‖v‖))
+          (fun t => f (x + t • v + ε • y)) Set.univ := .of_forall fun y => by
+      rw [show Real.nnabs ((L : ℝ) * ‖v‖) = ⟨(L : ℝ) * ‖v‖, by positivity⟩ from by
+        ext; simp [Real.nnabs, abs_of_nonneg (by positivity : (L : ℝ) * ‖v‖ ≥ 0)]]
+      exact (h_lip_dir y).lipschitzOnWith
+    -- AEStronglyMeasurable of the derivative
+    have h_aesm := aestronglyMeasurable_lineDeriv_direction hf hae_ld
+    -- Integrability of F at t=0
+    have h_int0 : Integrable (fun y => f (x + (0 : ℝ) • v + ε • y)) (stdGaussianPi n) := by
+      have : (fun y => f (x + (0 : ℝ) • v + ε • y)) = (fun y => f (x + ε • y)) := by
+        ext y; simp
+      rw [this]; exact lipschitz_comp_affine_integrable n f L hf x ε
+    -- Apply Leibniz: hasDerivAt_integral_of_dominated_loc_of_lip
+    obtain ⟨_, hkey⟩ := hasDerivAt_integral_of_dominated_loc_of_lip
+      (F := fun t y => f (x + t • v + ε • y))
+      (F' := fun y => lineDeriv ℝ f (x + ε • y) v)
+      Filter.univ_mem
+      (.of_forall fun t => by
+        show AEStronglyMeasurable (fun y => f (x + t • v + ε • y)) _
+        exact (hf.continuous.comp
+          (continuous_const.add (continuous_const.smul continuous_id'))).aestronglyMeasurable)
+      h_int0 h_aesm h_lip (integrable_const _) h_deriv_ae
+    -- hkey : HasDerivAt (fun t => ∫ f(x+tv+εy) dγ) (∫ lineDeriv ℝ f (x+εy) v dγ) 0
+    -- Need to show: ∫ lineDeriv ℝ f (x+εy) v dγ = A v
+    suffices h_val : ∫ y, lineDeriv ℝ f (x + ε • y) v ∂stdGaussianPi n = A v by
+      rwa [h_val] at hkey
+    -- A v = ∑ j, gradf_ε j x * v j  (by definition)
+    -- Step 1: ae, lineDeriv ℝ f z v = ∑ j, v j * lineDeriv ℝ f z (eⱼ)
+    -- (at Rademacher-differentiable points, lineDeriv = fderiv = linear)
+    have h_ae_eq : ∀ᵐ y ∂stdGaussianPi n,
+        lineDeriv ℝ f (x + ε • y) v =
+          ∑ j : Fin n, v j *
+            lineDeriv ℝ f (x + ε • y) (Pi.single j (1 : ℝ)) := by
+      filter_upwards [hae_diff] with y hy
+      rw [hy.lineDeriv_eq_fderiv]
+      have h_decomp : v = ∑ j : Fin n,
+          (v j) • (Pi.single j (1 : ℝ) : Fin n → ℝ) := by
+        ext k; simp [Finset.sum_apply, Pi.single_apply, smul_eq_mul,
+          Finset.sum_ite_eq', Finset.mem_univ]
+      conv_lhs => rw [h_decomp]
+      rw [_root_.map_sum]; congr 1; ext j'
+      rw [ContinuousLinearMap.map_smul, smul_eq_mul, hy.lineDeriv_eq_fderiv]
+    -- Integrability of each lineDeriv ℝ f (x+εy) (eⱼ)
+    -- The coordinate Leibniz already produces these as integrable derivatives.
+    have h_int_ej : ∀ j : Fin n, Integrable
+        (fun y => lineDeriv ℝ f (x + ε • y) (Pi.single j (1 : ℝ)))
+        (stdGaussianPi n) := by
+      intro j
+      -- From the coordinate Leibniz (hHasDeriv):
+      -- ∫ deriv(s ↦ f(update x j s + εy))(x j) dγ exists (is the derivative gradf_ε j x)
+      -- And ae: deriv(coord_slice) = lineDeriv ℝ f (x+εy) (eⱼ)
+      -- So lineDeriv is ae-equal to an integrable function.
+      have hae_j := ae_differentiableAt_coord_slice hf x ε hε.ne' j
+      obtain ⟨hF'_int, _⟩ := hasDerivAt_integral_of_dominated_loc_of_lip
+        (F := fun s y => f (Function.update x j s + ε • y))
+        (F' := fun y => deriv (fun s => f (Function.update x j s + ε • y)) (x j))
+        Filter.univ_mem
+        (.of_forall fun s => (hf.continuous.comp (continuous_const.add
+          (continuous_const.smul continuous_id))).aestronglyMeasurable)
+        (lipschitz_comp_affine_integrable n f L hf (Function.update x j (x j)) ε)
+        (aestronglyMeasurable_deriv_coord hf hae_j)
+        (.of_forall fun y => by
+          have hnnabs : Real.nnabs (L : ℝ) = L := by
+            ext; simp [Real.nnabs, abs_of_nonneg L.coe_nonneg]
+          rw [hnnabs]; apply LipschitzWith.lipschitzOnWith
+          have h3 := hf.comp
+            ((isometry_add_right (ε • y)).lipschitz.comp (lipschitzWith_update x j))
+          simpa using h3)
+        (integrable_const _) (hae_j.mono fun y hy => hy.hasDerivAt)
+      -- hF'_int : Integrable (fun y => deriv(coord_slice)(x j)) γ
+      -- ae: coord_deriv = lineDeriv ℝ f (x+εy) (eⱼ)
+      refine hF'_int.congr ?_
+      filter_upwards [hae_j] with y hy
+      -- Same identity as in the final step below
+      have h_eq : (fun s => f (Function.update x j s + ε • y)) =
+        (fun t => f ((x + ε • y) + t • Pi.single j (1 : ℝ))) ∘ (· - x j) := by
+        ext s; congr 1; ext k
+        simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul, Pi.single_apply,
+          Function.comp_apply, Function.update_apply]
+        by_cases hk : k = j
+        · subst hk; simp; ring
+        · simp [hk]
+      -- Need: deriv(coord_slice)(x j) = lineDeriv ℝ f (x+εy) (eⱼ)
+      -- = deriv(fun t => f((x+εy) + t•eⱼ)) 0
+      -- coord_slice = g ∘ (· - x j), so deriv at x j = deriv g 0
+      -- lineDeriv ℝ f z v = deriv (fun t => f(z + tv)) 0
+      -- deriv(coord_slice)(x j) = deriv(fun s => f(update x j s + εy))(x j)
+      -- These are related by reparametrization s = x j + t, so coord_slice at x j = line fn at 0
+      -- Use HasDerivAt uniqueness: both give the derivative value at the same point
+      unfold lineDeriv
+      -- Goal: deriv(coord_slice)(x j) = deriv(fun t => f(z + t•eⱼ)) 0
+      -- hy gives HasDerivAt(coord_slice)(deriv(coord_slice)(x j))(x j)
+      -- We need HasDerivAt(fun t => f(z + t•eⱼ))(deriv(coord_slice)(x j))(0)
+      have hda := hy.hasDerivAt
+      -- hda : HasDerivAt (fun s => f(update x j s + εy)) (deriv ...) (x j)
+      -- Reparametrize: s = x j + t, so t = s - x j
+      set ej : Fin n → ℝ := Pi.single j 1
+      -- lineDeriv ℝ f z v = deriv (fun t => f(z + tv)) 0
+      -- Goal: deriv(coord_slice)(x j) = deriv(fun t => f(z+t•eⱼ))(0)
+      -- Both are derivatives of the same function up to reparametrization
+      -- coord_slice(s) = f(update x j s + εy)
+      -- line_fn(t) = f((x+εy) + t•eⱼ)
+      -- line_fn(t) = coord_slice(x j + t)
+      -- So: HasDerivAt(line_fn)(deriv(coord)(x j))(0) by comp with shift
+      -- Hence: deriv(line_fn)(0) = deriv(coord)(x j)
+      -- reparametrize: coord_slice(x j) = line_fn(0) via s = x j + t
+      have h_reparam : (fun t : ℝ => f ((x + ε • y) + t • ej)) =
+          (fun s => f (Function.update x j s + ε • y)) ∘ (· + x j) := by
+        ext t; simp only [Function.comp_def]; congr 1; ext k
+        simp only [Function.update_apply, Pi.add_apply, Pi.smul_apply, smul_eq_mul,
+          Pi.single_apply, ej]
+        by_cases hk : k = j
+        · subst hk; simp; ring
+        · simp [hk]
+      -- Goal becomes: deriv(g)(x j) = deriv(g ∘ (·+xj))(0)
+      -- where g = fun s => f(update x j s + εy)
+      set g := fun s : ℝ => f (Function.update x j s + ε • y) with hg_def
+      show deriv g (x j) = lineDeriv ℝ f (x + ε • y) ej
+      unfold lineDeriv
+      have h_fn_eq : (fun t : ℝ => f ((x + ε • y) + t • ej)) = (fun x₁ => g (x₁ + x j)) := by
+        ext t; simp only [hg_def]; congr 1; ext k
+        simp only [Function.update_apply, Pi.add_apply, Pi.smul_apply, smul_eq_mul,
+          Pi.single_apply, ej]
+        by_cases hk : k = j <;> simp [hk] <;> ring
+      rw [h_fn_eq]
+      rw [deriv_comp_add_const g (x j) 0, zero_add]
+    -- Step 2: swap integral and sum
+    rw [integral_congr_ae h_ae_eq]
+    rw [integral_finset_sum _ (fun j _ => (h_int_ej j).const_mul (v j))]
+    -- ∑ j, ∫ v j * lineDeriv = ∑ j, v j * ∫ lineDeriv
+    simp_rw [integral_const_mul]
+    -- Step 3: identify ∫ lineDeriv ℝ f (x+εy) (eⱼ) dγ = gradf_ε j x
+    -- From coordinate Leibniz: gradf_ε j x = ∫ deriv(coord_slice) dγ
+    -- And coord_deriv = lineDeriv at eⱼ (ae identity)
+    simp only [A, ContinuousLinearMap.sum_apply, ContinuousLinearMap.smul_apply,
+      smul_eq_mul, ContinuousLinearMap.proj_apply]
+    -- Goal: ∑ j, v j * ∫ lineDeriv ... dγ = ∑ j, gradf_ε j x * v j
+    congr 1; ext j
+    -- Goal: v j * ∫ lineDeriv ... dγ = gradf_ε j x * v j
+    rw [mul_comm]
+    congr 1
+    -- Show: ∫ lineDeriv ℝ f (x+εy) (eⱼ) dγ = gradf_ε j x
+    have hae_j := ae_differentiableAt_coord_slice hf x ε hε.ne' j
+    obtain ⟨_, hLeibniz_j⟩ := hasDerivAt_integral_of_dominated_loc_of_lip
+      (F := fun s y => f (Function.update x j s + ε • y))
+      (F' := fun y => deriv (fun s => f (Function.update x j s + ε • y)) (x j))
+      Filter.univ_mem
+      (.of_forall fun s => (hf.continuous.comp (continuous_const.add
+        (continuous_const.smul continuous_id))).aestronglyMeasurable)
+      (lipschitz_comp_affine_integrable n f L hf (Function.update x j (x j)) ε)
+      (aestronglyMeasurable_deriv_coord hf hae_j)
+      (.of_forall fun y => by
+        have hnnabs : Real.nnabs (L : ℝ) = L := by
+          ext; simp [Real.nnabs, abs_of_nonneg L.coe_nonneg]
+        rw [hnnabs]; apply LipschitzWith.lipschitzOnWith
+        have h3 := hf.comp
+          ((isometry_add_right (ε • y)).lipschitz.comp (lipschitzWith_update x j))
+        simpa using h3)
+      (integrable_const _) (hae_j.mono fun y hy => hy.hasDerivAt)
+    -- gradf_ε j x = ∫ coord_deriv dγ (by uniqueness of derivative)
+    have h_gradf_eq : gradf_ε j x =
+        ∫ y, deriv (fun s => f (Function.update x j s + ε • y)) (x j)
+          ∂stdGaussianPi n := (hHasDeriv x j).unique hLeibniz_j
+    rw [h_gradf_eq]
+    -- ae: coord_deriv = lineDeriv in eⱼ direction
+    apply integral_congr_ae
+    filter_upwards [hae_j] with y hy
+    -- Identity: update x j s + εy = (x+εy) + (s - x j) • eⱼ
+    have h_eq : (fun s => f (Function.update x j s + ε • y)) =
+      (fun t => f ((x + ε • y) + t • Pi.single j (1 : ℝ))) ∘ (fun s => s - x j) := by
+      ext s; congr 1; ext k
+      simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul, Pi.single_apply,
+        Function.comp_apply, Function.update_apply]
+      by_cases hk : k = j
+      · subst hk; simp; ring
+      · simp [hk]
+    set ej' : Fin n → ℝ := Pi.single j 1
+    set g' := fun s : ℝ => f (Function.update x j s + ε • y) with hg'_def
+    unfold lineDeriv
+    have h_fn_eq' : (fun t : ℝ => f ((x + ε • y) + t • ej')) = (fun x₁ => g' (x₁ + x j)) := by
+      ext t; simp only [hg'_def]; congr 1; ext k
+      simp only [Function.update_apply, Pi.add_apply, Pi.smul_apply, smul_eq_mul,
+        Pi.single_apply, ej']
+      by_cases hk : k = j <;> simp [hk] <;> ring
+    rw [h_fn_eq', deriv_comp_add_const g' (x j) 0, zero_add]
   refine ⟨gradf_ε, hHasDeriv, ?_, ?_, ?_⟩
   · -- (2) Gradient bound: ∑(∂ᵢf_ε)² ≤ L².
     -- Route: chain rule gives ∂ᵢf_ε(x) = (fderiv ℝ f_ε x)(eᵢ).
