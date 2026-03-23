@@ -1,6 +1,7 @@
 import Statlean.Gaussian.Basic
 import Statlean.Entropy.LogSobolev
 import Mathlib.Probability.Moments.SubGaussian
+import Mathlib.Analysis.Calculus.Rademacher
 
 /-! # Herbst Argument and Sub-Gaussian MGF
 
@@ -28,7 +29,7 @@ import Mathlib.Probability.Moments.SubGaussian
 - `entropyPi_exp_le_of_lipschitz` — main assembly (limit argument, depends on above)
 -/
 
-open MeasureTheory ProbabilityTheory Filter Topology
+open MeasureTheory ProbabilityTheory Filter Topology Measure
 open scoped NNReal
 
 noncomputable section
@@ -319,6 +320,74 @@ private lemma gaussianMollify_coord_lipschitz (n : ℕ) (ε : ℝ)
     LipschitzWith L (fun s => gaussianMollify n ε f (Function.update x i s)) :=
   lipschitz_coord_slice _ L (gaussianMollify_lipschitz n ε f L hf) x i
 
+-- Infrastructure for differentiability of Gaussian mollification.
+
+-- The affine map y ↦ x + ε•y is QuasiMeasurePreserving from stdGaussianPi to volume.
+private lemma qmp_affine_stdGaussianPi {n : ℕ}
+    (x : Fin n → ℝ) (ε : ℝ) (hε : ε ≠ 0) :
+    QuasiMeasurePreserving (fun y : Fin n → ℝ => x + ε • y)
+      (stdGaussianPi n) volume := by
+  refine ⟨measurable_const.add (measurable_const.smul measurable_id), ?_⟩
+  intro S hS
+  have hmeas : Measurable (fun y : Fin n → ℝ => x + ε • y) :=
+    measurable_const.add (measurable_const.smul measurable_id)
+  have h_smul : Measurable (fun y : Fin n → ℝ => ε • y) :=
+    measurable_const.smul measurable_id
+  have h_add : Measurable (fun y : Fin n → ℝ => x + y) :=
+    measurable_const.add measurable_id
+  -- Factor as translation ∘ scaling, both preserve abs. continuity to volume.
+  have h_vol_ac : (volume : Measure (Fin n → ℝ)).map
+      (fun y => x + ε • y) ≪ volume := by
+    rw [show (fun y : Fin n → ℝ => x + ε • y) =
+      (fun y => x + y) ∘ (fun y => ε • y) from by ext; simp,
+      ← Measure.map_map h_add h_smul]
+    have h_smul_ac : volume.map (fun y : Fin n → ℝ => ε • y) ≪ volume := by
+      rw [show (fun y : Fin n → ℝ => ε • y) =
+        (ε • LinearMap.id : (Fin n → ℝ) →ₗ[ℝ] Fin n → ℝ) from by ext; simp,
+        Real.map_linearMap_volume_pi_eq_smul_volume_pi (by
+          simp only [LinearMap.det_smul, ne_eq, mul_eq_zero, not_or]
+          exact ⟨pow_ne_zero _ hε, by simp [LinearMap.det_id]⟩)]
+      exact smul_absolutelyContinuous
+    have h_mp := (measurePreserving_add_left volume x).map_eq
+    have h := h_smul_ac.map h_add; rw [h_mp] at h; exact h
+  exact ((stdGaussianPi_absolutelyContinuous n).map hmeas |>.trans h_vol_ac) hS
+
+-- For a.e. y ∂γⁿ, the coord slice s ↦ f(update x i s + εy) is differentiable at x i.
+-- Uses Rademacher's theorem + absolute continuity transfer.
+private lemma ae_differentiableAt_coord_slice {n : ℕ} {C : ℝ≥0}
+    {f : (Fin n → ℝ) → ℝ} (hf : LipschitzWith C f)
+    (x : Fin n → ℝ) (ε : ℝ) (hε : ε ≠ 0) (i : Fin n) :
+    ∀ᵐ y ∂stdGaussianPi n,
+      DifferentiableAt ℝ (fun s => f (Function.update x i s + ε • y)) (x i) := by
+  -- By Rademacher: ∀ᵐ z ∂volume, LineDifferentiableAt ℝ f z (Pi.single i 1)
+  have hrad := hf.ae_lineDifferentiableAt (v := Pi.single i (1 : ℝ))
+    (μ := (volume : Measure (Fin n → ℝ)))
+  -- Transfer via QMP: ae for y ∂stdGaussianPi
+  have hae := (qmp_affine_stdGaussianPi x ε hε).ae hrad
+  -- Convert LineDifferentiableAt to DifferentiableAt of coord slice
+  filter_upwards [hae] with y hy
+  -- hy : LineDifferentiableAt ℝ f (x+ε•y) (Pi.single i 1)
+  --    = DifferentiableAt ℝ (fun t => f((x+ε•y) + t • Pi.single i 1)) 0
+  -- Goal: DifferentiableAt ℝ (fun s => f(update x i s + ε•y)) (x i)
+  -- Key identity: update x i s + ε•y = (x+ε•y) + (s - x i) • Pi.single i 1
+  have h_eq : (fun s => f (Function.update x i s + ε • y)) =
+    (fun t => f ((x + ε • y) + t • Pi.single i (1 : ℝ))) ∘ (fun s => s - x i) := by
+    ext s; congr 1; ext j
+    simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul, Pi.single_apply,
+      Function.comp_apply]
+    by_cases hj : j = i
+    · subst hj; simp; ring
+    · simp [hj]
+  rw [h_eq]
+  -- hy : LineDifferentiableAt ℝ f (x+εy) (Pi.single i 1)
+  --    = DifferentiableAt ℝ (fun t => f((x+εy) + t • Pi.single i 1)) 0
+  -- LineDifferentiableAt unfolds to DifferentiableAt ℝ (fun t => f(z + t•v)) 0
+  change DifferentiableAt ℝ _ (x i)
+  have hy' : DifferentiableAt ℝ
+      (fun t => f ((x + ε • y) + t • Pi.single i (1 : ℝ))) 0 := hy
+  exact hy'.comp (x i)
+    ((differentiableAt_id (x := x i)).sub (differentiableAt_const _))
+
 private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε : 0 < ε)
     (f : (Fin n → ℝ) → ℝ) (L : ℝ≥0) (hf : LipschitzWith L f) :
     ∃ gradf_ε : Fin n → (Fin n → ℝ) → ℝ,
@@ -341,7 +410,45 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
     --   (d) Apply hasDerivAt_integral_of_dominated_loc_of_lip
     -- API: LipschitzWith.ae_differentiableAt_of_real, stdGaussianPi_absolutelyContinuous,
     --       hasDerivAt_integral_of_dominated_loc_of_lip
-    intro x i; sorry
+    intro x i
+    -- Suffices: DifferentiableAt, then .hasDerivAt gives the result.
+    apply DifferentiableAt.hasDerivAt
+    -- Use hasFDerivAt_integral_of_dominated_loc_of_lip:
+    -- F(s, y) = f(update x i s + ε•y), F' y = smulRight 1 (deriv_s F(·, y) (x i))
+    -- Conditions: Lipschitz in s (uniform), integrable at x i, ae diff at x i.
+    have hae := ae_differentiableAt_coord_slice hf x ε hε.ne' i
+    -- Use hasDerivAt_integral_of_dominated_loc_of_lip (scalar Leibniz rule)
+    have h_lip : ∀ᵐ y ∂stdGaussianPi n,
+        LipschitzOnWith (Real.nnabs (L : ℝ))
+          (fun s => f (Function.update x i s + ε • y)) Set.univ := .of_forall fun y => by
+      have hnnabs : Real.nnabs (L : ℝ) = L := by
+        ext; simp [Real.nnabs, abs_of_nonneg L.coe_nonneg]
+      rw [hnnabs]
+      apply LipschitzWith.lipschitzOnWith
+      -- f is L-Lip, (· + ε•y) is isometry, (update x i ·) is 1-Lip
+      show LipschitzWith L (fun s => f (Function.update x i s + ε • y))
+      have h1 : LipschitzWith 1 (fun s => Function.update x i s) :=
+        lipschitzWith_update x i
+      have h2 : LipschitzWith 1 (fun z : Fin n → ℝ => z + ε • y) :=
+        (isometry_add_right (ε • y)).lipschitz
+      have h3 := hf.comp (h2.comp h1)
+      simp only [mul_one] at h3
+      convert h3 using 1
+    have h_diff : ∀ᵐ y ∂stdGaussianPi n,
+        HasDerivAt (fun s => f (Function.update x i s + ε • y))
+          (deriv (fun s => f (Function.update x i s + ε • y)) (x i)) (x i) :=
+      hae.mono fun y hy => hy.hasDerivAt
+    obtain ⟨_, hkey⟩ := hasDerivAt_integral_of_dominated_loc_of_lip
+      (F := fun s y => f (Function.update x i s + ε • y))
+      (F' := fun y => deriv (fun s => f (Function.update x i s + ε • y)) (x i))
+      Filter.univ_mem
+      (.of_forall fun s => (hf.continuous.comp (continuous_const.add
+        (continuous_const.smul continuous_id))).aestronglyMeasurable)
+      (lipschitz_comp_affine_integrable n f L hf (Function.update x i (x i)) ε)
+      (sorry : AEStronglyMeasurable _ _)
+      h_lip (integrable_const _) h_diff
+    exact hkey.differentiableAt
+    -- (old hasFDerivAt code removed, replaced by hasDerivAt above)
   · -- (2) Gradient bound: ∑ᵢ (∂ᵢf_ε)² ≤ L².
     -- Route: f_ε is L-Lip (sup norm) → ‖fderiv‖_op ≤ L → each |∂ᵢf_ε| ≤ L
     -- → ∑(∂ᵢf_ε)² ≤ (∑|∂ᵢf_ε|)² ≤ L² (by Cauchy-Schwarz / norm bound)
