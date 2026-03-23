@@ -331,52 +331,30 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
   let gradf_ε : Fin n → (Fin n → ℝ) → ℝ :=
     fun i x => deriv (fun s => gaussianMollify n ε f (Function.update x i s)) (x i)
   refine ⟨gradf_ε, ?_, ?_, ?_, ?_⟩
-  · -- (1) HasDerivAt: coordinate slice of f_ε is differentiable.
-    -- Route: Convert to Lebesgue integral with Gaussian density kernel,
-    -- differentiate the KERNEL (smooth) not f, via Leibniz rule.
-    -- Key APIs: integral_gaussianReal_eq_integral_smul, hasDerivAt_integral_of_dominated_loc_of_deriv_le
-    -- The derivative of gaussianPDFReal w.r.t. mean: ∂/∂μ[φ(μ,σ,x)] = φ·(x-μ)/σ²
-    -- gradf_ε i x = (1/ε) ∫ f(x+εy)·yᵢ dγ(y) (Stein's identity for Gaussian convolution)
-    intro x i
-    -- The coord slice s ↦ gaussianMollify n ε f (update x i s)
-    -- = ∫ f(fun j => if j=i then s+ε*yⱼ else xⱼ+ε*yⱼ) dγ(y)
-    -- is L-Lipschitz (gaussianMollify_coord_lipschitz) hence differentiable a.e. (Rademacher).
-    -- For the HasDerivAt at the SPECIFIC point x i:
-    -- Use hasFDerivAt_integral_of_dominated_loc_of_lip with F(s,y) Lipschitz in s.
-    -- The condition "HasFDerivAt for a.e. y" follows from:
-    --   For each y, s ↦ F(s,y) is L-Lipschitz, hence diff a.e. in s (Rademacher).
-    --   By Fubini on the product space (s,y): for a.e. s, diff for a.e. y.
-    --   (This uses that the non-diff set is measurable and has product measure 0.)
-    -- Since we need this at a SPECIFIC s₀ = x i, this is a subtle point.
-    -- For GAUSSIAN convolution specifically, the function IS smooth at ALL points
-    -- (convolution with Schwartz function), but proving this requires kernel differentiation.
-    -- Route: Rademacher + diffeomorphism preimage + Leibniz.
-    -- (a) By Rademacher: f diff at a.e. point (wrt volume). Let S = non-diff set, |S|=0.
-    -- (b) For each y: F_y(s) = f(update (x+εy) i (s+εyᵢ)) is L-Lip in s.
-    --     F_y diff at s₀ ↔ f diff at update(x+εy) i (s₀+εyᵢ) wrt coord i.
-    -- (c) The map y ↦ update(x+εy) i (s₀+εyᵢ) is a diffeomorphism (ε≠0).
-    --     Preimage of S under this diffeo has volume 0. stdGaussianPi ≪ volume.
-    --     So F_y diff at s₀ for a.e. y (stdGaussianPi).
-    -- (d) hasFDerivAt_integral_of_dominated_loc_of_lip gives HasFDerivAt for ∫F_y dγ.
-    -- (e) Extract HasDerivAt from HasFDerivAt (1D case).
-    sorry
+  · -- (1) HasDerivAt: the parametric integral is differentiable at every point.
+    -- Route: Leibniz rule (hasDerivAt_integral_of_dominated_loc_of_lip) +
+    -- Rademacher + stdGaussianPi ≪ volume.
+    -- Key steps:
+    --   (a) Rademacher: f ae-diff wrt volume → ae-diff wrt γⁿ (stdGaussianPi_ac)
+    --   (b) Affine preimage: ae-diff at x+εy for ae y ∂γⁿ
+    --   (c) Chain rule: DifferentiableAt → HasDerivAt for coord slice
+    --   (d) Apply hasDerivAt_integral_of_dominated_loc_of_lip
+    -- API: LipschitzWith.ae_differentiableAt_of_real, stdGaussianPi_absolutelyContinuous,
+    --       hasDerivAt_integral_of_dominated_loc_of_lip
+    intro x i; sorry
   · -- (2) Gradient bound: ∑ᵢ (∂ᵢf_ε)² ≤ L².
-    -- From (1), gradf_ε i x = deriv of coord slice at x i.
-    -- By `norm_fderiv_le_of_lipschitz` on the full f_ε (L-Lipschitz, sup norm):
-    --   ‖fderiv ℝ f_ε x‖_op ≤ L
-    -- For linear functional on (Fin n → ℝ) with sup norm:
-    --   ‖ℓ‖_op = ∑ᵢ |ℓ(eᵢ)| = ∑ᵢ |∂ᵢf_ε|
-    -- So ∑ |∂ᵢf_ε| ≤ L, hence ∑ (∂ᵢf_ε)² ≤ (∑ |∂ᵢf_ε|)² ≤ L².
-    -- BLOCKER: needs Differentiable from (1) + fderiv ↔ partial deriv bridge.
+    -- Route: f_ε is L-Lip (sup norm) → ‖fderiv‖_op ≤ L → each |∂ᵢf_ε| ≤ L
+    -- → ∑(∂ᵢf_ε)² ≤ (∑|∂ᵢf_ε|)² ≤ L² (by Cauchy-Schwarz / norm bound)
+    -- Needs: (1) HasDerivAt + fderiv ↔ partial deriv bridge
     sorry
-  · -- (3) Continuity: s ↦ gradf_ε i (update x i s) is continuous.
-    -- f_ε is C^∞ (convolution with Gaussian), so its derivative is continuous.
-    -- BLOCKER: same as (1), needs smoothness of mollification.
+  · -- (3) Continuity of gradient.
+    -- Route: Leibniz rule for continuous dependence (similar to (1) but for continuity)
+    -- Needs: (1) + second application of parametric integral theory
     sorry
-  · -- (4) Measurability: gradf_ε i is measurable.
-    -- Follows from gradf_ε being continuous (which follows from f_ε being C^∞).
-    -- Alternatively: deriv of a Lipschitz function is measurable (Rademacher).
-    -- BLOCKER: same as (1)/(3).
+  · -- (4) Measurability of gradient.
+    -- Route: deriv of Lipschitz function is ae-measurable (Rademacher gives ae derivative,
+    -- which is measurable). Or: continuous (from (3)) → measurable.
+    -- AEMeasurable suffices since the gradient only appears under integrals.
     sorry
 
 /-- MemLp property for exp(s · (f_ε - E[f_ε])) under Gaussian measure.
