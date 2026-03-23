@@ -379,14 +379,10 @@ private lemma ae_differentiableAt_coord_slice {n : ℕ} {C : ℝ≥0}
     · subst hj; simp; ring
     · simp [hj]
   rw [h_eq]
-  -- Goal: DifferentiableAt ℝ ((fun t => f(z + t•v)) ∘ (fun s => s - x_i)) (x_i)
-  -- hy : LineDifferentiableAt = DifferentiableAt at 0
-  show DifferentiableAt ℝ
-    ((fun t => f ((x + ε • y) + t • Pi.single i (1 : ℝ))) ∘ (fun s => s - x i)) (x i)
+  -- Compose: g DiffAt at 0, (· - x_i) DiffAt at x_i, maps x_i to 0
+  unfold LineDifferentiableAt at hy
   refine DifferentiableAt.comp (x i) ?_ (differentiableAt_id.sub (differentiableAt_const _))
-  show DifferentiableAt ℝ (fun t => f ((x + ε • y) + t • Pi.single i (1 : ℝ))) (x i - x i)
-  simp only [sub_self]
-  exact hy
+  convert hy using 1; simp
 -- Used to prove AEStronglyMeasurable of parametric derivative.
 private lemma hasDerivAt_tendsto_seq {g : ℝ → ℝ} {g' x₀ : ℝ} (hg : HasDerivAt g g' x₀) :
     Tendsto (fun k : ℕ => ((k : ℝ) + 1) * (g (x₀ + 1 / ((k : ℝ) + 1)) - g x₀))
@@ -495,10 +491,8 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
     -- Route: Leibniz rule for continuous dependence (similar to (1) but for continuity)
     -- Needs: (1) + second application of parametric integral theory
     sorry
-  · -- (4) Measurability of gradient.
-    -- Route: deriv of Lipschitz function is ae-measurable (Rademacher gives ae derivative,
-    -- which is measurable). Or: continuous (from (3)) → measurable.
-    -- AEMeasurable suffices since the gradient only appears under integrals.
+  · -- (4) Measurability of gradient: pointwise limit of measurable diff quotients.
+    intro i
     sorry
 
 /-- MemLp property for exp(s · (f_ε - E[f_ε])) under Gaussian measure.
