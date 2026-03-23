@@ -834,7 +834,25 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       -- gradf_ε j (update x j s) equals this formula by Gaussian integration by parts.
       have h_eq : ∀ s, gradf_ε j (Function.update x j s) = ε⁻¹ * ∫ y,
           f (Function.update x j s + ε • y) * (y j) ∂stdGaussianPi n := by
-        intro s; exact sorry
+        intro s
+        -- gradf_ε j (update x j s) = deriv (t ↦ f_ε(update x j t)) s
+        have hd := hHasDeriv (Function.update x j s) j
+        rw [Function.update_self] at hd
+        simp only [Function.update_idem] at hd
+        -- hd : HasDerivAt (t ↦ f_ε(update x j t)) (gradf_ε j (update x j s)) s
+        rw [← hd.deriv]
+        -- Now show: deriv (t ↦ ∫ f(update x j t + ε•y) dγ(y)) s = ε⁻¹ * ∫ f(update x j s + ε•y) * y_j dγ(y)
+        -- Apply gaussian_ibp_coord to φ(y) = f(update x j s + ε•y)
+        set φ : (Fin n → ℝ) → ℝ := fun y => f (Function.update x j s + ε • y) with hφ_def
+        have hφ_lip : LipschitzWith (L * ⟨|ε|, abs_nonneg ε⟩) φ := by
+          show LipschitzWith (L * ⟨|ε|, abs_nonneg ε⟩) (f ∘ (fun y => Function.update x j s + ε • y))
+          exact hf.comp (lipschitzWith_affine (Function.update x j s) ε)
+        have hibp := gaussian_ibp_coord j φ (L * ⟨|ε|, abs_nonneg ε⟩) hφ_lip
+        -- hibp : ∫ lineDeriv φ y eⱼ dγⁿ = ∫ φ(y) * y_j dγⁿ
+        -- Chain rule: lineDeriv φ y eⱼ = ε * lineDeriv f (update x j s + ε•y) eⱼ
+        -- deriv of f_ε at s = ∫ lineDeriv f (update x j s + ε•y) eⱼ dγ
+        -- So deriv = (1/ε) * ∫ lineDeriv φ y eⱼ dγ = (1/ε) * ∫ φ(y)*y_j dγ = ε⁻¹ * ∫ f(...)*y_j dγ
+        sorry
       simp_rw [show (fun s => gradf_ε j (Function.update x j s)) =
         (fun s => ε⁻¹ * ∫ y, f (Function.update x j s + ε • y) *
           (y j) ∂stdGaussianPi n) from funext h_eq]

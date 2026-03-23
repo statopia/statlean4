@@ -1,6 +1,8 @@
 import Statlean.Gaussian.Basic
 import Mathlib.Analysis.Calculus.LineDeriv.Basic
+import Mathlib.Analysis.Calculus.LineDeriv.Measurable
 import Mathlib.Analysis.BoundedVariation
+import Mathlib.MeasureTheory.Integral.Prod
 
 /-! # Stein's Identity for Standard Gaussian
 
@@ -385,6 +387,38 @@ private lemma lipschitz_insertNth {m : ℕ} (j : Fin (m + 1)) (z : Fin m → ℝ
           rw [← hk]; exact Fin.insertNth_apply_succAbove _ _ _ _]
     simp [edist_self]
 
+private lemma integrable_sq_coord (n : ℕ) (i : Fin n) :
+    Integrable (fun y : Fin n → ℝ => (y i) ^ 2) (stdGaussianPi n) := by
+  unfold stdGaussianPi
+  exact integrable_comp_eval (X := fun _ : Fin n => ℝ) (μ := fun _ => stdGaussian)
+    (i := i) (f := fun x => x ^ 2) (by
+      have hm : MemLp id (2 : ℝ≥0) (gaussianReal (0 : ℝ) (1 : ℝ≥0)) := memLp_id_gaussianReal 2
+      rw [show stdGaussian = gaussianReal 0 1 from rfl]
+      have := hm.integrable_norm_rpow (by norm_num : (2 : ℝ≥0∞) ≠ 0) (by norm_num : (2 : ℝ≥0∞) ≠ ⊤)
+      convert this using 1; ext x; simp [sq_abs, Real.norm_eq_abs])
+
+private lemma pi_norm_sq_le_sum_sq {n : ℕ} (y : Fin n → ℝ) :
+    ‖y‖ ^ 2 ≤ ∑ i : Fin n, (y i) ^ 2 := by
+  have S_nonneg : 0 ≤ ∑ i : Fin n, (y i) ^ 2 := Finset.sum_nonneg (fun i _ => sq_nonneg _)
+  suffices h : ‖y‖ ≤ Real.sqrt (∑ i : Fin n, (y i) ^ 2) by
+    calc ‖y‖ ^ 2 ≤ (Real.sqrt (∑ i, (y i) ^ 2)) ^ 2 :=
+          sq_le_sq' (by linarith [norm_nonneg y]) h
+      _ = ∑ i, (y i) ^ 2 := Real.sq_sqrt S_nonneg
+  rw [pi_norm_le_iff_of_nonneg (Real.sqrt_nonneg _)]
+  intro i
+  rw [Real.norm_eq_abs, ← Real.sqrt_sq_eq_abs]
+  exact Real.sqrt_le_sqrt (Finset.single_le_sum (fun j _ => sq_nonneg _) (Finset.mem_univ i))
+
+private lemma integrable_norm_sq_stdGaussianPi (n : ℕ) :
+    Integrable (fun y : Fin n → ℝ => ‖y‖ ^ 2) (stdGaussianPi n) := by
+  have h_sum : Integrable (fun y : Fin n → ℝ => ∑ i, (y i) ^ 2) (stdGaussianPi n) :=
+    integrable_finset_sum _ (fun i _ => integrable_sq_coord n i)
+  exact Integrable.mono h_sum ((continuous_norm.pow 2).aestronglyMeasurable)
+    (ae_of_all _ fun y => by
+      simp only [Real.norm_of_nonneg (sq_nonneg _),
+        Real.norm_of_nonneg (Finset.sum_nonneg (fun i _ => sq_nonneg _))]
+      exact pi_norm_sq_le_sum_sq y)
+
 /-- Multi-dimensional Gaussian integration by parts in coordinate j:
 for Lipschitz g on ℝⁿ, `∫ (∂ⱼg)(y) dγⁿ(y) = ∫ g(y)·yⱼ dγⁿ(y)`.
 This is the score function identity for product Gaussians.
@@ -446,7 +480,28 @@ lemma gaussian_ibp_coord {n : ℕ} (j : Fin n) (g : (Fin n → ℝ) → ℝ) (C 
   -- Integrability on product (for Fubini)
   have hF_int : Integrable (uncurry F) (gamma.prod mu_rest) := by
     -- |deriv(h_z z)(s)| ≤ C everywhere (0 when not diff, ≤ C when diff)
-    refine (MemLp.of_bound (C := (C : ℝ)) sorry (ae_of_all _ fun ⟨s, z⟩ => ?_)).integrable le_rfl
+    have hF_asm : AEStronglyMeasurable (uncurry F) (gamma.prod mu_rest) := by
+      -- uncurry F = lineDeriv g (insertNth j · ·) eⱼ composed with continuous embedding
+      have hins : Continuous (fun p : ℝ × (Fin m → ℝ) =>
+          Fin.insertNth (α := fun _ => ℝ) j p.1 p.2) :=
+        continuous_pi fun i => by
+          by_cases h : i = j
+          · subst h; simp [Fin.insertNth_apply_same]; exact continuous_fst
+          · obtain ⟨k, hk⟩ := Fin.exists_succAbove_eq h
+            simp only [← hk, Fin.insertNth_apply_succAbove]
+            exact (continuous_apply k).comp continuous_snd
+      have hlm := stronglyMeasurable_lineDeriv (𝕜 := ℝ) (v := Pi.single j (1 : ℝ))
+        hLip.continuous (F := ℝ) (E := Fin (m + 1) → ℝ)
+      have heq : uncurry F = (fun x => lineDeriv ℝ g x (Pi.single j 1)) ∘
+          (fun p : ℝ × (Fin m → ℝ) => Fin.insertNth (α := fun _ => ℝ) j p.1 p.2) := by
+        ext ⟨s, z⟩
+        show deriv (h_z z) s = lineDeriv ℝ g (Fin.insertNth (α := fun _ => ℝ) j s z) (Pi.single j 1)
+        rw [lineDeriv_eq_deriv_coord j g (Fin.insertNth (α := fun _ => ℝ) j s z)]
+        simp only [Fin.insertNth_apply_same (α := fun _ => ℝ)]
+        congr 1; ext s'; rw [update_insertNth_eq]
+      rw [heq]
+      exact (hlm.comp_measurable hins.measurable).aestronglyMeasurable
+    refine (MemLp.of_bound (C := (C : ℝ)) hF_asm (ae_of_all _ fun ⟨s, z⟩ => ?_)).integrable le_rfl
     show ‖deriv (h_z z) s‖ ≤ C
     by_cases hd : DifferentiableAt ℝ (h_z z) s
     · exact norm_deriv_le_of_lipschitz (h_lip z)
@@ -466,7 +521,7 @@ lemma gaussian_ibp_coord {n : ℕ} (j : Fin n) (g : (Fin n → ℝ) → ℝ) (C 
       show Integrable (fun y => (|g 0| + ↑C * ‖y‖) * ‖y‖) (stdGaussianPi (m + 1))
       rw [show (fun y : Fin (m+1) → ℝ => (|g 0| + ↑C * ‖y‖) * ‖y‖) =
           (fun y => |g 0| * ‖y‖ + ↑C * ‖y‖ ^ 2) from by ext y; ring]
-      exact (h1.const_mul |g 0|).add ((sorry : Integrable (fun y : Fin (m+1) → ℝ => ‖y‖^2) _).const_mul ↑C)
+      exact (h1.const_mul |g 0|).add ((integrable_norm_sq_stdGaussianPi (m + 1)).const_mul ↑C)
     · exact hLip.continuous.aestronglyMeasurable.mul
         ((continuous_apply j).aestronglyMeasurable)
     · apply ae_of_all; intro y
