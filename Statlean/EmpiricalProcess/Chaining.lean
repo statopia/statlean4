@@ -158,16 +158,9 @@ section Hoeffding
   The AM-GM approach: exp(s) + exp(-s) ≤ 2 · exp(s²/2). -/
 theorem hoeffding_cosh_bound (s : ℝ) :
     (Real.exp s + Real.exp (-s)) / 2 ≤ Real.exp (s ^ 2 / 2) := by
-  -- For the formal proof, we use the Taylor series comparison
-  -- exp(s) + exp(-s) = 2 ∑_{k even} s^k/k! ≤ 2 ∑_k (s²/2)^k/k! = 2·exp(s²/2)
-  -- This requires detailed series manipulation; we use a weaker algebraic bound
-  by_cases hs : |s| ≤ 1
-  · -- For |s| ≤ 1: use exp(s) ≤ 1 + s + s² and exp(-s) ≤ 1 - s + s²
-    -- so (exp(s) + exp(-s))/2 ≤ 1 + s²
-    -- and exp(s²/2) ≥ 1 + s²/2 ≥ ... (need s⁴ term)
-    -- Simplified: just prove nonnegativity of RHS - LHS
-    sorry -- requires detailed Taylor analysis
-  · sorry -- large |s| case
+  -- Mathlib has this as Real.cosh_le_exp_half_sq!
+  rw [← Real.cosh_eq]
+  exact Real.cosh_le_exp_half_sq s
 
 /-- **Hoeffding bound for Rademacher sums** (consequence, algebraic form).
 
