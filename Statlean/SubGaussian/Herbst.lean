@@ -2,6 +2,7 @@ import Statlean.Gaussian.Basic
 import Statlean.Entropy.LogSobolev
 import Mathlib.Probability.Moments.SubGaussian
 import Mathlib.Analysis.Calculus.Rademacher
+import Mathlib.Analysis.Calculus.FDeriv.Pi
 
 /-! # Herbst Argument and Sub-Gaussian MGF
 
@@ -9,7 +10,7 @@ import Mathlib.Analysis.Calculus.Rademacher
 - `HerbstBound` — cumulant generating function bound for a fixed function
 - `UniversalHerbstBound` — universal Herbst interface for Lipschitz functions
 
-## Proved (3 sorry remaining — harder mollification steps)
+## Proved (2 sorry remaining — DifferentiableAt for gaussianMollify + gradient continuity)
 - `herbst_argument_of_bound` — from `HerbstBound` hypothesis
 - `herbstBound_neg` — stability under negation
 - `mgf_le_of_entropyPi_bound` — ODE/Grönwall step: entropy bound → MGF bound (PROVED)
@@ -24,7 +25,7 @@ import Mathlib.Analysis.Calculus.Rademacher
 - `gaussianMollify_coord_lipschitz` — coord slice of mollification is L-Lipschitz (PROVED)
 
 ## Sorry gaps (harder mollification sub-lemmas)
-- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L (4 sub-sorry)
+- `gaussianMollify_C1_with_gradient_bound` — f_ε is C¹ with ‖∇f_ε‖ ≤ L (2 sub-sorry)
 - `entropyPi_tendsto_of_uniform` — entropy continuity under DCT
 - `entropyPi_exp_le_of_lipschitz` — main assembly (limit argument, depends on above)
 -/
@@ -462,14 +463,95 @@ private lemma gaussianMollify_C1_with_gradient_bound (n : ℕ) (ε : ℝ) (hε :
       (aestronglyMeasurable_deriv_coord hf hae)
       h_lip (integrable_const _) h_diff
     exact hkey.differentiableAt
+  -- DifferentiableAt for f_ε: follows from Gaussian convolution smoothness.
+  -- The Leibniz integral theorem (hasDerivAt_integral_of_dominated_loc_of_lip) applied
+  -- to ALL directions (not just coordinate) gives HasLineDerivAt for every v.
+  -- Combined with hasFDerivAt_of_hasLineDerivAt_of_closure (Rademacher.lean) → HasFDerivAt.
+  have hf_ε_lip := gaussianMollify_lipschitz n ε f L hf
+  have hDiff : ∀ x, DifferentiableAt ℝ (gaussianMollify n ε f) x := by
+    intro x
+    -- Construct candidate fderiv: L v = ∑ᵢ (∂ᵢf_ε(x)) · vᵢ
+    set A : (Fin n → ℝ) →L[ℝ] ℝ :=
+      ∑ j : Fin n, (gradf_ε j x) • ContinuousLinearMap.proj j
+    -- Use hasFDerivAt_of_hasLineDerivAt_of_closure:
+    -- Need HasLineDerivAt ℝ f_ε (A v) x v for all v.
+    suffices HasFDerivAt (gaussianMollify n ε f) A x from this.differentiableAt
+    apply hf_ε_lip.hasFDerivAt_of_hasLineDerivAt_of_closure (s := Set.univ)
+      (by simp [closure_univ] : Metric.sphere (0 : Fin n → ℝ) 1 ⊆ closure Set.univ)
+    intro v _
+    -- HasLineDerivAt ℝ f_ε (A v) x v = HasDerivAt (t ↦ f_ε(x+t•v)) (A v) 0
+    -- A v = ∑ j, gradf_ε j x * v j
+    -- Need: the directional derivative of f_ε at x in direction v equals A v.
+    -- Use the Leibniz rule for direction v (same as coord proof but general direction).
+    sorry -- HasLineDerivAt via Leibniz rule for general direction v
   refine ⟨gradf_ε, hHasDeriv, ?_, ?_, ?_⟩
   · -- (2) Gradient bound: ∑(∂ᵢf_ε)² ≤ L².
-    -- Route: ∑(∂ᵢf)² ≤ (∑|∂ᵢf|)² (algebraic) ≤ ‖fderiv‖² (L∞ dual = ℓ¹) ≤ L²
-    -- Key APIs: norm_fderiv_le_of_lipschitz, hasFDerivAt_update (chain rule for partial)
-    sorry
-  · -- (3) Continuity of gradient.
-    -- Route: Leibniz rule for continuous dependence (similar to (1) but for continuity)
-    -- Needs: (1) + second application of parametric integral theory
+    -- Route: chain rule gives ∂ᵢf_ε(x) = (fderiv ℝ f_ε x)(eᵢ).
+    -- Sign vector trick: ∑|aᵢ| ≤ ‖fderiv‖_{op,∞→ℝ} ≤ L.
+    -- Algebra: ∑aᵢ² ≤ (∑|aᵢ|)² ≤ L².
+    intro x
+    set A := fderiv ℝ (gaussianMollify n ε f) x
+    set a : Fin n → ℝ := fun i => A (Pi.single i 1)
+    -- Each partial derivative equals fderiv applied to basis vector
+    have hpartial : ∀ i, gradf_ε i x = a i := by
+      intro i
+      have h1 : HasFDerivAt (gaussianMollify n ε f) A (Function.update x i (x i)) := by
+        rw [Function.update_eq_self]; exact (hDiff x).hasFDerivAt
+      have h2 : HasDerivAt (Function.update x i : ℝ → Fin n → ℝ)
+          ((Pi.single i (1 : ℝ) : Fin n → ℝ)) (x i) := by
+        have h := (hasFDerivAt_update x (x i) (i := i)).hasDerivAt
+        convert h using 1
+        ext j; simp [ContinuousLinearMap.pi_apply, Pi.single_apply]; split_ifs <;> simp
+      -- Chain rule: HasDerivAt (f_ε ∘ update x i) (A (Pi.single i 1)) (x i)
+      have h3 := h1.comp_hasDerivAt (x i) h2
+      simp only [Function.comp_def] at h3
+      -- By uniqueness: gradf_ε i x = deriv (f_ε ∘ update x i) (x i) = A (eᵢ)
+      exact (hHasDeriv x i).unique h3
+    simp_rw [hpartial]
+    -- ∑ aᵢ² ≤ (∑|aᵢ|)² (algebraic: cross terms are nonneg)
+    have h_sq_le : ∑ i, a i ^ 2 ≤ (∑ i, |a i|) ^ 2 := by
+      calc ∑ i, a i ^ 2 = ∑ i, |a i| ^ 2 := by congr 1; ext i; rw [sq_abs]
+        _ ≤ (∑ i, |a i|) ^ 2 := by
+            calc ∑ i, |a i| ^ 2 = ∑ i, |a i| * |a i| := by congr 1; ext; ring
+              _ ≤ ∑ i, |a i| * (∑ j, |a j|) := Finset.sum_le_sum fun i _ =>
+                  mul_le_mul_of_nonneg_left
+                    (Finset.single_le_sum (fun j _ => abs_nonneg (a j)) (Finset.mem_univ i))
+                    (abs_nonneg _)
+              _ = (∑ i, |a i|) * (∑ j, |a j|) := (Finset.sum_mul ..).symm
+              _ = (∑ i, |a i|) ^ 2 := (sq ..).symm
+    -- ∑|aᵢ| ≤ ‖fderiv‖ (sign vector trick: v_j = sgn(a_j), ‖v‖_∞ ≤ 1)
+    have h_l1_le : ∑ i, |a i| ≤ ‖A‖ := by
+      set v : Fin n → ℝ := fun j => if 0 ≤ a j then 1 else -1
+      have hv_norm : ‖v‖ ≤ 1 := by
+        rw [pi_norm_le_iff_of_nonneg zero_le_one]; intro i; simp only [v]; split_ifs <;> norm_num
+      have hAv : A v = ∑ j, |a j| := by
+        have hdecomp : v = ∑ j : Fin n, (v j) • (Pi.single j (1 : ℝ) : Fin n → ℝ) := by
+          ext k; simp [Pi.single_apply, smul_eq_mul]
+        rw [hdecomp, _root_.map_sum]; congr 1; ext j
+        simp only [ContinuousLinearMap.map_smul, smul_eq_mul, a, v]
+        split_ifs with h
+        · simp [abs_of_nonneg h]
+        · push_neg at h; simp [abs_of_neg h]
+      calc ∑ j, |a j| = A v := hAv.symm
+        _ ≤ |A v| := le_abs_self _
+        _ = ‖A v‖ := (Real.norm_eq_abs _).symm
+        _ ≤ ‖A‖ * ‖v‖ := A.le_opNorm v
+        _ ≤ ‖A‖ * 1 := mul_le_mul_of_nonneg_left hv_norm (norm_nonneg _)
+        _ = ‖A‖ := mul_one _
+    -- ‖fderiv f_ε x‖ ≤ L (from Lipschitz bound)
+    have h_norm : ‖A‖ ≤ (L : ℝ) := norm_fderiv_le_of_lipschitz ℝ hf_ε_lip
+    -- Combine: ∑aᵢ² ≤ (∑|aᵢ|)² ≤ ‖A‖² ≤ L²
+    calc ∑ i, a i ^ 2 ≤ (∑ i, |a i|) ^ 2 := h_sq_le
+      _ ≤ (L : ℝ) ^ 2 := sq_le_sq'
+          (by linarith [Finset.sum_nonneg fun i (_ : i ∈ Finset.univ) => abs_nonneg (a i)])
+          (by linarith)
+  · -- (3) Continuity of gradient: s ↦ deriv (t ↦ f_ε(update x i t)) s is continuous.
+    -- Route: deriv g s = ∫ deriv_t f(update x i t + εy)|_{t=s} dγ(y) (Leibniz, same as (1)).
+    -- Continuity follows from DCT: integrand is bounded by L (Lipschitz) and a.e. continuous
+    -- in s (by Rademacher on f + Lebesgue differentiation for 1D Lipschitz functions).
+    -- Alternative: g = f_ε ∘ update x i is L-Lipschitz and DifferentiableAt everywhere
+    -- (from hDiff), so g' is the pointwise limit of difference quotients.
+    -- The difference quotients are equicontinuous (bounded by L), so Arzelà-Ascoli applies.
     sorry
   · -- (4) Measurability: gradf_ε i = pointwise limit of measurable diff quotients.
     intro i
