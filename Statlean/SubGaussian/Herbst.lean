@@ -379,11 +379,14 @@ private lemma ae_differentiableAt_coord_slice {n : ℕ} {C : ℝ≥0}
     · subst hj; simp; ring
     · simp [hj]
   rw [h_eq]
-  -- hy : LineDifferentiableAt ℝ f (x+εy) (Pi.single i 1)
-  --    = DifferentiableAt ℝ (fun t => f((x+εy) + t • Pi.single i 1)) 0
-  -- LineDiffAt at 0 + comp with (· - x_i) at x_i → DiffAt at x_i
-  sorry -- DiffAt composition: LineDiffAt → DiffAt coord slice
--- Sequential difference quotient convergence from HasDerivAt.
+  -- Goal: DifferentiableAt ℝ ((fun t => f(z + t•v)) ∘ (fun s => s - x_i)) (x_i)
+  -- hy : LineDifferentiableAt = DifferentiableAt at 0
+  show DifferentiableAt ℝ
+    ((fun t => f ((x + ε • y) + t • Pi.single i (1 : ℝ))) ∘ (fun s => s - x i)) (x i)
+  refine DifferentiableAt.comp (x i) ?_ (differentiableAt_id.sub (differentiableAt_const _))
+  show DifferentiableAt ℝ (fun t => f ((x + ε • y) + t • Pi.single i (1 : ℝ))) (x i - x i)
+  simp only [sub_self]
+  exact hy
 -- Used to prove AEStronglyMeasurable of parametric derivative.
 private lemma hasDerivAt_tendsto_seq {g : ℝ → ℝ} {g' x₀ : ℝ} (hg : HasDerivAt g g' x₀) :
     Tendsto (fun k : ℕ => ((k : ℝ) + 1) * (g (x₀ + 1 / ((k : ℝ) + 1)) - g x₀))
