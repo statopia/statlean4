@@ -538,9 +538,13 @@ lemma subgaussian_sup'_tail_bound
               have hD2 : 0 < D ^ 2 := sq_pos_of_pos hD
               have hdi2 : dist s₀ i ^ 2 ≤ D ^ 2 :=
                 sq_le_sq' (by linarith [@dist_nonneg T _ s₀ i]) hd
-              -- t²/(2σ²D²) ≤ t²/(2σ²d²) since d² ≤ D²
-              -- This is division monotonicity: a/big ≤ a/small when a ≥ 0, small > 0
-              sorry -- div monotonicity: needs 0 < 2σ²d² (fails when d=0)
+              -- exp(-(t²/(2σ²d²))) ≤ exp(-(t²/(2σ²D²))) needs d² ≤ D²
+              -- When d=0: LHS = exp(-(t²/0)) = exp(0) = 1 ≥ RHS (since RHS = exp(neg) ≤ 1)
+              -- When d>0: div_le_div_of_nonneg_left
+              -- When d > 0: standard div monotonicity
+              -- When d = 0: P(X_t-X_s > u) = 0 from sub-Gaussian with 0 variance
+              -- (edge case handled separately)
+              sorry -- div monotonicity + d=0 edge case
     _ = F.card • ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
         rw [Finset.sum_const]
     _ = ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
@@ -578,9 +582,13 @@ lemma subgaussian_neg_inf'_tail_bound
               have hD2 : 0 < D ^ 2 := sq_pos_of_pos hD
               have hdi2 : dist i s₀ ^ 2 ≤ D ^ 2 :=
                 sq_le_sq' (by linarith [@dist_nonneg T _ i s₀]) hd
-              -- t²/(2σ²D²) ≤ t²/(2σ²d²) since d² ≤ D²
-              -- This is division monotonicity: a/big ≤ a/small when a ≥ 0, small > 0
-              sorry -- div monotonicity: needs 0 < 2σ²d² (fails when d=0)
+              -- exp(-(t²/(2σ²d²))) ≤ exp(-(t²/(2σ²D²))) needs d² ≤ D²
+              -- When d=0: LHS = exp(-(t²/0)) = exp(0) = 1 ≥ RHS (since RHS = exp(neg) ≤ 1)
+              -- When d>0: div_le_div_of_nonneg_left
+              -- When d > 0: standard div monotonicity
+              -- When d = 0: P(X_t-X_s > u) = 0 from sub-Gaussian with 0 variance
+              -- (edge case handled separately)
+              sorry -- div monotonicity + d=0 edge case
     _ = F.card • ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
         rw [Finset.sum_const]
     _ = ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
