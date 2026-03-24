@@ -87,4 +87,43 @@ theorem coveringNumber_lt_top_of_isCompact
     coveringNumber T ε < ⊤ :=
   coveringNumber_lt_top_of_totallyBounded hT.totallyBounded hε
 
+/-- **Constructive covering net extraction**: for a totally bounded set T and ε > 0,
+  there exists a finite ε-net F (as a Finset) such that F is an ε-net for T. -/
+theorem exists_finset_enet_of_totallyBounded
+    {T : Set α} (hT : TotallyBounded T) {ε : ℝ} (hε : 0 < ε) :
+    ∃ (F : Finset α), IsENet (↑F) T ε := by
+  classical
+  rcases finite_approx_of_totallyBounded hT ε hε with ⟨t, _htT, htFinite, hcover⟩
+  exact ⟨htFinite.toFinset, fun x hxT => by
+    rcases mem_iUnion.1 (hcover hxT) with ⟨y, hy⟩
+    rcases mem_iUnion.1 hy with ⟨hy_t, hxy_ball⟩
+    exact ⟨y, htFinite.mem_toFinset.2 hy_t, le_of_lt hxy_ball⟩⟩
+
+/-- **Nearest point in a Finset**: for a nonempty Finset F and a point x,
+  returns a point in F that minimizes distance to x. -/
+noncomputable def nearestPoint (F : Finset α) (hne : F.Nonempty) (x : α) : α :=
+  F.inf' hne (fun f => (⟨dist x f, dist_nonneg⟩ : NNReal)) |>.1 |> fun _ => by
+    -- Use argmin: pick the element of F minimizing dist x ·
+    exact (F.exists_min_image (fun f => dist x f) hne).choose
+
+/-- The nearest point is in the Finset. -/
+theorem nearestPoint_mem (F : Finset α) (hne : F.Nonempty) (x : α) :
+    nearestPoint F hne x ∈ F := by
+  unfold nearestPoint
+  exact (F.exists_min_image (fun f => dist x f) hne).choose_spec.1
+
+/-- The nearest point achieves minimum distance. -/
+theorem dist_nearestPoint_le (F : Finset α) (hne : F.Nonempty) (x : α)
+    (f : α) (hf : f ∈ F) :
+    dist x (nearestPoint F hne x) ≤ dist x f := by
+  unfold nearestPoint
+  exact (F.exists_min_image (fun f => dist x f) hne).choose_spec.2 f hf
+
+/-- If F is an ε-net for T and x ∈ T, then dist(x, nearestPoint(F, x)) ≤ ε. -/
+theorem dist_nearestPoint_le_of_enet (F : Finset α) (hne : F.Nonempty)
+    (T : Set α) (hnet : IsENet (↑F) T ε) (x : α) (hx : x ∈ T) :
+    dist x (nearestPoint F hne x) ≤ ε := by
+  obtain ⟨f, hfF, hdf⟩ := hnet x hx
+  exact le_trans (dist_nearestPoint_le F hne x f hfF) hdf
+
 end
