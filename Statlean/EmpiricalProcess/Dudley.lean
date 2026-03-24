@@ -800,12 +800,17 @@ theorem hFiniteBound_of_subgaussian
     rw [hshift]
     exact (integrable_finset_sup' μ F hne _ hDiffInt).sub
       (integrable_finset_inf' μ F hne _ hDiffInt)
-  · -- Bound: chain sub-Gaussian tail → expectation → range → entropy integral
-    -- Step 1: E[sup'_F X] ≤ σ√(2 log |F|) from tail bound + layer cake
-    -- Step 2: E[-inf'_F X] ≤ σ√(2 log |F|) similarly
-    -- Step 3: E[range] ≤ 2σ√(2 log |F|) by dudley_single_level_finite
-    -- Step 4: 2σ√(2 log |F|) ≤ 12√2 · σ · entropyIntegral S D
-    --         since log|F| ≤ metricEntropy(S, D) and ∫₀^D √(metricEntropy) dε ≥ D·√(log|F|)/(6√2)
+  · -- STRUCTURAL ISSUE: The bound 12√2·σ·entropyIntegral S D does not hold for
+    -- arbitrary F (with no constraint relating F to S). For the Dudley chaining:
+    -- • Per-set bound: E[range_F] ≤ 2σD√(2 log |F|) (provable from tail bounds)
+    -- • Entropy integral bound: requires multi-scale chaining (covering nets at
+    --   geometrically decreasing scales, telescoping + geometric series ≈ 12√2)
+    -- The correct approach: either add ↑F ⊆ S + diameter hypothesis and prove via
+    -- chaining, or change the conclusion to the per-set bound 2σD√(2 log |F|).
+    -- Step 1: E[sup'_F (X_t - X_s₀)] ≤ σD√(2 log |F|) from tail + layer cake
+    -- Step 2: E[-inf'_F (X_t - X_s₀)] ≤ σD√(2 log |F|) similarly
+    -- Step 3: E[range] ≤ 2σD√(2 log |F|) by dudley_single_level_finite
+    -- Step 4 BLOCKED: 2σD√(2 log |F|) → 12√2·σ·entropyIntegral requires chaining
     sorry
 
 end SubGaussianFinsetBounds
