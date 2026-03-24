@@ -361,6 +361,82 @@ theorem expected_value_from_subgaussian_tail
 
 end LayerCakeExpectation
 
+/-! ## Gaussian Tail Bound (Mill's Ratio)
+
+The sharp sub-Gaussian max bound requires Mill's ratio:
+  `∫_a^∞ exp(-u²/2) du ≤ (1/a)·exp(-a²/2)` for a > 0.
+
+Proof: `exp(-u²/2) ≤ (u/a)·exp(-u²/2)` for `u ≥ a`, then integrate
+using FTC (`-exp(-u²/2)` has derivative `u·exp(-u²/2)`). -/
+
+section GaussianTailBound
+
+private def negExpSq (u : ℝ) : ℝ := -Real.exp (-(u ^ 2 / 2))
+
+private lemma continuous_exp_neg_sq :
+    Continuous (fun u : ℝ => Real.exp (-(u ^ 2 / 2))) := by fun_prop
+
+private lemma hasDerivAt_negExpSq (x : ℝ) :
+    HasDerivAt negExpSq (x * Real.exp (-(x ^ 2 / 2))) x := by
+  unfold negExpSq
+  have : HasDerivAt (fun u : ℝ => u ^ 2 / 2) x x := by
+    simpa using (hasDerivAt_pow 2 x).div_const 2
+  exact (this.neg.exp.neg).congr_deriv (by simp only [Pi.neg_apply]; ring)
+
+private lemma cwi_negExpSq (a : ℝ) :
+    ContinuousWithinAt negExpSq (Set.Ici a) a :=
+  continuous_exp_neg_sq.neg.continuousWithinAt
+
+private lemma tend_negExpSq : Filter.Tendsto negExpSq Filter.atTop (nhds 0) := by
+  unfold negExpSq
+  suffices Filter.Tendsto (fun u : ℝ => Real.exp (-(u ^ 2 / 2))) Filter.atTop (nhds 0) by
+    have := this.neg; rwa [neg_zero] at this
+  apply Real.tendsto_exp_atBot.comp
+  rw [Filter.tendsto_atBot]; intro b; rw [Filter.eventually_atTop]
+  exact ⟨max 1 (1 - b), fun x hx => by
+    nlinarith [sq_nonneg x, sq_nonneg (x - 1), le_max_left 1 (1 - b),
+      le_max_right 1 (1 - b)]⟩
+
+private lemma intOn_mul_exp (a : ℝ) (ha : 0 < a) :
+    IntegrableOn (fun u => u * Real.exp (-(u ^ 2 / 2))) (Set.Ioi a) :=
+  integrableOn_Ioi_deriv_of_nonneg (cwi_negExpSq a) (fun _ _ => hasDerivAt_negExpSq _)
+    (fun x hx => mul_nonneg (le_of_lt (lt_trans ha (Set.mem_Ioi.mp hx)))
+      (Real.exp_pos _).le) tend_negExpSq
+
+/-- FTC: `∫_a^∞ u·exp(-u²/2) du = exp(-a²/2)`. -/
+theorem integral_mul_exp_neg_sq_div_two (a : ℝ) (ha : 0 < a) :
+    ∫ u in Set.Ioi a, u * Real.exp (-(u ^ 2 / 2)) = Real.exp (-(a ^ 2 / 2)) := by
+  have h := integral_Ioi_of_hasDerivAt_of_tendsto (cwi_negExpSq a)
+    (fun _ _ => hasDerivAt_negExpSq _) (intOn_mul_exp a ha) tend_negExpSq
+  simp only [negExpSq, sub_neg_eq_add, zero_add] at h; linarith
+
+private lemma intOn_exp_neg_sq (a : ℝ) (ha : 0 < a) :
+    IntegrableOn (fun u => Real.exp (-(u ^ 2 / 2))) (Set.Ioi a) :=
+  Integrable.mono' ((intOn_mul_exp a ha).const_mul (1/a))
+    continuous_exp_neg_sq.aestronglyMeasurable
+    (by filter_upwards [self_mem_ae_restrict measurableSet_Ioi] with u hu
+        rw [Real.norm_eq_abs, abs_of_nonneg (Real.exp_pos _).le,
+          div_mul_eq_mul_div, one_mul, le_div_iff₀ ha]
+        nlinarith [Real.exp_pos (-(u ^ 2 / 2)), le_of_lt (Set.mem_Ioi.mp hu)])
+
+/-- **Gaussian tail bound** (Mill's ratio):
+  `∫_a^∞ exp(-u²/2) du ≤ (1/a)·exp(-a²/2)` for a > 0. -/
+theorem gaussian_tail_bound (a : ℝ) (ha : 0 < a) :
+    ∫ u in Set.Ioi a, Real.exp (-(u ^ 2 / 2)) ≤
+      (1 / a) * Real.exp (-(a ^ 2 / 2)) := by
+  have hcomp : ∀ x ∈ Set.Ioi a,
+      Real.exp (-(x ^ 2 / 2)) ≤ (1/a) * (x * Real.exp (-(x ^ 2 / 2))) := fun x hx => by
+    rw [div_mul_eq_mul_div, one_mul, le_div_iff₀ ha]
+    nlinarith [Real.exp_pos (-(x ^ 2 / 2)), le_of_lt (Set.mem_Ioi.mp hx)]
+  calc ∫ u in Set.Ioi a, Real.exp (-(u ^ 2 / 2))
+      ≤ ∫ u in Set.Ioi a, (1/a) * (u * Real.exp (-(u ^ 2 / 2))) :=
+        setIntegral_mono_on (intOn_exp_neg_sq a ha) ((intOn_mul_exp a ha).const_mul _)
+          measurableSet_Ioi hcomp
+    _ = (1/a) * ∫ u in Set.Ioi a, u * Real.exp (-(u ^ 2 / 2)) := integral_const_mul _ _
+    _ = (1/a) * Real.exp (-(a ^ 2 / 2)) := by rw [integral_mul_exp_neg_sq_div_two a ha]
+
+end GaussianTailBound
+
 /-- **Finite range bound via sub-Gaussian hypothesis**.
 
   For a sub-Gaussian process on a finite set F with |F| ≥ 2:
