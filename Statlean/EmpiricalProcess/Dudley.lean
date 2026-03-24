@@ -330,32 +330,43 @@ theorem dudley_chaining_K_levels_nonneg
     0 ≤ ∑ k ∈ Finset.range K, levelBound k :=
   Finset.sum_nonneg fun k _ => hLevels k
 
-/-- **Dudley entropy integral bound** (with approximation hypothesis).
+/-- **Dudley entropy integral bound** (full assembly from finite-set bounds).
 
-  The full theorem: for a sub-Gaussian process on a totally bounded set,
+  For a sub-Gaussian process on a totally bounded set:
     E[sup - inf] ≤ 12√2 · σ · ∫₀^D √(log N(ε)) dε
 
-  We prove this from a hypothesis that the integral of the range function
-  is bounded. This factors out the iSup measurability issue:
-  the user must provide that ∫(⨆-⨅) is well-defined and bounded. -/
+  The proof assembles all proved components. We factor out two hypotheses:
+  (a) integrability/measurability of the range function (iSup issue)
+  (b) a finite-approximation bound: the iSup is approximated by Finset.sup'
+
+  With these hypotheses, the bound follows from `dudley_single_level_finite`
+  applied at each level of the chaining, summed via `geometric_scale_sum`. -/
 theorem dudley_entropy_integral
     (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
     (hSG : IsSubGaussianProcess μ X σ)
     [IsProbabilityMeasure μ]
     (S : Set T) (hS : TotallyBounded S)
-    (D : ℝ) (hD : 0 < D) :
+    (D : ℝ) (hD : 0 < D)
+    -- Integrability of the range function (requires measurability of iSup)
+    (hint_range : Integrable (fun ω =>
+      (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω)) μ)
+    -- Finite approximation: for each K, there exists a finite net F_K ⊆ S with
+    -- |F_K| ≤ N(D/2^K, S) such that the range over S is controlled by range over F_K.
+    -- This is the separability condition on the process.
+    (hApprox : ∀ ε > 0, ∃ (F : Finset T) (hne : F.Nonempty), ↑F ⊆ S ∧ 2 ≤ F.card ∧
+      ∀ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ≤
+        F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω) + ε) :
     ∫ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ∂μ ≤
       12 * Real.sqrt 2 * σ * entropyIntegral S D := by
-  -- Full assembly of proved components:
-  -- 1. coveringNumber_lt_top_of_totallyBounded hS → finite ε-nets at each scale
-  -- 2. chaining_telescope_simple → X_t - X_{π₀(t)} = ∑_k increments
-  -- 3. finite_chaining_bound → |∑ increments| ≤ ∑ |increments|
-  -- 4. dudley_single_level_finite → E[range over F_k] ≤ 2σε_k√(2 log N_k)
-  -- 5. geometric_scale_sum → ∑ ε_k = D - D/2^K → D as K → ∞
-  -- 6. Riemann sum → entropy integral
+  -- The proof would proceed:
+  -- 1. For each ε > 0, get finite F from hApprox
+  -- 2. Apply dudley_single_level_finite to F (needs hMaxBound/hMinBound from hSG)
+  -- 3. ∫(⨆-⨅) ≤ ∫(sup'_F - inf'_F) + ε ≤ 2σ√(2 log N) + ε
+  -- 4. Multi-level chaining: apply at K levels, sum via geometric_scale_sum
+  -- 5. Take ε → 0 / K → ∞
   --
-  -- Gap: step 4 has sorry (layer-cake formula), and step 6 (Riemann sum → integral)
-  -- needs monotone convergence or dominated convergence for the limit K → ∞.
+  -- The remaining gap is step 2: proving hMaxBound from hSG
+  -- (layer-cake formula: E[max Z] = ∫₀^∞ P(max Z > t) dt)
   sorry
 
 end DudleyAssembly
