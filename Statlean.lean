@@ -100,3 +100,4 @@ import Statlean.Causal.OptimalTransport
 import Statlean.EmpiricalProcess.RiemannSum
 import Statlean.EmpiricalProcess.DonskerInfra
 import Statlean.EmpiricalProcess.HoeffdingLemma
+import Statlean.EmpiricalProcess.Equicontinuity
