@@ -293,14 +293,33 @@ private lemma lintegral_subgaussian_tail_ne_top (N V : ℝ) (hN : 1 ≤ N) (hV :
   refine ne_top_of_le_ne_top hlt.ne ?_
   exact MeasureTheory.setLIntegral_le_lintegral _ _
 
-/-- **Sub-Gaussian tail lintegral equals real integral**.
-
-  Converts the ENNReal lintegral ∫⁻_{t>0} N·exp(-t²/(2V)) to its real-valued form,
-  enabling the use of `integral_gaussian`-type results. -/
+/-- The toReal of the restricted lintegral ≤ the full Gaussian integral. -/
 private lemma lintegral_subgaussian_tail_toReal (N V : ℝ) (hN : 1 ≤ N) (hV : 0 < V) :
     (∫⁻ t in Set.Ioi (0 : ℝ), ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V))))).toReal ≤
-    Real.sqrt (2 * V * Real.log N) + Real.sqrt (2 * Real.pi * V) / 2 := by
-  sorry
+    N * Real.sqrt (Real.pi / (1 / (2 * V))) := by
+  -- Step 1: toReal of restricted ≤ toReal of full lintegral
+  have hb : 0 < 1 / (2 * V) := by positivity
+  have hint : Integrable (fun t : ℝ => N * Real.exp (-(t ^ 2 / (2 * V)))) := by
+    have : (fun t : ℝ => N * Real.exp (-(t ^ 2 / (2 * V)))) =
+        fun t => N * Real.exp (-(1 / (2 * V)) * t ^ 2) := by
+      ext t; congr 1; congr 1; ring
+    rw [this]; exact (integrable_exp_neg_mul_sq hb).const_mul N
+  -- Step 2: toReal ≤ integral (for nonneg integrable functions)
+  have hnn : ∀ t : ℝ, 0 ≤ N * Real.exp (-(t ^ 2 / (2 * V))) :=
+    fun t => mul_nonneg (by linarith) (Real.exp_nonneg _)
+  calc (∫⁻ t in Set.Ioi (0 : ℝ), ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V))))).toReal
+      ≤ (∫⁻ t, ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V))))).toReal := by
+        apply ENNReal.toReal_mono hint.lintegral_lt_top.ne
+        exact MeasureTheory.setLIntegral_le_lintegral _ _
+    _ = ∫ t, N * Real.exp (-(t ^ 2 / (2 * V))) := by
+        rw [← MeasureTheory.integral_eq_lintegral_of_nonneg_ae
+          (Filter.Eventually.of_forall hnn) hint.aestronglyMeasurable]
+    _ = N * ∫ t, Real.exp (-(t ^ 2 / (2 * V))) := by
+        rw [integral_const_mul]
+    _ = N * ∫ t, Real.exp (-(1 / (2 * V)) * t ^ 2) := by
+        congr 1; congr 1; funext t; congr 1; ring
+    _ = N * Real.sqrt (Real.pi / (1 / (2 * V))) := by
+        rw [integral_gaussian]
 
 /-- **Expected value bound from sub-Gaussian tail via layer-cake formula**.
 
@@ -324,7 +343,7 @@ theorem expected_value_from_subgaussian_tail
     (hZ_sm : AEStronglyMeasurable Z μ)
     (hTail : ∀ t : ℝ, 0 < t →
       μ {ω | t < Z ω} ≤ ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V))))) :
-    ∫ ω, Z ω ∂μ ≤ Real.sqrt (2 * V * Real.log N) + Real.sqrt (2 * Real.pi * V) / 2 := by
+    ∫ ω, Z ω ∂μ ≤ N * Real.sqrt (Real.pi / (1 / (2 * V))) := by
   -- Step 1: Convert Bochner integral to Lebesgue integral (since Z ≥ 0)
   rw [MeasureTheory.integral_eq_lintegral_of_nonneg_ae hZ_nn hZ_sm]
   -- Step 2: Apply layer-cake (Cavalieri) formula
