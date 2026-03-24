@@ -456,6 +456,98 @@ theorem gaussian_tail_bound_scaled (a V : ℝ) (ha : 0 < a) (hV : 0 < V) :
 
 end GaussianTailBound
 
+/-! ## Sharp Sub-Gaussian Max Bound
+
+For Z ≥ 0 with tail P(Z > t) ≤ N·exp(-t²/(2V)) and N ≥ 2:
+  E[Z] ≤ 4√(2V log N)
+
+The constant 4 (vs optimal 2) comes from using the crude Gaussian tail
+bound √(2πV) for the truncation remainder instead of the sharp V/t*. -/
+
+section SharpMaxBound
+
+variable {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+
+/-- **Sharp sub-Gaussian max bound** (constant 4):
+  If Z ≥ 0 with tail P(Z > t) ≤ N·exp(-t²/(2V)) and N ≥ 2,
+  then E[Z] ≤ 4√(2V log N).
+
+  Proof: truncate at t* = √(2V log N). Since N·exp(-t*²/(2V)) = 1,
+  the tail of (Z - t*)⁺ is dominated by 1·exp(-s²/(2V)), giving
+  E[(Z-t*)⁺] ≤ √(2πV) ≤ 3t* (using π < 9 log N for N ≥ 2). -/
+theorem sharp_expected_value_from_subgaussian_tail
+    (Z : Ω → ℝ) (N V : ℝ) (hN : 2 ≤ N) (hV : 0 < V)
+    (hZ_nn : 0 ≤ᵐ[μ] Z) (hZ_int : Integrable Z μ)
+    (hTail : ∀ t : ℝ, 0 < t →
+      μ {ω | t < Z ω} ≤ ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V))))) :
+    ∫ ω, Z ω ∂μ ≤ 4 * Real.sqrt (2 * V * Real.log N) := by
+  set tstar := Real.sqrt (2 * V * Real.log N)
+  have hlogN : 0 < Real.log N := Real.log_pos (by linarith)
+  have htpos : 0 < tstar := Real.sqrt_pos.mpr (by positivity)
+  have hN_pos : (0 : ℝ) < N := by linarith
+  have ht2 : tstar ^ 2 = 2 * V * Real.log N := Real.sq_sqrt (by positivity)
+  have hNexp1 : N * Real.exp (-(tstar ^ 2 / (2 * V))) = 1 := by
+    rw [ht2]; field_simp
+    rw [Real.exp_neg, Real.exp_log hN_pos, mul_inv_cancel₀ (ne_of_gt hN_pos)]
+  have h1L : 1 ≤ 2 * Real.log N := by
+    calc (1 : ℝ) ≤ Real.log (N ^ 2) := by
+          rw [Real.le_log_iff_exp_le (by positivity)]
+          exact le_trans (le_of_lt Real.exp_one_lt_d9) (by nlinarith)
+      _ = 2 * Real.log N := by rw [Real.log_pow]; norm_num
+  -- Integrability of truncation
+  have hint_min : Integrable (fun ω => min (Z ω) tstar) μ :=
+    (hZ_int.inf (integrable_const tstar)).congr (Filter.Eventually.of_forall fun _ => rfl)
+  have hint_max : Integrable (fun ω => max (Z ω - tstar) 0) μ :=
+    ((hZ_int.sub (integrable_const tstar)).sup (integrable_const 0)).congr
+      (Filter.Eventually.of_forall fun _ => rfl)
+  -- Decompose Z = min(Z, t*) + (Z - t*)⁺
+  rw [show (fun ω => Z ω) = fun ω => min (Z ω) tstar + max (Z ω - tstar) 0 from by
+    ext ω; simp only [min_def, max_def]; split_ifs <;> linarith,
+    integral_add hint_min hint_max]
+  -- Bound 1: E[min(Z, t*)] ≤ t*
+  have hb1 : ∫ ω, min (Z ω) tstar ∂μ ≤ tstar :=
+    le_trans (integral_mono hint_min (integrable_const _) fun _ => min_le_right _ _) (by simp)
+  -- Bound 2: E[(Z-t*)⁺] ≤ √(2πV) via sub-Gaussian tail with N'=1
+  have hb2 : ∫ ω, max (Z ω - tstar) 0 ∂μ ≤
+      Real.sqrt (Real.pi / (1 / (2 * V))) := by
+    have h := expected_value_from_subgaussian_tail μ (fun ω => max (Z ω - tstar) 0)
+      1 V le_rfl hV (Filter.Eventually.of_forall fun ω => le_max_right _ _)
+      hint_max.aemeasurable hint_max.aestronglyMeasurable
+      (fun s hs => by
+        calc μ {ω | s < max (Z ω - tstar) 0}
+            ≤ μ {ω | tstar + s < Z ω} := measure_mono fun ω hω => by
+              simp only [Set.mem_setOf_eq] at *
+              by_cases h : Z ω - tstar ≤ 0
+              · simp [max_eq_right h] at hω; linarith
+              · push_neg at h; simp [max_eq_left (le_of_lt h)] at hω; linarith
+          _ ≤ ENNReal.ofReal (N * Real.exp (-((tstar + s) ^ 2 / (2 * V)))) :=
+              hTail _ (by linarith)
+          _ ≤ ENNReal.ofReal (1 * Real.exp (-(s ^ 2 / (2 * V)))) := by
+              apply ENNReal.ofReal_le_ofReal; rw [one_mul]
+              calc N * Real.exp (-((tstar + s) ^ 2 / (2 * V)))
+                  ≤ N * (Real.exp (-(tstar ^ 2 / (2 * V))) *
+                      Real.exp (-(s ^ 2 / (2 * V)))) := by
+                    apply mul_le_mul_of_nonneg_left _ (by linarith)
+                    rw [← Real.exp_add]; apply Real.exp_le_exp_of_le
+                    rw [← neg_add, neg_le_neg_iff, div_add_div_same]
+                    exact div_le_div_of_nonneg_right
+                      (by nlinarith [sq_nonneg tstar, sq_nonneg s]) (by positivity)
+                _ = Real.exp (-(s ^ 2 / (2 * V))) := by
+                    rw [show N * (Real.exp (-(tstar ^ 2 / (2 * V))) *
+                        Real.exp (-(s ^ 2 / (2 * V)))) =
+                      (N * Real.exp (-(tstar ^ 2 / (2 * V)))) *
+                        Real.exp (-(s ^ 2 / (2 * V))) from by ring,
+                      hNexp1, one_mul])
+    linarith [h]
+  -- Bound 3: √(2πV) ≤ 3·t* (since 2πV ≤ 9·2V·log N, i.e., π ≤ 9 log N)
+  have hb3 : Real.sqrt (Real.pi / (1 / (2 * V))) ≤ 3 * tstar := by
+    rw [show Real.pi / (1 / (2 * V)) = 2 * V * Real.pi from by field_simp]
+    exact (Real.sqrt_le_sqrt (by nlinarith [Real.pi_lt_four] : 2 * V * Real.pi ≤
+      (3 * tstar) ^ 2)).trans (by rw [Real.sqrt_sq (by positivity)])
+  linarith
+
+end SharpMaxBound
+
 /-- **Finite range bound via sub-Gaussian hypothesis**.
 
   For a sub-Gaussian process on a finite set F with |F| ≥ 2:
