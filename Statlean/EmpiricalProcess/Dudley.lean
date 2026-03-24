@@ -1299,6 +1299,7 @@ section DudleyAssemblyNew
 
 variable {T : Type*} [PseudoMetricSpace T]
 variable {Ω : Type*} [MeasurableSpace Ω] {μ : MeasureTheory.Measure Ω}
+  [MeasureTheory.IsProbabilityMeasure μ]
 
 /-- **Increment range bound** (per-level bound for Dudley chaining):
   `E[range(X_t - X_{proj(t)})] ≤ 8σε√(2 log|F|)` when `dist(t, proj(t)) ≤ ε`. -/
@@ -1386,6 +1387,84 @@ theorem increment_range_bound
       (σ * ε) ^ 2 * (2 * Real.log ↑F.card) from by ring,
       Real.sqrt_mul (by positivity), Real.sqrt_sq (by positivity)]; ring
   linarith
+
+/-- **Dudley finite chaining theorem** (complete assembly):
+  For a sub-Gaussian process on K-level covering nets at scales ε_k:
+  `E[range(finest_net)] ≤ 8σD√(2 log|nets₀|) + ∑_{k<K} 8σε_k√(2 log|nets_{k+1}|)`
+
+  This is the full Dudley chaining bound. The sum is a Riemann approximation
+  to `2·entropyIntegral S D` via `antitone_interval_bound`. -/
+theorem dudley_finite_chaining
+    (X : T → Ω → ℝ) (σ D : ℝ) (hσ : 0 < σ) (hD : 0 < D)
+    (hSG : IsSubGaussianProcess μ X σ)
+    (hIntSG : ∀ a b : T, ∀ lam : ℝ, 0 < lam →
+      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
+    (hMeas : ∀ t, AEStronglyMeasurable (X t) μ)
+    (K : ℕ) (nets : ℕ → Finset T) (hne : ∀ k, (nets k).Nonempty)
+    (hcard : ∀ k ≤ K, 2 ≤ (nets k).card)
+    (ε : ℕ → ℝ) (hε : ∀ k < K, 0 < ε k)
+    (hDiam0 : ∀ i ∈ nets 0, ∀ j ∈ nets 0, dist i j ≤ D)
+    (hdist : ∀ k < K, ∀ t ∈ nets (k + 1),
+      dist t (nearestPoint (nets k) (hne k) t) ≤ ε k)
+    (hint : Integrable (fun ω => (nets K).sup' (hne K) (fun t => X t ω) -
+      (nets K).inf' (hne K) (fun t => X t ω)) μ) :
+    ∫ ω, ((nets K).sup' (hne K) (fun t => X t ω) -
+      (nets K).inf' (hne K) (fun t => X t ω)) ∂μ ≤
+    8 * σ * D * Real.sqrt (2 * Real.log ↑(nets 0).card) +
+    ∑ k ∈ Finset.range K,
+      8 * σ * ε k * Real.sqrt (2 * Real.log ↑(nets (k + 1)).card) := by
+  set proj := fun k => nearestPoint (nets k) (hne k)
+  -- Pointwise bound (for each ω)
+  have hpw : ∀ ω, (nets K).sup' (hne K) (fun t => X t ω) -
+      (nets K).inf' (hne K) (fun t => X t ω) ≤
+      ((nets 0).sup' (hne 0) (fun t => X t ω) - (nets 0).inf' (hne 0) (fun t => X t ω)) +
+      ∑ k ∈ Finset.range K,
+        ((nets (k+1)).sup' (hne (k+1)) (fun t => X t ω - X (proj k t) ω) -
+         (nets (k+1)).inf' (hne (k+1)) (fun t => X t ω - X (proj k t) ω)) :=
+    fun ω => chaining_telescope_range K nets hne proj
+      (fun k hk t ht => nearestPoint_mem (nets k) (hne k) t) (fun t => X t ω)
+  -- Integrability
+  have hint0 := (hFiniteBound_of_subgaussian μ X σ hσ hSG D hD (nets 0) (hne 0)
+    (hcard 0 (Nat.zero_le K)) hDiam0 hIntSG hMeas).1
+  have hint_inc : ∀ k ∈ Finset.range K, Integrable (fun ω =>
+      (nets (k+1)).sup' (hne (k+1)) (fun t => X t ω - X (proj k t) ω) -
+      (nets (k+1)).inf' (hne (k+1)) (fun t => X t ω - X (proj k t) ω)) μ := by
+    intro k hk
+    have hDI : ∀ t ∈ nets (k+1), Integrable (fun ω => X t ω - X (proj k t) ω) μ := by
+      intro t _; exact Integrable.mono'
+        ((hIntSG (proj k t) t 1 one_pos).add (hIntSG t (proj k t) 1 one_pos))
+        ((hMeas t).sub (hMeas (proj k t))) (by
+          filter_upwards with ω; simp only [one_mul, Pi.add_apply]; rw [Real.norm_eq_abs]
+          rcases abs_cases (X t ω - X (proj k t) ω) with ⟨_, _⟩ | ⟨_, _⟩
+          · linarith [Real.add_one_le_exp (X t ω - X (proj k t) ω),
+              Real.exp_pos (X (proj k t) ω - X t ω)]
+          · linarith [Real.add_one_le_exp (X (proj k t) ω - X t ω),
+              Real.exp_pos (X t ω - X (proj k t) ω)])
+    exact (integrable_finset_sup' μ _ (hne _) _ hDI).sub
+      (integrable_finset_inf' μ _ (hne _) _ hDI)
+  -- Integrate and bound
+  calc ∫ ω, ((nets K).sup' (hne K) (fun t => X t ω) -
+        (nets K).inf' (hne K) (fun t => X t ω)) ∂μ
+      ≤ ∫ ω, (((nets 0).sup' (hne 0) (fun t => X t ω) -
+          (nets 0).inf' (hne 0) (fun t => X t ω)) +
+        ∑ k ∈ Finset.range K,
+          ((nets (k+1)).sup' (hne (k+1)) (fun t => X t ω - X (proj k t) ω) -
+           (nets (k+1)).inf' (hne (k+1)) (fun t => X t ω - X (proj k t) ω))) ∂μ :=
+        integral_mono hint (hint0.add (integrable_finset_sum _ hint_inc)) hpw
+    _ = ∫ ω, ((nets 0).sup' (hne 0) (fun t => X t ω) -
+          (nets 0).inf' (hne 0) (fun t => X t ω)) ∂μ +
+        ∑ k ∈ Finset.range K, ∫ ω,
+          ((nets (k+1)).sup' (hne (k+1)) (fun t => X t ω - X (proj k t) ω) -
+           (nets (k+1)).inf' (hne (k+1)) (fun t => X t ω - X (proj k t) ω)) ∂μ := by
+        rw [integral_add hint0 (integrable_finset_sum _ hint_inc),
+            integral_finset_sum _ hint_inc]
+    _ ≤ _ := by
+        gcongr with k hk
+        · exact sharp_hFiniteBound_of_subgaussian μ X σ hσ hSG D hD (nets 0) (hne 0)
+            (hcard 0 (Nat.zero_le K)) hDiam0 hIntSG hMeas
+        · exact increment_range_bound X σ (ε k) hσ (hε k (Finset.mem_range.mp hk)) hSG
+            hIntSG hMeas (nets (k+1)) (hne _) (hcard _ (Nat.succ_le_of_lt (Finset.mem_range.mp hk)))
+            (proj k) (fun t ht => hdist k (Finset.mem_range.mp hk) t ht)
 
 end DudleyAssemblyNew
 
