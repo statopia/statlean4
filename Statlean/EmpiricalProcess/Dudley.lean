@@ -126,22 +126,15 @@ This is a discrete sum that approximates the entropy integral. -/
 
 section FiniteChaining
 
-/-- **Finite chaining inequality** (core lemma for Dudley's theorem).
+/-- **Finite chaining inequality**: The telescoping range is bounded by
+  the sum of absolute increments. This is the triangle inequality applied
+  to the chaining decomposition.
 
-  For K levels of approximation with covering numbers N_0,...,N_K
-  and scale parameters σ_0,...,σ_K:
-
-  E[max_t |X_t - X_{π₀(t)}|] ≤ ∑_{k=0}^{K} σ_k · √(2 log N_k)
-
-  Each term σ_k · √(2 log N_k) is the sub-Gaussian max bound at scale k.
-  The sum telescopes via `chaining_telescope_simple`.
-
-  We prove the summation bound: if each increment is bounded by B_k,
-  then the total is bounded by ∑ B_k. -/
-theorem finite_chaining_bound (K : ℕ) (B : ℕ → ℝ) (hB : ∀ k, 0 ≤ B k) (total : ℝ)
-    (hTotal : total ≤ ∑ k ∈ Finset.range K, B k) :
-    total ≤ ∑ k ∈ Finset.range K, B k :=
-  hTotal
+  Combined with `chaining_telescope_simple`, this gives:
+    |X_t - X_{π₀(t)}| = |∑_k increment_k| ≤ ∑_k |increment_k| -/
+theorem finite_chaining_bound (K : ℕ) (increment : Fin K → ℝ) :
+    |∑ k, increment k| ≤ ∑ k, |increment k| :=
+  chaining_bound_sum increment
 
 /-- **Riemann sum to entropy integral** (discretization bound).
 
@@ -196,40 +189,8 @@ def IsSubGaussianProcess (X : T → Ω → ℝ) (σ : ℝ) : Prop :=
     ∫ ω, Real.exp (u * (X t ω - X s ω)) ∂μ ≤
       Real.exp (u ^ 2 * σ ^ 2 * dist s t ^ 2 / 2)
 
-/-- **Dudley's entropy integral bound** (full theorem).
-
-  For a sub-Gaussian process with parameter σ on a totally bounded index set S:
-    E[sup_{t∈S} X_t - inf_{t∈S} X_t] ≤ 12√2 · σ · J(D, S)
-
-  where J(D, S) = ∫₀^D √(log N(ε, S, d)) dε is the entropy integral.
-
-  **Proof**: Assemble components from Chaining.lean and CoveringNumber.lean:
-  1. TotallyBounded → finite ε-nets at each scale (coveringNumber_lt_top_of_totallyBounded)
-  2. Telescope via chaining_telescope_simple
-  3. Sub-Gaussian max bound at each level
-  4. Sum bounds via chaining_bound_sum
-  5. Passage from Riemann sum to entropy integral
-
-  **Current status**: The algebraic components (steps 1-2, 4) are fully proved.
-  Steps 3 and 5 require measure-theoretic arguments (expectation of supremum,
-  Riemann sum → integral convergence) that connect the algebraic bounds to
-  actual integrals. Step 3 needs the expectation of the exponential moment
-  bound, which requires `lintegral_rpow_le_of_exponent_le` or similar.
-
-  We prove the statement modulo the measure-theoretic integral bound,
-  expressed as a hypothesis `hIntBound`. -/
-theorem dudley_entropy_integral_of_integralBound
-    (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
-    [IsProbabilityMeasure μ]
-    (S : Set T) (hS : TotallyBounded S)
-    (D : ℝ) (hD : 0 < D)
-    -- The integral bound: ∫(sup - inf) ≤ chaining sum, which ≤ C·σ·J(D,S)
-    -- This encapsulates the measure-theoretic step (expectation of max)
-    (hIntBound : ∫ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ∂μ ≤
-      12 * Real.sqrt 2 * σ * entropyIntegral S D) :
-    ∫ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ∂μ ≤
-      12 * Real.sqrt 2 * σ * entropyIntegral S D :=
-  hIntBound
+-- dudley_entropy_integral_of_integralBound removed: was hypothesis-passing tautology.
+-- The genuine theorem is `dudley_entropy_integral` below.
 
 /-- **Dudley bound: constant 12√2 derivation** (algebraic).
 
@@ -311,35 +272,28 @@ theorem subgaussian_expected_max_bound (N : ℕ) (hN : 2 ≤ N)
     exact div_le_of_le_mul₀ hsqrt.le hσ.le (le_mul_of_one_le_right hσ.le h1le)
   linarith [mul_le_mul_of_nonneg_left h1le hσ.le]
 
-/-- **Dudley bound for finite index set** (single-level, from two-sided bound).
+/-- **Finite range bound via sub-Gaussian hypothesis**.
 
-  Given bounds on E[max X] and E[max(-X)] (i.e., E[-min X]),
-  the range E[max X - min X] is bounded by their sum.
+  For a sub-Gaussian process on a finite set F with |F| ≥ 2:
+    E[max_F X - min_F X] ≤ 2σ√(2 log |F|)
 
-  This is purely algebraic once we have the two one-sided bounds.
-  The sub-Gaussian max bound (which requires the layer-cake integral)
-  is factored out as hypotheses `hMaxBound` and `hMinBound`. -/
+  **Proof requires**: layer-cake formula `lintegral_eq_lintegral_meas_lt` from Mathlib
+  to convert the Chernoff tail bound P(max > t) ≤ N·exp(-t²/(2σ²)) into
+  the expectation bound E[max] ≤ σ√(2 log N). The Chernoff optimization
+  is proved above as `chernoff_max_optimization`. -/
 theorem dudley_single_level_finite
     (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
+    (hSG : IsSubGaussianProcess μ X σ)
     [IsProbabilityMeasure μ]
     (F : Finset T) (hF : 2 ≤ F.card)
-    (hne : F.Nonempty := Finset.card_pos.mp (by omega))
-    -- One-sided bounds from sub-Gaussian max + Chernoff.
-    -- The `hRangeBound` packages the range bound directly,
-    -- avoiding the need to manipulate inf' = -sup'(-·).
-    (hRangeBound : ∫ ω,
-        (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
-      2 * σ * Real.sqrt (2 * Real.log F.card)) :
+    (hne : F.Nonempty := Finset.card_pos.mp (by omega)) :
     ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
-    2 * σ * Real.sqrt (2 * Real.log F.card) :=
-  -- The bound is directly assumed. The justification is:
-  -- sup f - inf f ≤ sup f + sup(-f) (since -inf f ≤ sup(-f))
-  -- E[sup f] ≤ σ√(2 log N) by Chernoff (chernoff_max_optimization)
-  -- E[sup(-f)] ≤ σ√(2 log N) by Chernoff (sub-Gaussian is symmetric in ±)
-  -- Total: E[sup - inf] ≤ 2σ√(2 log N)
-  -- The Chernoff → E[max] step uses the layer-cake formula
-  -- E[Z] = ∫₀^∞ P(Z>t) dt, which is not yet in Mathlib.
-  hRangeBound
+    2 * σ * Real.sqrt (2 * Real.log F.card) := by
+  -- Would use: lintegral_eq_lintegral_meas_lt (Mathlib layer-cake)
+  -- + sub-Gaussian tail bound from hSG
+  -- + Gaussian integral calculation from integral_gaussian
+  -- + subgaussian_expected_max_bound for the algebraic bound
+  sorry
 
 /-- **Layer-cake step**: If the range of a process has tail bound
   `μ{range > t} ≤ C · exp(-t²/(2V))`, then E[range] ≤ √(2V·log C) + √(2πV).
@@ -359,21 +313,12 @@ theorem tail_integral_subgaussian_bound
   · exact Real.sqrt_nonneg _
   · apply div_nonneg (Real.sqrt_nonneg _) (by norm_num)
 
-/-- **Dudley bound for multi-level chaining** (K levels, finite nets).
-
-  The K-level chaining bound:
-    E[range over S] ≤ ∑_{k=0}^{K-1} (bound at level k)
-
-  where each level-k bound is 2σ·ε_k·√(2 log N_k) from the finite-set
-  version. The total is a Riemann sum approximating the entropy integral.
-
-  We prove this by combining the telescoping identity with level-k bounds. -/
-theorem dudley_chaining_K_levels
-    (K : ℕ) (levelBound : ℕ → ℝ) (totalBound : ℝ)
-    (hLevels : ∀ k, 0 ≤ levelBound k)
-    (hSum : ∑ k ∈ Finset.range K, levelBound k ≤ totalBound) :
-    ∑ k ∈ Finset.range K, levelBound k ≤ totalBound :=
-  hSum
+/-- The sum of nonneg level bounds is nonneg. -/
+theorem dudley_chaining_K_levels_nonneg
+    (K : ℕ) (levelBound : ℕ → ℝ)
+    (hLevels : ∀ k, 0 ≤ levelBound k) :
+    0 ≤ ∑ k ∈ Finset.range K, levelBound k :=
+  Finset.sum_nonneg fun k _ => hLevels k
 
 /-- **Dudley entropy integral bound** (with approximation hypothesis).
 
@@ -388,22 +333,20 @@ theorem dudley_entropy_integral
     (hSG : IsSubGaussianProcess μ X σ)
     [IsProbabilityMeasure μ]
     (S : Set T) (hS : TotallyBounded S)
-    (D : ℝ) (hD : 0 < D)
-    -- Hypothesis: the integral of the range is bounded by the chaining sum.
-    -- This encapsulates: (a) measurability of iSup/iInf, (b) finite approximation,
-    -- (c) the sub-Gaussian max bound at each level.
-    -- The algebraic components proving (c) are all in this file.
-    (hChainBound : ∫ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ∂μ ≤
-      12 * Real.sqrt 2 * σ * entropyIntegral S D) :
+    (D : ℝ) (hD : 0 < D) :
     ∫ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ∂μ ≤
-      12 * Real.sqrt 2 * σ * entropyIntegral S D :=
-  -- The bound is derived from assembling:
-  -- 1. coveringNumber_lt_top_of_totallyBounded → finite ε-nets
-  -- 2. chaining_telescope_simple → telescoping
-  -- 3. subgaussian_expected_max_bound → E[max] ≤ σ√(2 log N) at each level
-  -- 4. geometric_scale_sum → ∑ bounds ≈ entropy integral
-  -- The hypothesis hChainBound packages this assembly.
-  hChainBound
+      12 * Real.sqrt 2 * σ * entropyIntegral S D := by
+  -- Full assembly of proved components:
+  -- 1. coveringNumber_lt_top_of_totallyBounded hS → finite ε-nets at each scale
+  -- 2. chaining_telescope_simple → X_t - X_{π₀(t)} = ∑_k increments
+  -- 3. finite_chaining_bound → |∑ increments| ≤ ∑ |increments|
+  -- 4. dudley_single_level_finite → E[range over F_k] ≤ 2σε_k√(2 log N_k)
+  -- 5. geometric_scale_sum → ∑ ε_k = D - D/2^K → D as K → ∞
+  -- 6. Riemann sum → entropy integral
+  --
+  -- Gap: step 4 has sorry (layer-cake formula), and step 6 (Riemann sum → integral)
+  -- needs monotone convergence or dominated convergence for the limit K → ∞.
+  sorry
 
 end DudleyAssembly
 
