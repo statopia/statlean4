@@ -1295,6 +1295,100 @@ theorem increment_neg_inf_tail
 
 end ChainingDecomposition
 
+section DudleyAssemblyNew
+
+variable {T : Type*} [PseudoMetricSpace T]
+variable {Ω : Type*} [MeasurableSpace Ω] {μ : MeasureTheory.Measure Ω}
+
+/-- **Increment range bound** (per-level bound for Dudley chaining):
+  `E[range(X_t - X_{proj(t)})] ≤ 8σε√(2 log|F|)` when `dist(t, proj(t)) ≤ ε`. -/
+theorem increment_range_bound
+    (X : T → Ω → ℝ) (σ ε : ℝ) (hσ : 0 < σ) (hε : 0 < ε)
+    (hSG : IsSubGaussianProcess μ X σ) [IsProbabilityMeasure μ]
+    (hIntSG : ∀ a b : T, ∀ lam : ℝ, 0 < lam →
+      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
+    (hMeas : ∀ t, AEStronglyMeasurable (X t) μ)
+    (F : Finset T) (hne : F.Nonempty) (hcard : 2 ≤ F.card)
+    (proj : T → T) (hdist : ∀ t ∈ F, dist t (proj t) ≤ ε) :
+    ∫ ω, (F.sup' hne (fun t => X t ω - X (proj t) ω) -
+      F.inf' hne (fun t => X t ω - X (proj t) ω)) ∂μ ≤
+      8 * σ * ε * Real.sqrt (2 * Real.log ↑F.card) := by
+  have hDiffInt : ∀ t ∈ F, Integrable (fun ω => X t ω - X (proj t) ω) μ := fun t _ =>
+    Integrable.mono' ((hIntSG (proj t) t 1 one_pos).add (hIntSG t (proj t) 1 one_pos))
+      ((hMeas t).sub (hMeas (proj t))) (by
+        filter_upwards with ω; simp only [one_mul, Pi.add_apply]; rw [Real.norm_eq_abs]
+        rcases abs_cases (X t ω - X (proj t) ω) with ⟨_, _⟩ | ⟨_, _⟩
+        · linarith [Real.add_one_le_exp (X t ω - X (proj t) ω),
+            Real.exp_pos (X (proj t) ω - X t ω)]
+        · linarith [Real.add_one_le_exp (X (proj t) ω - X t ω),
+            Real.exp_pos (X t ω - X (proj t) ω)])
+  have hIntSup := integrable_finset_sup' μ F hne _ hDiffInt
+  have hIntInf := integrable_finset_inf' μ F hne _ hDiffInt
+  rw [integral_sub hIntSup hIntInf]
+  have hN : (2 : ℝ) ≤ ↑F.card := Nat.ofNat_le_cast.mpr hcard
+  have hV : 0 < σ ^ 2 * ε ^ 2 := by positivity
+  -- E[sup] via max(sup, 0) + sharp bound + increment tail
+  have hBsup : ∫ ω, F.sup' hne (fun t => X t ω - X (proj t) ω) ∂μ ≤
+      4 * Real.sqrt (2 * (σ ^ 2 * ε ^ 2) * Real.log ↑F.card) := by
+    calc ∫ ω, F.sup' hne (fun t => X t ω - X (proj t) ω) ∂μ
+        ≤ ∫ ω, max (F.sup' hne (fun t => X t ω - X (proj t) ω)) 0 ∂μ :=
+          integral_mono hIntSup (hIntSup.sup (integrable_const 0)) fun ω => le_max_left _ _
+      _ ≤ _ := by
+          refine sharp_expected_value_from_subgaussian_tail
+            (fun ω => max (F.sup' hne (fun t => X t ω - X (proj t) ω)) 0)
+            ↑F.card (σ ^ 2 * ε ^ 2) hN hV ?_ ?_ ?_
+          · exact Filter.Eventually.of_forall fun ω =>
+              le_max_right (F.sup' hne (fun t => X t ω - X (proj t) ω)) 0
+          · exact hIntSup.sup (integrable_const 0)
+          · intro u hu
+            calc μ {ω | u < max (F.sup' hne (fun t => X t ω - X (proj t) ω)) 0}
+                ≤ μ {ω | u < F.sup' hne (fun t => X t ω - X (proj t) ω)} :=
+                  measure_mono fun ω hω => by
+                    simp only [Set.mem_setOf_eq] at *
+                    by_cases hle : F.sup' hne (fun t => X t ω - X (proj t) ω) ≤ 0
+                    · simp [max_eq_right hle] at hω; linarith
+                    · push_neg at hle; rwa [max_eq_left (le_of_lt hle)] at hω
+              _ ≤ ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) :=
+                  increment_sup_tail μ X σ ε hσ hε hSG F hne proj hdist hIntSG u hu
+              _ = ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * (σ ^ 2 * ε ^ 2))))) :=
+                  by congr 2; ring
+  -- E[-inf] similarly
+  have hBinf : -(∫ ω, F.inf' hne (fun t => X t ω - X (proj t) ω) ∂μ) ≤
+      4 * Real.sqrt (2 * (σ ^ 2 * ε ^ 2) * Real.log ↑F.card) := by
+    rw [← integral_neg]
+    calc ∫ ω, -(F.inf' hne (fun t => X t ω - X (proj t) ω)) ∂μ
+        ≤ ∫ ω, max (-(F.inf' hne (fun t => X t ω - X (proj t) ω))) 0 ∂μ :=
+          integral_mono hIntInf.neg (hIntInf.neg.sup (integrable_const 0))
+            fun ω => le_max_left _ _
+      _ ≤ _ := by
+          refine sharp_expected_value_from_subgaussian_tail
+            (fun ω => max (-(F.inf' hne (fun t => X t ω - X (proj t) ω))) 0)
+            ↑F.card (σ ^ 2 * ε ^ 2) hN hV ?_ ?_ ?_
+          · exact Filter.Eventually.of_forall fun ω =>
+              le_max_right (-(F.inf' hne (fun t => X t ω - X (proj t) ω))) 0
+          · exact hIntInf.neg.sup (integrable_const 0)
+          · intro u hu
+            calc μ {ω | u < max (-(F.inf' hne (fun t => X t ω - X (proj t) ω))) 0}
+                ≤ μ {ω | u < -(F.inf' hne (fun t => X t ω - X (proj t) ω))} :=
+                  measure_mono fun ω hω => by
+                    simp only [Set.mem_setOf_eq] at *
+                    by_cases hle : -(F.inf' hne (fun t => X t ω - X (proj t) ω)) ≤ 0
+                    · simp [max_eq_right hle] at hω; linarith
+                    · push_neg at hle; rwa [max_eq_left (le_of_lt hle)] at hω
+              _ ≤ ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) :=
+                  increment_neg_inf_tail μ X σ ε hσ hε hSG F hne proj hdist hIntSG u hu
+              _ = ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * (σ ^ 2 * ε ^ 2))))) :=
+                  by congr 2; ring
+  -- Simplify: 4√(2σ²ε²·log N) = 4σε√(2 log N)
+  have : 4 * Real.sqrt (2 * (σ ^ 2 * ε ^ 2) * Real.log ↑F.card) =
+      4 * (σ * ε) * Real.sqrt (2 * Real.log ↑F.card) := by
+    rw [show 2 * (σ ^ 2 * ε ^ 2) * Real.log ↑F.card =
+      (σ * ε) ^ 2 * (2 * Real.log ↑F.card) from by ring,
+      Real.sqrt_mul (by positivity), Real.sqrt_sq (by positivity)]; ring
+  linarith
+
+end DudleyAssemblyNew
+
 /-- **Dudley entropy integral bound** (full assembly from finite-set bounds).
 
   For a sub-Gaussian process on a totally bounded set:
