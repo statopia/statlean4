@@ -427,6 +427,42 @@ These lemmas connect `IsSubGaussianProcess` to tail bounds for the maximum
 and minimum over a finite set, which are then used to discharge the
 `hFiniteBound` hypothesis of `dudley_entropy_integral`. -/
 
+/-- **Chernoff bound from MGF** (general version).
+
+  If E[exp(λZ)] ≤ bound for some λ > 0, then P(Z > u) ≤ bound / exp(λu).
+  This is the exponential Markov inequality. -/
+theorem chernoff_from_mgf
+    (Z : Ω → ℝ) (lam u bound : ℝ) (hlam : 0 < lam)
+    (hMGF : ∫ ω, Real.exp (lam * Z ω) ∂μ ≤ bound)
+    (hInt : Integrable (fun ω => Real.exp (lam * Z ω)) μ)
+    (hbound : 0 ≤ bound) :
+    μ {ω | u < Z ω} ≤ ENNReal.ofReal (bound / Real.exp (lam * u)) := by
+  have hexp_pos := Real.exp_pos (lam * u)
+  calc μ {ω | u < Z ω}
+      ≤ μ {ω | Real.exp (lam * u) ≤ Real.exp (lam * Z ω)} := by
+        apply measure_mono; intro ω hω; simp only [Set.mem_setOf_eq] at *
+        exact Real.exp_le_exp_of_le (by nlinarith)
+    _ = μ {ω | ENNReal.ofReal (Real.exp (lam * u)) ≤
+        ENNReal.ofReal (Real.exp (lam * Z ω))} := by
+        congr 1; ext ω; simp only [Set.mem_setOf_eq]
+        exact ⟨fun h => ENNReal.ofReal_le_ofReal h,
+               fun h => (ENNReal.ofReal_le_ofReal_iff (Real.exp_nonneg _)).mp h⟩
+    _ ≤ (∫⁻ ω, ENNReal.ofReal (Real.exp (lam * Z ω)) ∂μ) /
+        ENNReal.ofReal (Real.exp (lam * u)) := by
+        apply meas_ge_le_lintegral_div
+        · exact hInt.aemeasurable.ennreal_ofReal
+        · exact ne_of_gt (ENNReal.ofReal_pos.mpr hexp_pos)
+        · exact ENNReal.ofReal_ne_top
+    _ = ENNReal.ofReal (∫ ω, Real.exp (lam * Z ω) ∂μ) /
+        ENNReal.ofReal (Real.exp (lam * u)) := by
+        rw [← ofReal_integral_eq_lintegral_ofReal hInt
+          (ae_of_all μ fun ω => le_of_lt (Real.exp_pos _))]
+    _ ≤ ENNReal.ofReal bound / ENNReal.ofReal (Real.exp (lam * u)) := by
+        apply ENNReal.div_le_div_right
+        exact ENNReal.ofReal_le_ofReal hMGF
+    _ = ENNReal.ofReal (bound / Real.exp (lam * u)) := by
+        rw [ENNReal.ofReal_div_of_pos hexp_pos]
+
 /-- **Single-point sub-Gaussian Chernoff bound** (the fundamental primitive).
 
   If E[exp(λ(X_t - X_s))] ≤ exp(λ²σ²d(s,t)²/2) for all λ, then
@@ -449,12 +485,16 @@ lemma subgaussian_chernoff_single
     (s t : T) (u : ℝ) (hu : 0 < u) :
     μ {ω | u < X t ω - X s ω} ≤
       ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * dist s t ^ 2)))) := by
-  -- Full proof requires Markov on exp(λ·(X_t - X_s)) with optimal λ = u/(σ²d²)
-  -- Markov: μ{exp(λZ) ≥ exp(λu)} ≤ E[exp(λZ)] / exp(λu)
-  --       = meas_ge_le_lintegral_div (AEMeasurable exp(λZ)) (exp(λu) ≠ 0) (≠ ⊤)
-  -- Sub-Gaussian: E[exp(λZ)] ≤ exp(λ²σ²d²/2) from hSG
-  -- Optimize: λ = u/(σ²d²) gives exp(-u²/(2σ²d²))
-  sorry
+  -- Apply chernoff_from_mgf with λ = 1 and the sub-Gaussian MGF bound
+  -- hSG gives: ∫ exp(λ(Xt-Xs)) ≤ exp(λ²σ²d²/2) for all λ
+  -- With λ = 1: ∫ exp(Xt-Xs) ≤ exp(σ²d²/2)
+  -- chernoff_from_mgf gives: μ{Xt-Xs > u} ≤ ofReal(exp(σ²d²/2) / exp(u))
+  --                         = ofReal(exp(σ²d²/2 - u))
+  --
+  -- For the OPTIMAL bound exp(-u²/(2σ²d²)), we need λ = u/(σ²d²).
+  -- The integrability of exp(λ(Xt-Xs)) is needed but not given by hSG.
+  -- We add it as a sorry.
+  sorry -- needs: Integrable exp(λ(Xt-Xs)) to apply chernoff_from_mgf with optimal λ
 
 omit [PseudoMetricSpace T] in
 /-- **Union bound for Finset.sup' tail**.
