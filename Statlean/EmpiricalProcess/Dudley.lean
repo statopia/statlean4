@@ -1104,6 +1104,77 @@ theorem sharp_hFiniteBound_of_subgaussian
 
 end SubGaussianFinsetBounds
 
+/-! ## Chaining Decomposition
+
+The single-step chaining decomposition: for a projection `proj : F → G`,
+  range_F(X) ≤ range_G(X) + range_F(X - X∘proj)
+
+This is the building block for the multi-level Dudley chaining argument.
+By iterating K times with covering nets at dyadic scales, the sum of
+increment ranges gives the entropy integral bound. -/
+
+section ChainingDecomposition
+
+variable {T : Type*} [PseudoMetricSpace T]
+
+private lemma sup'_add_le {α : Type*} (F : Finset α) (hne : F.Nonempty) (f g : α → ℝ) :
+    F.sup' hne (fun t => f t + g t) ≤ F.sup' hne f + F.sup' hne g :=
+  Finset.sup'_le hne _ fun t ht => add_le_add (Finset.le_sup' f ht) (Finset.le_sup' g ht)
+
+private lemma inf'_add_le {α : Type*} (F : Finset α) (hne : F.Nonempty) (f g : α → ℝ) :
+    F.inf' hne f + F.inf' hne g ≤ F.inf' hne (fun t => f t + g t) :=
+  Finset.le_inf' hne _ fun t ht => add_le_add (Finset.inf'_le f ht) (Finset.inf'_le g ht)
+
+/-- Range of sum ≤ sum of ranges (subadditivity of oscillation). -/
+theorem range_add_le {α : Type*} (F : Finset α) (hne : F.Nonempty) (f g : α → ℝ) :
+    (F.sup' hne (fun t => f t + g t) - F.inf' hne (fun t => f t + g t)) ≤
+    (F.sup' hne f - F.inf' hne f) + (F.sup' hne g - F.inf' hne g) :=
+  by linarith [sup'_add_le F hne f g, inf'_add_le F hne f g]
+
+/-- Sup of composition is bounded by sup over the range. -/
+theorem sup'_comp_le (F : Finset T) (hne : F.Nonempty) (G : Finset T) (hneG : G.Nonempty)
+    (proj : T → T) (hproj : ∀ t ∈ F, proj t ∈ G) (f : T → ℝ) :
+    F.sup' hne (fun t => f (proj t)) ≤ G.sup' hneG f :=
+  Finset.sup'_le hne _ fun t ht => Finset.le_sup' f (hproj t ht)
+
+/-- Inf of composition is bounded by inf over the range. -/
+theorem inf'_comp_le (F : Finset T) (hne : F.Nonempty) (G : Finset T) (hneG : G.Nonempty)
+    (proj : T → T) (hproj : ∀ t ∈ F, proj t ∈ G) (f : T → ℝ) :
+    G.inf' hneG f ≤ F.inf' hne (fun t => f (proj t)) :=
+  Finset.le_inf' hne _ fun t ht => Finset.inf'_le f (hproj t ht)
+
+/-- **Single-step chaining decomposition** (pointwise):
+  `range_F(X) ≤ range_G(X) + range_F(X - X∘proj)`
+  where `proj : F → G` is any projection with `proj(t) ∈ G` for all `t ∈ F`.
+
+  This is the fundamental building block for the Dudley chaining argument.
+  By iterating with covering nets at dyadic scales `ε_k = D/2^k`:
+  - Each increment has diameter ≤ ε_k (from the covering property)
+  - The sharp bound gives E[increment_k] ≤ 8σε_k√(2 log N_k)
+  - Summing gives the entropy integral via Riemann sum. -/
+theorem chaining_step_pointwise (F G : Finset T) (hneF : F.Nonempty) (hneG : G.Nonempty)
+    (proj : T → T) (hproj : ∀ t ∈ F, proj t ∈ G)
+    (X : T → ℝ) :
+    F.sup' hneF X - F.inf' hneF X ≤
+    (G.sup' hneG X - G.inf' hneG X) +
+    (F.sup' hneF (fun t => X t - X (proj t)) -
+     F.inf' hneF (fun t => X t - X (proj t))) := by
+  have hdecomp : ∀ t, X t = (X t - X (proj t)) + X (proj t) := fun t => by ring
+  calc F.sup' hneF X - F.inf' hneF X
+      = F.sup' hneF (fun t => (X t - X (proj t)) + X (proj t)) -
+        F.inf' hneF (fun t => (X t - X (proj t)) + X (proj t)) := by
+          conv_lhs => rw [show F.sup' hneF X = F.sup' hneF
+            (fun t => (X t - X (proj t)) + X (proj t)) from by congr 1; ext t; exact hdecomp t,
+            show F.inf' hneF X = F.inf' hneF
+            (fun t => (X t - X (proj t)) + X (proj t)) from by congr 1; ext t; exact hdecomp t]
+    _ ≤ (F.sup' hneF (fun t => X t - X (proj t)) - F.inf' hneF (fun t => X t - X (proj t))) +
+        (F.sup' hneF (fun t => X (proj t)) - F.inf' hneF (fun t => X (proj t))) :=
+          range_add_le F hneF _ _
+    _ ≤ _ := by linarith [sup'_comp_le F hneF G hneG proj hproj X,
+                           inf'_comp_le F hneF G hneG proj hproj X]
+
+end ChainingDecomposition
+
 /-- **Dudley entropy integral bound** (full assembly from finite-set bounds).
 
   For a sub-Gaussian process on a totally bounded set:
