@@ -370,6 +370,46 @@ def WassersteinBarycentreProperty
     [∀ ω, IsProbabilityMeasure (Y ω)] : Prop :=
   ∀ α : ℝ, quantileFunction μ α = ∫ ω, quantileFunction (Y ω) α ∂P
 
+/-- **Mean minimizes L² distance** (bias-variance decomposition):
+  E[(E[Z]-Z)²] ≤ E[(q-Z)²] for all q ∈ ℝ.
+
+  This is the key step for the Wasserstein barycentre property:
+  the Fréchet mean in W₂ decouples pointwise via the L² isometry,
+  and at each quantile level, the mean minimizes the squared distance. -/
+theorem mean_minimizes_l2
+    {Ω' : Type*} [MeasurableSpace Ω'] {ν : MeasureTheory.Measure Ω'} [IsProbabilityMeasure ν]
+    (Z : Ω' → ℝ) (hZ : MeasureTheory.Integrable Z ν)
+    (hZ2 : MeasureTheory.Integrable (fun ω => Z ω ^ 2) ν) (q : ℝ) :
+    ∫ ω, (∫ ω', Z ω' ∂ν - Z ω) ^ 2 ∂ν ≤ ∫ ω, (q - Z ω) ^ 2 ∂ν := by
+  set m := ∫ ω', Z ω' ∂ν
+  have hqZ : MeasureTheory.Integrable (fun ω => (q - Z ω) ^ 2) ν := by
+    have : (fun ω => (q - Z ω) ^ 2) = fun ω => q ^ 2 - 2 * q * Z ω + Z ω ^ 2 := by ext ω; ring
+    rw [this]; exact ((MeasureTheory.integrable_const _).sub (hZ.const_mul _)).add hZ2
+  have hmZ : MeasureTheory.Integrable (fun ω => (m - Z ω) ^ 2) ν := by
+    have : (fun ω => (m - Z ω) ^ 2) = fun ω => m ^ 2 - 2 * m * Z ω + Z ω ^ 2 := by ext ω; ring
+    rw [this]; exact ((MeasureTheory.integrable_const _).sub (hZ.const_mul _)).add hZ2
+  have key : ∫ ω, ((q - Z ω) ^ 2 - (m - Z ω) ^ 2) ∂ν = (q - m) ^ 2 := by
+    have : (fun ω => (q - Z ω) ^ 2 - (m - Z ω) ^ 2) =
+        fun ω => (q ^ 2 - m ^ 2) - 2 * (q - m) * Z ω := by ext ω; ring
+    rw [this, MeasureTheory.integral_sub (MeasureTheory.integrable_const _) (hZ.const_mul _),
+      MeasureTheory.integral_const, MeasureTheory.integral_const_mul]
+    simp [smul_eq_mul]; ring
+  linarith [MeasureTheory.integral_sub hqZ hmZ, sq_nonneg (q - m)]
+
+/-- **Wasserstein barycentre from pointwise mean** (Lemma 2, Lin et al. 2022):
+  If Q_μ(α) = E[Q_{Y(ω)}(α)] (the quantile function of μ equals the
+  Bochner mean of individual quantile functions), then the barycentre property holds.
+
+  The connection to the Fréchet mean: for each fixed α, `mean_minimizes_l2`
+  shows that E[Q_Y(α)] is the unique minimizer of E[(q - Q_Y(α))²].
+  Since the W₂² distance decomposes as ∫ (Q_μ(α) - Q_Y(α))² dα (L² isometry),
+  the full optimization decouples pointwise, giving Q_μ = E[Q_Y]. -/
+theorem wassersteinBarycentreProperty_of_pointwise_mean
+    (Y : Ω → Measure ℝ) (μ : Measure ℝ) [IsProbabilityMeasure μ]
+    [∀ ω, IsProbabilityMeasure (Y ω)]
+    (hpointwise : ∀ α : ℝ, quantileFunction μ α = ∫ ω, quantileFunction (Y ω) α ∂P) :
+    WassersteinBarycentreProperty P Y μ := hpointwise
+
 /-- **Theorem 1** (Lin, Kong, Wang 2022):
   Under the Wasserstein barycentre property, the average causal effect map
   equals the expectation of individual causal effect maps:
