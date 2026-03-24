@@ -408,6 +408,21 @@ section Theorem2
 variable {Ω : Type*} [MeasurableSpace Ω] [StandardBorelSpace Ω]
 variable {d : ℕ}
 
+/-- **IPW identity via tower property** (Rosenbaum-Rubin 1983).
+  `∫ ipw = ∫ E[ipw|m] = ∫ E[po|m] = ∫ po` via `integral_condExp`.
+  The hypothesis `hcondexp` encodes ignorability: E[I(A=a)·f(Y)/π(X) | X] = E[f(Y(a)) | X]. -/
+theorem ipw_identity_from_tower
+    {m₀ : MeasurableSpace Ω} {μ : MeasureTheory.Measure Ω}
+    {m : MeasurableSpace Ω} (hm : m ≤ m₀)
+    [MeasureTheory.SigmaFinite (μ.trim hm)]
+    (ipw_integrand potential_outcome : Ω → ℝ)
+    (hcondexp : μ[ipw_integrand | m] =ᵐ[μ] μ[potential_outcome | m]) :
+    ∫ ω, ipw_integrand ω ∂μ = ∫ ω, potential_outcome ω ∂μ :=
+  calc ∫ ω, ipw_integrand ω ∂μ
+      = ∫ ω, (μ[ipw_integrand | m]) ω ∂μ := (MeasureTheory.integral_condExp hm).symm
+    _ = ∫ ω, (μ[potential_outcome | m]) ω ∂μ := MeasureTheory.integral_congr_ae hcondexp
+    _ = ∫ ω, potential_outcome ω ∂μ := MeasureTheory.integral_condExp hm
+
 /-- **Theorem 2** (Lin, Kong, Wang 2022): Identification of the average causal effect map.
 
 Under Assumptions 1 (Ignorability) and 2 (Positivity):
