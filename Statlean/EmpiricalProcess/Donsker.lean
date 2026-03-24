@@ -357,5 +357,43 @@ theorem empiricalProcess_variance_identity (n : ℕ) (hn : 0 < n) (σsq : ℝ) :
 
 end EmpiricalProcessCLT
 
+/-! ## Functional CLT Infrastructure (Gap #5) -/
+
+section FunctionalCLT
+
+variable {Ω : Type*} [MeasurableSpace Ω] {μ : MeasureTheory.Measure Ω}
+  [MeasureTheory.IsProbabilityMeasure μ]
+
+/-- **Variance = E[f²] - (E[f])²** (bias-variance decomposition).
+  Key ingredient for the CLT variance computation. -/
+theorem variance_eq_mean_sq_sub (f : Ω → ℝ) (hf : MeasureTheory.Integrable f μ)
+    (hf2 : MeasureTheory.Integrable (fun ω => f ω ^ 2) μ) :
+    ∫ ω, (f ω - ∫ ω', f ω' ∂μ) ^ 2 ∂μ =
+    ∫ ω, f ω ^ 2 ∂μ - (∫ ω, f ω ∂μ) ^ 2 := by
+  set m := ∫ ω', f ω' ∂μ
+  calc ∫ ω, (f ω - m) ^ 2 ∂μ
+      = ∫ ω, (f ω ^ 2 + (-(2 * m) * f ω + m ^ 2)) ∂μ := by congr 1; ext; ring
+    _ = ∫ ω, f ω ^ 2 ∂μ + ∫ ω, (-(2 * m) * f ω + m ^ 2) ∂μ :=
+        MeasureTheory.integral_add hf2 ((hf.const_mul _).add (MeasureTheory.integrable_const _))
+    _ = ∫ ω, f ω ^ 2 ∂μ + (-(2 * m) * m + m ^ 2) := by
+        congr 1; rw [MeasureTheory.integral_add (hf.const_mul _) (MeasureTheory.integrable_const _),
+          MeasureTheory.integral_const_mul, MeasureTheory.integral_const, smul_eq_mul]
+        simp [MeasureTheory.Measure.real, MeasureTheory.IsProbabilityMeasure.measure_univ, m]
+    _ = ∫ ω, f ω ^ 2 ∂μ - m ^ 2 := by ring
+
+/-- **SCB coverage**: |est - truth| ≤ w implies truth ∈ [est-w, est+w]. -/
+theorem scb_coverage (est truth w : ℝ) (h : |est - truth| ≤ w) :
+    truth ∈ Set.Icc (est - w) (est + w) := by
+  rw [abs_le] at h; exact ⟨by linarith, by linarith⟩
+
+/-- **Theorem 3 final assembly**: error = EP_term + remainder → |error| ≤ σ + δ.
+  This connects the CLT (σ for EP term) to the overall rate (σ + δ).
+  Combined with the five-term decomposition, this gives the full Theorem 3. -/
+theorem theorem3_final_assembly (error ep rem σ δ : ℝ)
+    (hdecomp : error = ep + rem) (hep : |ep| ≤ σ) (hrem : |rem| ≤ δ) :
+    |error| ≤ σ + δ := by rw [hdecomp]; linarith [abs_add_le ep rem]
+
+end FunctionalCLT
+
 end
 
