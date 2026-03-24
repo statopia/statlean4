@@ -1,28 +1,6 @@
-version: v143
-generated: 2026-03-22
-total_sorry: 2
+version: v147
+generated: 2026-03-24
+total_sorry: 0
 
 sorry_items:
-
-- id: herbst.subgaussian_mgf
-  file: Statlean/SubGaussian/Herbst.lean
-  line: 77
-  theorem: hasSubgaussianMGF_centered_of_lipschitz_stdGaussianPi
-  type: blocked
-  depth: 3
-  priority: 9
-  blocker: "Blocked by Gaussian LSI + entropy subadditivity."
-  estimated_lines: 60
-  dependencies: [ou.gaussian_lsi_wiring, lsi.entropy_subadditivity_of_nonneg]
-  unlocks: []
-
-- id: fourier.esseensmoothing.cdf_smoothing_error_bound
-  file: Statlean/Fourier/EsseenSmoothing.lean
-  line: 102
-  theorem: cdf_smoothing_error_bound
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
+  []

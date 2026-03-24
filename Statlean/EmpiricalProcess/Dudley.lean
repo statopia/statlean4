@@ -435,6 +435,25 @@ theorem gaussian_tail_bound (a : ℝ) (ha : 0 < a) :
     _ = (1/a) * ∫ u in Set.Ioi a, u * Real.exp (-(u ^ 2 / 2)) := integral_const_mul _ _
     _ = (1/a) * Real.exp (-(a ^ 2 / 2)) := by rw [integral_mul_exp_neg_sq_div_two a ha]
 
+/-- **Scaled Gaussian tail bound**: `∫_a^∞ exp(-t²/(2V)) ≤ (V/a)·exp(-a²/(2V))`.
+  Derived from the unscaled version via substitution `u = t/√V`. -/
+theorem gaussian_tail_bound_scaled (a V : ℝ) (ha : 0 < a) (hV : 0 < V) :
+    ∫ t in Set.Ioi a, Real.exp (-(t ^ 2 / (2 * V))) ≤
+      (V / a) * Real.exp (-(a ^ 2 / (2 * V))) := by
+  have hsV : (0 : ℝ) < Real.sqrt V := Real.sqrt_pos.mpr hV
+  have hsVi : (0 : ℝ) < (Real.sqrt V)⁻¹ := inv_pos.mpr hsV
+  set g := fun u : ℝ => Real.exp (-(u ^ 2 / 2))
+  have hconv : (fun t : ℝ => Real.exp (-(t ^ 2 / (2 * V)))) =
+      fun t => g (t * (Real.sqrt V)⁻¹) := by
+    ext t; simp only [g, mul_pow, inv_pow, Real.sq_sqrt hV.le]; ring_nf
+  rw [hconv, integral_comp_mul_right_Ioi g a hsVi, inv_inv, smul_eq_mul]
+  calc Real.sqrt V * ∫ x in Set.Ioi (a * (Real.sqrt V)⁻¹), g x
+      ≤ Real.sqrt V * ((1 / (a * (Real.sqrt V)⁻¹)) *
+          Real.exp (-((a * (Real.sqrt V)⁻¹) ^ 2 / 2))) :=
+        mul_le_mul_of_nonneg_left (gaussian_tail_bound _ (mul_pos ha hsVi)) hsV.le
+    _ = V / a * Real.exp (-(a ^ 2 / (2 * V))) := by
+        rw [mul_pow, inv_pow, Real.sq_sqrt hV.le]; field_simp; rw [Real.sq_sqrt hV.le]
+
 end GaussianTailBound
 
 /-- **Finite range bound via sub-Gaussian hypothesis**.
