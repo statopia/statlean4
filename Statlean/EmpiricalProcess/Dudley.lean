@@ -1038,6 +1038,70 @@ theorem hFiniteBound_of_subgaussian
     -- Combine: ∫ sup' - ∫ inf' ≤ 2 * |F| * √(π/(1/(2·σ²D²)))
     linarith
 
+/-- **Sharp finite-set range bound** (constant 8):
+  E[range_F(X)] ≤ 8σD√(2 log |F|) — O(√(log|F|)) instead of O(|F|). -/
+theorem sharp_hFiniteBound_of_subgaussian
+    (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
+    (hSG : IsSubGaussianProcess μ X σ)
+    [IsProbabilityMeasure μ]
+    (D : ℝ) (hD : 0 < D)
+    (F : Finset T) (hne : F.Nonempty) (hF : 2 ≤ F.card)
+    (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
+    (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
+      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
+    (hMeas : ∀ t, AEStronglyMeasurable (X t) μ) :
+    ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
+      8 * σ * D * Real.sqrt (2 * Real.log ↑F.card) := by
+  -- Reuse integrability + shift from hFiniteBound_of_subgaussian
+  have ⟨s₀, hs₀⟩ := hne
+  -- Derive integrability of differences (same as hFiniteBound proof)
+  have hDiffInt : ∀ i ∈ F, Integrable (fun ω => X i ω - X s₀ ω) μ := by
+    intro i _
+    exact Integrable.mono' ((hIntSG s₀ i 1 one_pos).add (hIntSG i s₀ 1 one_pos))
+      ((hMeas i).sub (hMeas s₀)) (by
+        filter_upwards with ω; simp only [one_mul, Pi.add_apply]; rw [Real.norm_eq_abs]
+        rcases abs_cases (X i ω - X s₀ ω) with ⟨_, _⟩ | ⟨_, _⟩
+        · linarith [Real.add_one_le_exp (X i ω - X s₀ ω), Real.exp_pos (X s₀ ω - X i ω)]
+        · linarith [Real.add_one_le_exp (X s₀ ω - X i ω), Real.exp_pos (X i ω - X s₀ ω)])
+  have hIntSup := integrable_finset_sup' μ F hne _ hDiffInt
+  have hIntInf := integrable_finset_inf' μ F hne _ hDiffInt
+  -- Shift invariance: range(X_t) = range(X_t - X_{s₀})
+  have hshift : (fun ω => F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) =
+      (fun ω => F.sup' hne (fun t => X t ω - X s₀ ω) -
+        F.inf' hne (fun t => X t ω - X s₀ ω)) := by
+    ext ω; have hs := finset_sup'_add_const F hne (fun t => X t ω - X s₀ ω) (X s₀ ω)
+    have hi := finset_inf'_add_const F hne (fun t => X t ω - X s₀ ω) (X s₀ ω)
+    simp only [sub_add_cancel] at hs hi; rw [hs, hi]; ring
+  rw [hshift, integral_sub hIntSup hIntInf]
+  -- Sharp bounds via truncation
+  have hN : (2 : ℝ) ≤ ↑F.card := Nat.ofNat_le_cast.mpr hF
+  have hV : (0 : ℝ) < σ ^ 2 * D ^ 2 := by positivity
+  have hBsup : ∫ ω, F.sup' hne (fun t => X t ω - X s₀ ω) ∂μ ≤
+      4 * Real.sqrt (2 * (σ ^ 2 * D ^ 2) * Real.log ↑F.card) :=
+    sharp_expected_value_from_subgaussian_tail _ ↑F.card (σ ^ 2 * D ^ 2) hN hV
+      (Filter.Eventually.of_forall fun ω =>
+        le_trans (by simp [sub_self]) (Finset.le_sup' _ hs₀)) hIntSup
+      (fun t ht => by have := subgaussian_sup'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam
+                        s₀ hs₀ t ht hIntSG; simp only [mul_assoc] at this ⊢; exact this)
+  have hBinf : -(∫ ω, F.inf' hne (fun t => X t ω - X s₀ ω) ∂μ) ≤
+      4 * Real.sqrt (2 * (σ ^ 2 * D ^ 2) * Real.log ↑F.card) := by
+    rw [← integral_neg]
+    exact sharp_expected_value_from_subgaussian_tail _ ↑F.card (σ ^ 2 * D ^ 2) hN hV
+      (Filter.Eventually.of_forall fun ω => by
+        show 0 ≤ -(F.inf' hne (fun t => X t ω - X s₀ ω))
+        linarith [Finset.inf'_le (fun t => X t ω - X s₀ ω) hs₀,
+          show X s₀ ω - X s₀ ω = 0 from sub_self _])
+      hIntInf.neg
+      (fun t ht => by have := subgaussian_neg_inf'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam
+                        s₀ hs₀ t ht hIntSG; simp only [mul_assoc] at this ⊢; exact this)
+  -- 2 × 4√(2σ²D²·log N) = 8σD√(2 log N)
+  have : 4 * Real.sqrt (2 * (σ ^ 2 * D ^ 2) * Real.log ↑F.card) =
+      4 * (σ * D) * Real.sqrt (2 * Real.log ↑F.card) := by
+    rw [show 2 * (σ ^ 2 * D ^ 2) * Real.log ↑F.card =
+      (σ * D) ^ 2 * (2 * Real.log ↑F.card) from by ring,
+      Real.sqrt_mul (by positivity), Real.sqrt_sq (by positivity)]; ring
+  linarith
+
 end SubGaussianFinsetBounds
 
 /-- **Dudley entropy integral bound** (full assembly from finite-set bounds).
