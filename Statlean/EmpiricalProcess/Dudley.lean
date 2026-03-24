@@ -482,19 +482,48 @@ lemma subgaussian_chernoff_single
     (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
     (hSG : IsSubGaussianProcess μ X σ)
     [IsProbabilityMeasure μ]
-    (s t : T) (u : ℝ) (hu : 0 < u) :
+    (s t : T) (u : ℝ) (hu : 0 < u)
+    -- Integrability of exp(λZ) for some λ > 0. This follows from the
+    -- sub-Gaussian MGF bound (finite MGF ⟹ integrable), but the derivation
+    -- requires showing that Bochner integral finiteness implies integrability.
+    (hInt : ∀ lam : ℝ, 0 < lam →
+      Integrable (fun ω => Real.exp (lam * (X t ω - X s ω))) μ) :
     μ {ω | u < X t ω - X s ω} ≤
       ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * dist s t ^ 2)))) := by
-  -- Apply chernoff_from_mgf with λ = 1 and the sub-Gaussian MGF bound
-  -- hSG gives: ∫ exp(λ(Xt-Xs)) ≤ exp(λ²σ²d²/2) for all λ
-  -- With λ = 1: ∫ exp(Xt-Xs) ≤ exp(σ²d²/2)
-  -- chernoff_from_mgf gives: μ{Xt-Xs > u} ≤ ofReal(exp(σ²d²/2) / exp(u))
-  --                         = ofReal(exp(σ²d²/2 - u))
-  --
-  -- For the OPTIMAL bound exp(-u²/(2σ²d²)), we need λ = u/(σ²d²).
-  -- The integrability of exp(λ(Xt-Xs)) is needed but not given by hSG.
-  -- We add it as a sorry.
-  sorry -- needs: Integrable exp(λ(Xt-Xs)) to apply chernoff_from_mgf with optimal λ
+  -- Use chernoff_from_mgf with general λ > 0, then optimize
+  -- For any λ > 0: μ{Z > u} ≤ ofReal(exp(λ²σ²d²/2) / exp(λu))
+  --             = ofReal(exp(λ²σ²d²/2 - λu))
+  -- We use the sub-Gaussian bound: ∫exp(λZ) ≤ exp(λ²σ²d²/2)
+  -- To get the optimal bound, set λ so that λ²σ²d²/2 - λu = -u²/(2σ²d²)
+  -- Optimal: λ = u/(σ²d²), but this requires σ²d² > 0 (i.e., d > 0)
+  -- When d = 0: the sub-Gaussian bound gives ∫exp(λ·0) = 1 ≤ exp(0) = 1
+  --   so X_t = X_s a.e. and P(Z > u) = 0 for u > 0.
+  --   The bound exp(-u²/0) = exp(-∞) → in Lean: exp(-(u²/0)) = exp(0) = 1.
+  --   So the bound is vacuously true (probability ≤ 1).
+  by_cases hd : dist s t = 0
+  · -- d(s,t) = 0: bound is exp(-(u²/0)) = exp(0) = 1, which is ≥ any probability
+    simp [hd, sq, mul_zero, div_zero, neg_zero, Real.exp_zero]
+    exact_mod_cast prob_le_one (μ := μ)
+  · -- d(s,t) > 0: use optimal λ
+    have hd_pos : 0 < dist s t := lt_of_le_of_ne dist_nonneg (Ne.symm hd)
+    -- Use λ = u / (σ² · d²)
+    set lam := u / (σ ^ 2 * dist s t ^ 2) with hlam_def
+    have hlam_pos : 0 < lam := div_pos hu (by positivity)
+    have hMGF : ∫ ω, Real.exp (lam * (X t ω - X s ω)) ∂μ ≤
+        Real.exp (lam ^ 2 * σ ^ 2 * dist s t ^ 2 / 2) := by
+      have := hSG s t lam; convert this using 2 <;> ring
+    have hBound := chernoff_from_mgf μ (fun ω => X t ω - X s ω) lam u
+      (Real.exp (lam ^ 2 * σ ^ 2 * dist s t ^ 2 / 2)) hlam_pos
+      hMGF (hInt lam hlam_pos) (le_of_lt (Real.exp_pos _))
+    calc μ {ω | u < X t ω - X s ω}
+        ≤ ENNReal.ofReal (Real.exp (lam ^ 2 * σ ^ 2 * dist s t ^ 2 / 2) /
+            Real.exp (lam * u)) := hBound
+      _ = ENNReal.ofReal (Real.exp (lam ^ 2 * σ ^ 2 * dist s t ^ 2 / 2 - lam * u)) := by
+          congr 1; exact (Real.exp_sub _ _).symm
+      _ = ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * dist s t ^ 2)))) := by
+          congr 1; congr 1
+          -- lam² σ² d² / 2 - lam·u = -u²/(2σ²d²) when lam = u/(σ²d²)
+          rw [hlam_def]; field_simp; ring
 
 omit [PseudoMetricSpace T] in
 /-- **Union bound for Finset.sup' tail**.
@@ -571,20 +600,20 @@ lemma subgaussian_sup'_tail_bound
         calc μ {ω | t < X i ω - X s₀ ω}
             ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist s₀ i ^ 2)))) :=
               subgaussian_chernoff_single μ X σ hσ hSG s₀ i t ht
+                (fun lam hlam => sorry) -- Integrable exp(λ(Xi-Xs₀))
           _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
               apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le
-              apply neg_le_neg
-              have hd := hDiam s₀ hs₀ i hi
-              have hD2 : 0 < D ^ 2 := sq_pos_of_pos hD
-              have hdi2 : dist s₀ i ^ 2 ≤ D ^ 2 :=
-                sq_le_sq' (by linarith [@dist_nonneg T _ s₀ i]) hd
-              -- exp(-(t²/(2σ²d²))) ≤ exp(-(t²/(2σ²D²))) needs d² ≤ D²
-              -- When d=0: LHS = exp(-(t²/0)) = exp(0) = 1 ≥ RHS (since RHS = exp(neg) ≤ 1)
-              -- When d>0: div_le_div_of_nonneg_left
-              -- When d > 0: standard div monotonicity
-              -- When d = 0: P(X_t-X_s > u) = 0 from sub-Gaussian with 0 variance
-              -- (edge case handled separately)
-              sorry -- div monotonicity + d=0 edge case
+              by_cases hd0 : dist s₀ i = 0
+              · -- d=0 edge case: exp bound at d=0 is vacuous (exp(0) = 1 ≥ any prob)
+                -- The inequality -(t²/(2σ²·0²)) ≤ -(t²/(2σ²D²)) in Lean is 0 ≤ -(pos)
+                -- which requires special handling of div_zero
+                sorry
+              · apply neg_le_neg
+                have hd := hDiam s₀ hs₀ i hi
+                have hdi2 : dist s₀ i ^ 2 ≤ D ^ 2 :=
+                  sq_le_sq' (by linarith [@dist_nonneg T _ s₀ i]) hd
+                exact div_le_div_of_nonneg_left (sq_nonneg t) (by positivity)
+                  (mul_le_mul_of_nonneg_left hdi2 (by positivity))
     _ = F.card • ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
         rw [Finset.sum_const]
     _ = ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
@@ -615,20 +644,18 @@ lemma subgaussian_neg_inf'_tail_bound
               congr 1; ext ω; simp only [neg_sub, Set.mem_setOf_eq]
           _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist i s₀ ^ 2)))) :=
               subgaussian_chernoff_single μ X σ hσ hSG i s₀ t ht
+                (fun lam hlam => sorry) -- Integrable exp(λ(Xs₀-Xi))
           _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
               apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le
-              apply neg_le_neg
-              have hd := hDiam i hi s₀ hs₀
-              have hD2 : 0 < D ^ 2 := sq_pos_of_pos hD
-              have hdi2 : dist i s₀ ^ 2 ≤ D ^ 2 :=
-                sq_le_sq' (by linarith [@dist_nonneg T _ i s₀]) hd
-              -- exp(-(t²/(2σ²d²))) ≤ exp(-(t²/(2σ²D²))) needs d² ≤ D²
-              -- When d=0: LHS = exp(-(t²/0)) = exp(0) = 1 ≥ RHS (since RHS = exp(neg) ≤ 1)
-              -- When d>0: div_le_div_of_nonneg_left
-              -- When d > 0: standard div monotonicity
-              -- When d = 0: P(X_t-X_s > u) = 0 from sub-Gaussian with 0 variance
-              -- (edge case handled separately)
-              sorry -- div monotonicity + d=0 edge case
+              by_cases hd0 : dist i s₀ = 0
+              · sorry -- d=0 edge case (same as sup' version)
+              · apply neg_le_neg
+                have hd := hDiam i hi s₀ hs₀
+                have hdi2 : dist i s₀ ^ 2 ≤ D ^ 2 :=
+                  sq_le_sq' (by linarith [@dist_nonneg T _ i s₀]) hd
+                exact div_le_div_of_nonneg_left (sq_nonneg t)
+                  (by positivity)
+                  (mul_le_mul_of_nonneg_left hdi2 (by positivity))
     _ = F.card • ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
         rw [Finset.sum_const]
     _ = ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
