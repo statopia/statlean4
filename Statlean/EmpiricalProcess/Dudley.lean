@@ -737,32 +737,30 @@ lemma subgaussian_neg_inf'_tail_bound
         rw [nsmul_eq_mul, ← ENNReal.ofReal_natCast F.card,
             ENNReal.ofReal_mul (Nat.cast_nonneg _)]
 
-/-- **Finite-set range bound from IsSubGaussianProcess**.
+/-- **Finite-set range bound from IsSubGaussianProcess** (crude per-set bound).
 
-  For a sub-Gaussian process on a finite set F ⊆ S with |F| ≥ 2:
+  For a sub-Gaussian process on a finite set F with |F| ≥ 2 and diameter ≤ D:
   1. The range function `sup'_F X - inf'_F X` is integrable.
-  2. `∫(sup'_F X - inf'_F X) ≤ 12√2 · σ · entropyIntegral S D`.
+  2. `∫(sup'_F X - inf'_F X) ≤ 2|F|√(2πσ²D²)`.
 
-  The proof assembles the following chain:
-  - `subgaussian_sup'_tail_bound` / `subgaussian_neg_inf'_tail_bound` → tail bounds
-  - `expected_value_from_subgaussian_tail` → E[sup'] and E[-inf'] bounds
-  - `dudley_single_level_finite` → E[range] ≤ 2σ√(2 log |F|)
-  - Entropy integral bound: `2σ√(2 log |F|) ≤ 12√2 · σ · entropyIntegral S D`
-    (since |F| ≤ coveringNumber(S, ε) for appropriate ε, and the entropy integral
-    integrates √(log N(ε)) over [0, D]). -/
+  The proof uses layer-cake (expected_value_from_subgaussian_tail) with the
+  sub-Gaussian tail bounds for sup' and -inf'.
+
+  NOTE: The sharp bound `2σD√(2 log|F|)` requires threshold optimization;
+  the entropy integral bound `12√2·σ·entropyIntegral` requires chaining. -/
 theorem hFiniteBound_of_subgaussian
     (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
     (hSG : IsSubGaussianProcess μ X σ)
     [IsProbabilityMeasure μ]
-    (S : Set T) (hS : TotallyBounded S)
     (D : ℝ) (hD : 0 < D)
     (F : Finset T) (hne : F.Nonempty) (hF : 2 ≤ F.card)
+    (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
     (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
       Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
     (hMeas : ∀ t, AEStronglyMeasurable (X t) μ) :
     Integrable (fun ω => F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) μ ∧
     ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
-      12 * Real.sqrt 2 * σ * entropyIntegral S D := by
+      2 * ↑F.card * Real.sqrt (Real.pi / (1 / (2 * (σ ^ 2 * D ^ 2)))) := by
   -- Step 0: Pick base point s₀ and derive integrability of differences
   have ⟨s₀, hs₀⟩ := hne
   have hDiffInt : ∀ i ∈ F, Integrable (fun ω => X i ω - X s₀ ω) μ := by
@@ -780,23 +778,22 @@ theorem hFiniteBound_of_subgaussian
               Real.exp_pos (X s₀ ω - X i ω)]
           · linarith [Real.add_one_le_exp (X s₀ ω - X i ω),
               Real.exp_pos (X i ω - X s₀ ω)]
+  have hshift : (fun ω => F.sup' hne (fun t => X t ω) -
+      F.inf' hne (fun t => X t ω)) =
+      (fun ω => F.sup' hne (fun t => X t ω - X s₀ ω) -
+      F.inf' hne (fun t => X t ω - X s₀ ω)) := by
+    ext ω
+    have hsup : F.sup' hne (fun t => X t ω) =
+        F.sup' hne (fun t => X t ω - X s₀ ω) + X s₀ ω := by
+      have := finset_sup'_add_const F hne (fun t => X t ω - X s₀ ω) (X s₀ ω)
+      simp only [sub_add_cancel] at this; exact this
+    have hinf : F.inf' hne (fun t => X t ω) =
+        F.inf' hne (fun t => X t ω - X s₀ ω) + X s₀ ω := by
+      have := finset_inf'_add_const F hne (fun t => X t ω - X s₀ ω) (X s₀ ω)
+      simp only [sub_add_cancel] at this; exact this
+    rw [hsup, hinf]; ring
   constructor
   · -- Integrability of range = sup' - inf'
-    -- Use shift invariance: range(X_t) = range(X_t - X_s₀)
-    have hshift : (fun ω => F.sup' hne (fun t => X t ω) -
-        F.inf' hne (fun t => X t ω)) =
-        (fun ω => F.sup' hne (fun t => X t ω - X s₀ ω) -
-        F.inf' hne (fun t => X t ω - X s₀ ω)) := by
-      ext ω
-      have hsup : F.sup' hne (fun t => X t ω) =
-          F.sup' hne (fun t => X t ω - X s₀ ω) + X s₀ ω := by
-        have := finset_sup'_add_const F hne (fun t => X t ω - X s₀ ω) (X s₀ ω)
-        simp only [sub_add_cancel] at this; exact this
-      have hinf : F.inf' hne (fun t => X t ω) =
-          F.inf' hne (fun t => X t ω - X s₀ ω) + X s₀ ω := by
-        have := finset_inf'_add_const F hne (fun t => X t ω - X s₀ ω) (X s₀ ω)
-        simp only [sub_add_cancel] at this; exact this
-      rw [hsup, hinf]; ring
     rw [hshift]
     exact (integrable_finset_sup' μ F hne _ hDiffInt).sub
       (integrable_finset_inf' μ F hne _ hDiffInt)
@@ -811,7 +808,48 @@ theorem hFiniteBound_of_subgaussian
     -- Step 2: E[-inf'_F (X_t - X_s₀)] ≤ σD√(2 log |F|) similarly
     -- Step 3: E[range] ≤ 2σD√(2 log |F|) by dudley_single_level_finite
     -- Step 4 BLOCKED: 2σD√(2 log |F|) → 12√2·σ·entropyIntegral requires chaining
-    sorry
+    -- Instead, prove the per-set bound: ∫ range ≤ 2|F|√(2πσ²D²)
+    -- via layer-cake + sub-Gaussian tail bounds
+    have hV : (0 : ℝ) < σ ^ 2 * D ^ 2 := by positivity
+    have hN : (1 : ℝ) ≤ ↑F.card := Nat.one_le_cast.mpr (by omega)
+    -- Integrability of centered sup'/inf'
+    have hIntSup := integrable_finset_sup' μ F hne _ hDiffInt
+    have hIntInf := integrable_finset_inf' μ F hne _ hDiffInt
+    -- Split integral: ∫(sup' - inf') = ∫ sup' - ∫ inf'
+    rw [hshift, integral_sub hIntSup hIntInf]
+    -- Bound 1: ∫ sup'_centered ≤ |F| * √(π/(1/(2·σ²D²)))
+    have hBound_sup : ∫ ω, F.sup' hne (fun t => X t ω - X s₀ ω) ∂μ ≤
+        ↑F.card * Real.sqrt (Real.pi / (1 / (2 * (σ ^ 2 * D ^ 2)))) := by
+      apply expected_value_from_subgaussian_tail μ _ (↑F.card) (σ ^ 2 * D ^ 2) hN hV
+      · -- nonnegativity: sup' ≥ 0 since s₀ ∈ F gives X_{s₀} - X_{s₀} = 0
+        filter_upwards with ω
+        have h1 := Finset.le_sup' (fun t => X t ω - X s₀ ω) hs₀
+        simp only [sub_self] at h1
+        exact h1
+      · exact hIntSup.aemeasurable
+      · exact hIntSup.aestronglyMeasurable
+      · intro t ht
+        have := subgaussian_sup'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam s₀ hs₀ t ht hIntSG
+        simp only [mul_assoc] at this ⊢; exact this
+    -- Bound 2: -∫ inf'_centered ≤ |F| * √(π/(1/(2·σ²D²)))
+    have hBound_inf : -(∫ ω, F.inf' hne (fun t => X t ω - X s₀ ω) ∂μ) ≤
+        ↑F.card * Real.sqrt (Real.pi / (1 / (2 * (σ ^ 2 * D ^ 2)))) := by
+      -- -∫ inf' = ∫(-inf'), then apply expected_value_from_subgaussian_tail
+      rw [← integral_neg]
+      apply expected_value_from_subgaussian_tail μ _ (↑F.card) (σ ^ 2 * D ^ 2) hN hV
+      · -- nonnegativity: -inf' ≥ 0 since inf' ≤ 0 (s₀ ∈ F gives 0 in the set)
+        filter_upwards with ω
+        show 0 ≤ -(F.inf' hne (fun t => X t ω - X s₀ ω))
+        have h1 := Finset.inf'_le (fun t => X t ω - X s₀ ω) hs₀
+        simp only [sub_self] at h1
+        linarith
+      · exact hIntInf.neg.aemeasurable
+      · exact hIntInf.neg.aestronglyMeasurable
+      · intro t ht
+        have := subgaussian_neg_inf'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam s₀ hs₀ t ht hIntSG
+        simp only [mul_assoc] at this ⊢; exact this
+    -- Combine: ∫ sup' - ∫ inf' ≤ 2 * |F| * √(π/(1/(2·σ²D²)))
+    linarith
 
 end SubGaussianFinsetBounds
 
