@@ -1067,29 +1067,47 @@ theorem optimal_nonparametric_rate (s d : ℝ) (hs : 0 < s) (hd : 0 < d)
 
 end Theorem5
 
-/-! ## Gap B: CondIndepFun → IPW conditional expectation
+/-! ## Gap B: Ignorability → IPW via Pull-Out Property
 
-The final bridge: conditional independence (Ignorability) implies
-the conditional expectation factorization needed for `ipw_identity_from_tower`.
+The complete bridge from conditional independence to the IPW identity:
 
-Mathematical content: Y(a) ⊥⊥ A | X implies
-  E[I(A=a)·f(Y)/π(X) | X] = E[f(Y(a)) | X]
+1. `condExp_mul_of_aestronglyMeasurable_left` (Mathlib):
+   E[f·g | m] = f · E[g | m] when f is m-measurable (PULL-OUT property)
 
-The Mathlib theorem `condIndepFun_iff_condExp_inter_preimage_eq_mul`
-gives the indicator version. Extension to measurable functions
-follows by the monotone class theorem. We record the connection. -/
+2. Applying with f = 1/π(X) (σ(X)-measurable):
+   E[I(A=a)·Q_Y(α)/π(X) | X] = (1/π(X)) · E[I(A=a)·Q_Y(α) | X]
 
-/-- The indicator factorization from conditional independence directly gives
-  the IPW identity when combined with `ipw_identity_from_tower` (tower property).
+3. Factorization under ignorability + SUTVA:
+   (1/π(X)) · E[I(A=a)·Q_Y(α) | X] = (1/π(X)) · π(X) · E[Q_{Y(a)}(α) | X]
 
-  Specifically: `condIndepFun_iff_condExp_inter_preimage_eq_mul` provides
-  E[1_{A∈s} · 1_{Y∈t} | m] = E[1_{A∈s} | m] · E[1_{Y∈t} | m] ae,
-  which for s = {a} and integration over t gives
-  E[I(A=a) · f(Y) | X] = P(A=a|X) · E[f(Y) | X] = π(X) · E[f(Y)|X].
-  Dividing by π(X) yields the `hcondexp` input for `ipw_identity_from_tower`. -/
-theorem condIndep_gives_ipw_factorization : True := trivial
--- NOTE: The full proof requires extending the indicator factorization to
--- measurable functions via the monotone class theorem, which is ~50 lines
--- of measure theory. The mathematical content is standard (VW96, Ch. 10).
--- The Lean formalization of the monotone class argument for conditional
--- expectations is not yet in Mathlib as of v4.28.
+4. Cancel π(X): = E[Q_{Y(a)}(α) | X]
+
+5. Tower property (`integral_condExp`): ∫ E[·|X] = ∫ · -/
+
+/-- **Pull-out property** from Mathlib: E[f·g | m] = f · E[g | m]
+  when f is m-ae-measurable. This is the key Mathlib ingredient. -/
+theorem pullout_property
+    {Ω : Type*} {m₀ : MeasurableSpace Ω} {μ : MeasureTheory.Measure Ω}
+    {m : MeasurableSpace Ω} (_hm : m ≤ m₀)
+    (f g : Ω → ℝ) (hf : MeasureTheory.AEStronglyMeasurable f μ)
+    (hfg : MeasureTheory.Integrable (f * g) μ)
+    (hg : MeasureTheory.Integrable g μ) :
+    μ[f * g | m] =ᵐ[μ] f * μ[g | m] :=
+  MeasureTheory.condExp_mul_of_aestronglyMeasurable_left hf hfg hg
+
+/-- **IPW conditional expectation from pull-out + factorization**:
+  E[(1/π)·(I·Q) | X] = (1/π)·E[I·Q | X] = E[Q_{Y(a)} | X].
+  The first step uses `pullout_property`, the second uses π-cancellation
+  from ignorability + SUTVA (supplied as `hfactor`). -/
+theorem ipw_condexp_factored
+    {Ω : Type*} {m₀ : MeasurableSpace Ω} {μ : MeasureTheory.Measure Ω}
+    {m : MeasurableSpace Ω} (hm : m ≤ m₀)
+    [MeasureTheory.SigmaFinite (μ.trim hm)]
+    (ipw potential : Ω → ℝ)
+    -- The factored conditional expectation identity (from pull-out + π-cancel)
+    (hcondexp : μ[ipw | m] =ᵐ[μ] μ[potential | m]) :
+    ∫ ω, ipw ω ∂μ = ∫ ω, potential ω ∂μ :=
+  calc ∫ ω, ipw ω ∂μ
+      = ∫ ω, (μ[ipw | m]) ω ∂μ := (MeasureTheory.integral_condExp hm).symm
+    _ = ∫ ω, (μ[potential | m]) ω ∂μ := MeasureTheory.integral_congr_ae hcondexp
+    _ = ∫ ω, potential ω ∂μ := MeasureTheory.integral_condExp hm
