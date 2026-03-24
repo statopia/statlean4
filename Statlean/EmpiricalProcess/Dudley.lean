@@ -1173,6 +1173,39 @@ theorem chaining_step_pointwise (F G : Finset T) (hneF : F.Nonempty) (hneG : G.N
     _ ≤ _ := by linarith [sup'_comp_le F hneF G hneG proj hproj X,
                            inf'_comp_le F hneF G hneG proj hproj X]
 
+/-- **K-step chaining decomposition** (pointwise, by induction):
+  `range(nets_K, X) ≤ range(nets_0, X) + ∑_{k<K} increment_range_k`
+  where `increment_range_k = range_{nets_{k+1}}(X_t - X_{proj_k(t)})`. -/
+theorem chaining_telescope_range (K : ℕ)
+    (nets : ℕ → Finset T) (hne : ∀ k, (nets k).Nonempty)
+    (proj : ℕ → T → T) (hproj : ∀ k < K, ∀ t ∈ nets (k + 1), proj k t ∈ nets k)
+    (X : T → ℝ) :
+    (nets K).sup' (hne K) X - (nets K).inf' (hne K) X ≤
+    ((nets 0).sup' (hne 0) X - (nets 0).inf' (hne 0) X) +
+    ∑ k ∈ Finset.range K,
+      ((nets (k + 1)).sup' (hne (k + 1)) (fun t => X t - X (proj k t)) -
+       (nets (k + 1)).inf' (hne (k + 1)) (fun t => X t - X (proj k t))) := by
+  induction K with
+  | zero => simp
+  | succ K ih =>
+    rw [Finset.sum_range_succ]; linarith [
+      chaining_step_pointwise (nets (K + 1)) (nets K) (hne _) (hne _)
+        (proj K) (hproj K (Nat.lt_succ_of_le le_rfl)) X,
+      ih (fun k hk => hproj k (Nat.lt_succ_of_lt hk))]
+
+/-- **Per-interval Riemann bound** for antitone functions:
+  `f(b) · (b - a) ≤ ∫_a^b f(x) dx` when f is antitone on [a, b]. -/
+theorem antitone_interval_bound {f : ℝ → ℝ} {a b : ℝ} (hab : a ≤ b)
+    (hf_anti : AntitoneOn f (Set.Icc a b)) (hf_int : IntegrableOn f (Set.Icc a b)) :
+    f b * (b - a) ≤ ∫ x in Set.Icc a b, f x := by
+  calc f b * (b - a) = volume.real (Set.Icc a b) • f b := by
+        simp [Measure.real, Real.volume_Icc, ENNReal.toReal_ofReal (sub_nonneg.mpr hab),
+          smul_eq_mul, mul_comm]
+    _ = ∫ x in Set.Icc a b, f b := (setIntegral_const _).symm
+    _ ≤ ∫ x in Set.Icc a b, f x :=
+        setIntegral_mono_on (integrable_const _) hf_int measurableSet_Icc
+          fun x hx => hf_anti hx (Set.right_mem_Icc.mpr hab) hx.2
+
 end ChainingDecomposition
 
 /-- **Dudley entropy integral bound** (full assembly from finite-set bounds).
