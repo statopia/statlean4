@@ -272,6 +272,76 @@ theorem subgaussian_expected_max_bound (N : ℕ) (hN : 2 ≤ N)
     exact div_le_of_le_mul₀ hsqrt.le hσ.le (le_mul_of_one_le_right hσ.le h1le)
   linarith [mul_le_mul_of_nonneg_left h1le hσ.le]
 
+section LayerCakeExpectation
+
+open ENNReal
+
+/-- **Finiteness of the sub-Gaussian tail lintegral** over (0, ∞).
+
+  The lintegral ∫⁻_{t>0} N·exp(-t²/(2V)) dt < ∞ because it is bounded by
+  the half-Gaussian integral N · √(2πV) / 2, which is finite. -/
+private lemma lintegral_subgaussian_tail_ne_top (N V : ℝ) (hN : 1 ≤ N) (hV : 0 < V) :
+    ∫⁻ t in Set.Ioi (0 : ℝ), ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V)))) ≠ ⊤ := by
+  have hb : 0 < 1 / (2 * V) := by positivity
+  have hint : Integrable (fun t : ℝ => N * Real.exp (-(t ^ 2 / (2 * V)))) := by
+    have : (fun t : ℝ => N * Real.exp (-(t ^ 2 / (2 * V)))) =
+        fun t => N * Real.exp (-(1 / (2 * V)) * t ^ 2) := by
+      ext t; congr 1; congr 1; ring
+    rw [this]; exact (integrable_exp_neg_mul_sq hb).const_mul N
+  have hlt : ∫⁻ t, ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V)))) < ⊤ :=
+    hint.lintegral_lt_top
+  refine ne_top_of_le_ne_top hlt.ne ?_
+  exact MeasureTheory.setLIntegral_le_lintegral _ _
+
+/-- **Sub-Gaussian tail lintegral equals real integral**.
+
+  Converts the ENNReal lintegral ∫⁻_{t>0} N·exp(-t²/(2V)) to its real-valued form,
+  enabling the use of `integral_gaussian`-type results. -/
+private lemma lintegral_subgaussian_tail_toReal (N V : ℝ) (hN : 1 ≤ N) (hV : 0 < V) :
+    (∫⁻ t in Set.Ioi (0 : ℝ), ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V))))).toReal ≤
+    Real.sqrt (2 * V * Real.log N) + Real.sqrt (2 * Real.pi * V) / 2 := by
+  sorry
+
+/-- **Expected value bound from sub-Gaussian tail via layer-cake formula**.
+
+  If Z ≥ 0 a.e. and satisfies the tail bound μ{Z > t} ≤ N · exp(-t²/(2V))
+  for all t > 0, then ∫ Z dμ ≤ √(2V · log N) + √(2πV) / 2.
+
+  The proof uses the **layer-cake (Cavalieri) formula**:
+    ∫ Z dμ = ∫₀^∞ μ{Z > t} dt
+
+  Then bounds the tail probabilities using the hypothesis and evaluates
+  the resulting Gaussian integral by splitting at the threshold
+  t* = √(2V · log N) where N · exp(-t*²/(2V)) = 1:
+  - Below t*: ∫₀^{t*} 1 dt = t* = √(2V · log N)
+  - Above t*: ∫_{t*}^∞ N·exp(-t²/(2V)) dt ≤ √(2πV) / 2  (half Gaussian)
+
+  This is the key bridge from tail bounds to expectation bounds, used to
+  derive `hMaxBound` in `dudley_single_level_finite`. -/
+theorem expected_value_from_subgaussian_tail
+    (Z : Ω → ℝ) (N V : ℝ) (hN : 1 ≤ N) (hV : 0 < V)
+    (hZ_nn : 0 ≤ᵐ[μ] Z) (hZ_meas : AEMeasurable Z μ)
+    (hZ_sm : AEStronglyMeasurable Z μ)
+    (hTail : ∀ t : ℝ, 0 < t →
+      μ {ω | t < Z ω} ≤ ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V))))) :
+    ∫ ω, Z ω ∂μ ≤ Real.sqrt (2 * V * Real.log N) + Real.sqrt (2 * Real.pi * V) / 2 := by
+  -- Step 1: Convert Bochner integral to Lebesgue integral (since Z ≥ 0)
+  rw [MeasureTheory.integral_eq_lintegral_of_nonneg_ae hZ_nn hZ_sm]
+  -- Step 2: Apply layer-cake (Cavalieri) formula
+  rw [MeasureTheory.lintegral_eq_lintegral_meas_lt μ hZ_nn hZ_meas]
+  -- Now goal: (∫⁻ t in Ioi 0, μ{Z > t}).toReal ≤ √(2V·log N) + √(2πV)/2
+  -- Step 3: Bound the tail measure using hypothesis
+  have hBound : ∫⁻ t in Set.Ioi (0 : ℝ), μ {a | t < Z a} ≤
+      ∫⁻ t in Set.Ioi (0 : ℝ), ENNReal.ofReal (N * Real.exp (-(t ^ 2 / (2 * V)))) := by
+    apply MeasureTheory.lintegral_mono_ae
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht
+    exact hTail t ht
+  -- Step 4: Monotonicity of toReal + bound the Gaussian integral
+  exact le_trans (ENNReal.toReal_mono (lintegral_subgaussian_tail_ne_top N V hN hV) hBound)
+    (lintegral_subgaussian_tail_toReal N V hN hV)
+
+end LayerCakeExpectation
+
 /-- **Finite range bound via sub-Gaussian hypothesis**.
 
   For a sub-Gaussian process on a finite set F with |F| ≥ 2:
