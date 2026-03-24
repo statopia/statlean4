@@ -183,11 +183,16 @@ variable {Ω : Type*} {m : MeasurableSpace Ω} (μ : Measure Ω)
 variable {T : Type*} [PseudoMetricSpace T]
 
 /-- A stochastic process (X_t)_{t∈T} is **sub-Gaussian** with parameter σ if:
-  E[exp(u(X_t - X_s))] ≤ exp(u² σ² d(s,t)² / 2)  for all u, s, t. -/
-def IsSubGaussianProcess (X : T → Ω → ℝ) (σ : ℝ) : Prop :=
-  ∀ s t : T, ∀ u : ℝ,
+  1. E[exp(u(X_t - X_s))] ≤ exp(u² σ² d(s,t)² / 2)  for all u, s, t (MGF bound)
+  2. exp(λ(X_t - X_s)) is integrable for all λ > 0, s, t (integrability) -/
+structure IsSubGaussianProcess (X : T → Ω → ℝ) (σ : ℝ) : Prop where
+  /-- MGF bound -/
+  mgf : ∀ s t : T, ∀ u : ℝ,
     ∫ ω, Real.exp (u * (X t ω - X s ω)) ∂μ ≤
       Real.exp (u ^ 2 * σ ^ 2 * dist s t ^ 2 / 2)
+  /-- Exponential integrability -/
+  intExp : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
+    MeasureTheory.Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ
 
 -- dudley_entropy_integral_of_integralBound removed: was hypothesis-passing tautology.
 -- The genuine theorem is `dudley_entropy_integral` below.
@@ -698,7 +703,7 @@ lemma subgaussian_chernoff_single
     have hlam_pos : 0 < lam := div_pos hu (by positivity)
     have hMGF : ∫ ω, Real.exp (lam * (X t ω - X s ω)) ∂μ ≤
         Real.exp (lam ^ 2 * σ ^ 2 * dist s t ^ 2 / 2) := by
-      have := hSG s t lam; convert this using 2 <;> ring
+      have := hSG.mgf s t lam; convert this using 2 <;> ring
     have hBound := chernoff_from_mgf μ (fun ω => X t ω - X s ω) lam u
       (Real.exp (lam ^ 2 * σ ^ 2 * dist s t ^ 2 / 2)) hlam_pos
       hMGF (hInt lam hlam_pos) (le_of_lt (Real.exp_pos _))
@@ -820,9 +825,7 @@ lemma subgaussian_sup'_tail_bound
     (D : ℝ) (hD : 0 < D)
     (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
     (s₀ : T) (hs₀ : s₀ ∈ F)
-    (t : ℝ) (ht : 0 < t)
-    (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
-      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ) :
+    (t : ℝ) (ht : 0 < t) :
     μ {ω | t < F.sup' hne (fun i => X i ω - X s₀ ω)} ≤
       ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
   -- Step 1: Union bound reduces to sum over individual tails
@@ -837,13 +840,13 @@ lemma subgaussian_sup'_tail_bound
           set lam := t / (2 * σ ^ 2 * D ^ 2) with hlam_def
           have hlam_pos : 0 < lam := div_pos ht (by positivity)
           have hMGF : ∫ ω, Real.exp (lam * (X i ω - X s₀ ω)) ∂μ ≤ 1 := by
-            have h := hSG s₀ i lam
+            have h := hSG.mgf s₀ i lam
             have : lam ^ 2 * σ ^ 2 * dist s₀ i ^ 2 / 2 = 0 := by rw [hd0]; ring
             rw [this, Real.exp_zero] at h; exact h
           calc μ {ω | t < X i ω - X s₀ ω}
               ≤ ENNReal.ofReal (1 / Real.exp (lam * t)) :=
                 chernoff_from_mgf μ (fun ω => X i ω - X s₀ ω)
-                  lam t 1 hlam_pos hMGF (hIntSG s₀ i lam hlam_pos) (by norm_num)
+                  lam t 1 hlam_pos hMGF (hSG.intExp s₀ i lam hlam_pos) (by norm_num)
             _ = ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
                 congr 1; rw [one_div, ← Real.exp_neg]; congr 1; rw [hlam_def]; ring
         · -- d(s₀,i) > 0: Chernoff + monotonicity
@@ -851,7 +854,7 @@ lemma subgaussian_sup'_tail_bound
           calc μ {ω | t < X i ω - X s₀ ω}
               ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist s₀ i ^ 2)))) :=
                 subgaussian_chernoff_single μ X σ hσ hSG s₀ i t ht
-                  (fun lam hlam => hIntSG s₀ i lam hlam)
+                  (fun lam hlam => hSG.intExp s₀ i lam hlam)
             _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
                 apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le
                 apply neg_le_neg
@@ -877,9 +880,7 @@ lemma subgaussian_neg_inf'_tail_bound
     (D : ℝ) (hD : 0 < D)
     (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
     (s₀ : T) (hs₀ : s₀ ∈ F)
-    (t : ℝ) (ht : 0 < t)
-    (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
-      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ) :
+    (t : ℝ) (ht : 0 < t) :
     μ {ω | t < -(F.inf' hne (fun i => X i ω - X s₀ ω))} ≤
       ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
   calc μ {ω | t < -(F.inf' hne (fun i => X i ω - X s₀ ω))}
@@ -895,13 +896,13 @@ lemma subgaussian_neg_inf'_tail_bound
           set lam := t / (2 * σ ^ 2 * D ^ 2) with hlam_def
           have hlam_pos : 0 < lam := div_pos ht (by positivity)
           have hMGF : ∫ ω, Real.exp (lam * (X s₀ ω - X i ω)) ∂μ ≤ 1 := by
-            have h := hSG i s₀ lam
+            have h := hSG.mgf i s₀ lam
             have : lam ^ 2 * σ ^ 2 * dist i s₀ ^ 2 / 2 = 0 := by rw [hd0]; ring
             rw [this, Real.exp_zero] at h; exact h
           calc μ {ω | t < X s₀ ω - X i ω}
               ≤ ENNReal.ofReal (1 / Real.exp (lam * t)) :=
                 chernoff_from_mgf μ (fun ω => X s₀ ω - X i ω)
-                  lam t 1 hlam_pos hMGF (hIntSG i s₀ lam hlam_pos) (by norm_num)
+                  lam t 1 hlam_pos hMGF (hSG.intExp i s₀ lam hlam_pos) (by norm_num)
             _ = ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
                 congr 1; rw [one_div, ← Real.exp_neg]; congr 1; rw [hlam_def]; ring
         · have hd_pos : 0 < dist i s₀ := lt_of_le_of_ne dist_nonneg (Ne.symm hd0)
@@ -910,7 +911,7 @@ lemma subgaussian_neg_inf'_tail_bound
                 congr 1; ext ω; simp only [neg_sub, Set.mem_setOf_eq]
             _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist i s₀ ^ 2)))) :=
                 subgaussian_chernoff_single μ X σ hσ hSG i s₀ t ht
-                  (fun lam hlam => hIntSG i s₀ lam hlam)
+                  (fun lam hlam => hSG.intExp i s₀ lam hlam)
             _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
                 apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le; apply neg_le_neg
                 have hd := hDiam i hi s₀ hs₀
@@ -942,8 +943,6 @@ theorem hFiniteBound_of_subgaussian
     (D : ℝ) (hD : 0 < D)
     (F : Finset T) (hne : F.Nonempty) (hF : 2 ≤ F.card)
     (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
-    (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
-      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
     (hMeas : ∀ t, AEStronglyMeasurable (X t) μ) :
     Integrable (fun ω => F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) μ ∧
     ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
@@ -952,8 +951,8 @@ theorem hFiniteBound_of_subgaussian
   have ⟨s₀, hs₀⟩ := hne
   have hDiffInt : ∀ i ∈ F, Integrable (fun ω => X i ω - X s₀ ω) μ := by
     intro i _hi
-    -- |X_i - X_s₀| ≤ exp(X_i - X_s₀) + exp(-(X_i - X_s₀)), both integrable from hIntSG
-    apply Integrable.mono' ((hIntSG s₀ i 1 one_pos).add (hIntSG i s₀ 1 one_pos))
+    -- |X_i - X_s₀| ≤ exp(X_i - X_s₀) + exp(-(X_i - X_s₀)), both integrable from hSG.intExp
+    apply Integrable.mono' ((hSG.intExp s₀ i 1 one_pos).add (hSG.intExp i s₀ 1 one_pos))
       ((hMeas i).sub (hMeas s₀))
     filter_upwards with ω
     simp only [one_mul, Pi.add_apply]
@@ -1016,7 +1015,7 @@ theorem hFiniteBound_of_subgaussian
       · exact hIntSup.aemeasurable
       · exact hIntSup.aestronglyMeasurable
       · intro t ht
-        have := subgaussian_sup'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam s₀ hs₀ t ht hIntSG
+        have := subgaussian_sup'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam s₀ hs₀ t ht
         simp only [mul_assoc] at this ⊢; exact this
     -- Bound 2: -∫ inf'_centered ≤ |F| * √(π/(1/(2·σ²D²)))
     have hBound_inf : -(∫ ω, F.inf' hne (fun t => X t ω - X s₀ ω) ∂μ) ≤
@@ -1033,7 +1032,7 @@ theorem hFiniteBound_of_subgaussian
       · exact hIntInf.neg.aemeasurable
       · exact hIntInf.neg.aestronglyMeasurable
       · intro t ht
-        have := subgaussian_neg_inf'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam s₀ hs₀ t ht hIntSG
+        have := subgaussian_neg_inf'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam s₀ hs₀ t ht
         simp only [mul_assoc] at this ⊢; exact this
     -- Combine: ∫ sup' - ∫ inf' ≤ 2 * |F| * √(π/(1/(2·σ²D²)))
     linarith
@@ -1047,8 +1046,6 @@ theorem sharp_hFiniteBound_of_subgaussian
     (D : ℝ) (hD : 0 < D)
     (F : Finset T) (hne : F.Nonempty) (hF : 2 ≤ F.card)
     (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
-    (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
-      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
     (hMeas : ∀ t, AEStronglyMeasurable (X t) μ) :
     ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
       8 * σ * D * Real.sqrt (2 * Real.log ↑F.card) := by
@@ -1057,7 +1054,7 @@ theorem sharp_hFiniteBound_of_subgaussian
   -- Derive integrability of differences (same as hFiniteBound proof)
   have hDiffInt : ∀ i ∈ F, Integrable (fun ω => X i ω - X s₀ ω) μ := by
     intro i _
-    exact Integrable.mono' ((hIntSG s₀ i 1 one_pos).add (hIntSG i s₀ 1 one_pos))
+    exact Integrable.mono' ((hSG.intExp s₀ i 1 one_pos).add (hSG.intExp i s₀ 1 one_pos))
       ((hMeas i).sub (hMeas s₀)) (by
         filter_upwards with ω; simp only [one_mul, Pi.add_apply]; rw [Real.norm_eq_abs]
         rcases abs_cases (X i ω - X s₀ ω) with ⟨_, _⟩ | ⟨_, _⟩
@@ -1082,7 +1079,7 @@ theorem sharp_hFiniteBound_of_subgaussian
       (Filter.Eventually.of_forall fun ω =>
         le_trans (by simp [sub_self]) (Finset.le_sup' _ hs₀)) hIntSup
       (fun t ht => by have := subgaussian_sup'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam
-                        s₀ hs₀ t ht hIntSG; simp only [mul_assoc] at this ⊢; exact this)
+                        s₀ hs₀ t ht; simp only [mul_assoc] at this ⊢; exact this)
   have hBinf : -(∫ ω, F.inf' hne (fun t => X t ω - X s₀ ω) ∂μ) ≤
       4 * Real.sqrt (2 * (σ ^ 2 * D ^ 2) * Real.log ↑F.card) := by
     rw [← integral_neg]
@@ -1093,7 +1090,7 @@ theorem sharp_hFiniteBound_of_subgaussian
           show X s₀ ω - X s₀ ω = 0 from sub_self _])
       hIntInf.neg
       (fun t ht => by have := subgaussian_neg_inf'_tail_bound μ X σ hσ hSG F hne hF D hD hDiam
-                        s₀ hs₀ t ht hIntSG; simp only [mul_assoc] at this ⊢; exact this)
+                        s₀ hs₀ t ht; simp only [mul_assoc] at this ⊢; exact this)
   -- 2 × 4√(2σ²D²·log N) = 8σD√(2 log N)
   have : 4 * Real.sqrt (2 * (σ ^ 2 * D ^ 2) * Real.log ↑F.card) =
       4 * (σ * D) * Real.sqrt (2 * Real.log ↑F.card) := by
@@ -1216,8 +1213,6 @@ theorem increment_sup_tail
     (hSG : IsSubGaussianProcess μ X σ) [IsProbabilityMeasure μ]
     (F : Finset T) (hne : F.Nonempty)
     (proj : T → T) (hdist : ∀ t ∈ F, dist t (proj t) ≤ ε)
-    (hIntSG : ∀ a b : T, ∀ lam : ℝ, 0 < lam →
-      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
     (u : ℝ) (hu : 0 < u) :
     μ {ω | u < F.sup' hne (fun t => X t ω - X (proj t) ω)} ≤
       ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
@@ -1230,18 +1225,18 @@ theorem increment_sup_tail
         · set lam := u / (2 * σ ^ 2 * ε ^ 2)
           have hlam : 0 < lam := div_pos hu (by positivity)
           have hMGF : ∫ ω, Real.exp (lam * (X t ω - X (proj t) ω)) ∂μ ≤ 1 := by
-            have h := hSG (proj t) t lam; rw [hd, sq (0:ℝ), mul_zero, mul_zero, zero_div,
+            have h := hSG.mgf (proj t) t lam; rw [hd, sq (0:ℝ), mul_zero, mul_zero, zero_div,
               Real.exp_zero] at h; exact h
           calc μ {ω | u < X t ω - X (proj t) ω}
               ≤ ENNReal.ofReal (1 / Real.exp (lam * u)) :=
-                chernoff_from_mgf μ _ lam u 1 hlam hMGF (hIntSG _ t lam hlam) (by norm_num)
+                chernoff_from_mgf μ _ lam u 1 hlam hMGF (hSG.intExp _ t lam hlam) (by norm_num)
             _ = ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
                 congr 1; rw [one_div, ← Real.exp_neg]; congr 1; ring
         · have hd_pos := lt_of_le_of_ne dist_nonneg (Ne.symm hd)
           calc μ {ω | u < X t ω - X (proj t) ω}
               ≤ ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * dist (proj t) t ^ 2)))) :=
                 subgaussian_chernoff_single μ X σ hσ hSG (proj t) t u hu
-                  (fun lam hlam => hIntSG _ t lam hlam)
+                  (fun lam hlam => hSG.intExp _ t lam hlam)
             _ ≤ ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
                 apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le; apply neg_le_neg
                 exact div_le_div_of_nonneg_left (sq_nonneg u) (by positivity)
@@ -1257,8 +1252,6 @@ theorem increment_neg_inf_tail
     (hSG : IsSubGaussianProcess μ X σ) [IsProbabilityMeasure μ]
     (F : Finset T) (hne : F.Nonempty)
     (proj : T → T) (hdist : ∀ t ∈ F, dist t (proj t) ≤ ε)
-    (hIntSG : ∀ a b : T, ∀ lam : ℝ, 0 < lam →
-      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
     (u : ℝ) (hu : 0 < u) :
     μ {ω | u < -(F.inf' hne (fun t => X t ω - X (proj t) ω))} ≤
       ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
@@ -1273,18 +1266,18 @@ theorem increment_neg_inf_tail
         · set lam := u / (2 * σ ^ 2 * ε ^ 2)
           have hlam : 0 < lam := div_pos hu (by positivity)
           have hMGF : ∫ ω, Real.exp (lam * (X (proj t) ω - X t ω)) ∂μ ≤ 1 := by
-            have h := hSG t (proj t) lam; rw [hd, sq (0:ℝ), mul_zero, mul_zero, zero_div,
+            have h := hSG.mgf t (proj t) lam; rw [hd, sq (0:ℝ), mul_zero, mul_zero, zero_div,
               Real.exp_zero] at h; exact h
           calc μ {ω | u < X (proj t) ω - X t ω}
               ≤ ENNReal.ofReal (1 / Real.exp (lam * u)) :=
-                chernoff_from_mgf μ _ lam u 1 hlam hMGF (hIntSG t _ lam hlam) (by norm_num)
+                chernoff_from_mgf μ _ lam u 1 hlam hMGF (hSG.intExp t _ lam hlam) (by norm_num)
             _ = ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
                 congr 1; rw [one_div, ← Real.exp_neg]; congr 1; ring
         · have hd_pos := lt_of_le_of_ne dist_nonneg (Ne.symm hd)
           calc μ {ω | u < X (proj t) ω - X t ω}
               ≤ ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * dist t (proj t) ^ 2)))) :=
                 subgaussian_chernoff_single μ X σ hσ hSG t (proj t) u hu
-                  (fun lam hlam => hIntSG t _ lam hlam)
+                  (fun lam hlam => hSG.intExp t _ lam hlam)
             _ ≤ ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
                 apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le; apply neg_le_neg
                 exact div_le_div_of_nonneg_left (sq_nonneg u) (by positivity)
@@ -1306,8 +1299,6 @@ variable {Ω : Type*} [MeasurableSpace Ω] {μ : MeasureTheory.Measure Ω}
 theorem increment_range_bound
     (X : T → Ω → ℝ) (σ ε : ℝ) (hσ : 0 < σ) (hε : 0 < ε)
     (hSG : IsSubGaussianProcess μ X σ) [IsProbabilityMeasure μ]
-    (hIntSG : ∀ a b : T, ∀ lam : ℝ, 0 < lam →
-      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
     (hMeas : ∀ t, AEStronglyMeasurable (X t) μ)
     (F : Finset T) (hne : F.Nonempty) (hcard : 2 ≤ F.card)
     (proj : T → T) (hdist : ∀ t ∈ F, dist t (proj t) ≤ ε) :
@@ -1315,7 +1306,7 @@ theorem increment_range_bound
       F.inf' hne (fun t => X t ω - X (proj t) ω)) ∂μ ≤
       8 * σ * ε * Real.sqrt (2 * Real.log ↑F.card) := by
   have hDiffInt : ∀ t ∈ F, Integrable (fun ω => X t ω - X (proj t) ω) μ := fun t _ =>
-    Integrable.mono' ((hIntSG (proj t) t 1 one_pos).add (hIntSG t (proj t) 1 one_pos))
+    Integrable.mono' ((hSG.intExp (proj t) t 1 one_pos).add (hSG.intExp t (proj t) 1 one_pos))
       ((hMeas t).sub (hMeas (proj t))) (by
         filter_upwards with ω; simp only [one_mul, Pi.add_apply]; rw [Real.norm_eq_abs]
         rcases abs_cases (X t ω - X (proj t) ω) with ⟨_, _⟩ | ⟨_, _⟩
@@ -1350,7 +1341,7 @@ theorem increment_range_bound
                     · simp [max_eq_right hle] at hω; linarith
                     · push_neg at hle; rwa [max_eq_left (le_of_lt hle)] at hω
               _ ≤ ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) :=
-                  increment_sup_tail μ X σ ε hσ hε hSG F hne proj hdist hIntSG u hu
+                  increment_sup_tail μ X σ ε hσ hε hSG F hne proj hdist u hu
               _ = ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * (σ ^ 2 * ε ^ 2))))) :=
                   by congr 2; ring
   -- E[-inf] similarly
@@ -1377,7 +1368,7 @@ theorem increment_range_bound
                     · simp [max_eq_right hle] at hω; linarith
                     · push_neg at hle; rwa [max_eq_left (le_of_lt hle)] at hω
               _ ≤ ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) :=
-                  increment_neg_inf_tail μ X σ ε hσ hε hSG F hne proj hdist hIntSG u hu
+                  increment_neg_inf_tail μ X σ ε hσ hε hSG F hne proj hdist u hu
               _ = ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * (σ ^ 2 * ε ^ 2))))) :=
                   by congr 2; ring
   -- Simplify: 4√(2σ²ε²·log N) = 4σε√(2 log N)
@@ -1397,8 +1388,6 @@ theorem increment_range_bound
 theorem dudley_finite_chaining
     (X : T → Ω → ℝ) (σ D : ℝ) (hσ : 0 < σ) (hD : 0 < D)
     (hSG : IsSubGaussianProcess μ X σ)
-    (hIntSG : ∀ a b : T, ∀ lam : ℝ, 0 < lam →
-      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
     (hMeas : ∀ t, AEStronglyMeasurable (X t) μ)
     (K : ℕ) (nets : ℕ → Finset T) (hne : ∀ k, (nets k).Nonempty)
     (hcard : ∀ k ≤ K, 2 ≤ (nets k).card)
@@ -1425,14 +1414,14 @@ theorem dudley_finite_chaining
       (fun k hk t ht => nearestPoint_mem (nets k) (hne k) t) (fun t => X t ω)
   -- Integrability
   have hint0 := (hFiniteBound_of_subgaussian μ X σ hσ hSG D hD (nets 0) (hne 0)
-    (hcard 0 (Nat.zero_le K)) hDiam0 hIntSG hMeas).1
+    (hcard 0 (Nat.zero_le K)) hDiam0 hMeas).1
   have hint_inc : ∀ k ∈ Finset.range K, Integrable (fun ω =>
       (nets (k+1)).sup' (hne (k+1)) (fun t => X t ω - X (proj k t) ω) -
       (nets (k+1)).inf' (hne (k+1)) (fun t => X t ω - X (proj k t) ω)) μ := by
     intro k hk
     have hDI : ∀ t ∈ nets (k+1), Integrable (fun ω => X t ω - X (proj k t) ω) μ := by
       intro t _; exact Integrable.mono'
-        ((hIntSG (proj k t) t 1 one_pos).add (hIntSG t (proj k t) 1 one_pos))
+        ((hSG.intExp (proj k t) t 1 one_pos).add (hSG.intExp t (proj k t) 1 one_pos))
         ((hMeas t).sub (hMeas (proj k t))) (by
           filter_upwards with ω; simp only [one_mul, Pi.add_apply]; rw [Real.norm_eq_abs]
           rcases abs_cases (X t ω - X (proj k t) ω) with ⟨_, _⟩ | ⟨_, _⟩
@@ -1461,9 +1450,9 @@ theorem dudley_finite_chaining
     _ ≤ _ := by
         gcongr with k hk
         · exact sharp_hFiniteBound_of_subgaussian μ X σ hσ hSG D hD (nets 0) (hne 0)
-            (hcard 0 (Nat.zero_le K)) hDiam0 hIntSG hMeas
+            (hcard 0 (Nat.zero_le K)) hDiam0 hMeas
         · exact increment_range_bound X σ (ε k) hσ (hε k (Finset.mem_range.mp hk)) hSG
-            hIntSG hMeas (nets (k+1)) (hne _) (hcard _ (Nat.succ_le_of_lt (Finset.mem_range.mp hk)))
+            hMeas (nets (k+1)) (hne _) (hcard _ (Nat.succ_le_of_lt (Finset.mem_range.mp hk)))
             (proj k) (fun t ht => hdist k (Finset.mem_range.mp hk) t ht)
 
 end DudleyAssemblyNew
