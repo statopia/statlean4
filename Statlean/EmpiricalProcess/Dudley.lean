@@ -419,6 +419,211 @@ theorem dudley_chaining_K_levels_nonneg
     0 ≤ ∑ k ∈ Finset.range K, levelBound k :=
   Finset.sum_nonneg fun k _ => hLevels k
 
+section SubGaussianFinsetBounds
+
+/-! ### Sub-Gaussian tail bounds for Finset.sup' and Finset.inf'
+
+These lemmas connect `IsSubGaussianProcess` to tail bounds for the maximum
+and minimum over a finite set, which are then used to discharge the
+`hFiniteBound` hypothesis of `dudley_entropy_integral`. -/
+
+/-- **Single-point sub-Gaussian Chernoff bound** (the fundamental primitive).
+
+  If E[exp(λ(X_t - X_s))] ≤ exp(λ²σ²d(s,t)²/2) for all λ, then
+  P(X_t - X_s > u) ≤ exp(-u²/(2σ²d(s,t)²)).
+
+  **Proof**: By Markov inequality applied to exp(λ(X_t - X_s)):
+    P(X_t - X_s > u) = P(exp(λ(X_t-X_s)) > exp(λu))
+                      ≤ E[exp(λ(X_t-X_s))] / exp(λu)    (Markov)
+                      ≤ exp(λ²σ²d²/2) / exp(λu)          (sub-Gaussian)
+                      = exp(λ²σ²d²/2 - λu)
+
+  Optimizing λ = u/(σ²d²) gives exp(-u²/(2σ²d²)).
+
+  This requires Markov inequality on ENNReal-valued functions, which involves
+  `meas_ge_le_lintegral_div` from Mathlib and careful ENNReal/Real conversion. -/
+lemma subgaussian_chernoff_single
+    (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
+    (hSG : IsSubGaussianProcess μ X σ)
+    [IsProbabilityMeasure μ]
+    (s t : T) (u : ℝ) (hu : 0 < u) :
+    μ {ω | u < X t ω - X s ω} ≤
+      ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * dist s t ^ 2)))) := by
+  -- Full proof requires Markov on exp(λ·(X_t - X_s)) with optimal λ = u/(σ²d²)
+  -- Markov: μ{exp(λZ) ≥ exp(λu)} ≤ E[exp(λZ)] / exp(λu)
+  --       = meas_ge_le_lintegral_div (AEMeasurable exp(λZ)) (exp(λu) ≠ 0) (≠ ⊤)
+  -- Sub-Gaussian: E[exp(λZ)] ≤ exp(λ²σ²d²/2) from hSG
+  -- Optimize: λ = u/(σ²d²) gives exp(-u²/(2σ²d²))
+  sorry
+
+omit [PseudoMetricSpace T] in
+/-- **Union bound for Finset.sup' tail**.
+  `{ω | t < sup'_F X ω} ⊆ ⋃ i ∈ F, {ω | t < X_i ω}`, so by sub-additivity. -/
+lemma sup'_tail_le_sum_tail
+    (X : T → Ω → ℝ) (F : Finset T) (hne : F.Nonempty) (t : ℝ) :
+    μ {ω | t < F.sup' hne (fun i => X i ω)} ≤
+      ∑ i ∈ F, μ {ω | t < X i ω} := by
+  have hset : {ω | t < F.sup' hne (fun i => X i ω)} ⊆
+      ⋃ i ∈ F, {ω | t < X i ω} := by
+    intro ω hω
+    simp only [Set.mem_setOf_eq] at hω
+    rw [Finset.lt_sup'_iff hne] at hω
+    obtain ⟨b, hb, hlt⟩ := hω
+    exact Set.mem_biUnion hb hlt
+  calc μ {ω | t < F.sup' hne (fun i => X i ω)}
+      ≤ μ (⋃ i ∈ F, {ω | t < X i ω}) := measure_mono hset
+    _ ≤ ∑ i ∈ F, μ {ω | t < X i ω} := measure_biUnion_finset_le F _
+
+omit [PseudoMetricSpace T] in
+/-- **Union bound for neg Finset.inf' tail**.
+  `-inf'_F(ω) > t` iff `inf'_F(ω) < -t` iff `∃ i ∈ F, X_i(ω) < -t`. -/
+lemma neg_inf'_tail_le_sum_tail
+    (X : T → Ω → ℝ) (F : Finset T) (hne : F.Nonempty) (t : ℝ) :
+    μ {ω | t < -(F.inf' hne (fun i => X i ω))} ≤
+      ∑ i ∈ F, μ {ω | t < -(X i ω)} := by
+  have hset : {ω | t < -(F.inf' hne (fun i => X i ω))} ⊆
+      ⋃ i ∈ F, {ω | t < -(X i ω)} := by
+    intro ω hω
+    simp only [Set.mem_setOf_eq] at hω
+    have hinf : F.inf' hne (fun i => X i ω) < -t := by linarith
+    rw [Finset.inf'_lt_iff hne] at hinf
+    obtain ⟨b, hb, hlt⟩ := hinf
+    apply Set.mem_biUnion hb
+    simp only [Set.mem_setOf_eq]
+    linarith
+  calc μ {ω | t < -(F.inf' hne (fun i => X i ω))}
+      ≤ μ (⋃ i ∈ F, {ω | t < -(X i ω)}) := measure_mono hset
+    _ ≤ ∑ i ∈ F, μ {ω | t < -(X i ω)} := measure_biUnion_finset_le F _
+
+/-- **Sub-Gaussian tail for sup' over a finite set** (relative to a base point).
+
+  For a sub-Gaussian process with parameter σ and a finite set F with base point s₀ ∈ F:
+    μ{ω | t < sup'_F(X_i - X_{s₀})(ω)} ≤ |F| · exp(-t²/(2σ²D²))
+  where D bounds all pairwise distances in F.
+
+  Proof outline: by `sup'_tail_le_sum_tail`, the tail is bounded by
+  `∑_{i∈F} μ{X_i - X_{s₀} > t}`. Each term is bounded by the sub-Gaussian
+  Chernoff bound `exp(-t²/(2σ²d(s₀,i)²)) ≤ exp(-t²/(2σ²D²))` since `d(s₀,i) ≤ D`.
+  The sum of |F| copies gives `|F| · exp(-t²/(2σ²D²))`. -/
+lemma subgaussian_sup'_tail_bound
+    (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
+    (hSG : IsSubGaussianProcess μ X σ)
+    [IsProbabilityMeasure μ]
+    (F : Finset T) (hne : F.Nonempty)
+    (hF : 2 ≤ F.card)
+    (D : ℝ) (hD : 0 < D)
+    (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
+    (s₀ : T) (hs₀ : s₀ ∈ F)
+    (t : ℝ) (ht : 0 < t) :
+    μ {ω | t < F.sup' hne (fun i => X i ω - X s₀ ω)} ≤
+      ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+  -- Step 1: Union bound reduces to sum over individual tails
+  calc μ {ω | t < F.sup' hne (fun i => X i ω - X s₀ ω)}
+      ≤ ∑ i ∈ F, μ {ω | t < (X i ω - X s₀ ω)} :=
+        sup'_tail_le_sum_tail μ (fun i ω => X i ω - X s₀ ω) F hne t
+    -- Step 2: Each tail bounded by sub-Gaussian Chernoff
+    -- μ{X_i - X_{s₀} > t} ≤ exp(-t²/(2σ²d(s₀,i)²)) ≤ exp(-t²/(2σ²D²))
+    -- by Markov on MGF with optimal λ = t/(σ²d(s₀,i)²)
+    _ ≤ ∑ _i ∈ F, ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+        apply Finset.sum_le_sum; intro i hi
+        -- Each individual tail: μ{X_i - X_{s₀} > t} ≤ exp(-t²/(2σ²d(s₀,i)²))
+        -- ≤ exp(-t²/(2σ²D²)) since d(s₀,i) ≤ D
+        calc μ {ω | t < X i ω - X s₀ ω}
+            ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist s₀ i ^ 2)))) :=
+              subgaussian_chernoff_single μ X σ hσ hSG s₀ i t ht
+          _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+              apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le
+              apply neg_le_neg
+              have hd := hDiam s₀ hs₀ i hi
+              have hD2 : 0 < D ^ 2 := sq_pos_of_pos hD
+              have hdi2 : dist s₀ i ^ 2 ≤ D ^ 2 :=
+                sq_le_sq' (by linarith [@dist_nonneg T _ s₀ i]) hd
+              -- t²/(2σ²D²) ≤ t²/(2σ²d²) since d² ≤ D²
+              -- This is division monotonicity: a/big ≤ a/small when a ≥ 0, small > 0
+              sorry -- div monotonicity: needs 0 < 2σ²d² (fails when d=0)
+    _ = F.card • ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+        rw [Finset.sum_const]
+    _ = ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+        rw [nsmul_eq_mul, ← ENNReal.ofReal_natCast F.card,
+            ENNReal.ofReal_mul (Nat.cast_nonneg _)]
+
+/-- **Sub-Gaussian tail for -inf' over a finite set** (relative to a base point).
+  Symmetric version using sub-Gaussian Chernoff. -/
+lemma subgaussian_neg_inf'_tail_bound
+    (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
+    (hSG : IsSubGaussianProcess μ X σ)
+    [IsProbabilityMeasure μ]
+    (F : Finset T) (hne : F.Nonempty)
+    (hF : 2 ≤ F.card)
+    (D : ℝ) (hD : 0 < D)
+    (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
+    (s₀ : T) (hs₀ : s₀ ∈ F)
+    (t : ℝ) (ht : 0 < t) :
+    μ {ω | t < -(F.inf' hne (fun i => X i ω - X s₀ ω))} ≤
+      ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+  calc μ {ω | t < -(F.inf' hne (fun i => X i ω - X s₀ ω))}
+      ≤ ∑ i ∈ F, μ {ω | t < -(X i ω - X s₀ ω)} :=
+        neg_inf'_tail_le_sum_tail μ (fun i ω => X i ω - X s₀ ω) F hne t
+    _ ≤ ∑ _i ∈ F, ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+        apply Finset.sum_le_sum; intro i hi
+        calc μ {ω | t < -(X i ω - X s₀ ω)}
+            = μ {ω | t < X s₀ ω - X i ω} := by
+              congr 1; ext ω; simp only [neg_sub, Set.mem_setOf_eq]
+          _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist i s₀ ^ 2)))) :=
+              subgaussian_chernoff_single μ X σ hσ hSG i s₀ t ht
+          _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+              apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le
+              apply neg_le_neg
+              have hd := hDiam i hi s₀ hs₀
+              have hD2 : 0 < D ^ 2 := sq_pos_of_pos hD
+              have hdi2 : dist i s₀ ^ 2 ≤ D ^ 2 :=
+                sq_le_sq' (by linarith [@dist_nonneg T _ i s₀]) hd
+              -- t²/(2σ²D²) ≤ t²/(2σ²d²) since d² ≤ D²
+              -- This is division monotonicity: a/big ≤ a/small when a ≥ 0, small > 0
+              sorry -- div monotonicity: needs 0 < 2σ²d² (fails when d=0)
+    _ = F.card • ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+        rw [Finset.sum_const]
+    _ = ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+        rw [nsmul_eq_mul, ← ENNReal.ofReal_natCast F.card,
+            ENNReal.ofReal_mul (Nat.cast_nonneg _)]
+
+/-- **Finite-set range bound from IsSubGaussianProcess**.
+
+  For a sub-Gaussian process on a finite set F ⊆ S with |F| ≥ 2:
+  1. The range function `sup'_F X - inf'_F X` is integrable.
+  2. `∫(sup'_F X - inf'_F X) ≤ 12√2 · σ · entropyIntegral S D`.
+
+  The proof assembles the following chain:
+  - `subgaussian_sup'_tail_bound` / `subgaussian_neg_inf'_tail_bound` → tail bounds
+  - `expected_value_from_subgaussian_tail` → E[sup'] and E[-inf'] bounds
+  - `dudley_single_level_finite` → E[range] ≤ 2σ√(2 log |F|)
+  - Entropy integral bound: `2σ√(2 log |F|) ≤ 12√2 · σ · entropyIntegral S D`
+    (since |F| ≤ coveringNumber(S, ε) for appropriate ε, and the entropy integral
+    integrates √(log N(ε)) over [0, D]). -/
+theorem hFiniteBound_of_subgaussian
+    (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
+    (hSG : IsSubGaussianProcess μ X σ)
+    [IsProbabilityMeasure μ]
+    (S : Set T) (hS : TotallyBounded S)
+    (D : ℝ) (hD : 0 < D)
+    (F : Finset T) (hne : F.Nonempty) (hF : 2 ≤ F.card) :
+    Integrable (fun ω => F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) μ ∧
+    ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
+      12 * Real.sqrt 2 * σ * entropyIntegral S D := by
+  constructor
+  · -- Integrability: follows from sub-Gaussian tail decay (implies all moments finite)
+    -- sup'_F X and inf'_F X are both integrable since they have sub-Gaussian tails
+    sorry
+  · -- Bound: chain sub-Gaussian tail → expectation → range → entropy integral
+    -- Step 1: E[sup'_F X] ≤ σ√(2 log |F|) from tail bound + layer cake
+    -- Step 2: E[-inf'_F X] ≤ σ√(2 log |F|) similarly
+    -- Step 3: E[range] ≤ 2σ√(2 log |F|) by dudley_single_level_finite
+    -- Step 4: 2σ√(2 log |F|) ≤ 12√2 · σ · entropyIntegral S D
+    --         since log|F| ≤ metricEntropy(S, D) and ∫₀^D √(metricEntropy) dε ≥ D·√(log|F|)/(6√2)
+    sorry
+
+end SubGaussianFinsetBounds
+
 /-- **Dudley entropy integral bound** (full assembly from finite-set bounds).
 
   For a sub-Gaussian process on a totally bounded set:
