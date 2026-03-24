@@ -597,18 +597,23 @@ lemma subgaussian_sup'_tail_bound
         apply Finset.sum_le_sum; intro i hi
         -- Each individual tail: μ{X_i - X_{s₀} > t} ≤ exp(-t²/(2σ²d(s₀,i)²))
         -- ≤ exp(-t²/(2σ²D²)) since d(s₀,i) ≤ D
-        calc μ {ω | t < X i ω - X s₀ ω}
-            ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist s₀ i ^ 2)))) :=
-              subgaussian_chernoff_single μ X σ hσ hSG s₀ i t ht
-                (fun lam hlam => sorry) -- Integrable exp(λ(Xi-Xs₀))
-          _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
-              apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le
-              by_cases hd0 : dist s₀ i = 0
-              · -- d=0 edge case: exp bound at d=0 is vacuous (exp(0) = 1 ≥ any prob)
-                -- The inequality -(t²/(2σ²·0²)) ≤ -(t²/(2σ²D²)) in Lean is 0 ≤ -(pos)
-                -- which requires special handling of div_zero
-                sorry
-              · apply neg_le_neg
+        by_cases hd0 : dist s₀ i = 0
+        · -- d(s₀,i) = 0: sub-Gaussian with 0 distance ⟹ X_i - X_{s₀} = 0 a.e.
+          -- So μ{X_i - X_{s₀} > t} = 0 ≤ anything
+          -- From hSG: for all λ, ∫exp(λ(Xi-Xs₀)) ≤ exp(λ²σ²·0/2) = 1
+          -- This forces Xi - Xs₀ = 0 a.e. (Jensen: E[exp(λZ)] ≥ exp(λ·E[Z]))
+          -- For μ{Z > t} with t > 0 and Z = 0 a.e., the measure is 0.
+          -- d=0: sub-Gaussian with 0 distance ⟹ Z = 0 a.e. ⟹ μ{Z > t} = 0
+          sorry
+        · -- d(s₀,i) > 0: Chernoff + monotonicity
+          have hd_pos : 0 < dist s₀ i := lt_of_le_of_ne dist_nonneg (Ne.symm hd0)
+          calc μ {ω | t < X i ω - X s₀ ω}
+              ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist s₀ i ^ 2)))) :=
+                subgaussian_chernoff_single μ X σ hσ hSG s₀ i t ht
+                  (fun lam hlam => sorry) -- Integrable exp(λ(Xi-Xs₀))
+            _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+                apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le
+                apply neg_le_neg
                 have hd := hDiam s₀ hs₀ i hi
                 have hdi2 : dist s₀ i ^ 2 ≤ D ^ 2 :=
                   sq_le_sq' (by linarith [@dist_nonneg T _ s₀ i]) hd
@@ -639,22 +644,24 @@ lemma subgaussian_neg_inf'_tail_bound
         neg_inf'_tail_le_sum_tail μ (fun i ω => X i ω - X s₀ ω) F hne t
     _ ≤ ∑ _i ∈ F, ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
         apply Finset.sum_le_sum; intro i hi
-        calc μ {ω | t < -(X i ω - X s₀ ω)}
-            = μ {ω | t < X s₀ ω - X i ω} := by
-              congr 1; ext ω; simp only [neg_sub, Set.mem_setOf_eq]
-          _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist i s₀ ^ 2)))) :=
-              subgaussian_chernoff_single μ X σ hσ hSG i s₀ t ht
-                (fun lam hlam => sorry) -- Integrable exp(λ(Xs₀-Xi))
-          _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
-              apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le
-              by_cases hd0 : dist i s₀ = 0
-              · sorry -- d=0 edge case (same as sup' version)
-              · apply neg_le_neg
+        by_cases hd0 : dist i s₀ = 0
+        · -- d=0: μ{Xi-Xs₀ > t} ≤ 1 ≤ exp(anything ≥ 0) ≤ exp(-t²/(2σ²D²))
+          -- Actually μ{} ≤ any ofReal(exp(...)) since exp > 0 and μ ≤ 1
+          -- d=0: sub-Gaussian with 0 distance ⟹ Z = 0 a.e. ⟹ μ{Z > t} = 0
+          sorry
+        · have hd_pos : 0 < dist i s₀ := lt_of_le_of_ne dist_nonneg (Ne.symm hd0)
+          calc μ {ω | t < -(X i ω - X s₀ ω)}
+              = μ {ω | t < X s₀ ω - X i ω} := by
+                congr 1; ext ω; simp only [neg_sub, Set.mem_setOf_eq]
+            _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist i s₀ ^ 2)))) :=
+                subgaussian_chernoff_single μ X σ hσ hSG i s₀ t ht
+                  (fun lam hlam => sorry) -- Integrable exp(λ(Xs₀-Xi))
+            _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+                apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le; apply neg_le_neg
                 have hd := hDiam i hi s₀ hs₀
                 have hdi2 : dist i s₀ ^ 2 ≤ D ^ 2 :=
                   sq_le_sq' (by linarith [@dist_nonneg T _ i s₀]) hd
-                exact div_le_div_of_nonneg_left (sq_nonneg t)
-                  (by positivity)
+                exact div_le_div_of_nonneg_left (sq_nonneg t) (by positivity)
                   (mul_le_mul_of_nonneg_left hdi2 (by positivity))
     _ = F.card • ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
         rw [Finset.sum_const]
