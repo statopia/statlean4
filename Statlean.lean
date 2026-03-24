@@ -97,3 +97,4 @@ import Statlean.Pipeline.Lecture9Handout
 -- Causal inference (Lin, Kong, Wang 2022)
 import Statlean.Causal.Basic
 import Statlean.Causal.OptimalTransport
+import Statlean.EmpiricalProcess.RiemannSum
