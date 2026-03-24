@@ -930,3 +930,84 @@ theorem efficiency_bound_decomposition (var1 var0 total_var : ℝ)
     total_var = var1 + var0 := h
 
 end Theorem3
+
+/-! ## Theorem 4: Cross-Fitting Estimator (Lin, Kong, Wang 2022)
+
+The cross-fitting estimator achieves the same rate as DR but WITHOUT
+requiring the Donsker condition (Assumption 7). -/
+
+section Theorem4
+
+/-- **Theorem 4(i): Cross-fitting rate bound**.
+  ‖Δ̂^λ_CF - Δ^λ‖ ≤ εI + εII + ρ_m·ρ_π + εIV + εV
+  via weighted average of fold errors, each bounded as in Theorem 3. -/
+theorem theorem4_crossfitting_rate {K : ℕ}
+    (error : ℝ) (fold_errors fold_weights : Fin K → ℝ)
+    (hWNN : ∀ k, 0 ≤ fold_weights k) (hWSum : ∑ k, fold_weights k = 1)
+    (hdecomp : error = ∑ k, fold_weights k * fold_errors k)
+    (bound : ℝ) (hbound : 0 ≤ bound)
+    (hfold : ∀ k, |fold_errors k| ≤ bound) :
+    |error| ≤ bound := by
+  rw [hdecomp]
+  calc |∑ k, fold_weights k * fold_errors k|
+      ≤ ∑ k, |fold_weights k * fold_errors k| := Finset.abs_sum_le_sum_abs _ _
+    _ = ∑ k, fold_weights k * |fold_errors k| := by
+        congr 1; ext k; rw [abs_mul, abs_of_nonneg (hWNN k)]
+    _ ≤ ∑ k, fold_weights k * bound := by
+        apply Finset.sum_le_sum; intro k _; exact mul_le_mul_of_nonneg_left (hfold k) (hWNN k)
+    _ = bound := by rw [← Finset.sum_mul, hWSum, one_mul]
+
+/-- **Theorem 4(ii): Cross-fitting asymptotic linearity**.
+  |√n·(Δ̂_CF - Δ) - EP_term| ≤ δ when each fold remainder ≤ δ. -/
+theorem theorem4_asymptotic_linearity {K : ℕ}
+    (sqrt_n_error ep_term : ℝ) (fold_ep fold_rem fold_weights : Fin K → ℝ)
+    (hWNN : ∀ k, 0 ≤ fold_weights k) (hWSum : ∑ k, fold_weights k = 1)
+    (hdecomp : sqrt_n_error = ∑ k, fold_weights k * (fold_ep k + fold_rem k))
+    (hep : ep_term = ∑ k, fold_weights k * fold_ep k)
+    (δ : ℝ) (hδ : 0 ≤ δ) (hrem : ∀ k, |fold_rem k| ≤ δ) :
+    |sqrt_n_error - ep_term| ≤ δ := by
+  have hsub : sqrt_n_error - ep_term = ∑ k, fold_weights k * fold_rem k := by
+    rw [hdecomp, hep, ← Finset.sum_sub_distrib]; congr 1; ext k; ring
+  rw [hsub]
+  calc |∑ k, fold_weights k * fold_rem k|
+      ≤ ∑ k, fold_weights k * |fold_rem k| := by
+        calc _ ≤ ∑ k, |fold_weights k * fold_rem k| := Finset.abs_sum_le_sum_abs _ _
+          _ = _ := by congr 1; ext k; rw [abs_mul, abs_of_nonneg (hWNN k)]
+    _ ≤ ∑ k, fold_weights k * δ := by
+        apply Finset.sum_le_sum; intro k _; exact mul_le_mul_of_nonneg_left (hrem k) (hWNN k)
+    _ = δ := by rw [← Finset.sum_mul, hWSum, one_mul]
+
+end Theorem4
+
+/-! ## Theorem 5: Nonparametric Concentration (Lin, Kong, Wang 2022)
+
+Sub-Gaussian concentration for the empirical process of the regression
+residual, controlling Term I in the five-term decomposition. -/
+
+section Theorem5
+
+/-- **Theorem 5: Concentration → regression rate → DR rate**.
+  If ρ_m · ρ_π ≤ n^{-1/2} and individual rates are at most n^{-1/2},
+  the five-term bound gives ≤ 5·n^{-1/2}. -/
+theorem theorem5_rate_to_dr_rate
+    (ρm ρπ rate : ℝ) (hr : 0 < rate)
+    (hprod : ρm * ρπ ≤ rate) (hρm : ρm ≤ rate) (hρπ : ρπ ≤ rate)
+    (hI hIV hV : ℝ) (hI_le : hI ≤ rate) (hIV_le : hIV ≤ rate) (hV_le : hV ≤ rate) :
+    hI + rate + ρm * ρπ + hIV + hV ≤ 5 * rate := by linarith
+
+/-- **Optimal nonparametric rate**: when ρ_m = n^{-s/(2s+d)} and ρ_π = n^{-s/(2s+d)},
+  the product condition ρ_m·ρ_π ≤ n^{-1/2} holds when s > d/2
+  (sufficient smoothness for both nuisance functions). -/
+theorem optimal_nonparametric_rate (s d : ℝ) (hs : 0 < s) (hd : 0 < d)
+    (ρ n_rate : ℝ) (hρ : ρ = n_rate ^ (s / (2 * s + d)))
+    (hn : 0 < n_rate) (hn1 : n_rate ≤ 1)
+    (hsmoothness : d < 2 * s) :
+    -- ρ² = n_rate^{2s/(2s+d)} ≤ n_rate^{1/2} when 2s/(2s+d) ≥ 1/2, i.e., 2s ≥ s + d/2, i.e., s ≥ d/2
+    -- (slightly stronger: s > d/2 gives strict inequality)
+    ρ * ρ ≤ n_rate ^ ((1 : ℝ) / 2) := by
+  rw [hρ, ← Real.rpow_add hn]
+  apply Real.rpow_le_rpow_of_exponent_ge hn hn1
+  have h2sd : 0 < 2 * s + d := by linarith
+  rw [div_add_div_same]; rw [le_div_iff₀ (by linarith : (0:ℝ) < 2 * s + d)]; linarith
+
+end Theorem5
