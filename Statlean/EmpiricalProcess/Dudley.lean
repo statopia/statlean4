@@ -583,7 +583,9 @@ lemma subgaussian_sup'_tail_bound
     (D : ℝ) (hD : 0 < D)
     (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
     (s₀ : T) (hs₀ : s₀ ∈ F)
-    (t : ℝ) (ht : 0 < t) :
+    (t : ℝ) (ht : 0 < t)
+    (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
+      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ) :
     μ {ω | t < F.sup' hne (fun i => X i ω - X s₀ ω)} ≤
       ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
   -- Step 1: Union bound reduces to sum over individual tails
@@ -591,26 +593,28 @@ lemma subgaussian_sup'_tail_bound
       ≤ ∑ i ∈ F, μ {ω | t < (X i ω - X s₀ ω)} :=
         sup'_tail_le_sum_tail μ (fun i ω => X i ω - X s₀ ω) F hne t
     -- Step 2: Each tail bounded by sub-Gaussian Chernoff
-    -- μ{X_i - X_{s₀} > t} ≤ exp(-t²/(2σ²d(s₀,i)²)) ≤ exp(-t²/(2σ²D²))
-    -- by Markov on MGF with optimal λ = t/(σ²d(s₀,i)²)
     _ ≤ ∑ _i ∈ F, ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
         apply Finset.sum_le_sum; intro i hi
-        -- Each individual tail: μ{X_i - X_{s₀} > t} ≤ exp(-t²/(2σ²d(s₀,i)²))
-        -- ≤ exp(-t²/(2σ²D²)) since d(s₀,i) ≤ D
         by_cases hd0 : dist s₀ i = 0
-        · -- d(s₀,i) = 0: sub-Gaussian with 0 distance ⟹ X_i - X_{s₀} = 0 a.e.
-          -- So μ{X_i - X_{s₀} > t} = 0 ≤ anything
-          -- From hSG: for all λ, ∫exp(λ(Xi-Xs₀)) ≤ exp(λ²σ²·0/2) = 1
-          -- This forces Xi - Xs₀ = 0 a.e. (Jensen: E[exp(λZ)] ≥ exp(λ·E[Z]))
-          -- For μ{Z > t} with t > 0 and Z = 0 a.e., the measure is 0.
-          -- d=0: sub-Gaussian with 0 distance ⟹ Z = 0 a.e. ⟹ μ{Z > t} = 0
-          sorry
+        · -- d=0: Chernoff with MGF ≤ 1 gives μ{Z > t} ≤ exp(-λt) for any λ > 0
+          set lam := t / (2 * σ ^ 2 * D ^ 2) with hlam_def
+          have hlam_pos : 0 < lam := div_pos ht (by positivity)
+          have hMGF : ∫ ω, Real.exp (lam * (X i ω - X s₀ ω)) ∂μ ≤ 1 := by
+            have h := hSG s₀ i lam
+            have : lam ^ 2 * σ ^ 2 * dist s₀ i ^ 2 / 2 = 0 := by rw [hd0]; ring
+            rw [this, Real.exp_zero] at h; exact h
+          calc μ {ω | t < X i ω - X s₀ ω}
+              ≤ ENNReal.ofReal (1 / Real.exp (lam * t)) :=
+                chernoff_from_mgf μ (fun ω => X i ω - X s₀ ω)
+                  lam t 1 hlam_pos hMGF (hIntSG s₀ i lam hlam_pos) (by norm_num)
+            _ = ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+                congr 1; rw [one_div, ← Real.exp_neg]; congr 1; rw [hlam_def]; ring
         · -- d(s₀,i) > 0: Chernoff + monotonicity
           have hd_pos : 0 < dist s₀ i := lt_of_le_of_ne dist_nonneg (Ne.symm hd0)
           calc μ {ω | t < X i ω - X s₀ ω}
               ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist s₀ i ^ 2)))) :=
                 subgaussian_chernoff_single μ X σ hσ hSG s₀ i t ht
-                  (fun lam hlam => sorry) -- Integrable exp(λ(Xi-Xs₀))
+                  (fun lam hlam => hIntSG s₀ i lam hlam)
             _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
                 apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le
                 apply neg_le_neg
@@ -636,7 +640,9 @@ lemma subgaussian_neg_inf'_tail_bound
     (D : ℝ) (hD : 0 < D)
     (hDiam : ∀ i ∈ F, ∀ j ∈ F, dist i j ≤ D)
     (s₀ : T) (hs₀ : s₀ ∈ F)
-    (t : ℝ) (ht : 0 < t) :
+    (t : ℝ) (ht : 0 < t)
+    (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
+      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ) :
     μ {ω | t < -(F.inf' hne (fun i => X i ω - X s₀ ω))} ≤
       ENNReal.ofReal (↑F.card * Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
   calc μ {ω | t < -(F.inf' hne (fun i => X i ω - X s₀ ω))}
@@ -645,17 +651,29 @@ lemma subgaussian_neg_inf'_tail_bound
     _ ≤ ∑ _i ∈ F, ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
         apply Finset.sum_le_sum; intro i hi
         by_cases hd0 : dist i s₀ = 0
-        · -- d=0: μ{Xi-Xs₀ > t} ≤ 1 ≤ exp(anything ≥ 0) ≤ exp(-t²/(2σ²D²))
-          -- Actually μ{} ≤ any ofReal(exp(...)) since exp > 0 and μ ≤ 1
-          -- d=0: sub-Gaussian with 0 distance ⟹ Z = 0 a.e. ⟹ μ{Z > t} = 0
-          sorry
+        · -- d=0: Chernoff with MGF ≤ 1 (symmetric direction)
+          have hconv : {ω | t < -(X i ω - X s₀ ω)} = {ω | t < X s₀ ω - X i ω} := by
+            ext ω; simp only [Set.mem_setOf_eq, neg_sub]
+          rw [hconv]
+          set lam := t / (2 * σ ^ 2 * D ^ 2) with hlam_def
+          have hlam_pos : 0 < lam := div_pos ht (by positivity)
+          have hMGF : ∫ ω, Real.exp (lam * (X s₀ ω - X i ω)) ∂μ ≤ 1 := by
+            have h := hSG i s₀ lam
+            have : lam ^ 2 * σ ^ 2 * dist i s₀ ^ 2 / 2 = 0 := by rw [hd0]; ring
+            rw [this, Real.exp_zero] at h; exact h
+          calc μ {ω | t < X s₀ ω - X i ω}
+              ≤ ENNReal.ofReal (1 / Real.exp (lam * t)) :=
+                chernoff_from_mgf μ (fun ω => X s₀ ω - X i ω)
+                  lam t 1 hlam_pos hMGF (hIntSG i s₀ lam hlam_pos) (by norm_num)
+            _ = ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
+                congr 1; rw [one_div, ← Real.exp_neg]; congr 1; rw [hlam_def]; ring
         · have hd_pos : 0 < dist i s₀ := lt_of_le_of_ne dist_nonneg (Ne.symm hd0)
           calc μ {ω | t < -(X i ω - X s₀ ω)}
               = μ {ω | t < X s₀ ω - X i ω} := by
                 congr 1; ext ω; simp only [neg_sub, Set.mem_setOf_eq]
             _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * dist i s₀ ^ 2)))) :=
                 subgaussian_chernoff_single μ X σ hσ hSG i s₀ t ht
-                  (fun lam hlam => sorry) -- Integrable exp(λ(Xs₀-Xi))
+                  (fun lam hlam => hIntSG i s₀ lam hlam)
             _ ≤ ENNReal.ofReal (Real.exp (-(t ^ 2 / (2 * σ ^ 2 * D ^ 2)))) := by
                 apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le; apply neg_le_neg
                 have hd := hDiam i hi s₀ hs₀
@@ -688,7 +706,9 @@ theorem hFiniteBound_of_subgaussian
     [IsProbabilityMeasure μ]
     (S : Set T) (hS : TotallyBounded S)
     (D : ℝ) (hD : 0 < D)
-    (F : Finset T) (hne : F.Nonempty) (hF : 2 ≤ F.card) :
+    (F : Finset T) (hne : F.Nonempty) (hF : 2 ≤ F.card)
+    (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
+      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ) :
     Integrable (fun ω => F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) μ ∧
     ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
       12 * Real.sqrt 2 * σ * entropyIntegral S D := by
