@@ -525,6 +525,56 @@ lemma subgaussian_chernoff_single
           -- lam² σ² d² / 2 - lam·u = -u²/(2σ²d²) when lam = u/(σ²d²)
           rw [hlam_def]; field_simp; ring
 
+private lemma integrable_finset_sup' (F : Finset T) (hne : F.Nonempty) (f : T → Ω → ℝ)
+    (hInt : ∀ i ∈ F, Integrable (f i) μ) :
+    Integrable (fun ω => F.sup' hne (fun i => f i ω)) μ := by
+  induction F using Finset.cons_induction with
+  | empty => exact absurd hne Finset.not_nonempty_empty
+  | cons a s ha ih =>
+    rcases s.eq_empty_or_nonempty with rfl | hns
+    · simp [Finset.sup'_singleton]
+      exact hInt a (Finset.mem_cons.mpr (Or.inl rfl))
+    · have : (fun ω => (Finset.cons a s ha).sup' hne (fun i => f i ω)) =
+          (fun ω => f a ω ⊔ s.sup' hns (fun i => f i ω)) := by
+        ext ω; exact Finset.sup'_cons hns (fun i => f i ω)
+      rw [this]
+      exact (hInt a (Finset.mem_cons.mpr (Or.inl rfl))).sup
+        (ih hns (fun i hi => hInt i (Finset.mem_cons.mpr (Or.inr hi))))
+
+private lemma integrable_finset_inf' (F : Finset T) (hne : F.Nonempty) (f : T → Ω → ℝ)
+    (hInt : ∀ i ∈ F, Integrable (f i) μ) :
+    Integrable (fun ω => F.inf' hne (fun i => f i ω)) μ := by
+  induction F using Finset.cons_induction with
+  | empty => exact absurd hne Finset.not_nonempty_empty
+  | cons a s ha ih =>
+    rcases s.eq_empty_or_nonempty with rfl | hns
+    · simp [Finset.inf'_singleton]
+      exact hInt a (Finset.mem_cons.mpr (Or.inl rfl))
+    · have : (fun ω => (Finset.cons a s ha).inf' hne (fun i => f i ω)) =
+          (fun ω => f a ω ⊓ s.inf' hns (fun i => f i ω)) := by
+        ext ω; exact Finset.inf'_cons hns (fun i => f i ω)
+      rw [this]
+      exact (hInt a (Finset.mem_cons.mpr (Or.inl rfl))).inf
+        (ih hns (fun i hi => hInt i (Finset.mem_cons.mpr (Or.inr hi))))
+
+private lemma finset_sup'_add_const (F : Finset T) (hne : F.Nonempty) (f : T → ℝ) (c : ℝ) :
+    F.sup' hne (fun i => f i + c) = F.sup' hne f + c := by
+  induction F using Finset.cons_induction with
+  | empty => exact absurd hne Finset.not_nonempty_empty
+  | cons a s ha ih =>
+    rcases s.eq_empty_or_nonempty with rfl | hns
+    · simp [Finset.sup'_singleton]
+    · rw [Finset.sup'_cons hns, Finset.sup'_cons hns, ih hns, max_add_add_right]
+
+private lemma finset_inf'_add_const (F : Finset T) (hne : F.Nonempty) (f : T → ℝ) (c : ℝ) :
+    F.inf' hne (fun i => f i + c) = F.inf' hne f + c := by
+  induction F using Finset.cons_induction with
+  | empty => exact absurd hne Finset.not_nonempty_empty
+  | cons a s ha ih =>
+    rcases s.eq_empty_or_nonempty with rfl | hns
+    · simp [Finset.inf'_singleton]
+    · rw [Finset.inf'_cons hns, Finset.inf'_cons hns, ih hns, min_add_add_right]
+
 omit [PseudoMetricSpace T] in
 /-- **Union bound for Finset.sup' tail**.
   `{ω | t < sup'_F X ω} ⊆ ⋃ i ∈ F, {ω | t < X_i ω}`, so by sub-additivity. -/
@@ -708,14 +758,48 @@ theorem hFiniteBound_of_subgaussian
     (D : ℝ) (hD : 0 < D)
     (F : Finset T) (hne : F.Nonempty) (hF : 2 ≤ F.card)
     (hIntSG : ∀ (a b : T), ∀ lam : ℝ, 0 < lam →
-      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ) :
+      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
+    (hMeas : ∀ t, AEStronglyMeasurable (X t) μ) :
     Integrable (fun ω => F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) μ ∧
     ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
       12 * Real.sqrt 2 * σ * entropyIntegral S D := by
+  -- Step 0: Pick base point s₀ and derive integrability of differences
+  have ⟨s₀, hs₀⟩ := hne
+  have hDiffInt : ∀ i ∈ F, Integrable (fun ω => X i ω - X s₀ ω) μ := by
+    intro i _hi
+    -- |X_i - X_s₀| ≤ exp(X_i - X_s₀) + exp(-(X_i - X_s₀)), both integrable from hIntSG
+    apply Integrable.mono' ((hIntSG s₀ i 1 one_pos).add (hIntSG i s₀ 1 one_pos))
+      ((hMeas i).sub (hMeas s₀))
+    filter_upwards with ω
+    simp only [one_mul, Pi.add_apply]
+    -- ‖z‖ ≤ exp(z) + exp(-z) = exp(z) + exp(y-x) for all z = x - y
+    calc ‖X i ω - X s₀ ω‖ = |X i ω - X s₀ ω| := Real.norm_eq_abs _
+      _ ≤ Real.exp (X i ω - X s₀ ω) + Real.exp (X s₀ ω - X i ω) := by
+          rcases abs_cases (X i ω - X s₀ ω) with ⟨h1, _⟩ | ⟨h1, _⟩
+          · linarith [Real.add_one_le_exp (X i ω - X s₀ ω),
+              Real.exp_pos (X s₀ ω - X i ω)]
+          · linarith [Real.add_one_le_exp (X s₀ ω - X i ω),
+              Real.exp_pos (X i ω - X s₀ ω)]
   constructor
-  · -- Integrability: follows from sub-Gaussian tail decay (implies all moments finite)
-    -- sup'_F X and inf'_F X are both integrable since they have sub-Gaussian tails
-    sorry
+  · -- Integrability of range = sup' - inf'
+    -- Use shift invariance: range(X_t) = range(X_t - X_s₀)
+    have hshift : (fun ω => F.sup' hne (fun t => X t ω) -
+        F.inf' hne (fun t => X t ω)) =
+        (fun ω => F.sup' hne (fun t => X t ω - X s₀ ω) -
+        F.inf' hne (fun t => X t ω - X s₀ ω)) := by
+      ext ω
+      have hsup : F.sup' hne (fun t => X t ω) =
+          F.sup' hne (fun t => X t ω - X s₀ ω) + X s₀ ω := by
+        have := finset_sup'_add_const F hne (fun t => X t ω - X s₀ ω) (X s₀ ω)
+        simp only [sub_add_cancel] at this; exact this
+      have hinf : F.inf' hne (fun t => X t ω) =
+          F.inf' hne (fun t => X t ω - X s₀ ω) + X s₀ ω := by
+        have := finset_inf'_add_const F hne (fun t => X t ω - X s₀ ω) (X s₀ ω)
+        simp only [sub_add_cancel] at this; exact this
+      rw [hsup, hinf]; ring
+    rw [hshift]
+    exact (integrable_finset_sup' μ F hne _ hDiffInt).sub
+      (integrable_finset_inf' μ F hne _ hDiffInt)
   · -- Bound: chain sub-Gaussian tail → expectation → range → entropy integral
     -- Step 1: E[sup'_F X] ≤ σ√(2 log |F|) from tail bound + layer cake
     -- Step 2: E[-inf'_F X] ≤ σ√(2 log |F|) similarly
