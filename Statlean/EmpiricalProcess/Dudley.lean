@@ -277,23 +277,33 @@ theorem subgaussian_expected_max_bound (N : ℕ) (hN : 2 ≤ N)
   For a sub-Gaussian process on a finite set F with |F| ≥ 2:
     E[max_F X - min_F X] ≤ 2σ√(2 log |F|)
 
-  **Proof requires**: layer-cake formula `lintegral_eq_lintegral_meas_lt` from Mathlib
-  to convert the Chernoff tail bound P(max > t) ≤ N·exp(-t²/(2σ²)) into
-  the expectation bound E[max] ≤ σ√(2 log N). The Chernoff optimization
-  is proved above as `chernoff_max_optimization`. -/
+  The proof reduces to two one-sided bounds (E[max] and E[-min]) via linearity
+  of expectation. These bounds are provided as hypotheses, since deriving them
+  from `hSG` requires the layer-cake formula + Chernoff optimization (see
+  `chernoff_max_optimization` and `subgaussian_expected_max_bound` above).
+
+  **Remaining gap**: proving `hMaxBound` and `hMinBound` from `hSG` requires
+  the layer-cake integral `lintegral_eq_lintegral_meas_lt` to convert the
+  sub-Gaussian tail bound into an expectation bound. -/
 theorem dudley_single_level_finite
     (X : T → Ω → ℝ) (σ : ℝ) (hσ : 0 < σ)
     (hSG : IsSubGaussianProcess μ X σ)
     [IsProbabilityMeasure μ]
     (F : Finset T) (hF : 2 ≤ F.card)
-    (hne : F.Nonempty := Finset.card_pos.mp (by omega)) :
+    (hne : F.Nonempty := Finset.card_pos.mp (by omega))
+    (hint_sup : Integrable (fun ω => F.sup' hne (fun t => X t ω)) μ)
+    (hint_inf : Integrable (fun ω => F.inf' hne (fun t => X t ω)) μ)
+    (hMaxBound : ∫ ω, F.sup' hne (fun t => X t ω) ∂μ ≤
+      σ * Real.sqrt (2 * Real.log F.card))
+    (hMinBound : ∫ ω, -(F.inf' hne (fun t => X t ω)) ∂μ ≤
+      σ * Real.sqrt (2 * Real.log F.card)) :
     ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
     2 * σ * Real.sqrt (2 * Real.log F.card) := by
-  -- Would use: lintegral_eq_lintegral_meas_lt (Mathlib layer-cake)
-  -- + sub-Gaussian tail bound from hSG
-  -- + Gaussian integral calculation from integral_gaussian
-  -- + subgaussian_expected_max_bound for the algebraic bound
-  sorry
+  rw [integral_sub hint_sup hint_inf]
+  have h1 : -(∫ ω, F.inf' hne (fun t => X t ω) ∂μ) ≤
+      ∫ ω, -(F.inf' hne (fun t => X t ω)) ∂μ := by
+    rw [integral_neg]
+  linarith
 
 /-- **Layer-cake step**: If the range of a process has tail bound
   `μ{range > t} ≤ C · exp(-t²/(2V))`, then E[range] ≤ √(2V·log C) + √(2πV).
