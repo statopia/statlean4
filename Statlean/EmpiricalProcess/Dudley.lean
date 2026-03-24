@@ -1206,6 +1206,93 @@ theorem antitone_interval_bound {f : ℝ → ℝ} {a b : ℝ} (hab : a ≤ b)
         setIntegral_mono_on (integrable_const _) hf_int measurableSet_Icc
           fun x hx => hf_anti hx (Set.right_mem_Icc.mpr hab) hx.2
 
+/-! ### Increment Tail Bounds (varying projection) -/
+
+/-- Tail bound for sup of increments `X_t - X_{proj(t)}` with varying projection.
+  `P(sup_t (X_t - X_{proj(t)}) > u) ≤ |F|·exp(-u²/(2σ²ε²))`
+  when `dist(t, proj(t)) ≤ ε` for all `t ∈ F`. -/
+theorem increment_sup_tail
+    (X : T → Ω → ℝ) (σ ε : ℝ) (hσ : 0 < σ) (hε : 0 < ε)
+    (hSG : IsSubGaussianProcess μ X σ) [IsProbabilityMeasure μ]
+    (F : Finset T) (hne : F.Nonempty)
+    (proj : T → T) (hdist : ∀ t ∈ F, dist t (proj t) ≤ ε)
+    (hIntSG : ∀ a b : T, ∀ lam : ℝ, 0 < lam →
+      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
+    (u : ℝ) (hu : 0 < u) :
+    μ {ω | u < F.sup' hne (fun t => X t ω - X (proj t) ω)} ≤
+      ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
+  calc μ {ω | u < F.sup' hne (fun t => X t ω - X (proj t) ω)}
+      ≤ ∑ t ∈ F, μ {ω | u < X t ω - X (proj t) ω} :=
+        sup'_tail_le_sum_tail μ (fun t ω => X t ω - X (proj t) ω) F hne u
+    _ ≤ ∑ _t ∈ F, ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
+        apply Finset.sum_le_sum; intro t ht
+        by_cases hd : dist (proj t) t = 0
+        · set lam := u / (2 * σ ^ 2 * ε ^ 2)
+          have hlam : 0 < lam := div_pos hu (by positivity)
+          have hMGF : ∫ ω, Real.exp (lam * (X t ω - X (proj t) ω)) ∂μ ≤ 1 := by
+            have h := hSG (proj t) t lam; rw [hd, sq (0:ℝ), mul_zero, mul_zero, zero_div,
+              Real.exp_zero] at h; exact h
+          calc μ {ω | u < X t ω - X (proj t) ω}
+              ≤ ENNReal.ofReal (1 / Real.exp (lam * u)) :=
+                chernoff_from_mgf μ _ lam u 1 hlam hMGF (hIntSG _ t lam hlam) (by norm_num)
+            _ = ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
+                congr 1; rw [one_div, ← Real.exp_neg]; congr 1; ring
+        · have hd_pos := lt_of_le_of_ne dist_nonneg (Ne.symm hd)
+          calc μ {ω | u < X t ω - X (proj t) ω}
+              ≤ ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * dist (proj t) t ^ 2)))) :=
+                subgaussian_chernoff_single μ X σ hσ hSG (proj t) t u hu
+                  (fun lam hlam => hIntSG _ t lam hlam)
+            _ ≤ ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
+                apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le; apply neg_le_neg
+                exact div_le_div_of_nonneg_left (sq_nonneg u) (by positivity)
+                  (mul_le_mul_of_nonneg_left (sq_le_sq'
+                    (by linarith [@dist_nonneg T _ (proj t) t])
+                    (by rw [dist_comm]; exact hdist t ht)) (by positivity))
+    _ = _ := by rw [Finset.sum_const, nsmul_eq_mul, ← ENNReal.ofReal_natCast,
+                     ENNReal.ofReal_mul (Nat.cast_nonneg _)]
+
+/-- Tail bound for `-inf` of increments (symmetric version). -/
+theorem increment_neg_inf_tail
+    (X : T → Ω → ℝ) (σ ε : ℝ) (hσ : 0 < σ) (hε : 0 < ε)
+    (hSG : IsSubGaussianProcess μ X σ) [IsProbabilityMeasure μ]
+    (F : Finset T) (hne : F.Nonempty)
+    (proj : T → T) (hdist : ∀ t ∈ F, dist t (proj t) ≤ ε)
+    (hIntSG : ∀ a b : T, ∀ lam : ℝ, 0 < lam →
+      Integrable (fun ω => Real.exp (lam * (X b ω - X a ω))) μ)
+    (u : ℝ) (hu : 0 < u) :
+    μ {ω | u < -(F.inf' hne (fun t => X t ω - X (proj t) ω))} ≤
+      ENNReal.ofReal (↑F.card * Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
+  calc μ {ω | u < -(F.inf' hne (fun t => X t ω - X (proj t) ω))}
+      ≤ ∑ t ∈ F, μ {ω | u < -(X t ω - X (proj t) ω)} :=
+        neg_inf'_tail_le_sum_tail μ (fun t ω => X t ω - X (proj t) ω) F hne u
+    _ ≤ ∑ _t ∈ F, ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
+        apply Finset.sum_le_sum; intro t ht
+        rw [show {ω | u < -(X t ω - X (proj t) ω)} = {ω | u < X (proj t) ω - X t ω} from by
+          ext ω; simp [neg_sub]]
+        by_cases hd : dist t (proj t) = 0
+        · set lam := u / (2 * σ ^ 2 * ε ^ 2)
+          have hlam : 0 < lam := div_pos hu (by positivity)
+          have hMGF : ∫ ω, Real.exp (lam * (X (proj t) ω - X t ω)) ∂μ ≤ 1 := by
+            have h := hSG t (proj t) lam; rw [hd, sq (0:ℝ), mul_zero, mul_zero, zero_div,
+              Real.exp_zero] at h; exact h
+          calc μ {ω | u < X (proj t) ω - X t ω}
+              ≤ ENNReal.ofReal (1 / Real.exp (lam * u)) :=
+                chernoff_from_mgf μ _ lam u 1 hlam hMGF (hIntSG t _ lam hlam) (by norm_num)
+            _ = ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
+                congr 1; rw [one_div, ← Real.exp_neg]; congr 1; ring
+        · have hd_pos := lt_of_le_of_ne dist_nonneg (Ne.symm hd)
+          calc μ {ω | u < X (proj t) ω - X t ω}
+              ≤ ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * dist t (proj t) ^ 2)))) :=
+                subgaussian_chernoff_single μ X σ hσ hSG t (proj t) u hu
+                  (fun lam hlam => hIntSG t _ lam hlam)
+            _ ≤ ENNReal.ofReal (Real.exp (-(u ^ 2 / (2 * σ ^ 2 * ε ^ 2)))) := by
+                apply ENNReal.ofReal_le_ofReal; apply Real.exp_le_exp_of_le; apply neg_le_neg
+                exact div_le_div_of_nonneg_left (sq_nonneg u) (by positivity)
+                  (mul_le_mul_of_nonneg_left (sq_le_sq'
+                    (by linarith [@dist_nonneg T _ t (proj t)]) (hdist t ht)) (by positivity))
+    _ = _ := by rw [Finset.sum_const, nsmul_eq_mul, ← ENNReal.ofReal_natCast,
+                     ENNReal.ofReal_mul (Nat.cast_nonneg _)]
+
 end ChainingDecomposition
 
 /-- **Dudley entropy integral bound** (full assembly from finite-set bounds).
