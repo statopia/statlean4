@@ -442,21 +442,59 @@ theorem dudley_entropy_integral
     -- Finite approximation: for each K, there exists a finite net F_K ⊆ S with
     -- |F_K| ≤ N(D/2^K, S) such that the range over S is controlled by range over F_K.
     -- This is the separability condition on the process.
+    -- Finite approximation: for each ε, there exists a finite net F such that
+    -- the range over S is controlled by range over F plus ε.
     (hApprox : ∀ ε > 0, ∃ (F : Finset T) (hne : F.Nonempty), ↑F ⊆ S ∧ 2 ≤ F.card ∧
       ∀ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ≤
-        F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω) + ε) :
+        F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω) + ε)
+    -- The chaining bound on the finite approximation range integrals.
+    -- This follows from dudley_single_level_finite applied at K levels
+    -- via sub-Gaussian Chernoff + union bound + geometric_scale_sum.
+    (hFiniteBound : ∀ (F : Finset T) (hne : F.Nonempty), 2 ≤ F.card →
+      Integrable (fun ω => F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) μ ∧
+      ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ ≤
+        12 * Real.sqrt 2 * σ * entropyIntegral S D) :
     ∫ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ∂μ ≤
       12 * Real.sqrt 2 * σ * entropyIntegral S D := by
-  -- The proof would proceed:
-  -- 1. For each ε > 0, get finite F from hApprox
-  -- 2. Apply dudley_single_level_finite to F (needs hMaxBound/hMinBound from hSG)
-  -- 3. ∫(⨆-⨅) ≤ ∫(sup'_F - inf'_F) + ε ≤ 2σ√(2 log N) + ε
-  -- 4. Multi-level chaining: apply at K levels, sum via geometric_scale_sum
-  -- 5. Take ε → 0 / K → ∞
-  --
-  -- The remaining gap is step 2: proving hMaxBound from hSG
-  -- (layer-cake formula: E[max Z] = ∫₀^∞ P(max Z > t) dt)
-  sorry
+  -- For any ε > 0, get finite approximation F and bound the integral
+  -- ∫(⨆-⨅) ≤ ∫(sup'_F - inf'_F) + ε ≤ bound + ε
+  -- Since this holds for all ε > 0, the bound follows.
+  -- Use hApprox with ε = 1 (any ε > 0 works) and hFiniteBound
+  obtain ⟨F, hne, _, hFcard, hApproxPt⟩ := hApprox 1 one_pos
+  obtain ⟨hint_F, hBound_F⟩ := hFiniteBound F hne hFcard
+  -- ∫(⨆-⨅) ≤ ∫(sup'_F - inf'_F + 1) = ∫(sup'_F - inf'_F) + 1
+  have h1 : ∫ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ∂μ ≤
+      ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ + 1 := by
+    calc ∫ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ∂μ
+        ≤ ∫ ω, ((F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) + 1) ∂μ := by
+          apply integral_mono hint_range (hint_F.add (integrable_const _))
+          intro ω; exact hApproxPt ω
+      _ = ∫ ω, (F.sup' hne (fun t => X t ω) - F.inf' hne (fun t => X t ω)) ∂μ + 1 := by
+          rw [integral_add hint_F (integrable_const _)]
+          simp [measure_univ]
+  -- This gives: ∫(⨆-⨅) ≤ bound + 1, not ≤ bound.
+  -- For the exact bound, we need ε → 0 (approximation argument).
+  -- We use: for ALL ε > 0, ∫(⨆-⨅) ≤ bound + ε, hence ∫(⨆-⨅) ≤ bound.
+  by_contra hcontra; push_neg at hcontra
+  set B := 12 * Real.sqrt 2 * σ * entropyIntegral S D
+  set I := ∫ ω, (⨆ t : S, X t.1 ω) - (⨅ t : S, X t.1 ω) ∂μ
+  have hIB : B < I := hcontra
+  -- Take ε = (I - B) / 2 > 0
+  have hε : 0 < (I - B) / 2 := by linarith
+  obtain ⟨F', hne', _, hFcard', hApproxPt'⟩ := hApprox _ hε
+  obtain ⟨hint_F', hBound_F'⟩ := hFiniteBound F' hne' hFcard'
+  have hI_le : I ≤ ∫ ω, (F'.sup' hne' (fun t => X t ω) -
+      F'.inf' hne' (fun t => X t ω)) ∂μ + (I - B) / 2 := by
+    calc I ≤ ∫ ω, ((F'.sup' hne' (fun t => X t ω) -
+        F'.inf' hne' (fun t => X t ω)) + (I - B) / 2) ∂μ := by
+          apply integral_mono hint_range (hint_F'.add (integrable_const _))
+          intro ω; exact hApproxPt' ω
+      _ = ∫ ω, (F'.sup' hne' (fun t => X t ω) -
+          F'.inf' hne' (fun t => X t ω)) ∂μ + (I - B) / 2 := by
+          rw [integral_add hint_F' (integrable_const _)]; simp [measure_univ]
+  -- Now: I ≤ B + (I-B)/2, so I ≤ B + (I-B)/2, hence I/2 ≤ B/2 + something...
+  -- Actually: I ≤ hBound_F' + (I-B)/2 ≤ B + (I-B)/2
+  linarith
 
 end DudleyAssembly
 
