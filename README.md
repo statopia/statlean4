@@ -185,7 +185,7 @@ lake build Statlean.Verified                                 # verify zero-sorry
 ## References
 
 - **Shao, J.** *Mathematical Statistics* (Springer, 2003) — Chapters 1-7
-- **Lin, Z., Kong, D., Wang, L.** *Causal Inference on Distribution Functions* (2023) — [lin.pdf](lin.pdf)
+- **Lin, Z., Kong, D., Wang, L.** *Causal Inference on Distribution Functions* (2023) 
 - **Boucheron, S., Lugosi, G., Massart, P.** *Concentration Inequalities* (Oxford, 2013)
 - **van der Vaart, A., Wellner, J.** *Weak Convergence and Empirical Processes* (Springer, 1996)
 
