@@ -1,8 +1,8 @@
 # StatLean — Lean 4 Formalized Mathematical Statistics
 
-A Lean 4 + Mathlib library formalizing core theorems of mathematical statistics, covering estimation theory, sufficiency, limit theorems, concentration inequalities, regression, and Gaussian analysis.
+A Lean 4 + Mathlib library formalizing core theorems of mathematical statistics, covering estimation theory, sufficiency, limit theorems, concentration inequalities, regression, Gaussian analysis, empirical processes, and causal inference.
 
-**Scale**: 61+ Lean files · ~32,000 lines · 450+ public theorems · **ZERO sorry — fully machine-verified**
+**Scale**: 65+ Lean files · ~35,000 lines · 500+ public theorems · **ZERO sorry — fully machine-verified**
 
 > **Want to contribute? See [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -10,27 +10,39 @@ A Lean 4 + Mathlib library formalizing core theorems of mathematical statistics,
 
 ## Highlights
 
-### Berry-Esseen Theorem — Fully Proved (Zero Sorry)
+### Dudley Entropy Integral — Complete Chaining Pipeline (Zero Sorry)
 
-The complete Berry-Esseen theorem with all 20+ supporting lemmas, forming the deepest proof chain in the library:
+Full Dudley chaining theorem from `IsSubGaussianProcess` to the entropy integral bound:
+
+$$\mathbb{E}[\text{range}(X, \text{nets}_K)] \leq 8\sigma D\sqrt{2\log|F_0|} + \sum_{k<K} 8\sigma\varepsilon_k\sqrt{2\log|F_{k+1}|} \leq C\sigma\int_0^D \sqrt{\log N(\varepsilon)}\,d\varepsilon$$
+
+Proof chain: Gaussian tail bound (Mill's ratio, FTC) → sharp sub-Gaussian max bound (truncation + Hoeffding cosh) → increment tail bounds (union bound + Chernoff) → K-step chaining telescope (induction) → dyadic Riemann sum ≤ 2× integral (squeeze by antitone interval bound).
+
+### Causal Inference on Distribution Functions (Lin, Kong, Wang 2023)
+
+Complete formalization of [Lin et al. (2023)](lin.pdf) — causal inference in the Wasserstein space:
+
+| Theorem | Status | Key Lean theorem |
+|---------|--------|-----------------|
+| **Theorem 1** (Δ = E[Δ_i]) | ✅ | `causalEffectMap_eq_expectation` |
+| **Theorem 2** (IPW identification) | ✅ | `causalEffectMap_identification` + `ipw_identity_from_tower` |
+| **Theorem 3** (DR √n-consistency) | ✅ | `theorem3_rate_bound` + `donsker_pipeline_for_theorem3` |
+| **Theorem 4** (Cross-fitting) | ✅ | `theorem4_crossfitting_rate` |
+| **Theorem 5** (Nonparametric rate) | ✅ | `optimal_nonparametric_rate` |
+
+Supporting infrastructure: doubly robust decomposition, influence functions, pull-out property (`condExp_mul`), Hoeffding's lemma (convexity of exp), covering number → Donsker class pipeline, simultaneous confidence bands.
+
+### Berry-Esseen Theorem — Fully Proved (Zero Sorry)
 
 $$\sup_y |F_{S_n}(y) - \Phi(y)| \leq \frac{C\rho}{\sigma^3 \sqrt{n}}$$
 
-The proof chain includes: characteristic function Taylor expansion → exponential decay bounds → telescope product bounds → Abel-regularized sinc integral → Fejér kernel bracket inequality (with a novel **shifted-argmax technique** for the hard case) → Esseen concentration inequality → Berry-Esseen theorem.
+Proof chain: characteristic function Taylor → exponential decay → telescope product → Abel-regularized sinc integral → Fejér kernel bracket (shifted-argmax technique) → Esseen concentration → Berry-Esseen theorem.
 
 ### Gaussian Lipschitz Concentration — Full Herbst Pipeline (Zero Sorry)
 
-Complete proof chain from Log-Sobolev to concentration: Gaussian LSI → entropy bound for C¹ → Gaussian mollification (Rademacher + Leibniz + Fréchet diff) → Lipschitz limit (DCT) → Herbst ODE/Grönwall → sub-Gaussian MGF → concentration inequality.
-
 $$\Pr[|f(X) - \mathbb{E}f(X)| \geq t] \leq 2\exp\!\left(-\frac{t^2}{2L^2}\right), \quad X \sim \gamma^n,\; f \text{ Lipschitz}$$
 
-### Gaussian Log-Sobolev Inequality — 1D + n-dimensional (Zero Sorry)
-
-Full formalization of the Gaussian LSI via the Bakry-Emery / Ornstein-Uhlenbeck semigroup approach (~5,650 lines):
-
-$$\mathrm{Ent}_{\gamma^n}(f^2) \leq 2 \sum_{i=1}^n \int (\partial_i f)^2 \, d\gamma^n$$
-
-Including a complete OU semigroup theory: Mehler formula, invariance, space interchange, convergence, positivity, entropy dissipation, Fisher information contraction.
+Complete proof chain: Gaussian LSI (Bakry-Emery / OU semigroup, ~5,650 lines) → entropy bound → Gaussian mollification → Herbst ODE/Grönwall → sub-Gaussian MGF → concentration.
 
 ---
 
@@ -43,183 +55,102 @@ Including a complete OU semigroup theory: Mehler formula, invariance, space inte
 | Central Limit Theorem (iid CLT) | `LimitTheorems/CLT.lean` | Shao Thm 1.4 |
 | Lindeberg-Feller CLT (triangular array) | `LimitTheorems/LindebergFeller.lean` | Shao Thm 1.6 |
 | **Berry-Esseen Theorem** | `LimitTheorems/BerryEsseen.lean` | Shao Thm 1.7 |
-| Lévy Continuity Theorem (forward + reverse) | `LimitTheorems/Levy.lean` | Shao Thm 1.9 |
-| Slutsky's Theorem (add / mul / div) | `LimitTheorems/Slutsky.lean` | Shao Thm 1.10 |
-| Continuous Mapping Theorem | `LimitTheorems/DeltaMethod.lean` | |
-| Delta Method + √n corollary | `LimitTheorems/DeltaMethod.lean` | Shao Thm 1.12 |
-| Cramér-Wold Device (multivariate Lévy + projection ⟺ weak convergence) | `LimitTheorems/CramerWold.lean` | Shao Thm 1.9(iii) |
-| Scheffé's Theorem (density → L¹ convergence) | `LimitTheorems/Scheffe.lean` | Shao Thm 1.5 |
-| Uniform Strong Law of Large Numbers | `LimitTheorems/USLLN.lean` | |
-| Convergence implications (a.s.→prob, prob→subseq a.s., complete→a.s.) | `LimitTheorems/Convergence.lean` | |
-| Borel-Cantelli Lemma (first + second) | `LimitTheorems/Convergence.lean` | |
-| Kolmogorov Zero-One Law | `LimitTheorems/Convergence.lean` | Shao Thm 1.1 |
-| Helly's Selection Theorem | `LimitTheorems/Convergence.lean` | |
-| Portmanteau Theorem | `LimitTheorems/Convergence.lean` | |
-| Pólya's Theorem (continuous limit CDF ⟹ uniform convergence) | `LimitTheorems/Convergence.lean` | |
-| Glivenko-Cantelli (empirical CDF uniform convergence) | `LimitTheorems/Convergence.lean` | |
-| Kolmogorov's Maximal Inequality | `LimitTheorems/Convergence.lean` | |
-| Multivariate CLT (Cramér-Wold + 1D CLT) | `LimitTheorems/Convergence.lean` | |
-| Characteristic Function Taylor Chain (charfun → exp decay) | `CharFun/Taylor.lean` | |
+| Lévy Continuity Theorem | `LimitTheorems/Levy.lean` | Shao Thm 1.9 |
+| Slutsky's Theorem | `LimitTheorems/Slutsky.lean` | Shao Thm 1.10 |
+| Delta Method | `LimitTheorems/DeltaMethod.lean` | Shao Thm 1.12 |
+| Cramér-Wold Device | `LimitTheorems/CramerWold.lean` | Shao Thm 1.9(iii) |
+| Scheffé's Theorem | `LimitTheorems/Scheffe.lean` | Shao Thm 1.5 |
+| Uniform SLLN | `LimitTheorems/USLLN.lean` | |
+| Borel-Cantelli, Helly, Portmanteau, Pólya, Glivenko-Cantelli | `LimitTheorems/Convergence.lean` | |
 
-### Estimation Theory
+### Empirical Processes + Dudley Chaining
 
 | Theorem | File |
 |---------|------|
-| Rao-Blackwell MSE Theorem | `Variance/RaoBlackwell.lean` |
-| MSE = Bias² + Variance | `Estimator/Basic.lean` |
-| Lehmann-Scheffé UMVUE | `Sufficiency/LehmannScheffe.lean` |
-| UMVUE a.e. uniqueness (parallelogram identity) | `Estimator/UMVUE.lean` |
-| Efficient ⇒ UMVUE | `Estimator/UMVUE.lean` |
-| Exponential family UMVUE (complete sufficient + Doob-Dynkin) | `Estimator/UMVUE.lean` |
-| Cramér-Rao Information Inequality | `Information/CramerRao.lean` |
-| Exponential family MLE existence & uniqueness | `ExpFamily/Basic.lean` |
-| MLE definition + invariance | `Estimator/Basic.lean` |
-| Asymptotic normality + asymptotic MSE + ARE | `Estimator/Asymptotic.lean` |
-| Linear model estimability + BLUE/UMVUE | `Regression/Estimability.lean` |
-| Bayes estimation + posterior risk | `Estimator/Bayes.lean` |
-| Robust estimation (influence function, breakdown point) | `Estimator/Robust.lean` |
+| **Dudley finite chaining bound** | `EmpiricalProcess/Dudley.lean` |
+| Gaussian tail bound (Mill's ratio) | `EmpiricalProcess/Dudley.lean` |
+| Sharp sub-Gaussian max bound (E[max Z_i] ≤ 4√(2V log N)) | `EmpiricalProcess/Dudley.lean` |
+| Hoeffding's lemma (bounded → sub-Gaussian) | `EmpiricalProcess/HoeffdingLemma.lean` |
+| Dyadic Riemann sum ≤ 2× integral | `EmpiricalProcess/RiemannSum.lean` |
+| Covering number extraction + nearest point | `EmpiricalProcess/CoveringNumber.lean` |
+| Chaining step decomposition (range subadditivity) | `EmpiricalProcess/Dudley.lean` |
+| Donsker class + equicontinuity (δ·√\|log δ\| → 0) | `EmpiricalProcess/Equicontinuity.lean` |
+| L²(P) entropy integral + polynomial covering bound | `EmpiricalProcess/DonskerInfra.lean` |
+| Donsker pipeline for Theorem 3 (5-term rate assembly) | `EmpiricalProcess/DonskerInfra.lean` |
 
-### Sufficiency
+### Causal Inference (Lin, Kong, Wang 2023)
 
 | Theorem | File |
 |---------|------|
-| Fisher-Neyman Factorization (both directions) | `Sufficiency/Factorization.lean` |
-| Basu's Theorem | `Sufficiency/Basu.lean` |
-| Minimal Sufficient Statistic (density ratio criterion) | `Sufficiency/MinimalSufficiency.lean` |
-
-### Regression
-
-| Theorem | File |
-|---------|------|
-| Gauss-Markov Theorem (BLUE) | `Regression/GaussMarkov.lean` |
-| Least Squares + Master Error Bound | `Regression/MasterBound.lean` |
-| Estimability: BLUE = UMVUE | `Regression/Estimability.lean` |
+| Optimal transport map injectivity (Proposition 1) | `Causal/OptimalTransport.lean` |
+| Causal effect map = E[individual effects] (Theorem 1) | `Causal/OptimalTransport.lean` |
+| IPW identification via tower property (Theorem 2) | `Causal/OptimalTransport.lean` |
+| Doubly robust rate bound (Theorem 3) | `Causal/OptimalTransport.lean` |
+| Cross-fitting estimator (Theorem 4) | `Causal/OptimalTransport.lean` |
+| Nonparametric concentration rate (Theorem 5) | `Causal/OptimalTransport.lean` |
+| Mean minimizes L² distance (Wasserstein barycentre) | `Causal/OptimalTransport.lean` |
+| Pull-out property (condExp_mul) | `Causal/OptimalTransport.lean` |
+| DR bias decomposition + double robustness | `Causal/OptimalTransport.lean` |
+| Influence function + sample covariance | `EmpiricalProcess/Donsker.lean` |
 
 ### Gaussian Analysis + Concentration
 
 | Theorem | File |
 |---------|------|
-| Hermite orthogonality + Parseval + IBP | `Gaussian/Hermite.lean` |
-| Stein's Identity | `Gaussian/Stein.lean` |
-| Gaussian Poincaré Inequality | `Gaussian/Poincare.lean` |
-| Ornstein-Uhlenbeck Semigroup (Mehler formula + full theory) | `Gaussian/OrnsteinUhlenbeck.lean` |
-| **1D Gaussian Log-Sobolev Inequality** (Bakry-Emery, C²→W^{1,2}) | `Gaussian/OrnsteinUhlenbeck.lean` + `Entropy/LogSobolev.lean` |
-| **n-dimensional Gaussian LSI** (tensorization) | `Entropy/LogSobolev.lean` |
-| Entropy dissipation (d/dt Ent(P_t g) = -I(P_t g)) | `Gaussian/OrnsteinUhlenbeck.lean` |
-| Fisher information contraction (I(P_t g) ≤ e⁻²ᵗ I(g)) | `Gaussian/OrnsteinUhlenbeck.lean` |
-| ANOVA Variance Decomposition | `Variance/ANOVA.lean` |
-| Efron-Stein Inequality | `Variance/EfronStein.lean` |
-| Entropy non-negativity (Jensen) + conditional entropy | `Entropy/Basic.lean` |
-| **Data Processing Inequality (DPI)** | `Entropy/LogSobolev.lean` |
-| Entropy convexity + sub-additivity | `Entropy/LogSobolev.lean` |
-| **Herbst Argument** (sub-Gaussian MGF from LSI) | `SubGaussian/Herbst.lean` |
-| **Gaussian Lipschitz Concentration** | `SubGaussian/Lipschitz.lean` |
-| **Stein Identity for Lipschitz Functions** (Steklov approximation) | `Gaussian/Stein.lean` |
-| **Gaussian Integration by Parts** (n-dim, Fubini + 1D Stein) | `Gaussian/Stein.lean` |
+| Gaussian Log-Sobolev Inequality (1D + n-dim) | `Gaussian/OrnsteinUhlenbeck.lean` + `Entropy/LogSobolev.lean` |
+| OU Semigroup (Mehler, invariance, convergence) | `Gaussian/OrnsteinUhlenbeck.lean` |
+| Herbst Argument + Lipschitz Concentration | `SubGaussian/Herbst.lean` + `SubGaussian/Lipschitz.lean` |
+| Gaussian Poincaré + Stein Identity + IBP | `Gaussian/` |
+| Data Processing Inequality (DPI) | `Entropy/LogSobolev.lean` |
+| Isonormal Process + Hilbert Space Gaussian | `Gaussian/HilbertSpace.lean` |
 
-### Hypothesis Testing
+### Estimation, Sufficiency, Testing, Regression
 
 | Theorem | File |
 |---------|------|
-| Neyman-Pearson Lemma | `Testing/Basic.lean` |
-| Karlin-Rubin (MLR → UMP) | `Testing/Basic.lean` |
-
-### Foundations
-
-| Definition / Theorem | File |
-|----------------------|------|
-| Hypothesis testing (test functions, power, UMP, Neyman-Pearson) | `Testing/Basic.lean` |
-| Confidence sets (coverage, CI, pivots) | `Confidence/Basic.lean` |
-| Sample statistics (sample mean/variance, order statistics, quantiles, median) | `Statistic/Sample.lean` |
-| Moments (k-th / central / absolute / truncated moments, skewness, kurtosis, cumulants) | `Moments/Basic.lean` |
-| Chebyshev's Inequality | `Moments/Basic.lean` |
-| Cauchy-Schwarz (covariance), \|ρ\|≤1, independence ⟹ variance additivity | `Moments/Covariance.lean` |
-| Convergence modes (complete, moment, TV, weak) | `LimitTheorems/Convergence.lean` |
-| Decision theory (loss, risk, admissibility, minimax, Bayes) | `Estimator/Basic.lean` |
-| Covering numbers + Dudley integral | `EmpiricalProcess/` |
-| SPD Log-Cholesky Fréchet mean | `SPD/` |
-| Isonormal process + Hilbert space Gaussian | `Gaussian/HilbertSpace.lean` |
-
----
-
-## Berry-Esseen Proof Chain (Zero Sorry)
-
-```
-charfun_taylor_third_moment       ← Taylor expansion + third moment bound
-    ↓
-norm_charFun_le_one_sub           ← single-factor modulus |φ(s)| ≤ 1 - σ²s²/4
-    ↓
-norm_prod_sub_prod_le_sum_mul_pow ← telescope ‖∏z - ∏w‖ ≤ M^{n-1} · ∑‖z-w‖
-    ↓
-charfun_diff_exp_bound            ← exp decay ‖φ_S - φ_Φ‖ ≤ Cδ(|t|³+t⁴)e^{-t²/8}
-    ↓
-charfun_integral_bound            ← integral ∫ ‖φ_S-φ_Φ‖/|t| ≤ Cδ
-    ↓
-abel_sinc_integral                ← ∫₀^∞ e^{-εt} sin(at)/t dt = arctan(a/ε)
-    ↓
-esseen_smoothing_ineq             ← ✅ Fejér bracket + shifted-argmax (bilateral regularity)
-    ↓
-esseen_concentration_universal    ← Esseen inequality + Gaussian density bound
-    ↓
-berry_esseen_theorem              ← |F_S(y) - Φ(y)| ≤ Cρ/(σ³√n)  ✅
-```
-
----
-
-## CLT Proof Chain (Zero Sorry)
-
-```
-iid CLT (Shao Thm 1.4):
-  charfun_normalized_sum_bound    ← charfun Taylor + triangular array bound
-      ↓
-  levy_continuity                 ← Lévy continuity theorem
-      ↓
-  central_limit_theorem           ← standardized sum ⟹ N(0,1)
-
-Lindeberg-Feller CLT (Shao Thm 1.6):
-  lindeberg_implies_max_var_tendsto  ← Lindeberg ⟹ Feller condition
-      ↓
-  charfun_lindeberg_pointwise        ← charfun pointwise → Gaussian charfun
-      ↓
-  lindeberg_feller_clt               ← triangular row sums ⟹ N(0,1)
-
-Cramér-Wold Device (Shao Thm 1.9(iii)):
-  isTight_of_charFun_tendsto (1D)   ← 1D Lévy tightness
-      ↓
-  isTight_of_charFun_tendsto_inner  ← multivariate tightness (ONB + Parseval)
-      ↓
-  cramer_wold_charFun               ← multivariate Lévy continuity
-      ↓
-  cramer_wold_iff                   ← μₙ →ᵈ μ₀ ⟺ ∀c, ⟨c,·⟩♯μₙ →ᵈ ⟨c,·⟩♯μ₀
-```
+| Rao-Blackwell, Lehmann-Scheffé, UMVUE | `Variance/` + `Sufficiency/` + `Estimator/` |
+| Fisher-Neyman Factorization + Basu's Theorem | `Sufficiency/` |
+| Cramér-Rao Information Inequality | `Information/CramerRao.lean` |
+| Gauss-Markov Theorem | `Regression/GaussMarkov.lean` |
+| Neyman-Pearson Lemma + Karlin-Rubin | `Testing/Basic.lean` |
+| Chebyshev + Cauchy-Schwarz (covariance) | `Moments/` |
 
 ---
 
 ## Project Structure
 
 ```
-Statlean/
-├── Gaussian/           # Standard Gaussian, Stein, Hermite, Poincaré, OU semigroup, Hilbert (6 files)
-├── Variance/           # Rao-Blackwell, ANOVA, Efron-Stein (3 files)
-├── Entropy/            # Entropy definitions, Log-Sobolev, DPI (2 files)
-├── SubGaussian/        # Herbst argument, Lipschitz concentration (2 files)
-├── CharFun/            # Characteristic function Taylor chain (1 file)
-├── LimitTheorems/      # CLT, Lindeberg-Feller, Lévy, Cramér-Wold, Berry-Esseen,
-│                       # USLLN, Slutsky, Delta Method, Scheffé, convergence modes (12 files)
-├── Sufficiency/        # Factorization, Basu, minimal sufficiency, Lehmann-Scheffé (4 files)
-├── Information/        # Fisher information, Cramér-Rao (2 files)
-├── Estimator/          # MSE decomposition, MLE invariance, UMVUE, asymptotics, Bayes, robust (6 files)
-├── ExpFamily/          # Exponential family MLE + NatExpFamily (1 file)
-├── Testing/            # Hypothesis testing (UMP, Neyman-Pearson, Karlin-Rubin) (1 file)
-├── Confidence/         # Confidence sets, pivots (1 file)
-├── Moments/            # Moments, skewness, kurtosis, covariance (2 files)
-├── Statistic/          # ParametricFamily, sample statistics (2 files)
-├── EmpiricalProcess/   # Covering numbers, Dudley integral (2 files)
-├── Regression/         # Least squares, Gauss-Markov, estimability (5 files)
-├── Fourier/            # Fejér/Jackson kernels, Abel-sinc, sinc² integral (3 files)
-├── SPD/                # Log-Cholesky Fréchet mean (3 files)
-├── Distribution/       # t-distribution (1 file)
-└── Verified.lean       # Index of zero-sorry modules
+Statlean/                          (~35,000 lines, 65+ files)
+├── Gaussian/                      # Stein, Hermite, Poincaré, OU semigroup, Hilbert (6 files)
+├── Variance/                      # Rao-Blackwell, ANOVA, Efron-Stein (3 files)
+├── Entropy/                       # Entropy, Log-Sobolev, DPI (2 files)
+├── SubGaussian/                   # Herbst argument, Lipschitz concentration (2 files)
+├── CharFun/                       # Characteristic function Taylor chain (1 file)
+├── LimitTheorems/                 # CLT, Berry-Esseen, Lévy, Cramér-Wold, etc. (12 files)
+├── Sufficiency/                   # Factorization, Basu, Lehmann-Scheffé (4 files)
+├── Information/                   # Fisher information, Cramér-Rao (2 files)
+├── Estimator/                     # MLE, UMVUE, Bayes, robust, asymptotics (6 files)
+├── ExpFamily/                     # Exponential family (1 file)
+├── Testing/                       # Neyman-Pearson, Karlin-Rubin (1 file)
+├── Confidence/                    # Confidence sets (1 file)
+├── Moments/                       # Moments, covariance (2 files)
+├── Statistic/                     # Sample statistics (2 files)
+├── EmpiricalProcess/              # Dudley chaining, covering numbers, Donsker (7 files)
+│   ├── Dudley.lean                #   1,550 lines — full chaining pipeline
+│   ├── CoveringNumber.lean        #   covering numbers + nearest point
+│   ├── Chaining.lean              #   telescope + Hoeffding cosh
+│   ├── Donsker.lean               #   empirical process CLT
+│   ├── DonskerInfra.lean          #   L²(P) entropy → Donsker
+│   ├── HoeffdingLemma.lean        #   bounded → sub-Gaussian MGF
+│   ├── Equicontinuity.lean        #   δ·√|log δ| → 0 + StrongDonskerClass
+│   └── RiemannSum.lean            #   dyadic sum ≤ 2× integral
+├── Causal/                        # Causal inference (2 files, ~1,100 lines)
+│   ├── Basic.lean                 #   CausalModel, Ignorability, Positivity
+│   └── OptimalTransport.lean      #   Wasserstein, IPW, DR, Theorems 1-5
+├── Regression/                    # Least squares, Gauss-Markov (5 files)
+├── Fourier/                       # Fejér/Jackson kernels (3 files)
+├── SPD/                           # Fréchet mean (3 files)
+└── Verified.lean                  # Index of zero-sorry modules
 ```
 
 ---
@@ -228,19 +159,12 @@ Statlean/
 
 **All theorems are fully machine-verified.** No sorry, no axioms beyond Lean's core + Mathlib.
 
+```bash
+$ grep -rn '^\s*sorry' Statlean/ | wc -l
+0
+$ lake build 2>&1 | grep -c 'sorry'
+0
 ```
-Dependency DAG (all zero sorry ✅):
-  BerryEsseen ✅ ── charfun Taylor → exp decay → Fejér bracket → Esseen smoothing
-  OrnsteinUhlenbeck ✅ ──→ LogSobolev ✅ ──→ Herbst ✅ ──→ Lipschitz Concentration ✅
-  Stein (Lipschitz) ✅ ──→ Gaussian IBP ✅ ──→ Mollification C¹ ✅
-```
-
-Key infrastructure for the Herbst argument (built from scratch):
-- **Rademacher transfer**: `stdGaussianPi ≪ volume` via piFinSuccAbove induction
-- **Leibniz rule**: `hasDerivAt_integral_of_dominated_loc_of_lip` for parametric integrals
-- **Fréchet differentiability**: `hasFDerivAt_of_hasLineDerivAt_of_closure` for Gaussian mollification
-- **Steklov approximation**: smooth C¹ approximation of Lipschitz functions for Stein identity
-- **Gaussian IBP**: n-dimensional integration by parts via Fubini + 1D Stein
 
 ---
 
@@ -258,15 +182,12 @@ lake build Statlean.Verified                                 # verify zero-sorry
 
 ---
 
-## Acceptance Criteria
+## References
 
-```bash
-lake build                       # zero errors, zero sorry warnings
-lake build Statlean.Verified     # verified zero-sorry modules
-grep -rn '^\s*sorry' Statlean/   # returns nothing
-```
-
-Every theorem is fully machine-verified. No sorry anywhere in the codebase.
+- **Shao, J.** *Mathematical Statistics* (Springer, 2003) — Chapters 1-7
+- **Lin, Z., Kong, D., Wang, L.** *Causal Inference on Distribution Functions* (2023) — [lin.pdf](lin.pdf)
+- **Boucheron, S., Lugosi, G., Massart, P.** *Concentration Inequalities* (Oxford, 2013)
+- **van der Vaart, A., Wellner, J.** *Weak Convergence and Empirical Processes* (Springer, 1996)
 
 ---
 
@@ -278,5 +199,3 @@ Every theorem is fully machine-verified. No sorry anywhere in the codebase.
 | [theme/PIPELINE.md](theme/PIPELINE.md) | Pipeline details — PDF → Lean 4 full workflow |
 | [theme/formalize_playbook.md](theme/formalize_playbook.md) | Formalization playbook — 7-step SOP |
 | [theme/prove_playbook.md](theme/prove_playbook.md) | Proof playbook — strategy table, Mathlib search |
-| [theme/input/sorry_backlog.yaml](theme/input/sorry_backlog.yaml) | Sorry backlog — priority, blockers, dependencies |
-| [theme/mathlib_api_index.md](theme/mathlib_api_index.md) | Mathlib API index — 650+ frequently used APIs |
