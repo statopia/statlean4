@@ -553,7 +553,6 @@ satisfiesCriticalInequality	Statlean/Regression/MasterBound.lean:87	def
 satisfiesCriticalInequality_of_localGaussianComplexityProxyAssumptions	Statlean/Regression/MasterBound.lean:193	lemma
 satisfiesCriticalInequality_of_localGaussianComplexity_le	Statlean/Regression/MasterBound.lean:101	lemma
 satisfiesCriticalInequality_of_proxy_bound	Statlean/Regression/MasterBound.lean:110	lemma
-scheffe	Statlean/LimitTheorems/Scheffe.lean:36	theorem
 scoreFunction	Statlean/Information/Basic.lean:20	noncomputable def
 setIntegral_eq_integral_mul_meas_of_indep	Statlean/Variance/EfronStein.lean:361	private lemma
 shiftedClass	Statlean/Regression/MasterBound.lean:44	def
