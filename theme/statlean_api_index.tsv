@@ -184,7 +184,6 @@ correlation	Statlean/Moments/Basic.lean:85	noncomputable def
 covariance	Statlean/Moments/Basic.lean:80	noncomputable def
 covariance_self_eq_variance	Statlean/Moments/Basic.lean:124	theorem
 coveringNumber	Statlean/EmpiricalProcess/CoveringNumber.lean:31	def
-coveringNumber_anti	Statlean/EmpiricalProcess/CoveringNumber.lean:46	theorem
 coveringNumber_lt_top_of_isCompact	Statlean/EmpiricalProcess/CoveringNumber.lean:85	theorem
 coveringNumber_lt_top_of_totallyBounded	Statlean/EmpiricalProcess/CoveringNumber.lean:67	theorem
 coveringNumber_mono	Statlean/EmpiricalProcess/CoveringNumber.lean:57	theorem
@@ -380,7 +379,6 @@ integral_sq_nonneg	Statlean/Entropy/LogSobolev.lean:173	lemma
 integral_sq_sub_condExp_le_integral_sq_sub	Statlean/Gaussian/Poincare.lean:528	private lemma
 integral_stdGaussianPi_one_eq	Statlean/Entropy/LogSobolev.lean:1036	private lemma
 integral_stdGaussian_eq_integral_mul_pdf	Statlean/Gaussian/Hermite.lean:349	private lemma
-integral_sub_const_sq_eq	Statlean/Variance/RaoBlackwell.lean:19	lemma
 integral_sub_sq_minimized_at_mean	Statlean/Estimator/Bayes.lean:24	theorem
 integrated_condEntropyAt_eq	Statlean/Entropy/LogSobolev.lean:873	private lemma
 is	Statlean/Regression/MasterBound.lean:664	theorem

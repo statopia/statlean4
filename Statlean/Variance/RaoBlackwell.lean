@@ -19,17 +19,7 @@ variable {Ω : Type*} {m₀ : MeasurableSpace Ω} {μ : Measure Ω}
 lemma integral_sub_const_sq_eq (X : Ω → ℝ) (c : ℝ) [IsProbabilityMeasure μ]
     (hX : MemLp X 2 μ) :
     ∫ ω, (X ω - c) ^ 2 ∂μ = Var[X; μ] + (∫ ω, X ω ∂μ - c) ^ 2 := by
-  have hXi : Integrable X μ := hX.integrable one_le_two
-  have hXc : MemLp (fun ω => X ω - c) 2 μ := hX.sub (memLp_const c)
-  have h1 := variance_eq_sub hXc
-  simp only [Pi.pow_apply] at h1
-  have h2 := variance_sub_const hX.aestronglyMeasurable c
-  have h3 : ∫ ω, (X ω - c) ∂μ = ∫ ω, X ω ∂μ - c := by
-    rw [integral_sub hXi (integrable_const c), integral_const]
-    simp [Measure.real]
-  have h4 : ∫ ω, (X ω - c) ^ 2 ∂μ = Var[fun ω => X ω - c; μ] +
-      (∫ ω, (X ω - c) ∂μ) ^ 2 := by linarith
-  rw [h4, h2, h3]
+  sorry -- BENCHMARK: proof removed for evaluation (A-level, bias-variance decomposition)
 
 /-- **Rao-Blackwell Theorem (MSE reduction)**: conditioning on a sub-σ-algebra
 reduces mean squared error. -/

@@ -45,13 +45,7 @@ def entropyIntegral (T : Set α) (D : ℝ) : ℝ :=
 /-- Covering number is monotone: if ε ≤ ε', then N(ε', T) ≤ N(ε, T). -/
 theorem coveringNumber_anti (T : Set α) {ε ε' : ℝ} (h : ε ≤ ε') :
     coveringNumber T ε' ≤ coveringNumber T ε := by
-  refine le_iInf fun S => ?_
-  refine le_iInf fun hSε => ?_
-  refine iInf_le_of_le S ?_
-  refine iInf_le_of_le (show IsENet (↑S) T ε' from ?_) le_rfl
-  intro x hx
-  rcases hSε x hx with ⟨s, hsS, hdist⟩
-  exact ⟨s, hsS, le_trans hdist h⟩
+  sorry -- BENCHMARK: proof removed for evaluation (A-level, covering number monotonicity)
 
 /-- Covering number of a subset is at most that of the superset. -/
 theorem coveringNumber_mono {S T : Set α} (h : S ⊆ T) (ε : ℝ) :
