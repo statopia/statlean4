@@ -217,7 +217,7 @@ section RademacherConcentration
   We prove the weaker but useful bound: for |x| ≤ 1,
   exp(lamx) ≤ 1 + lamx + lam²/2 (Taylor bound). -/
 theorem exp_lower_bound (t : ℝ) : 1 + t ≤ Real.exp t := by
-  linarith [Real.add_one_le_exp t]
+  sorry -- BENCHMARK: proof removed for evaluation
 
 /-- **Sub-Gaussian tail bound structure**.
 

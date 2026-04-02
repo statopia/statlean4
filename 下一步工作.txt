@@ -1,0 +1,14 @@
+antigravity
+
+openclaw 部署好之后可以用手机监控,调度工作
+
+看一下sub2api
+
+把证明的过程写成claude code的插件
+
+deepseek-prover-v2 
+
+
+
+
+

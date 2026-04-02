@@ -132,30 +132,7 @@ theorem chebyshev_ineq [IsProbabilityMeasure μ]
     (X : Ω → ℝ) (hX : MemLp X 2 μ) (t : ℝ) (ht : 0 < t) :
     (μ {ω | t ≤ |X ω - ∫ ω', X ω' ∂μ|}).toReal ≤
       centralMoment μ X 2 / t ^ 2 := by
-  set EX := ∫ ω', X ω' ∂μ
-  set f := fun ω => (X ω - EX) ^ 2
-  have hf_nn : 0 ≤ᵐ[μ] f := ae_of_all _ (fun ω => sq_nonneg _)
-  have hf_int : Integrable f μ :=
-    (hX.sub (memLp_const EX)).integrable_sq
-  -- Markov: t² * μ.real {ω | t² ≤ f ω} ≤ ∫ f
-  have hMarkov := mul_meas_ge_le_integral_of_nonneg hf_nn hf_int (t ^ 2)
-  -- ∫ f = centralMoment μ X 2
-  have hf_eq : ∫ ω, f ω ∂μ = centralMoment μ X 2 := rfl
-  rw [hf_eq] at hMarkov
-  -- {ω | t² ≤ f ω} = {ω | t ≤ |X ω - EX|}
-  have hset : {ω | t ^ 2 ≤ f ω} = {ω | t ≤ |X ω - EX|} := by
-    ext ω; simp only [f, Set.mem_setOf_eq]; constructor
-    · intro h
-      nlinarith [sq_abs (X ω - EX), sq_nonneg (|X ω - EX| - t),
-        abs_nonneg (X ω - EX)]
-    · intro h
-      have := sq_le_sq' (by linarith [neg_abs_le (X ω - EX)]) h
-      linarith [sq_abs (X ω - EX)]
-  rw [hset] at hMarkov
-  -- From hMarkov: t² * μ.real {..} ≤ centralMoment, divide by t²
-  change μ.real {ω | t ≤ |X ω - EX|} ≤ centralMoment μ X 2 / t ^ 2
-  exact (le_div_iff₀ (sq_pos_of_pos ht)).mpr
-    (by linarith [mul_comm (t ^ 2) (μ.real {ω | t ≤ |X ω - EX|})])
+  sorry -- BENCHMARK: proof removed for evaluation
 
 end Theorems
 

@@ -133,15 +133,15 @@ theorem variance_sum_of_covariance_zero [IsFiniteMeasure μ]
     (h_cov : ProbabilityTheory.covariance X Y μ = 0) :
     ProbabilityTheory.variance (X + Y) μ =
       ProbabilityTheory.variance X μ + ProbabilityTheory.variance Y μ := by
-  rw [variance_add_eq hX hY, h_cov, mul_zero, add_zero]
+  sorry -- BENCHMARK: proof removed for evaluation
 
 /-- For independent X, Y: `Var(X+Y) = Var(X) + Var(Y)`. -/
 theorem variance_sum_independent [IsProbabilityMeasure μ]
     {X Y : Ω → ℝ} (hX : MemLp X 2 μ) (hY : MemLp Y 2 μ)
     (h_ind : IndepFun X Y μ) :
     ProbabilityTheory.variance (X + Y) μ =
-      ProbabilityTheory.variance X μ + ProbabilityTheory.variance Y μ :=
-  variance_sum_of_covariance_zero hX hY (h_ind.covariance_eq_zero hX hY)
+      ProbabilityTheory.variance X μ + ProbabilityTheory.variance Y μ := by
+  sorry -- BENCHMARK: proof removed for evaluation
 
 end Independent
 
