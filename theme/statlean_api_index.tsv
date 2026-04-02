@@ -180,7 +180,6 @@ constant_risk_bayes_is_minimax	Statlean/Estimator/Bayes.lean:67	theorem
 continuous_charFun	Statlean/LimitTheorems/CramerWold.lean:53	lemma
 continuous_mapping	Statlean/LimitTheorems/DeltaMethod.lean:39	theorem
 corrCoeff	Statlean/Moments/Covariance.lean:96	noncomputable def
-corrCoeff_abs_le_one	Statlean/Moments/Covariance.lean:102	theorem
 correlation	Statlean/Moments/Basic.lean:85	noncomputable def
 covariance	Statlean/Moments/Basic.lean:80	noncomputable def
 covariance_self_eq_variance	Statlean/Moments/Basic.lean:124	theorem
@@ -573,7 +572,6 @@ slutsky_div	Statlean/LimitTheorems/Slutsky.lean:95	theorem
 slutsky_mul	Statlean/LimitTheorems/Slutsky.lean:41	theorem
 smoothed_cdf_fourier_bound	Statlean/LimitTheorems/BerryEsseen.lean:219	lemma
 smoothing_kernel_exists	Statlean/LimitTheorems/BerryEsseen.lean:69	lemma
-sq_covariance_le_variance_mul	Statlean/Moments/Covariance.lean:44	theorem
 sq_div_sq_add_eps_le_one	Statlean/Entropy/LogSobolev.lean:381	lemma
 sq_integral_le_integral_sq	Statlean/Variance/ANOVA.lean:35	lemma
 sq_mul_log_sq_eq	Statlean/Entropy/LogSobolev.lean:102	lemma
@@ -610,6 +608,5 @@ update_eq_insertNth	Statlean/Gaussian/Poincare.lean:422	private lemma
 var_ratio_le_lindeberg	Statlean/LimitTheorems/LindebergFeller.lean:288	private lemma
 variance_add_eq	Statlean/Moments/Covariance.lean:28	theorem
 variance_eq_integral_sq_sub	Statlean/Entropy/LogSobolev.lean:108	lemma
-variance_eq_moment_sub_sq	Statlean/Moments/Basic.lean:107	theorem
 variance_marginals_le_variance_prod	Statlean/Variance/ANOVA.lean:112	theorem
 variance_pi_of_isEmpty	Statlean/Variance/ANOVA.lean:45	lemma

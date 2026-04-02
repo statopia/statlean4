@@ -107,18 +107,7 @@ variable {μ : Measure Ω}
 theorem variance_eq_moment_sub_sq [IsProbabilityMeasure μ]
     (X : Ω → ℝ) (hX : MemLp X 2 μ) :
     centralMoment μ X 2 = moment μ X 2 - (moment μ X 1) ^ 2 := by
-  simp only [centralMoment, moment]
-  have hXi : Integrable X μ := hX.integrable one_le_two
-  -- Use bias-variance decomposition with c = 0: ∫(X-0)² = Var[X] + (EX-0)²
-  have h := integral_sub_const_sq_eq X 0 hX
-  simp only [sub_zero] at h
-  -- h : ∫ X² = Var[X;μ] + (∫X)²
-  -- variance_eq_integral: Var[X;μ] = ∫(X-EX)²
-  rw [variance_eq_integral hX.aemeasurable] at h
-  have hpow1 : ∫ ω, (X ω) ^ (1 : ℕ) ∂μ = ∫ ω, X ω ∂μ := by
-    congr 1; ext ω; ring
-  rw [hpow1]
-  linarith
+  sorry -- BENCHMARK: proof removed for evaluation (A-level, variance decomposition)
 
 /-- `Cov(X, X) = Var(X)` (= second central moment). -/
 theorem covariance_self_eq_variance (X : Ω → ℝ) :
