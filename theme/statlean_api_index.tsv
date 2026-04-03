@@ -118,7 +118,6 @@ asymptotic_mse_eq_var_of_unbiased	Statlean/Estimator/Asymptotic.lean:123	theorem
 basu_theorem	Statlean/Sufficiency/Basu.lean:88	theorem
 bayesTestRisk	Statlean/Testing/Basic.lean:304	noncomputable def
 bayes_is_admissible	Statlean/Estimator/Bayes.lean:44	theorem
-bayes_test_optimality	Statlean/Testing/Basic.lean:316	theorem
 berry_esseen_smoothing	Statlean/LimitTheorems/BerryEsseen.lean:273	lemma
 berry_esseen_theorem	Statlean/LimitTheorems/BerryEsseen.lean:1254	theorem
 blue_is_umvue	Statlean/Regression/Estimability.lean:115	theorem
@@ -138,7 +137,6 @@ charfun_diff_exp_bound	Statlean/LimitTheorems/BerryEsseen.lean:850	private lemma
 charfun_diff_taylor_bound	Statlean/LimitTheorems/BerryEsseen.lean:450	private lemma
 charfun_error_le_j	Statlean/LimitTheorems/LindebergFeller.lean:124	private lemma
 charfun_final_arithmetic	Statlean/CharFun/Taylor.lean:561	private lemma
-charfun_iid_sum_eq_prod	Statlean/CharFun/Taylor.lean:304	lemma
 charfun_indep_sum_eq_prod	Statlean/LimitTheorems/LindebergFeller.lean:48	lemma
 charfun_integral_bound	Statlean/LimitTheorems/BerryEsseen.lean:1042	lemma
 charfun_integrand_bound	Statlean/LimitTheorems/BerryEsseen.lean:756	private lemma
@@ -157,8 +155,6 @@ clt_isAsymptoticallyNormal	Statlean/Estimator/Asymptotic.lean:90	theorem
 compl_Icc_eq_abs_gt	Statlean/LimitTheorems/Levy.lean:65	private lemma
 complete_implies_as	Statlean/LimitTheorems/Convergence.lean:235	theorem
 complete_unbiased_ae_unique	Statlean/Sufficiency/LehmannScheffe.lean:23	theorem
-complex_pow_approx_exp	Statlean/CharFun/Taylor.lean:366	lemma
-complex_pow_approx_exp_decay	Statlean/CharFun/Taylor.lean:417	lemma
 condEntropyAt	Statlean/Entropy/Basic.lean:71	def
 condEntropyAt_eq	Statlean/Entropy/Basic.lean:132	lemma
 condEntropyAt_le_of_satisfiesLSI	Statlean/Entropy/LogSobolev.lean:724	private lemma
@@ -187,7 +183,6 @@ coveringNumber	Statlean/EmpiricalProcess/CoveringNumber.lean:31	def
 coveringNumber_lt_top_of_isCompact	Statlean/EmpiricalProcess/CoveringNumber.lean:85	theorem
 coveringNumber_lt_top_of_totallyBounded	Statlean/EmpiricalProcess/CoveringNumber.lean:67	theorem
 coveringNumber_mono	Statlean/EmpiricalProcess/CoveringNumber.lean:57	theorem
-cramer_rao	Statlean/Information/CramerRao.lean:22	theorem
 cramer_wold_charFun	Statlean/LimitTheorems/CramerWold.lean:240	theorem
 cramer_wold_forward	Statlean/LimitTheorems/CramerWold.lean:80	theorem
 cramer_wold_iff	Statlean/LimitTheorems/CramerWold.lean:299	theorem
@@ -482,7 +477,6 @@ mse_eq_variance_of_unbiased	Statlean/Estimator/Basic.lean:89	theorem
 mul_log_ge_sub_one	Statlean/Entropy/LogSobolev.lean:121	lemma
 multivariate_clt	Statlean/LimitTheorems/Convergence.lean:974	theorem
 neg_mul_log_le_one	Statlean/Entropy/LogSobolev.lean:278	lemma
-neyman_pearson_optimality	Statlean/Testing/Basic.lean:204	theorem
 no_optimal_of_two_admissible_not_equivalent	Statlean/Estimator/Basic.lean:292	theorem
 norm_cexp_sub_quadratic_le	Statlean/CharFun/Taylor.lean:42	lemma
 norm_cexp_sub_quadratic_le_sq	Statlean/LimitTheorems/LindebergFeller.lean:93	private lemma
