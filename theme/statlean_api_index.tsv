@@ -188,8 +188,6 @@ cramer_wold_forward	Statlean/LimitTheorems/CramerWold.lean:80	theorem
 cramer_wold_iff	Statlean/LimitTheorems/CramerWold.lean:299	theorem
 cramer_wold_reverse	Statlean/LimitTheorems/CramerWold.lean:271	theorem
 cumulant	Statlean/Moments/Basic.lean:97	noncomputable def
-delta_method	Statlean/LimitTheorems/DeltaMethod.lean:139	theorem
-delta_method_sqrt_n	Statlean/LimitTheorems/DeltaMethod.lean:273	theorem
 densityRatio_satisfies_DRC	Statlean/Sufficiency/MinimalSufficiency.lean:196	theorem
 derivative_hermite	Statlean/Gaussian/Hermite.lean:24	theorem
 det_averaging_equality	Statlean/SPD/Determinant.lean:70	theorem
