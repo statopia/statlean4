@@ -19,7 +19,21 @@ variable {Ω : Type*} {m₀ : MeasurableSpace Ω} {μ : Measure Ω}
 lemma integral_sub_const_sq_eq (X : Ω → ℝ) (c : ℝ) [IsProbabilityMeasure μ]
     (hX : MemLp X 2 μ) :
     ∫ ω, (X ω - c) ^ 2 ∂μ = Var[X; μ] + (∫ ω, X ω ∂μ - c) ^ 2 := by
-  sorry -- BENCHMARK: proof removed for evaluation (A-level, bias-variance decomposition)
+  have hXint : Integrable X μ := hX.integrable one_le_two
+  have hXsq : Integrable (fun ω => X ω ^ 2) μ := hX.integrable_sq
+  have lhs : ∫ ω, (X ω - c) ^ 2 ∂μ = ∫ ω, X ω ^ 2 ∂μ - 2 * c * ∫ ω, X ω ∂μ + c ^ 2 := by
+    have h1 : ∫ ω, (X ω - c) ^ 2 ∂μ = ∫ ω, (X ω ^ 2 - 2 * c * X ω + c ^ 2) ∂μ := by
+      congr 1; ext ω; ring
+    rw [h1]
+    have h_int1 : Integrable (fun ω => X ω ^ 2 - 2 * c * X ω) μ :=
+      hXsq.sub (hXint.const_mul (2 * c))
+    rw [integral_add h_int1 (integrable_const _),
+        integral_sub hXsq (hXint.const_mul (2 * c)),
+        integral_const_mul]
+    simp [integral_const]
+  rw [variance_eq_sub hX, lhs]
+  simp only [Pi.pow_apply]
+  ring
 
 /-- **Rao-Blackwell Theorem (MSE reduction)**: conditioning on a sub-σ-algebra
 reduces mean squared error. -/

@@ -107,7 +107,15 @@ variable {μ : Measure Ω}
 theorem variance_eq_moment_sub_sq [IsProbabilityMeasure μ]
     (X : Ω → ℝ) (hX : MemLp X 2 μ) :
     centralMoment μ X 2 = moment μ X 2 - (moment μ X 1) ^ 2 := by
-  sorry -- BENCHMARK: proof removed for evaluation (A-level, variance decomposition)
+  have h1 : centralMoment μ X 2 = ProbabilityTheory.centralMoment X 2 μ := by
+    simp [centralMoment, ProbabilityTheory.centralMoment]
+  have h2 : moment μ X 2 = ProbabilityTheory.moment X 2 μ := by
+    simp [moment, ProbabilityTheory.moment]
+  have h3 : moment μ X 1 = ProbabilityTheory.moment X 1 μ := by
+    simp [moment, ProbabilityTheory.moment]
+  rw [h1, h2, h3, ProbabilityTheory.centralMoment_two_eq_variance hX.aemeasurable,
+    ProbabilityTheory.variance_eq_sub hX]
+  simp [ProbabilityTheory.moment]
 
 /-- `Cov(X, X) = Var(X)` (= second central moment). -/
 theorem covariance_self_eq_variance (X : Ω → ℝ) :
@@ -121,7 +129,12 @@ theorem chebyshev_ineq [IsProbabilityMeasure μ]
     (X : Ω → ℝ) (hX : MemLp X 2 μ) (t : ℝ) (ht : 0 < t) :
     (μ {ω | t ≤ |X ω - ∫ ω', X ω' ∂μ|}).toReal ≤
       centralMoment μ X 2 / t ^ 2 := by
-  sorry -- BENCHMARK: proof removed for evaluation
+  have h1 : centralMoment μ X 2 = ProbabilityTheory.centralMoment X 2 μ := by
+    simp [centralMoment, ProbabilityTheory.centralMoment]
+  rw [h1, ProbabilityTheory.centralMoment_two_eq_variance hX.aemeasurable]
+  exact ENNReal.toReal_le_of_le_ofReal
+    (div_nonneg (ProbabilityTheory.variance_nonneg X μ) (sq_nonneg t))
+    (ProbabilityTheory.meas_ge_le_variance_div_sq hX ht)
 
 end Theorems
 
