@@ -213,7 +213,32 @@ theorem neyman_pearson_optimality (ν : Measure Ω)
     (hint_ψf₀ : Integrable (fun ω => ψ ω * f₀ ω) ν)
     (hsize : ∫ ω, ψ ω * f₀ ω ∂ν ≤ ∫ ω, φ ω * f₀ ω ∂ν) :
     ∫ ω, ψ ω * f₁ ω ∂ν ≤ ∫ ω, φ ω * f₁ ω ∂ν := by
-  sorry
+  have hnp := np_integral_nonneg ν hψ_nn hψ_le hφ_nn hφ_le hφ_hi hφ_lo
+  have hint_diff_f₁ : Integrable (fun ω => (φ ω - ψ ω) * f₁ ω) ν := by
+    have : (fun ω => (φ ω - ψ ω) * f₁ ω) = (fun ω => φ ω * f₁ ω - ψ ω * f₁ ω) := by
+      ext ω; ring
+    rw [this]; exact hint_φf₁.sub hint_ψf₁
+  have hint_diff_f₀ : Integrable (fun ω => (φ ω - ψ ω) * f₀ ω) ν := by
+    have : (fun ω => (φ ω - ψ ω) * f₀ ω) = (fun ω => φ ω * f₀ ω - ψ ω * f₀ ω) := by
+      ext ω; ring
+    rw [this]; exact hint_φf₀.sub hint_ψf₀
+  have hexp : (fun ω => (φ ω - ψ ω) * (f₁ ω - c * f₀ ω)) =
+      (fun ω => (φ ω - ψ ω) * f₁ ω - c * ((φ ω - ψ ω) * f₀ ω)) := by
+    ext ω; ring
+  rw [hexp, integral_sub hint_diff_f₁ (hint_diff_f₀.const_mul c),
+      integral_const_mul] at hnp
+  have h1 : ∫ ω, (φ ω - ψ ω) * f₁ ω ∂ν =
+      ∫ ω, φ ω * f₁ ω ∂ν - ∫ ω, ψ ω * f₁ ω ∂ν := by
+    have : (fun ω => (φ ω - ψ ω) * f₁ ω) = (fun ω => φ ω * f₁ ω - ψ ω * f₁ ω) := by
+      ext ω; ring
+    rw [this, integral_sub hint_φf₁ hint_ψf₁]
+  have h0 : ∫ ω, (φ ω - ψ ω) * f₀ ω ∂ν =
+      ∫ ω, φ ω * f₀ ω ∂ν - ∫ ω, ψ ω * f₀ ω ∂ν := by
+    have : (fun ω => (φ ω - ψ ω) * f₀ ω) = (fun ω => φ ω * f₀ ω - ψ ω * f₀ ω) := by
+      ext ω; ring
+    rw [this, integral_sub hint_φf₀ hint_ψf₀]
+  rw [h1, h0] at hnp
+  linarith [mul_nonneg hc (sub_nonneg.mpr hsize)]
 
 end NeymanPearsonLemma
 
@@ -309,4 +334,39 @@ theorem bayes_test_optimality (ν : Measure Ω)
     (hint_φf₀ : Integrable (fun ω => φ ω * f₀ ω) ν)
     (hint_ψf₀ : Integrable (fun ω => ψ ω * f₀ ω) ν) :
     bayesTestRisk π₀ π₁ ν f₀ f₁ φ ≤ bayesTestRisk π₀ π₁ ν f₀ f₁ ψ := by
-  sorry
+  unfold bayesTestRisk
+  have hnp := np_integral_nonneg ν hψ_nn hψ_le hφ_nn hφ_le hφ_hi hφ_lo
+  have hπ₁_nn : (0 : ℝ) ≤ π₁ := le_of_lt hπ₁
+  suffices h : 0 ≤ π₁ * (∫ ω, φ ω * f₁ ω ∂ν - ∫ ω, ψ ω * f₁ ω ∂ν) -
+      π₀ * (∫ ω, φ ω * f₀ ω ∂ν - ∫ ω, ψ ω * f₀ ω ∂ν) by linarith
+  have hint_diff_f₁ : Integrable (fun ω => (φ ω - ψ ω) * f₁ ω) ν := by
+    have : (fun ω => (φ ω - ψ ω) * f₁ ω) = (fun ω => φ ω * f₁ ω - ψ ω * f₁ ω) := by
+      ext ω; ring
+    rw [this]; exact hint_φf₁.sub hint_ψf₁
+  have hint_diff_f₀ : Integrable (fun ω => (φ ω - ψ ω) * f₀ ω) ν := by
+    have : (fun ω => (φ ω - ψ ω) * f₀ ω) = (fun ω => φ ω * f₀ ω - ψ ω * f₀ ω) := by
+      ext ω; ring
+    rw [this]; exact hint_φf₀.sub hint_ψf₀
+  have hexp : (fun ω => (φ ω - ψ ω) * (f₁ ω - (π₀ / π₁) * f₀ ω)) =
+      (fun ω => (φ ω - ψ ω) * f₁ ω - (π₀ / π₁) * ((φ ω - ψ ω) * f₀ ω)) := by
+    ext ω; ring
+  rw [hexp, integral_sub hint_diff_f₁ (hint_diff_f₀.const_mul _),
+      integral_const_mul] at hnp
+  have h1 : ∫ ω, (φ ω - ψ ω) * f₁ ω ∂ν =
+      ∫ ω, φ ω * f₁ ω ∂ν - ∫ ω, ψ ω * f₁ ω ∂ν := by
+    have : (fun ω => (φ ω - ψ ω) * f₁ ω) = (fun ω => φ ω * f₁ ω - ψ ω * f₁ ω) := by
+      ext ω; ring
+    rw [this, integral_sub hint_φf₁ hint_ψf₁]
+  have h0 : ∫ ω, (φ ω - ψ ω) * f₀ ω ∂ν =
+      ∫ ω, φ ω * f₀ ω ∂ν - ∫ ω, ψ ω * f₀ ω ∂ν := by
+    have : (fun ω => (φ ω - ψ ω) * f₀ ω) = (fun ω => φ ω * f₀ ω - ψ ω * f₀ ω) := by
+      ext ω; ring
+    rw [this, integral_sub hint_φf₀ hint_ψf₀]
+  rw [h1, h0] at hnp
+  have hmul := mul_le_mul_of_nonneg_left hnp hπ₁_nn
+  simp only [mul_zero] at hmul
+  rw [mul_sub] at hmul
+  have cancel : π₁ * (π₀ / π₁ * (∫ ω, φ ω * f₀ ω ∂ν - ∫ ω, ψ ω * f₀ ω ∂ν)) =
+      π₀ * (∫ ω, φ ω * f₀ ω ∂ν - ∫ ω, ψ ω * f₀ ω ∂ν) := by
+    rw [← mul_assoc, mul_div_cancel₀ _ (ne_of_gt hπ₁)]
+  linarith
