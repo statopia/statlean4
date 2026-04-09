@@ -16,7 +16,8 @@ For centered Gaussian matrices `X_{ij}, Y_{ij}`, if certain covariance
 comparison conditions hold, then `E[min_i max_j X_{ij}] ≤ E[min_i max_j Y_{ij}]`.
 
 ### Proof route
-- Slepian: Lindeberg interpolation between X and Y, differentiate E[max] w.r.t. interpolation parameter
+- Slepian: Lindeberg interpolation between X and Y,
+  differentiate E[max] w.r.t. interpolation parameter
 - Gordon: generalize Slepian to min-max via same interpolation technique
 
 ### References
@@ -45,6 +46,14 @@ structure SlepianCondition (X Y : Fin n → Ω → ℝ) (μ : Measure Ω) : Prop
   /-- Off-diagonal covariance comparison -/
   cov_le : ∀ i j, i ≠ j →
     ∫ ω, X i ω * X j ω ∂μ ≤ ∫ ω, Y i ω * Y j ω ∂μ
+
+omit [IsProbabilityMeasure μ] in
+/-- The covariance comparison in Slepian's condition is symmetric:
+if `Cov(Xᵢ, Xⱼ) ≤ Cov(Yᵢ, Yⱼ)` for `i ≠ j`, the same holds for `j ≠ i`. -/
+theorem SlepianCondition.symm_cov_le {X Y : Fin n → Ω → ℝ}
+    (hcond : SlepianCondition X Y μ) (i j : Fin n) (hij : i ≠ j) :
+    ∫ ω, X j ω * X i ω ∂μ ≤ ∫ ω, Y j ω * Y i ω ∂μ :=
+  hcond.cov_le j i (Ne.symm hij)
 
 /-- **Slepian's Lemma**: Under the Slepian condition,
 `E[max Xᵢ] ≤ E[max Yᵢ]`. -/
@@ -83,6 +92,35 @@ structure GordonCondition (X Y : Fin m → Fin n → Ω → ℝ) (μ : Measure �
     ∫ ω, X i j ω * X i k ω ∂μ ≤ ∫ ω, Y i j ω * Y i k ω ∂μ
   col_cov_ge : ∀ i k j, i ≠ k →
     ∫ ω, X i j ω * X k j ω ∂μ ≥ ∫ ω, Y i j ω * Y k j ω ∂μ
+
+omit [IsProbabilityMeasure μ] in
+/-- Independent centered Gaussian entries with equal variances satisfy Gordon's condition
+when both X and Y have zero cross-covariances (i.e., all entries are uncorrelated). -/
+theorem gordonCondition_of_independent
+    {X Y : Fin m → Fin n → Ω → ℝ}
+    (hvar : ∀ i j, ∫ ω, (X i j ω) ^ 2 ∂μ = ∫ ω, (Y i j ω) ^ 2 ∂μ)
+    (hX_uncorr : ∀ i j i' j', (i, j) ≠ (i', j') →
+      ∫ ω, X i j ω * X i' j' ω ∂μ = 0)
+    (hY_uncorr : ∀ i j i' j', (i, j) ≠ (i', j') →
+      ∫ ω, Y i j ω * Y i' j' ω ∂μ = 0) :
+    GordonCondition X Y μ where
+  var_eq := hvar
+  row_cov_le := fun i j k hjk => by
+    have h1 : ∫ ω, X i j ω * X i k ω ∂μ = 0 := by
+      apply hX_uncorr
+      simp only [ne_eq, Prod.mk.injEq, true_and]; exact hjk
+    have h2 : ∫ ω, Y i j ω * Y i k ω ∂μ = 0 := by
+      apply hY_uncorr
+      simp only [ne_eq, Prod.mk.injEq, true_and]; exact hjk
+    linarith
+  col_cov_ge := fun i k j hik => by
+    have h1 : ∫ ω, X i j ω * X k j ω ∂μ = 0 := by
+      apply hX_uncorr
+      simp only [ne_eq, Prod.mk.injEq, and_true]; exact hik
+    have h2 : ∫ ω, Y i j ω * Y k j ω ∂μ = 0 := by
+      apply hY_uncorr
+      simp only [ne_eq, Prod.mk.injEq, and_true]; exact hik
+    linarith
 
 /-- **Gordon's Minimax Theorem**: Under Gordon's condition,
 `E[min_i max_j X_{ij}] ≤ E[min_i max_j Y_{ij}]`. -/

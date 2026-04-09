@@ -69,6 +69,48 @@ noncomputable def mpMeasure (σ γ : ℝ) : Measure ℝ :=
     (fun x => ENNReal.ofReal (mpDensity σ γ x)) +
   ENNReal.ofReal (max (1 - 1 / γ) 0) • Measure.dirac 0
 
+/-- The Marchenko-Pastur density is nonneg everywhere. -/
+lemma mpDensity_nonneg (σ γ : ℝ) (x : ℝ) : 0 ≤ mpDensity σ γ x := by
+  unfold mpDensity
+  split_ifs with h
+  · obtain ⟨hx_mem, hx_pos⟩ := h
+    simp only [Icc, mem_setOf_eq] at hx_mem
+    obtain ⟨hle, hle'⟩ := hx_mem
+    have hsqrt : 0 ≤ Real.sqrt ((mpUpperEdge σ γ - x) * (x - mpLowerEdge σ γ)) :=
+      Real.sqrt_nonneg _
+    by_cases hγ : γ ≤ 0
+    · have hsqrt_γ : Real.sqrt γ = 0 := Real.sqrt_eq_zero'.mpr (by linarith)
+      have heq : mpLowerEdge σ γ = mpUpperEdge σ γ := by
+        unfold mpLowerEdge mpUpperEdge; rw [hsqrt_γ]; ring
+      have : mpUpperEdge σ γ - x = 0 := by linarith
+      simp [this]
+    · push_neg at hγ
+      by_cases hσ : σ ^ 2 = 0
+      · have hlower : mpLowerEdge σ γ = 0 := by unfold mpLowerEdge; rw [hσ]; ring
+        have hupper : mpUpperEdge σ γ = 0 := by unfold mpUpperEdge; rw [hσ]; ring
+        linarith
+      · have hσpos : 0 < σ ^ 2 := lt_of_le_of_ne (sq_nonneg σ) (Ne.symm hσ)
+        apply mul_nonneg _ hsqrt
+        apply div_nonneg (le_of_lt one_pos)
+        have : 0 < 2 * Real.pi * σ ^ 2 * γ * x :=
+          mul_pos (mul_pos (mul_pos (mul_pos (by positivity) Real.pi_pos) hσpos) hγ) hx_pos
+        linarith
+  · simp
+
+/-- Total mass identity: the continuous part weight plus the atom weight equals 1. -/
+lemma mp_total_mass_identity {γ : ℝ} (hγ : 0 < γ) :
+    min (1 : ℝ) (1 / γ) + max (1 - 1 / γ) 0 = 1 := by
+  by_cases hle : γ ≤ 1
+  · have h1 : 1 ≤ 1 / γ := by rw [le_div_iff₀ hγ]; linarith
+    have h2 : 1 - 1 / γ ≤ 0 := by linarith
+    rw [min_eq_left h1, max_eq_right h2]
+    linarith
+  · push_neg at hle
+    have h1 : 1 / γ ≤ 1 := by rw [div_le_one₀ hγ]; linarith
+    have h2 : 0 ≤ 1 - 1 / γ := by linarith
+    rw [min_eq_right h1, max_eq_left h2]
+    field_simp; ring
+
 /-- The Marchenko-Pastur measure is a probability measure when `σ > 0`, `γ > 0`. -/
 theorem mpMeasure_isProbabilityMeasure {σ γ : ℝ} (hσ : 0 < σ) (hγ : 0 < γ) :
     IsProbabilityMeasure (mpMeasure σ γ) := by
