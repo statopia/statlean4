@@ -45,7 +45,18 @@ theorem sq_covariance_le_variance_mul [IsProbabilityMeasure μ]
     {X Y : Ω → ℝ} (hX : MemLp X 2 μ) (hY : MemLp Y 2 μ) :
     ProbabilityTheory.covariance X Y μ ^ 2 ≤
       ProbabilityTheory.variance X μ * ProbabilityTheory.variance Y μ := by
-  sorry -- BENCHMARK: proof removed for evaluation (C-level, Cauchy-Schwarz for covariance)
+  -- Discriminant argument: ∀ t, 0 ≤ Var(Y)*t² + 2*Cov(X,Y)*t + Var(X)
+  have key : ∀ t : ℝ, 0 ≤ ProbabilityTheory.variance Y μ * (t * t) +
+      2 * ProbabilityTheory.covariance X Y μ * t + ProbabilityTheory.variance X μ := by
+    intro t
+    have htY : MemLp (t • Y) 2 μ := hY.const_smul t
+    have h := ProbabilityTheory.variance_nonneg (X + t • Y) μ
+    rw [ProbabilityTheory.variance_add hX htY] at h
+    rw [ProbabilityTheory.covariance_smul_right, ProbabilityTheory.variance_smul] at h
+    linarith
+  have hd := discrim_le_zero key
+  unfold discrim at hd
+  nlinarith
 
 /-- **Correlation coefficient** of X and Y (using Mathlib's covariance/variance).
 `ρ(X,Y) = Cov(X,Y) / (√Var(X) · √Var(Y))`.
@@ -90,7 +101,7 @@ theorem variance_sum_of_covariance_zero [IsFiniteMeasure μ]
     (h_cov : ProbabilityTheory.covariance X Y μ = 0) :
     ProbabilityTheory.variance (X + Y) μ =
       ProbabilityTheory.variance X μ + ProbabilityTheory.variance Y μ := by
-  sorry -- BENCHMARK: proof removed for evaluation
+  rw [variance_add_eq hX hY, h_cov, mul_zero, add_zero]
 
 /-- For independent X, Y: `Var(X+Y) = Var(X) + Var(Y)`. -/
 theorem variance_sum_independent [IsProbabilityMeasure μ]
@@ -98,7 +109,7 @@ theorem variance_sum_independent [IsProbabilityMeasure μ]
     (h_ind : IndepFun X Y μ) :
     ProbabilityTheory.variance (X + Y) μ =
       ProbabilityTheory.variance X μ + ProbabilityTheory.variance Y μ := by
-  sorry -- BENCHMARK: proof removed for evaluation
+  exact h_ind.variance_add hX hY
 
 end Independent
 
