@@ -298,6 +298,45 @@ lemma charFun_gaussianReal_standard (t : ℝ) :
 
 /-! ## Characteristic function of standardized sum -/
 
+/-- Characteristic function of sum of independent rvs equals product of char funs. -/
+private lemma charfun_sum_indep
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {n : ℕ}
+    {Y : Fin n → Ω → ℝ}
+    (hm : ∀ i, Measurable (Y i))
+    (hindep : iIndepFun (m := fun _ => inferInstance) Y μ)
+    (t : ℝ) :
+    charFun (μ.map (fun ω => ∑ i : Fin n, Y i ω)) t =
+      ∏ i : Fin n, charFun (μ.map (Y i)) t := by
+  induction n with
+  | zero =>
+    simp only [Finset.univ_eq_empty, Finset.sum_empty, Finset.prod_empty]
+    simp
+  | succ n ih =>
+    have sum_split : (fun ω => ∑ i : Fin (n + 1), Y i ω) =
+        (fun ω => ∑ i : Fin n, Y (Fin.castSucc i) ω) + Y (Fin.last n) := by
+      ext ω; simp [Fin.sum_univ_castSucc]
+    rw [sum_split]
+    have hindep' : iIndepFun (m := fun _ => inferInstance) (fun i => Y (Fin.castSucc i)) μ :=
+      hindep.precomp (Fin.castSucc_injective n)
+    have hm' : ∀ i : Fin n, Measurable (Y (Fin.castSucc i)) := fun i => hm _
+    have hmem : Fin.last n ∉ (Finset.univ : Finset (Fin n)).map Fin.castSuccEmb := by
+      simp [Finset.mem_map, Fin.castSuccEmb]
+      intro a; exact (Fin.castSucc_lt_last a).ne
+    have h_indep : IndepFun
+        (∑ j ∈ (Finset.univ : Finset (Fin n)).map Fin.castSuccEmb, Y j)
+        (Y (Fin.last n)) μ :=
+      hindep.indepFun_finset_sum_of_notMem hm hmem
+    have sum_eq : (∑ j ∈ (Finset.univ : Finset (Fin n)).map Fin.castSuccEmb, Y j) =
+        (fun ω => ∑ i : Fin n, Y (Fin.castSucc i) ω) := by
+      ext ω; rw [Finset.sum_apply, Finset.sum_map]; rfl
+    rw [sum_eq] at h_indep
+    have := congr_fun (h_indep.charFun_map_add_eq_mul
+      (Measurable.aemeasurable (Finset.measurable_sum _ (fun i _ => hm' i)))
+      (Measurable.aemeasurable (hm _))) t
+    rw [Pi.mul_apply] at this
+    rw [this, ih hm' hindep', Fin.prod_univ_castSucc]
+
 /-- **Charfun factorization for iid sum.**
 The characteristic function of the standardized sum `S = (∑ Yᵢ) / (σ√n)` equals
 the product `∏ᵢ φ_{Yᵢ}(t/(σ√n))` by independence + scaling. -/
@@ -311,17 +350,19 @@ lemma charfun_iid_sum_eq_prod
     let S : Ω → ℝ := fun ω => (∑ i : Fin n, Y i ω) / (σ * Real.sqrt n)
     charFun (μ.map S) t =
       ∏ i : Fin n, charFun (μ.map (Y i)) (t / (σ * Real.sqrt n)) := by
-  sorry
+  intro S
+  have hS : S = fun ω => (σ * Real.sqrt n)⁻¹ * (∑ i : Fin n, Y i ω) := by
+    ext ω; simp [S, div_eq_mul_inv, mul_comm]
+  rw [hS]
+  have hf : Measurable (fun ω => ∑ i : Fin n, Y i ω) :=
+    Finset.measurable_sum _ (fun i _ => hm i)
+  rw [show (fun ω => (σ * Real.sqrt ↑n)⁻¹ * ∑ i : Fin n, Y i ω) =
+      ((σ * Real.sqrt ↑n)⁻¹ * ·) ∘ (fun ω => ∑ i : Fin n, Y i ω) from rfl,
+    ← Measure.map_map (by fun_prop : Measurable ((σ * Real.sqrt ↑n)⁻¹ * ·)) hf,
+    charFun_map_mul, charfun_sum_indep hm hindep]
+  congr 1; ext i; ring
 
 /-! ## Complex power approximation -/
-
-/-- **Bound on `‖(1 - t²/(2n))^n - exp(-t²/2)‖` as a complex norm.** -/
-lemma complex_pow_approx_exp (n : ℕ) (hn : 0 < n) (t : ℝ)
-    (ht : t ^ 2 ≤ 2 * ↑n) :
-    ‖((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) ^ n -
-      Complex.exp (-((↑(t ^ 2) : ℂ) / 2))‖ ≤
-      t ^ 4 / (4 * (n : ℝ)) := by
-  sorry
 
 /-- **Bound on `‖(1 - t²/(2n))^n - exp(-t²/2)‖` with exponential factor.**
 Stronger version: includes `exp(-(n-1)t²/(2n))` factor from `abs_pow_sub_pow_le`
@@ -375,6 +416,22 @@ lemma complex_pow_approx_exp_decay (n : ℕ) (hn : 0 < n) (t : ℝ)
     _ = t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * u)) := by rw [nu2_eq]
     _ = t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n))) := by
         congr 1; congr 1; rw [hu_def]; ring
+
+/-- **Bound on `‖(1 - t²/(2n))^n - exp(-t²/2)‖` as a complex norm.** -/
+lemma complex_pow_approx_exp (n : ℕ) (hn : 0 < n) (t : ℝ)
+    (ht : t ^ 2 ≤ 2 * ↑n) :
+    ‖((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) ^ n -
+      Complex.exp (-((↑(t ^ 2) : ℂ) / 2))‖ ≤
+      t ^ 4 / (4 * (n : ℝ)) := by
+  calc ‖((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) ^ n -
+      Complex.exp (-((↑(t ^ 2) : ℂ) / 2))‖
+      ≤ t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n))) :=
+        complex_pow_approx_exp_decay n hn t ht
+    _ ≤ t ^ 4 / (4 * ↑n) * 1 := by
+        gcongr
+        rw [Real.exp_le_one_iff]
+        exact neg_nonpos.mpr (by positivity)
+    _ = t ^ 4 / (4 * ↑n) := mul_one _
 
 /-! ## Product vs power bound -/
 
