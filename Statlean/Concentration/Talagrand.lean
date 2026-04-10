@@ -1,8 +1,9 @@
 import Mathlib.Probability.Independence.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
-import Mathlib.Analysis.SpecialFunctions.Log.Basic
+import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 import Mathlib.Analysis.SpecialFunctions.ExpDeriv
 import Mathlib.Analysis.Convex.SpecificFunctions.Basic
+import Mathlib.Analysis.Calculus.MeanValue
 
 /-! # Concentration/Talagrand
 
@@ -63,7 +64,187 @@ This is proved by showing the function `L(h) = -ph + log(1-p+pe^h)` satisfies
 `L(0) = 0`, `L'(0) = 0`, and `L''(h) ≤ 1/4` for all `h`. -/
 lemma hoeffding_cgf_bound (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) (h : ℝ) :
     -p * h + Real.log (1 - p + p * Real.exp h) ≤ h ^ 2 / 8 := by
-  sorry
+  -- Define L(x) = -p*x + log(1-p+p*exp x) and show L(h) ≤ h²/8.
+  -- Strategy: L(0) = 0, L'(0) = 0, L''(x) = q(1-q) ≤ 1/4 where q = p*e^x/(1-p+p*e^x).
+  -- Using MVT twice (once for each sign of h), we get L(h) ≤ h²/8.
+  set L : ℝ → ℝ := fun x => -p * x + Real.log (1 - p + p * Real.exp x) with hL_def
+  set L' : ℝ → ℝ := fun x => -p + p * Real.exp x / (1 - p + p * Real.exp x) with hL'_def
+  -- Positivity of denominator u(x) = 1 - p + p * exp x > 0
+  have u_pos : ∀ x : ℝ, 0 < 1 - p + p * Real.exp x := by
+    intro x
+    rcases eq_or_lt_of_le hp1 with hpeq | hplt
+    · subst hpeq; simp; exact Real.exp_pos x
+    · have := Real.exp_pos x; nlinarith
+  -- Helper: derivative of u
+  have hu_deriv : ∀ x : ℝ,
+      HasDerivAt (fun y => 1 - p + p * Real.exp y) (p * Real.exp x) x := by
+    intro x
+    have h := (hasDerivAt_const x (1 - p)).add ((Real.hasDerivAt_exp x).const_mul p)
+    convert h using 1; ring
+  -- L(0) = 0
+  have hL0 : L 0 = 0 := by
+    simp [hL_def, Real.exp_zero]
+  -- L'(0) = 0
+  have hL'0 : L' 0 = 0 := by
+    simp only [hL'_def, Real.exp_zero, mul_one]
+    ring_nf
+  -- HasDerivAt L (L' x) x
+  have hL_deriv : ∀ x : ℝ, HasDerivAt L (L' x) x := by
+    intro x
+    have h1 : HasDerivAt (fun y => -p * y) (-p) x := by
+      simpa using (hasDerivAt_id x).const_mul (-p)
+    have hu := hu_deriv x
+    have h3 : HasDerivAt (fun y => Real.log (1 - p + p * Real.exp y))
+        (p * Real.exp x / (1 - p + p * Real.exp x)) x :=
+      hu.log (u_pos x).ne'
+    exact h1.add h3
+  -- HasDerivAt L' (q*(1-q)) x
+  have hL'_deriv : ∀ x : ℝ,
+      HasDerivAt L'
+        ((p * Real.exp x / (1 - p + p * Real.exp x)) *
+          (1 - p * Real.exp x / (1 - p + p * Real.exp x))) x := by
+    intro x
+    have hnum : HasDerivAt (fun y => p * Real.exp y) (p * Real.exp x) x :=
+      (Real.hasDerivAt_exp x).const_mul p
+    have hu := hu_deriv x
+    have hdiv : HasDerivAt (fun y => p * Real.exp y / (1 - p + p * Real.exp y))
+        ((p * Real.exp x * (1 - p + p * Real.exp x) - p * Real.exp x * (p * Real.exp x))
+          / (1 - p + p * Real.exp x) ^ 2) x :=
+      hnum.div hu (u_pos x).ne'
+    have hconst : HasDerivAt (fun _ : ℝ => (-p : ℝ)) 0 x := hasDerivAt_const x (-p)
+    have hsum := hconst.add hdiv
+    convert hsum using 1
+    set u := 1 - p + p * Real.exp x with hu_def
+    have hune : u ≠ 0 := (u_pos x).ne'
+    field_simp
+    ring
+  -- q(1-q) ≤ 1/4 for any real q
+  have hL''_bound : ∀ x : ℝ,
+      (p * Real.exp x / (1 - p + p * Real.exp x)) *
+        (1 - p * Real.exp x / (1 - p + p * Real.exp x)) ≤ 1/4 := by
+    intro x
+    set q := p * Real.exp x / (1 - p + p * Real.exp x)
+    nlinarith [sq_nonneg (q - 1/2)]
+  -- Continuity of L and L'
+  have hL_cont : Continuous L :=
+    continuous_iff_continuousAt.mpr fun x => (hL_deriv x).continuousAt
+  have hL'_cont : Continuous L' :=
+    continuous_iff_continuousAt.mpr fun x => (hL'_deriv x).continuousAt
+  -- Case split on h
+  rcases le_or_gt 0 h with hh_nn | hh_neg
+  · -- Case h ≥ 0
+    -- Step 1: L'(x) ≤ x/4 on [0, h]
+    have hstep1 : ∀ x ∈ Set.Icc (0:ℝ) h, L' x ≤ x / 4 := by
+      apply image_le_of_deriv_right_le_deriv_boundary (f := L')
+        (f' := fun x =>
+          (p * Real.exp x / (1 - p + p * Real.exp x)) *
+            (1 - p * Real.exp x / (1 - p + p * Real.exp x)))
+        hL'_cont.continuousOn
+        (fun x _ => (hL'_deriv x).hasDerivWithinAt)
+        (by rw [hL'0]; norm_num)
+        ((continuous_id.div_const 4).continuousOn)
+      · intro x _
+        have hd : HasDerivAt (fun y : ℝ => y / 4) (1/4) x := by
+          simpa using (hasDerivAt_id x).div_const 4
+        exact hd.hasDerivWithinAt
+      · intro x _; exact hL''_bound x
+    -- Step 2: L(x) ≤ x²/8 on [0, h]
+    have hstep2 : ∀ x ∈ Set.Icc (0:ℝ) h, L x ≤ x^2 / 8 := by
+      apply image_le_of_deriv_right_le_deriv_boundary (f := L) (f' := L')
+        hL_cont.continuousOn
+        (fun x _ => (hL_deriv x).hasDerivWithinAt)
+        (by rw [hL0]; positivity)
+        (((continuous_pow 2).div_const 8).continuousOn)
+      · intro x _
+        have h1 : HasDerivAt (fun y : ℝ => y^2) (2 * x) x := by
+          simpa using hasDerivAt_pow 2 x
+        have h2 := h1.div_const 8
+        have hd : HasDerivAt (fun y : ℝ => y^2 / 8) (x / 4) x := by
+          convert h2 using 1; ring
+        exact hd.hasDerivWithinAt
+      · intro x hx; exact hstep1 x (Set.Ico_subset_Icc_self hx)
+    have := hstep2 h (Set.right_mem_Icc.mpr hh_nn)
+    simpa [hL_def] using this
+  · -- Case h < 0: use reflection L̃(x) = L(-x)
+    set k := -h with hk_def
+    have hk_pos : 0 < k := by rw [hk_def]; linarith
+    set M : ℝ → ℝ := fun x => L (-x) with hM_def
+    set M' : ℝ → ℝ := fun x => -(L' (-x)) with hM'_def
+    have hM0 : M 0 = 0 := by simp [hM_def, hL0]
+    have hM'0 : M' 0 = 0 := by simp [hM'_def, hL'0]
+    -- M'(x) via chain rule: d/dx L(-x) = L'(-x) * (-1) = -L'(-x)
+    have hM_deriv : ∀ x : ℝ, HasDerivAt M (M' x) x := by
+      intro x
+      have hneg : HasDerivAt (fun y : ℝ => -y) (-1 : ℝ) x := by
+        simpa using (hasDerivAt_id x).neg
+      have hcomp := (hL_deriv (-x)).comp x hneg
+      -- hcomp : HasDerivAt (L ∘ Neg.neg) (L' (-x) * -1) x
+      have hfun_eq : (L ∘ fun y => -y) = M := by
+        ext y; simp [hM_def, Function.comp]
+      have hval_eq : L' (-x) * (-1) = M' x := by simp [hM'_def]
+      rw [hfun_eq, hval_eq] at hcomp
+      exact hcomp
+    -- (M')'(x) = L''(-x) (chain rule: d/dx (-L'(-x)) = -L''(-x)*(-1) = L''(-x))
+    have hM'_deriv : ∀ x : ℝ,
+        HasDerivAt M'
+          ((p * Real.exp (-x) / (1 - p + p * Real.exp (-x))) *
+            (1 - p * Real.exp (-x) / (1 - p + p * Real.exp (-x)))) x := by
+      intro x
+      have hneg : HasDerivAt (fun y : ℝ => -y) (-1 : ℝ) x := by
+        simpa using (hasDerivAt_id x).neg
+      have hcomp := (hL'_deriv (-x)).comp x hneg
+      -- hcomp : HasDerivAt (L' ∘ Neg.neg) (q(1-q)|_{-x} * -1) x
+      have hcomp_neg := hcomp.neg
+      -- hcomp_neg : HasDerivAt (-(L' ∘ Neg.neg)) (-(q(1-q)|_{-x} * -1)) x
+      have hfun_eq : (-(L' ∘ fun y => -y)) = M' := by
+        ext y; simp [hM'_def, Function.comp]
+      have hval_eq : -(
+          (p * Real.exp (-x) / (1 - p + p * Real.exp (-x))) *
+            (1 - p * Real.exp (-x) / (1 - p + p * Real.exp (-x))) * (-1)) =
+          (p * Real.exp (-x) / (1 - p + p * Real.exp (-x))) *
+            (1 - p * Real.exp (-x) / (1 - p + p * Real.exp (-x))) := by ring
+      rw [hfun_eq, hval_eq] at hcomp_neg
+      exact hcomp_neg
+    have hM_cont : Continuous M :=
+      continuous_iff_continuousAt.mpr fun x => (hM_deriv x).continuousAt
+    have hM'_cont : Continuous M' :=
+      continuous_iff_continuousAt.mpr fun x => (hM'_deriv x).continuousAt
+    -- Step 1: M'(x) ≤ x/4 on [0, k]
+    have hstep1M : ∀ x ∈ Set.Icc (0:ℝ) k, M' x ≤ x / 4 := by
+      apply image_le_of_deriv_right_le_deriv_boundary (f := M')
+        (f' := fun x =>
+          (p * Real.exp (-x) / (1 - p + p * Real.exp (-x))) *
+            (1 - p * Real.exp (-x) / (1 - p + p * Real.exp (-x))))
+        hM'_cont.continuousOn
+        (fun x _ => (hM'_deriv x).hasDerivWithinAt)
+        (by rw [hM'0]; norm_num)
+        ((continuous_id.div_const 4).continuousOn)
+      · intro x _
+        have hd : HasDerivAt (fun y : ℝ => y / 4) (1/4) x := by
+          simpa using (hasDerivAt_id x).div_const 4
+        exact hd.hasDerivWithinAt
+      · intro x _; exact hL''_bound (-x)
+    -- Step 2: M(x) ≤ x²/8 on [0, k]
+    have hstep2M : ∀ x ∈ Set.Icc (0:ℝ) k, M x ≤ x^2 / 8 := by
+      apply image_le_of_deriv_right_le_deriv_boundary (f := M) (f' := M')
+        hM_cont.continuousOn
+        (fun x _ => (hM_deriv x).hasDerivWithinAt)
+        (by rw [hM0]; positivity)
+        (((continuous_pow 2).div_const 8).continuousOn)
+      · intro x _
+        have h1 : HasDerivAt (fun y : ℝ => y^2) (2 * x) x := by
+          simpa using hasDerivAt_pow 2 x
+        have h2 := h1.div_const 8
+        have hd : HasDerivAt (fun y : ℝ => y^2 / 8) (x / 4) x := by
+          convert h2 using 1; ring
+        exact hd.hasDerivWithinAt
+      · intro x hx; exact hstep1M x (Set.Ico_subset_Icc_self hx)
+    have hMk := hstep2M k (Set.right_mem_Icc.mpr hk_pos.le)
+    -- M k = L (-k) = L h and k^2 = h^2
+    have hMk_eq : M k = L h := by simp [hM_def, hk_def]
+    have hk_sq : k^2 = h^2 := by rw [hk_def]; ring
+    rw [hMk_eq, hk_sq] at hMk
+    simpa [hL_def] using hMk
 
 /-- The weighted exponential bound for Hoeffding's lemma:
 for `a ≤ 0 ≤ b` with `a < b` and `s > 0`,
