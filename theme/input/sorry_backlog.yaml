@@ -1,6 +1,877 @@
-version: v147
-generated: 2026-03-24
-total_sorry: 0
+version: v150
+generated: 2026-04-10
+total_sorry: 132
 
 sorry_items:
-  []
+
+- id: concentration.talagrand.hoeffding_cgf_bound
+  file: Statlean/Concentration/Talagrand.lean
+  line: 66
+  theorem: hoeffding_cgf_bound
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: concentration.talagrand.hoeffding_convexity
+  file: Statlean/Concentration/Talagrand.lean
+  line: 108
+  theorem: hoeffding_convexity
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: concentration.talagrand.hoeffding_weighted_exp_bound
+  file: Statlean/Concentration/Talagrand.lean
+  line: 77
+  theorem: hoeffding_weighted_exp_bound
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: concentration.talagrand.mcdiarmid
+  file: Statlean/Concentration/Talagrand.lean
+  line: 201
+  theorem: mcdiarmid
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: concentration.talagrand.mcdiarmid_upper
+  file: Statlean/Concentration/Talagrand.lean
+  line: 188
+  theorem: mcdiarmid_upper
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: gaussian.gordon.gordon_minimax
+  file: Statlean/Gaussian/Gordon.lean
+  line: 139
+  theorem: gordon_minimax
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: gaussian.gordon.slepian_lemma
+  file: Statlean/Gaussian/Gordon.lean
+  line: 74
+  theorem: slepian_lemma
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: randommatrix.marchenkopastur.marchenko_pastur_convergence
+  file: Statlean/RandomMatrix/MarchenkoPastur.lean
+  line: 166
+  theorem: marchenko_pastur_convergence
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: randommatrix.marchenkopastur.mpMeasure_isProbabilityMeasure
+  file: Statlean/RandomMatrix/MarchenkoPastur.lean
+  line: 117
+  theorem: mpMeasure_isProbabilityMeasure
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: randommatrix.marchenkopastur.mpStieltjes_fixed_point
+  file: Statlean/RandomMatrix/MarchenkoPastur.lean
+  line: 134
+  theorem: mpStieltjes_fixed_point
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.analysis_c_deepseek.main.cauchy_schwarz_covariance
+  file: Statlean/Web/analysis_c_deepseek/Main.lean
+  line: 13
+  sorry_lines: [13, 32]
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.analysis_c_minimax.main.cauchy_schwarz_covariance
+  file: Statlean/Web/analysis_c_minimax/Main.lean
+  line: 72
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.analyze_crle_kimi.main.consistency_of_RLEs
+  file: Statlean/Web/analyze_crle_kimi/Main.lean
+  line: 30
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.analyze_crle_minimax.main.consistency_of_RLEs
+  file: Statlean/Web/analyze_crle_minimax/Main.lean
+  line: 33
+  sorry_lines: [33, 37, 45, 51, 55]
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.analyze_crle_qwen.main.consistency_of_RLEs
+  file: Statlean/Web/analyze_crle_qwen/Main.lean
+  line: 33
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.check_ds_c4.main.covariance_cauchy_schwarz
+  file: Statlean/Web/check_ds_c4/Main.lean
+  line: 24
+  theorem: covariance_cauchy_schwarz
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.check_ds_d.main.scheffe
+  file: Statlean/Web/check_ds_d/Main.lean
+  line: 19
+  sorry_lines: [19, 47]
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.check_kimi_c2.main.covariance_sq_le_variance_mul_variance
+  file: Statlean/Web/check_kimi_c2/Main.lean
+  line: 65
+  theorem: covariance_sq_le_variance_mul_variance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmn9rqwi97ush.main.integral_ratio_mul_eq
+  file: Statlean/Web/jobmn9rqwi97ush/Main.lean
+  line: 47
+  theorem: integral_ratio_mul_eq
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmn9rqwi97ush.main.jensen_negLog
+  file: Statlean/Web/jobmn9rqwi97ush/Main.lean
+  line: 61
+  theorem: jensen_negLog
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmn9rqwi97ush.main.kl_eq_neg_integral_log_ratio
+  file: Statlean/Web/jobmn9rqwi97ush/Main.lean
+  line: 73
+  theorem: kl_eq_neg_integral_log_ratio
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmn9rqwi97ush.main.kl_eq_zero_iff_eq_ae
+  file: Statlean/Web/jobmn9rqwi97ush/Main.lean
+  line: 89
+  theorem: kl_eq_zero_iff_eq_ae
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmn9rqwi97ush.main.kullback_leibler_information_nonneg
+  file: Statlean/Web/jobmn9rqwi97ush/Main.lean
+  line: 122
+  theorem: kullback_leibler_information_nonneg
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmn9rqwi97ush.main.negLog_convexOn
+  file: Statlean/Web/jobmn9rqwi97ush/Main.lean
+  line: 28
+  theorem: negLog_convexOn
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmnh31abxmxes.main.admissible_no_better_rule
+  file: Statlean/Web/jobmnh31abxmxes/Main.lean
+  line: 56
+  theorem: admissible_no_better_rule
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmnh31abxmxes.main.definition_of_admissibility
+  file: Statlean/Web/jobmnh31abxmxes/Main.lean
+  line: 35
+  theorem: definition_of_admissibility
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmnnc4twua1f9.main.consistency_of_RLEs
+  file: Statlean/Web/jobmnnc4twua1f9/Main.lean
+  line: 50
+  sorry_lines: [50, 57, 64]
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.review_ds.main.cauchy_schwarz_covariance
+  file: Statlean/Web/review_ds/Main.lean
+  line: 33
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.review_ds2.main.covariance_cauchy_schwarz
+  file: Statlean/Web/review_ds2/Main.lean
+  line: 24
+  theorem: covariance_cauchy_schwarz
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.test_prove_mnh9zxdy.main.hasLevel_implies_sup_le
+  file: Statlean/Web/test_prove_mnh9zxdy/Main.lean
+  line: 40
+  theorem: hasLevel_implies_sup_le
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.test_prove_mnha26xn.main.hasLevel_implies_sup_le
+  file: Statlean/Web/test_prove_mnha26xn/Main.lean
+  line: 40
+  theorem: hasLevel_implies_sup_le
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.test_unified_mnmwa7ba.main.hasLevel_implies_sup_le
+  file: Statlean/Web/test_unified_mnmwa7ba/Main.lean
+  line: 28
+  theorem: hasLevel_implies_sup_le
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_bayes_test_minimax_1775370172706.main.bayes_test_optimality
+  file: Statlean/Web/v2_bayes_test_minimax_1775370172706/Main.lean
+  line: 25
+  theorem: bayes_test_optimality
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_bayes_test_minimax_1775380135270.main.bayes_test_optimality
+  file: Statlean/Web/v2_bayes_test_minimax_1775380135270/Main.lean
+  line: 32
+  theorem: bayes_test_optimality
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_bayes_test_qwen_1775319723808.main.bayes_test_optimality
+  file: Statlean/Web/v2_bayes_test_qwen_1775319723808/Main.lean
+  line: 43
+  theorem: bayes_test_optimality
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_deepseek_1775146334140.main.cauchy_schwarz_covariance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_deepseek_1775146334140/Main.lean
+  line: 13
+  sorry_lines: [13, 32]
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_deepseek_1775201629662.main.cauchy_schwarz_covariance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_deepseek_1775201629662/Main.lean
+  line: 14
+  sorry_lines: [14, 28]
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_deepseek_1775203158880.main.covariance_sq_le_variance_mul_variance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_deepseek_1775203158880/Main.lean
+  line: 13
+  sorry_lines: [13, 28]
+  theorem: covariance_sq_le_variance_mul_variance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_deepseek_1775220783557.main.covariance_cauchy_schwarz
+  file: Statlean/Web/v2_cauchy_schwarz_cov_deepseek_1775220783557/Main.lean
+  line: 24
+  theorem: covariance_cauchy_schwarz
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_deepseek_1775223571353.main.covariance_cauchy_schwarz
+  file: Statlean/Web/v2_cauchy_schwarz_cov_deepseek_1775223571353/Main.lean
+  line: 20
+  sorry_lines: [20, 44, 53]
+  theorem: covariance_cauchy_schwarz
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_deepseek_1775224885336.main.cauchy_schwarz_covariance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_deepseek_1775224885336/Main.lean
+  line: 33
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_kimi_1775201798080.main.covariance_sq_le_variance_mul_variance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_kimi_1775201798080/Main.lean
+  line: 65
+  theorem: covariance_sq_le_variance_mul_variance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_kimi_1775223769204.main.covariance_sq_le_variance_mul_variance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_kimi_1775223769204/Main.lean
+  line: 59
+  theorem: covariance_sq_le_variance_mul_variance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_minimax_1775146814913.main.cauchy_schwarz_covariance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_minimax_1775146814913/Main.lean
+  line: 72
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_minimax_1775202221267.main.covariance_cauchy_schwarz
+  file: Statlean/Web/v2_cauchy_schwarz_cov_minimax_1775202221267/Main.lean
+  line: 36
+  sorry_lines: [36, 51]
+  theorem: covariance_cauchy_schwarz
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_qwen_1775144730344.main.covariance_cauchy_schwarz
+  file: Statlean/Web/v2_cauchy_schwarz_cov_qwen_1775144730344/Main.lean
+  line: 15
+  sorry_lines: [15, 28, 34]
+  theorem: covariance_cauchy_schwarz
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_qwen_1775146634757.main.cauchy_schwarz_covariance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_qwen_1775146634757/Main.lean
+  line: 16
+  sorry_lines: [16, 17, 20]
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_qwen_1775221241053.main.cauchy_schwarz_covariance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_qwen_1775221241053/Main.lean
+  line: 59
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_cauchy_schwarz_cov_qwen_1775223931976.main.cauchy_schwarz_covariance
+  file: Statlean/Web/v2_cauchy_schwarz_cov_qwen_1775223931976/Main.lean
+  line: 13
+  sorry_lines: [13, 25, 26, 29, 32]
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_chebyshev_ineq_deepseek_1775145421984.main.chebyshev_inequality
+  file: Statlean/Web/v2_chebyshev_ineq_deepseek_1775145421984/Main.lean
+  line: 11
+  sorry_lines: [11, 31]
+  theorem: chebyshev_inequality
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_complex_pow_approx_deepseek_1775361748839.main.complex_pow_approx_exp
+  file: Statlean/Web/v2_complex_pow_approx_deepseek_1775361748839/Main.lean
+  line: 44
+  theorem: complex_pow_approx_exp
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_complex_pow_approx_kimi_1775320150605.main.complex_pow_approx_exp
+  file: Statlean/Web/v2_complex_pow_approx_kimi_1775320150605/Main.lean
+  line: 57
+  theorem: complex_pow_approx_exp
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_complex_pow_approx_kimi_1775361866497.main.complex_pow_approx_exp
+  file: Statlean/Web/v2_complex_pow_approx_kimi_1775361866497/Main.lean
+  line: 45
+  theorem: complex_pow_approx_exp
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_complex_pow_approx_qwen_1775320975095.main.complex_pow_approx_exp
+  file: Statlean/Web/v2_complex_pow_approx_qwen_1775320975095/Main.lean
+  line: 44
+  theorem: complex_pow_approx_exp
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_consistency_of_rles_deepseek_1775548436138.main.consistency_of_RLEs
+  file: Statlean/Web/v2_consistency_of_RLEs_deepseek_1775548436138/Main.lean
+  line: 32
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_consistency_of_rles_kimi_1775530966224.main.consistency_of_RLEs
+  file: Statlean/Web/v2_consistency_of_RLEs_kimi_1775530966224/Main.lean
+  line: 30
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_consistency_of_rles_kimi_1775548808367.main.consistency_of_RLEs
+  file: Statlean/Web/v2_consistency_of_RLEs_kimi_1775548808367/Main.lean
+  line: 162
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_consistency_of_rles_minimax_1775532677889.main.consistency_of_RLEs
+  file: Statlean/Web/v2_consistency_of_RLEs_minimax_1775532677889/Main.lean
+  line: 33
+  sorry_lines: [33, 37, 45, 51, 55]
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_consistency_of_rles_minimax_1775549542693.main.consistency_of_RLEs
+  file: Statlean/Web/v2_consistency_of_RLEs_minimax_1775549542693/Main.lean
+  line: 70
+  sorry_lines: [70, 112, 135]
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_consistency_of_rles_qwen_1775532163424.main.consistency_of_RLEs
+  file: Statlean/Web/v2_consistency_of_RLEs_qwen_1775532163424/Main.lean
+  line: 33
+  theorem: consistency_of_RLEs
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_neyman_pearson_qwen_1775379192706.main.neyman_pearson_optimality
+  file: Statlean/Web/v2_neyman_pearson_qwen_1775379192706/Main.lean
+  line: 22
+  theorem: neyman_pearson_optimality
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_deepseek_1775146940459.main.scheffe
+  file: Statlean/Web/v2_scheffe_deepseek_1775146940459/Main.lean
+  line: 45
+  sorry_lines: [45, 46, 51, 55, 61]
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_deepseek_1775202218760.main.scheffe
+  file: Statlean/Web/v2_scheffe_deepseek_1775202218760/Main.lean
+  line: 19
+  sorry_lines: [19, 47]
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_deepseek_1775221373417.main.scheffe
+  file: Statlean/Web/v2_scheffe_deepseek_1775221373417/Main.lean
+  line: 76
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_deepseek_1775322666220.main.scheffe
+  file: Statlean/Web/v2_scheffe_deepseek_1775322666220/Main.lean
+  line: 51
+  sorry_lines: [51, 53, 57, 59, 67]
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_minimax_1775202683119.main.scheffe
+  file: Statlean/Web/v2_scheffe_minimax_1775202683119/Main.lean
+  line: 27
+  sorry_lines: [27, 54, 58, 64, 69, 95]
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_minimax_1775207109919.main.scheffe
+  file: Statlean/Web/v2_scheffe_minimax_1775207109919/Main.lean
+  line: 77
+  sorry_lines: [77, 79]
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_minimax_1775222955073.main.scheffe
+  file: Statlean/Web/v2_scheffe_minimax_1775222955073/Main.lean
+  line: 69
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_minimax_1775323996470.main.scheffe
+  file: Statlean/Web/v2_scheffe_minimax_1775323996470/Main.lean
+  line: 22
+  sorry_lines: [22, 26, 39]
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_minimax_1775378139028.main.scheffe
+  file: Statlean/Web/v2_scheffe_minimax_1775378139028/Main.lean
+  line: 25
+  sorry_lines: [25, 31, 35]
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.v2_scheffe_qwen_1775547842889.main.scheffe
+  file: Statlean/Web/v2_scheffe_qwen_1775547842889/Main.lean
+  line: 32
+  sorry_lines: [32, 34]
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.vc5_deepseek.main.covariance_cauchy_schwarz
+  file: Statlean/Web/vc5_deepseek/Main.lean
+  line: 20
+  sorry_lines: [20, 44, 53]
+  theorem: covariance_cauchy_schwarz
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.vc5_kimi.main.covariance_sq_le_variance_mul_variance
+  file: Statlean/Web/vc5_kimi/Main.lean
+  line: 59
+  theorem: covariance_sq_le_variance_mul_variance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.vc5_qwen.main.cauchy_schwarz_covariance
+  file: Statlean/Web/vc5_qwen/Main.lean
+  line: 13
+  sorry_lines: [13, 25, 26, 29, 32]
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.vc6_deepseek.main.cauchy_schwarz_covariance
+  file: Statlean/Web/vc6_deepseek/Main.lean
+  line: 33
+  theorem: cauchy_schwarz_covariance
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.vd_deepseek.main.scheffe
+  file: Statlean/Web/vd_deepseek/Main.lean
+  line: 76
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.vd_minimax.main.scheffe
+  file: Statlean/Web/vd_minimax/Main.lean
+  line: 69
+  theorem: scheffe
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
