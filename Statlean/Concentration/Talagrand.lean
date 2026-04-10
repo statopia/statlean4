@@ -464,6 +464,40 @@ lemma BoundedDifferences.neg {f : (∀ i, α i) → ℝ} {c : Fin n → ℝ}
   rw [hrw, abs_neg]
   exact h
 
+/-- Iterating the bounded differences condition coordinate by coordinate: for any two
+points `x, y`, we have `|f x - f y| ≤ ∑ᵢ cᵢ`.
+
+Proof: Define the interpolation `z s i = if i ∈ s then x i else y i` indexed by
+`s : Finset (Fin n)`. Then `z ∅ = y`, `z univ = x`, and `z (insert j s)` differs
+from `z s` only in coordinate `j`, so `|f (z (insert j s)) - f (z s)| ≤ c j`.
+Telescoping the triangle inequality over `Finset.induction_on` gives the bound. -/
+lemma BoundedDifferences.bounded_diff {f : (∀ i, α i) → ℝ} {c : Fin n → ℝ}
+    (hbd : BoundedDifferences f c) (x y : ∀ i, α i) :
+    |f x - f y| ≤ ∑ i, c i := by
+  let z : Finset (Fin n) → (∀ i, α i) := fun s i => if i ∈ s then x i else y i
+  have key : ∀ s : Finset (Fin n), |f (z s) - f y| ≤ ∑ i ∈ s, c i := by
+    intro s
+    induction s using Finset.induction_on with
+    | empty =>
+        simp only [Finset.sum_empty]
+        have : z ∅ = y := by funext i; simp [z]
+        rw [this]; simp
+    | insert j s hjs ih =>
+        have hdiff : ∀ i, i ≠ j → z (insert j s) i = z s i := by
+          intro i hij
+          simp [z, Finset.mem_insert, hij]
+        have h1 : |f (z (insert j s)) - f (z s)| ≤ c j :=
+          hbd j _ _ hdiff
+        calc |f (z (insert j s)) - f y|
+            = |(f (z (insert j s)) - f (z s)) + (f (z s) - f y)| := by ring_nf
+          _ ≤ |f (z (insert j s)) - f (z s)| + |f (z s) - f y| := abs_add_le _ _
+          _ ≤ c j + ∑ i ∈ s, c i := add_le_add h1 ih
+          _ = ∑ i ∈ insert j s, c i := by rw [Finset.sum_insert hjs]
+  have huniv : z Finset.univ = x := by funext i; simp [z]
+  have hfinal := key Finset.univ
+  rw [huniv] at hfinal
+  exact hfinal
+
 /-- **McDiarmid MGF bound** (core ingredient): For a function `f` satisfying bounded
 differences with constants `c`, the moment generating function of `f - E[f]` under the
 product measure is bounded by `exp(λ² · ∑cᵢ² / 8)`.
@@ -513,12 +547,46 @@ theorem mcdiarmid_upper
   -- MGF bound: ∫ exp(Λ·g) dν ≤ exp(Λ² · S / 8)
   have h_mgf : ∫ x, Real.exp (Λ * g x) ∂ν ≤ Real.exp (Λ ^ 2 * S / 8) :=
     mcdiarmid_mgf_bound hf_meas hbd hc_nn hf_int Λ
-  -- Integrability of `exp(Λ·g)`: this follows from BD implying `f` is bounded
-  -- (iterated one-coordinate-at-a-time shows `|f(x) - f(x')| ≤ ∑ᵢ cᵢ`),
-  -- hence `g = f - Ef` is bounded, hence `exp(Λ·g)` is bounded, hence integrable
-  -- on the probability measure `ν`. Left as a technical TODO.
+  -- Integrability of `exp(Λ·g)`: BD implies `|f x - f x'| ≤ ∑ᵢ cᵢ` uniformly
+  -- (via `BoundedDifferences.bounded_diff`). Integrating against the probability
+  -- measure `ν` in the `x'` coordinate, `|f x - Ef| ≤ ∑ᵢ cᵢ`, so `exp(Λ·g x)` is
+  -- uniformly bounded and hence integrable under `ν`.
   have h_exp_int : Integrable (fun x => Real.exp (Λ * g x)) ν := by
-    sorry
+    have hSumC_nn : (0 : ℝ) ≤ ∑ i, c i :=
+      Finset.sum_nonneg (fun i _ => hc_nn i)
+    -- Step 1: `|g x| ≤ ∑ᵢ cᵢ` for all `x`, using `bounded_diff` + Jensen.
+    have hbdd : ∀ x, |g x| ≤ ∑ i, c i := by
+      intro x
+      show |f x - Ef| ≤ ∑ i, c i
+      have h1 : f x - Ef = ∫ x', (f x - f x') ∂ν := by
+        show f x - ∫ x', f x' ∂ν = ∫ x', f x - f x' ∂ν
+        rw [integral_sub (integrable_const (f x)) hf_int, integral_const]
+        simp
+      rw [h1]
+      calc |∫ x', f x - f x' ∂ν|
+          ≤ ∫ x', |f x - f x'| ∂ν := abs_integral_le_integral_abs
+        _ ≤ ∫ x', (∑ i, c i) ∂ν := by
+            refine integral_mono_ae ?_ (integrable_const _) ?_
+            · exact ((integrable_const (f x)).sub hf_int).abs
+            · exact Filter.Eventually.of_forall (fun x' => hbd.bounded_diff x x')
+        _ = ∑ i, c i := by rw [integral_const]; simp
+    -- Step 2: `‖exp(Λ·g x)‖ ≤ exp(|Λ| · ∑ᵢ cᵢ)`.
+    set C : ℝ := Real.exp (|Λ| * (∑ i, c i)) with hC_def
+    have h_bd_exp : ∀ x, ‖Real.exp (Λ * g x)‖ ≤ C := by
+      intro x
+      show |Real.exp (Λ * g x)| ≤ C
+      rw [abs_of_pos (Real.exp_pos _)]
+      apply Real.exp_le_exp.mpr
+      calc Λ * g x
+          ≤ |Λ * g x| := le_abs_self _
+        _ = |Λ| * |g x| := abs_mul _ _
+        _ ≤ |Λ| * (∑ i, c i) :=
+            mul_le_mul_of_nonneg_left (hbdd x) (abs_nonneg _)
+    -- Step 3: integrable via `Integrable.of_bound` (probability measure is finite).
+    refine Integrable.of_bound ?_ C ?_
+    · exact (Real.measurable_exp.comp
+        (measurable_const.mul hg_meas)).aestronglyMeasurable
+    · exact Filter.Eventually.of_forall h_bd_exp
   -- Markov's inequality (Chernoff form)
   have h_markov :
       ν.real {ω | t ≤ g ω} ≤ Real.exp (-Λ * t) * mgf g ν Λ :=
