@@ -498,6 +498,45 @@ lemma BoundedDifferences.bounded_diff {f : (∀ i, α i) → ℝ} {c : Fin n →
   rw [huniv] at hfinal
   exact hfinal
 
+/-- **Base case** (`n = 0`) of the McDiarmid MGF bound: on an empty product the
+underlying space is a singleton, so `f` is constant, the MGF integrand is `exp 0 = 1`,
+and `sumSqConstants c = 0`. Both sides equal `1`. -/
+lemma mcdiarmid_mgf_bound_empty
+    {f : (∀ i, α i) → ℝ} {c : Fin n → ℝ}
+    (hn : n = 0) (Λ : ℝ) :
+    ∫ x, Real.exp (Λ * (f x - ∫ x', f x' ∂(Measure.pi μ))) ∂(Measure.pi μ) ≤
+      Real.exp (Λ ^ 2 * sumSqConstants c / 8) := by
+  subst hn
+  -- `∀ i : Fin 0, α i` is a subsingleton: every element is determined.
+  have h_unique : ∀ x y : (∀ i : Fin 0, α i), x = y := by
+    intro x y; funext i; exact i.elim0
+  -- Therefore `f x = ∫ f` for every `x`.
+  have h_fx_eq : ∀ x, f x = ∫ x', f x' ∂(Measure.pi μ) := by
+    intro x
+    have hconst : (fun x' => f x') = (fun _ => f x) := by
+      funext y; rw [h_unique y x]
+    rw [hconst, integral_const]
+    simp
+  -- Hence the MGF integrand is identically `1`.
+  have h_lhs :
+      ∫ x, Real.exp (Λ * (f x - ∫ x', f x' ∂(Measure.pi μ))) ∂(Measure.pi μ) = 1 := by
+    have h_integrand :
+        (fun x => Real.exp (Λ * (f x - ∫ x', f x' ∂(Measure.pi μ))))
+          = fun _ => (1 : ℝ) := by
+      funext x
+      rw [h_fx_eq x]
+      simp
+    rw [h_integrand, integral_const]
+    simp
+  -- And `sumSqConstants c = 0` since the sum is over the empty index set.
+  have h_sum : sumSqConstants c = 0 := by
+    unfold sumSqConstants
+    apply Finset.sum_eq_zero
+    intro i _
+    exact i.elim0
+  rw [h_lhs, h_sum]
+  simp
+
 /-- **McDiarmid MGF bound** (core ingredient): For a function `f` satisfying bounded
 differences with constants `c`, the moment generating function of `f - E[f]` under the
 product measure is bounded by `exp(λ² · ∑cᵢ² / 8)`.
@@ -506,17 +545,34 @@ This is the exponential moment estimate that drives McDiarmid's inequality. The 
 proceeds by Doob's martingale decomposition: write `f - E[f] = ∑ Dᵢ` where
 `Dᵢ = E[f | 𝓕ᵢ] - E[f | 𝓕_{i-1}]` is a martingale difference with `|Dᵢ| ≤ cᵢ`, then
 apply Hoeffding's lemma (`hoeffding_lemma`) to each conditional exponential moment
-via iterated Fubini. -/
+via iterated Fubini.
+
+**Structural decomposition**: the base case `n = 0` is handled by
+`mcdiarmid_mgf_bound_empty`. The inductive step (`n ≥ 1`) requires the full
+Doob-martingale-via-Fubini argument and remains as a `sorry`. -/
 lemma mcdiarmid_mgf_bound
     {f : (∀ i, α i) → ℝ} {c : Fin n → ℝ}
-    (_hf_meas : Measurable f)
-    (_hbd : BoundedDifferences f c)
-    (_hc_nn : ∀ i, 0 ≤ c i)
-    (_hf_int : Integrable f (Measure.pi μ))
-    (_Λ : ℝ) :
-    ∫ x, Real.exp (_Λ * (f x - ∫ x', f x' ∂(Measure.pi μ))) ∂(Measure.pi μ) ≤
-      Real.exp (_Λ ^ 2 * sumSqConstants c / 8) := by
-  sorry
+    (hf_meas : Measurable f)
+    (hbd : BoundedDifferences f c)
+    (hc_nn : ∀ i, 0 ≤ c i)
+    (hf_int : Integrable f (Measure.pi μ))
+    (Λ : ℝ) :
+    ∫ x, Real.exp (Λ * (f x - ∫ x', f x' ∂(Measure.pi μ))) ∂(Measure.pi μ) ≤
+      Real.exp (Λ ^ 2 * sumSqConstants c / 8) := by
+  -- Dispatch on whether the index type is empty.
+  rcases Nat.eq_zero_or_pos n with hn | hn
+  · -- Base case: `n = 0` — use the dedicated empty-product lemma.
+    exact mcdiarmid_mgf_bound_empty hn Λ
+  · -- Inductive step: `n ≥ 1`. The Doob martingale argument goes here.
+    -- Sketch: write `f - E[f] = ∑ᵢ Dᵢ` with
+    --   `Dᵢ x = E[f | x_{<i+1}] - E[f | x_{<i}]`
+    -- a martingale difference with `|Dᵢ| ≤ cᵢ` (by `BoundedDifferences.bounded_diff`
+    -- applied in the `x_i` slice). Apply `hoeffding_lemma` to each `Dᵢ` conditionally
+    -- via `MeasureTheory.integral_prod` / `Measure.pi_succ_above` + iterated Fubini,
+    -- and compose the resulting bounds to obtain the `∑ cᵢ² / 8` exponent.
+    -- TODO: fill in the Doob martingale via iterated Fubini argument.
+    let _ := hf_meas; let _ := hbd; let _ := hc_nn; let _ := hf_int
+    sorry
 
 /-- **McDiarmid's inequality (upper tail)**: If `f` satisfies bounded differences
 with constants `c`, and `X₁,...,Xₙ` are independent, then
