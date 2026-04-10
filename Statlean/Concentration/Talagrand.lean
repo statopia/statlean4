@@ -476,7 +476,78 @@ theorem mcdiarmid
     (t : ℝ) (ht : 0 < t) :
     (Measure.pi μ {x | t ≤ |f x - ∫ x', f x' ∂(Measure.pi μ)|}).toReal ≤
       2 * Real.exp (-2 * t ^ 2 / sumSqConstants c) := by
-  sorry
+  -- Abbreviations
+  set ν : Measure (∀ i, α i) := Measure.pi μ with hν_def
+  set Ef : ℝ := ∫ x', f x' ∂ν with hEf_def
+  -- Bounded differences hold for `-f` with the same constants
+  have hbd_neg : BoundedDifferences (fun x => -f x) c := by
+    intro i x x' hxx'
+    have := hbd i x x' hxx'
+    have hrw : -f x - -f x' = -(f x - f x') := by ring
+    rw [hrw, abs_neg]
+    exact this
+  have hneg_meas : Measurable (fun x => -f x) := hf_meas.neg
+  -- Expectation of `-f`
+  have h_int_neg : ∫ x, -f x ∂ν = -Ef := by
+    rw [integral_neg]
+  -- One-sided bounds for `f` and `-f`
+  have h_upper_f :
+      (ν {x | t ≤ f x - Ef}).toReal ≤ Real.exp (-2 * t ^ 2 / sumSqConstants c) :=
+    mcdiarmid_upper hf_meas hbd hc_nn hc_pos t ht
+  have h_upper_neg :
+      (ν {x | t ≤ (-f x) - (∫ x', -f x' ∂ν)}).toReal ≤
+        Real.exp (-2 * t ^ 2 / sumSqConstants c) :=
+    mcdiarmid_upper hneg_meas hbd_neg hc_nn hc_pos t ht
+  -- Rewrite the `-f` event using `∫ -f = -Ef`
+  have h_upper_neg' :
+      (ν {x | t ≤ -(f x - Ef)}).toReal ≤
+        Real.exp (-2 * t ^ 2 / sumSqConstants c) := by
+    have hset :
+        {x | t ≤ (-f x) - (∫ x', -f x' ∂ν)} = {x | t ≤ -(f x - Ef)} := by
+      ext x
+      simp [h_int_neg, sub_eq_add_neg, add_comm]
+    rw [hset] at h_upper_neg
+    exact h_upper_neg
+  -- Decompose the two-sided event into union of upper/lower one-sided events
+  have hsubset :
+      {x | t ≤ |f x - Ef|} ⊆
+        {x | t ≤ f x - Ef} ∪ {x | t ≤ -(f x - Ef)} := by
+      intro x hx
+      have hx' : t ≤ |f x - Ef| := hx
+      by_cases hsign : 0 ≤ f x - Ef
+      · left
+        have : |f x - Ef| = f x - Ef := abs_of_nonneg hsign
+        rw [this] at hx'
+        exact hx'
+      · right
+        push_neg at hsign
+        have : |f x - Ef| = -(f x - Ef) := abs_of_neg hsign
+        rw [this] at hx'
+        exact hx'
+  -- Apply monotonicity of the measure
+  have h_mono :
+      ν {x | t ≤ |f x - Ef|} ≤
+        ν {x | t ≤ f x - Ef} + ν {x | t ≤ -(f x - Ef)} :=
+    le_trans (measure_mono hsubset) (measure_union_le _ _)
+  -- Convert to real: all measures are finite (probability measure)
+  have h_ne_top_f : ν {x | t ≤ f x - Ef} ≠ ⊤ := measure_ne_top _ _
+  have h_ne_top_neg : ν {x | t ≤ -(f x - Ef)} ≠ ⊤ := measure_ne_top _ _
+  have h_sum_ne_top : ν {x | t ≤ f x - Ef} + ν {x | t ≤ -(f x - Ef)} ≠ ⊤ := by
+    rw [ENNReal.add_ne_top]
+    exact ⟨h_ne_top_f, h_ne_top_neg⟩
+  have h_mono_real :
+      (ν {x | t ≤ |f x - Ef|}).toReal ≤
+        (ν {x | t ≤ f x - Ef}).toReal + (ν {x | t ≤ -(f x - Ef)}).toReal := by
+    have := ENNReal.toReal_mono h_sum_ne_top h_mono
+    rwa [ENNReal.toReal_add h_ne_top_f h_ne_top_neg] at this
+  -- Combine with the two one-sided bounds
+  calc (ν {x | t ≤ |f x - Ef|}).toReal
+      ≤ (ν {x | t ≤ f x - Ef}).toReal + (ν {x | t ≤ -(f x - Ef)}).toReal :=
+        h_mono_real
+    _ ≤ Real.exp (-2 * t ^ 2 / sumSqConstants c) +
+          Real.exp (-2 * t ^ 2 / sumSqConstants c) :=
+        add_le_add h_upper_f h_upper_neg'
+    _ = 2 * Real.exp (-2 * t ^ 2 / sumSqConstants c) := by ring
 
 end McDiarmid
 
