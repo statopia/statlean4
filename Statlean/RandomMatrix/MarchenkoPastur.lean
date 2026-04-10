@@ -97,6 +97,37 @@ lemma mpDensity_nonneg (σ γ : ℝ) (x : ℝ) : 0 ≤ mpDensity σ γ x := by
         linarith
   · simp
 
+/-- The lower edge `σ²(1 - √γ)²` is nonnegative (as a product of squares). -/
+lemma mpLowerEdge_nonneg (σ γ : ℝ) : 0 ≤ mpLowerEdge σ γ := by
+  unfold mpLowerEdge
+  exact mul_nonneg (sq_nonneg _) (sq_nonneg _)
+
+/-- The upper edge `σ²(1 + √γ)²` is nonnegative. -/
+lemma mpUpperEdge_nonneg (σ γ : ℝ) : 0 ≤ mpUpperEdge σ γ := by
+  unfold mpUpperEdge
+  exact mul_nonneg (sq_nonneg _) (sq_nonneg _)
+
+/-- The upper edge is strictly positive when `σ ≠ 0`. -/
+lemma mpUpperEdge_pos {σ γ : ℝ} (hσ : σ ≠ 0) (hγ : 0 ≤ γ) :
+    0 < mpUpperEdge σ γ := by
+  unfold mpUpperEdge
+  have hσ2 : 0 < σ ^ 2 := by positivity
+  have hsqrt : 0 ≤ Real.sqrt γ := Real.sqrt_nonneg _
+  have hone_plus : 0 < 1 + Real.sqrt γ := by linarith
+  exact mul_pos hσ2 (pow_pos hone_plus 2)
+
+/-- The lower edge is at most the upper edge (both are `σ²` times squared quantities,
+and `(1 - √γ)² ≤ (1 + √γ)²` since `√γ ≥ 0`). -/
+lemma mpLowerEdge_le_mpUpperEdge {σ γ : ℝ} (hγ : 0 ≤ γ) :
+    mpLowerEdge σ γ ≤ mpUpperEdge σ γ := by
+  unfold mpLowerEdge mpUpperEdge
+  have hsq : 0 ≤ σ ^ 2 := sq_nonneg _
+  have hsqrt_nn : 0 ≤ Real.sqrt γ := Real.sqrt_nonneg _
+  have hγeq : Real.sqrt γ * Real.sqrt γ = γ := Real.mul_self_sqrt hγ
+  have hineq : (1 - Real.sqrt γ) ^ 2 ≤ (1 + Real.sqrt γ) ^ 2 := by
+    nlinarith [hsqrt_nn, hγeq]
+  exact mul_le_mul_of_nonneg_left hineq hsq
+
 /-- Total mass identity: the continuous part weight plus the atom weight equals 1. -/
 lemma mp_total_mass_identity {γ : ℝ} (hγ : 0 < γ) :
     min (1 : ℝ) (1 / γ) + max (1 - 1 / γ) 0 = 1 := by
@@ -143,6 +174,20 @@ the uniform measure on its eigenvalues.
 For now, we define this abstractly via a finite sequence of eigenvalues. -/
 noncomputable def empiricalSpectralMeasure {p : ℕ} (eigenvalues : Fin p → ℝ) : Measure ℝ :=
   (p : ℝ≥0∞)⁻¹ • ∑ i : Fin p, Measure.dirac (eigenvalues i)
+
+/-- The empirical spectral measure is a probability measure when `p > 0`. -/
+lemma empiricalSpectralMeasure_isProbabilityMeasure
+    {p : ℕ} (hp : 0 < p) (eigenvalues : Fin p → ℝ) :
+    IsProbabilityMeasure (empiricalSpectralMeasure eigenvalues) := by
+  refine ⟨?_⟩
+  unfold empiricalSpectralMeasure
+  rw [Measure.smul_apply, Measure.finset_sum_apply]
+  simp only [Measure.dirac_apply, Set.mem_univ, Set.indicator_of_mem,
+    Pi.one_apply, Finset.sum_const, Finset.card_univ,
+    Fintype.card_fin, nsmul_eq_mul, mul_one, smul_eq_mul]
+  rw [ENNReal.inv_mul_cancel]
+  · exact_mod_cast hp.ne'
+  · exact ENNReal.natCast_ne_top p
 
 /-- **Marchenko-Pastur Theorem** (statement only):
 The empirical spectral distribution of `(1/n) X X^T` converges weakly

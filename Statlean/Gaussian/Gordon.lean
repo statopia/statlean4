@@ -55,6 +55,41 @@ theorem SlepianCondition.symm_cov_le {X Y : Fin n → Ω → ℝ}
     ∫ ω, X j ω * X i ω ∂μ ≤ ∫ ω, Y j ω * Y i ω ∂μ :=
   hcond.cov_le j i (Ne.symm hij)
 
+omit [IsProbabilityMeasure μ] in
+/-- **Reflexivity of Slepian's condition**: a centered vector `X` satisfies the
+Slepian comparison condition against itself (equality case). -/
+theorem SlepianCondition.refl {X : Fin n → Ω → ℝ}
+    (hmean : ∀ i, ∫ ω, X i ω ∂μ = 0) :
+    SlepianCondition X X μ where
+  mean_zero_X := hmean
+  mean_zero_Y := hmean
+  var_eq := fun _ => rfl
+  cov_le := fun _ _ _ => le_refl _
+
+omit [IsProbabilityMeasure μ] in
+/-- **Slepian's lemma, reflexive special case**: when `X = Y`, the conclusion
+`E[max Xᵢ] ≤ E[max Xᵢ]` holds trivially by reflexivity. This does not depend on
+the Gaussian hypothesis and serves as a sanity check for the general statement. -/
+theorem slepian_lemma_refl {X : Fin n → Ω → ℝ} (hn : 0 < n) :
+    let _ : Nonempty (Fin n) := ⟨⟨0, hn⟩⟩
+    ∫ ω, Finset.univ.sup' Finset.univ_nonempty (fun i => X i ω) ∂μ ≤
+    ∫ ω, Finset.univ.sup' Finset.univ_nonempty (fun i => X i ω) ∂μ := by
+  intro _; exact le_refl _
+
+omit [MeasurableSpace Ω] [IsProbabilityMeasure μ] in
+/-- **Slepian's lemma, `n = 1` special case, pointwise form**: with a single
+coordinate, the `sup'` over `Fin 1` of `X` simplifies to `X 0`, so the claim
+reduces to an integral monotonicity statement. We package the `sup'`
+simplification as a pointwise equality, usable downstream. -/
+theorem sup'_fin_one (X : Fin 1 → Ω → ℝ) (ω : Ω) :
+    Finset.univ.sup' (Finset.univ_nonempty (α := Fin 1)) (fun i => X i ω) = X 0 ω := by
+  apply le_antisymm
+  · refine Finset.sup'_le _ _ ?_
+    intro i _
+    fin_cases i
+    exact le_refl _
+  · exact Finset.le_sup' (f := fun i => X i ω) (Finset.mem_univ 0)
+
 /-- **Slepian's Lemma**: Under the Slepian condition,
 `E[max Xᵢ] ≤ E[max Yᵢ]`. -/
 theorem slepian_lemma
@@ -92,6 +127,29 @@ structure GordonCondition (X Y : Fin m → Fin n → Ω → ℝ) (μ : Measure �
     ∫ ω, X i j ω * X i k ω ∂μ ≤ ∫ ω, Y i j ω * Y i k ω ∂μ
   col_cov_ge : ∀ i k j, i ≠ k →
     ∫ ω, X i j ω * X k j ω ∂μ ≥ ∫ ω, Y i j ω * Y k j ω ∂μ
+
+omit [IsProbabilityMeasure μ] in
+/-- **Reflexivity of Gordon's condition**: any matrix `X` satisfies Gordon's
+comparison condition against itself (equality case on all three clauses). -/
+theorem GordonCondition.refl (X : Fin m → Fin n → Ω → ℝ) :
+    GordonCondition X X μ where
+  var_eq := fun _ _ => rfl
+  row_cov_le := fun _ _ _ _ => le_refl _
+  col_cov_ge := fun _ _ _ _ => ge_of_eq rfl
+
+omit [IsProbabilityMeasure μ] in
+/-- **Gordon's minimax theorem, reflexive special case**: when `X = Y`,
+the conclusion is an equality (reflexivity of `≤`). -/
+theorem gordon_minimax_refl {X : Fin m → Fin n → Ω → ℝ} (hm : 0 < m) (hn : 0 < n) :
+    let _ : Nonempty (Fin m) := ⟨⟨0, hm⟩⟩
+    let _ : Nonempty (Fin n) := ⟨⟨0, hn⟩⟩
+    ∫ ω, Finset.univ.inf' Finset.univ_nonempty
+      (fun i => Finset.univ.sup' Finset.univ_nonempty
+        (fun j => X i j ω)) ∂μ ≤
+    ∫ ω, Finset.univ.inf' Finset.univ_nonempty
+      (fun i => Finset.univ.sup' Finset.univ_nonempty
+        (fun j => X i j ω)) ∂μ := by
+  intro _ _; exact le_refl _
 
 omit [IsProbabilityMeasure μ] in
 /-- Independent centered Gaussian entries with equal variances satisfy Gordon's condition
