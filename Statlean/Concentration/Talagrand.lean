@@ -1,4 +1,5 @@
 import Mathlib.Probability.Independence.Basic
+import Mathlib.Probability.Moments.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 import Mathlib.Analysis.SpecialFunctions.ExpDeriv
@@ -451,19 +452,100 @@ section McDiarmid
 variable {α : Fin n → Type*} [∀ i, MeasurableSpace (α i)]
 variable {μ : ∀ i, Measure (α i)} [∀ i, IsProbabilityMeasure (μ i)]
 
+/-- Bounded differences is stable under negation with the same constants.
+
+If `|f(x) - f(x')| ≤ c i` whenever `x, x'` differ only in coordinate `i`, then
+`|(-f)(x) - (-f)(x')| ≤ c i` as well. -/
+lemma BoundedDifferences.neg {f : (∀ i, α i) → ℝ} {c : Fin n → ℝ}
+    (hbd : BoundedDifferences f c) : BoundedDifferences (fun x => -f x) c := by
+  intro i x x' hxx'
+  have h := hbd i x x' hxx'
+  have hrw : -f x - -f x' = -(f x - f x') := by ring
+  rw [hrw, abs_neg]
+  exact h
+
+/-- **McDiarmid MGF bound** (core ingredient): For a function `f` satisfying bounded
+differences with constants `c`, the moment generating function of `f - E[f]` under the
+product measure is bounded by `exp(λ² · ∑cᵢ² / 8)`.
+
+This is the exponential moment estimate that drives McDiarmid's inequality. The proof
+proceeds by Doob's martingale decomposition: write `f - E[f] = ∑ Dᵢ` where
+`Dᵢ = E[f | 𝓕ᵢ] - E[f | 𝓕_{i-1}]` is a martingale difference with `|Dᵢ| ≤ cᵢ`, then
+apply Hoeffding's lemma (`hoeffding_lemma`) to each conditional exponential moment
+via iterated Fubini. -/
+lemma mcdiarmid_mgf_bound
+    {f : (∀ i, α i) → ℝ} {c : Fin n → ℝ}
+    (_hf_meas : Measurable f)
+    (_hbd : BoundedDifferences f c)
+    (_hc_nn : ∀ i, 0 ≤ c i)
+    (_hf_int : Integrable f (Measure.pi μ))
+    (_Λ : ℝ) :
+    ∫ x, Real.exp (_Λ * (f x - ∫ x', f x' ∂(Measure.pi μ))) ∂(Measure.pi μ) ≤
+      Real.exp (_Λ ^ 2 * sumSqConstants c / 8) := by
+  sorry
+
 /-- **McDiarmid's inequality (upper tail)**: If `f` satisfies bounded differences
 with constants `c`, and `X₁,...,Xₙ` are independent, then
-`P(f(X) - E[f(X)] ≥ t) ≤ exp(-2t² / ∑cᵢ²)`. -/
+`P(f(X) - E[f(X)] ≥ t) ≤ exp(-2t² / ∑cᵢ²)`.
+
+Proof: Apply Markov's inequality to `exp(Λ·(f - E[f]))` with the optimized choice
+`Λ = 4t / ∑cᵢ²`, combined with the MGF bound `mcdiarmid_mgf_bound`. -/
 theorem mcdiarmid_upper
     {f : (∀ i, α i) → ℝ} {c : Fin n → ℝ}
     (hf_meas : Measurable f)
     (hbd : BoundedDifferences f c)
     (hc_nn : ∀ i, 0 ≤ c i)
     (hc_pos : 0 < sumSqConstants c)
+    (hf_int : Integrable f (Measure.pi μ))
     (t : ℝ) (ht : 0 < t) :
     (Measure.pi μ {x | t ≤ f x - ∫ x', f x' ∂(Measure.pi μ)}).toReal ≤
       Real.exp (-2 * t ^ 2 / sumSqConstants c) := by
-  sorry
+  set ν : Measure (∀ i, α i) := Measure.pi μ with hν_def
+  set Ef : ℝ := ∫ x', f x' ∂ν with hEf_def
+  set S : ℝ := sumSqConstants c with hS_def
+  -- Optimized multiplier: Λ = 4t / S
+  set Λ : ℝ := 4 * t / S with hΛ_def
+  have hΛ_pos : 0 < Λ := div_pos (by linarith) hc_pos
+  have hΛ_nn : 0 ≤ Λ := hΛ_pos.le
+  -- Define g(x) = f(x) - Ef
+  set g : (∀ i, α i) → ℝ := fun x => f x - Ef with hg_def
+  have hg_meas : Measurable g := hf_meas.sub_const Ef
+  -- MGF bound: ∫ exp(Λ·g) dν ≤ exp(Λ² · S / 8)
+  have h_mgf : ∫ x, Real.exp (Λ * g x) ∂ν ≤ Real.exp (Λ ^ 2 * S / 8) :=
+    mcdiarmid_mgf_bound hf_meas hbd hc_nn hf_int Λ
+  -- Integrability of `exp(Λ·g)`: this follows from BD implying `f` is bounded
+  -- (iterated one-coordinate-at-a-time shows `|f(x) - f(x')| ≤ ∑ᵢ cᵢ`),
+  -- hence `g = f - Ef` is bounded, hence `exp(Λ·g)` is bounded, hence integrable
+  -- on the probability measure `ν`. Left as a technical TODO.
+  have h_exp_int : Integrable (fun x => Real.exp (Λ * g x)) ν := by
+    sorry
+  -- Markov's inequality (Chernoff form)
+  have h_markov :
+      ν.real {ω | t ≤ g ω} ≤ Real.exp (-Λ * t) * mgf g ν Λ :=
+    ProbabilityTheory.measure_ge_le_exp_mul_mgf (μ := ν) (X := g) (t := Λ)
+      t hΛ_nn h_exp_int
+  -- Rewrite mgf as integral and combine with h_mgf
+  have h_mgf_def : mgf g ν Λ = ∫ x, Real.exp (Λ * g x) ∂ν := rfl
+  rw [h_mgf_def] at h_markov
+  have h1 : ν.real {ω | t ≤ g ω} ≤ Real.exp (-Λ * t) * Real.exp (Λ ^ 2 * S / 8) := by
+    refine h_markov.trans ?_
+    have hexp_nn : 0 ≤ Real.exp (-Λ * t) := (Real.exp_pos _).le
+    exact mul_le_mul_of_nonneg_left h_mgf hexp_nn
+  -- Combine exponentials
+  have h2 : Real.exp (-Λ * t) * Real.exp (Λ ^ 2 * S / 8)
+            = Real.exp (Λ ^ 2 * S / 8 - Λ * t) := by
+    rw [← Real.exp_add]; congr 1; ring
+  rw [h2] at h1
+  -- Optimization: Λ² · S / 8 - Λ · t = -2 t² / S when Λ = 4t/S
+  have h_opt : Λ ^ 2 * S / 8 - Λ * t = -2 * t ^ 2 / S := by
+    have hS_ne : S ≠ 0 := ne_of_gt hc_pos
+    rw [hΛ_def]
+    field_simp
+    ring
+  rw [h_opt] at h1
+  -- Conclude: ν.real = toReal
+  show (ν {x | t ≤ f x - Ef}).toReal ≤ Real.exp (-2 * t ^ 2 / S)
+  exact h1
 
 /-- **McDiarmid's inequality (two-sided)**: If `f` satisfies bounded differences,
 `P(|f(X) - E[f(X)]| ≥ t) ≤ 2·exp(-2t² / ∑cᵢ²)`. -/
@@ -473,6 +555,7 @@ theorem mcdiarmid
     (hbd : BoundedDifferences f c)
     (hc_nn : ∀ i, 0 ≤ c i)
     (hc_pos : 0 < sumSqConstants c)
+    (hf_int : Integrable f (Measure.pi μ))
     (t : ℝ) (ht : 0 < t) :
     (Measure.pi μ {x | t ≤ |f x - ∫ x', f x' ∂(Measure.pi μ)|}).toReal ≤
       2 * Real.exp (-2 * t ^ 2 / sumSqConstants c) := by
@@ -480,24 +563,20 @@ theorem mcdiarmid
   set ν : Measure (∀ i, α i) := Measure.pi μ with hν_def
   set Ef : ℝ := ∫ x', f x' ∂ν with hEf_def
   -- Bounded differences hold for `-f` with the same constants
-  have hbd_neg : BoundedDifferences (fun x => -f x) c := by
-    intro i x x' hxx'
-    have := hbd i x x' hxx'
-    have hrw : -f x - -f x' = -(f x - f x') := by ring
-    rw [hrw, abs_neg]
-    exact this
+  have hbd_neg : BoundedDifferences (fun x => -f x) c := hbd.neg
   have hneg_meas : Measurable (fun x => -f x) := hf_meas.neg
+  have hneg_int : Integrable (fun x => -f x) ν := hf_int.neg
   -- Expectation of `-f`
   have h_int_neg : ∫ x, -f x ∂ν = -Ef := by
     rw [integral_neg]
   -- One-sided bounds for `f` and `-f`
   have h_upper_f :
       (ν {x | t ≤ f x - Ef}).toReal ≤ Real.exp (-2 * t ^ 2 / sumSqConstants c) :=
-    mcdiarmid_upper hf_meas hbd hc_nn hc_pos t ht
+    mcdiarmid_upper hf_meas hbd hc_nn hc_pos hf_int t ht
   have h_upper_neg :
       (ν {x | t ≤ (-f x) - (∫ x', -f x' ∂ν)}).toReal ≤
         Real.exp (-2 * t ^ 2 / sumSqConstants c) :=
-    mcdiarmid_upper hneg_meas hbd_neg hc_nn hc_pos t ht
+    mcdiarmid_upper hneg_meas hbd_neg hc_nn hc_pos hneg_int t ht
   -- Rewrite the `-f` event using `∫ -f = -Ef`
   have h_upper_neg' :
       (ν {x | t ≤ -(f x - Ef)}).toReal ≤
