@@ -255,7 +255,52 @@ lemma hoeffding_weighted_exp_bound {a b s : ℝ} (hab : a < b) (hs : 0 < s)
     (ha : a ≤ 0) (hb : 0 ≤ b) :
     b / (b - a) * Real.exp (s * a) + (-a) / (b - a) * Real.exp (s * b) ≤
       Real.exp (s ^ 2 * (b - a) ^ 2 / 8) := by
-  sorry
+  set p := -a / (b - a) with hp_def
+  set h := s * (b - a) with h_def
+  have hba : 0 < b - a := sub_pos.mpr hab
+  have hba_ne : b - a ≠ 0 := ne_of_gt hba
+  have hp0 : 0 ≤ p := by
+    rw [hp_def]; exact div_nonneg (neg_nonneg.mpr ha) hba.le
+  have hp1 : p ≤ 1 := by
+    rw [hp_def, div_le_one hba]; linarith
+  have hh_pos : 0 < h := mul_pos hs hba
+  have u_pos : 0 < 1 - p + p * Real.exp h := by
+    have h1mp_nn : 0 ≤ 1 - p := by linarith
+    have hepos : 0 < Real.exp h := Real.exp_pos _
+    by_cases hp_zero : p = 0
+    · simp [hp_zero]
+    · have hp_pos : 0 < p := lt_of_le_of_ne hp0 (Ne.symm hp_zero)
+      have : 0 < p * Real.exp h := mul_pos hp_pos hepos
+      linarith
+  have hcgf := hoeffding_cgf_bound p hp0 hp1 h
+  have hlog_le : Real.log (1 - p + p * Real.exp h) ≤ p * h + h ^ 2 / 8 := by linarith
+  have hexp_le : 1 - p + p * Real.exp h ≤ Real.exp (p * h + h ^ 2 / 8) :=
+    (Real.log_le_iff_le_exp u_pos).mp hlog_le
+  have hesa_pos : 0 < Real.exp (s * a) := Real.exp_pos _
+  -- Key identity: exp(s*a) * exp(s*(b-a)) = exp(s*b)
+  have hexp_eq : Real.exp (s * a) * Real.exp (s * (b - a)) = Real.exp (s * b) := by
+    rw [← Real.exp_add]; congr 1; ring
+  -- Expand LHS = exp(s*a) * (1 - p + p * exp h)
+  have lhs_eq :
+      b / (b - a) * Real.exp (s * a) + (-a) / (b - a) * Real.exp (s * b) =
+      Real.exp (s * a) * (1 - p + p * Real.exp h) := by
+    have h1mp : 1 - p = b / (b - a) := by
+      rw [hp_def]; field_simp; ring
+    rw [← h1mp, hp_def, h_def, ← hexp_eq]
+    field_simp
+  -- RHS simplification: exp(s*a) * exp(p*h + h²/8) = exp(s²(b-a)²/8)
+  have rhs_eq : Real.exp (s * a) * Real.exp (p * h + h ^ 2 / 8) =
+                Real.exp (s ^ 2 * (b - a) ^ 2 / 8) := by
+    rw [← Real.exp_add]
+    congr 1
+    rw [hp_def, h_def]
+    field_simp
+    ring
+  calc b / (b - a) * Real.exp (s * a) + (-a) / (b - a) * Real.exp (s * b)
+      = Real.exp (s * a) * (1 - p + p * Real.exp h) := lhs_eq
+    _ ≤ Real.exp (s * a) * Real.exp (p * h + h ^ 2 / 8) :=
+        mul_le_mul_of_nonneg_left hexp_le hesa_pos.le
+    _ = Real.exp (s ^ 2 * (b - a) ^ 2 / 8) := rhs_eq
 
 end HoeffdingSublemmas
 

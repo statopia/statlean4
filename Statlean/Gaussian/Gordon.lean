@@ -90,6 +90,39 @@ theorem sup'_fin_one (X : Fin 1 → Ω → ℝ) (ω : Ω) :
     exact le_refl _
   · exact Finset.le_sup' (f := fun i => X i ω) (Finset.mem_univ 0)
 
+omit [IsProbabilityMeasure μ] in
+/-- **Slepian's condition implies both sides are centered**: packaging
+`mean_zero_X` and `mean_zero_Y` into a single conjunction for convenient use. -/
+theorem SlepianCondition.mean_zero_both {X Y : Fin n → Ω → ℝ}
+    (hcond : SlepianCondition X Y μ) :
+    (∀ i, ∫ ω, X i ω ∂μ = 0) ∧ (∀ i, ∫ ω, Y i ω ∂μ = 0) :=
+  ⟨hcond.mean_zero_X, hcond.mean_zero_Y⟩
+
+omit [IsProbabilityMeasure μ] in
+/-- **Symmetry of Slepian's variance equality**: `var_eq` also reads in the
+swapped direction, useful when comparing in the opposite orientation. -/
+theorem SlepianCondition.var_eq_symm {X Y : Fin n → Ω → ℝ}
+    (hcond : SlepianCondition X Y μ) (i : Fin n) :
+    ∫ ω, (Y i ω) ^ 2 ∂μ = ∫ ω, (X i ω) ^ 2 ∂μ :=
+  (hcond.var_eq i).symm
+
+omit [IsProbabilityMeasure μ] in
+/-- **Variances from Slepian's condition are non-negative for `X`**: the
+integral of a square is always non-negative (relying only on measurability/
+integrability, packaged as a convenient corollary). -/
+theorem SlepianCondition.var_X_nonneg {X Y : Fin n → Ω → ℝ}
+    (_hcond : SlepianCondition X Y μ) (i : Fin n) :
+    0 ≤ ∫ ω, (X i ω) ^ 2 ∂μ :=
+  integral_nonneg (fun _ => sq_nonneg _)
+
+omit [IsProbabilityMeasure μ] in
+/-- **Variances from Slepian's condition are non-negative for `Y`**: symmetric
+companion to `var_X_nonneg`. -/
+theorem SlepianCondition.var_Y_nonneg {X Y : Fin n → Ω → ℝ}
+    (_hcond : SlepianCondition X Y μ) (i : Fin n) :
+    0 ≤ ∫ ω, (Y i ω) ^ 2 ∂μ :=
+  integral_nonneg (fun _ => sq_nonneg _)
+
 /-- **Slepian's Lemma**: Under the Slepian condition,
 `E[max Xᵢ] ≤ E[max Yᵢ]`. -/
 theorem slepian_lemma
@@ -179,6 +212,43 @@ theorem gordonCondition_of_independent
       apply hY_uncorr
       simp only [ne_eq, Prod.mk.injEq, and_true]; exact hik
     linarith
+
+omit [IsProbabilityMeasure μ] in
+/-- **Gordon's variance equality is symmetric**: `var_eq` in the swapped form. -/
+theorem GordonCondition.var_eq_symm {X Y : Fin m → Fin n → Ω → ℝ}
+    (hcond : GordonCondition X Y μ) (i : Fin m) (j : Fin n) :
+    ∫ ω, (Y i j ω) ^ 2 ∂μ = ∫ ω, (X i j ω) ^ 2 ∂μ :=
+  (hcond.var_eq i j).symm
+
+omit [IsProbabilityMeasure μ] in
+/-- **Gordon variances are non-negative (for `X`)**. -/
+theorem GordonCondition.var_X_nonneg {X Y : Fin m → Fin n → Ω → ℝ}
+    (_hcond : GordonCondition X Y μ) (i : Fin m) (j : Fin n) :
+    0 ≤ ∫ ω, (X i j ω) ^ 2 ∂μ :=
+  integral_nonneg (fun _ => sq_nonneg _)
+
+omit [IsProbabilityMeasure μ] in
+/-- **Gordon variances are non-negative (for `Y`)**. -/
+theorem GordonCondition.var_Y_nonneg {X Y : Fin m → Fin n → Ω → ℝ}
+    (_hcond : GordonCondition X Y μ) (i : Fin m) (j : Fin n) :
+    0 ≤ ∫ ω, (Y i j ω) ^ 2 ∂μ :=
+  integral_nonneg (fun _ => sq_nonneg _)
+
+omit [IsProbabilityMeasure μ] in
+/-- **Row-covariance symmetry**: the row covariance inequality transposes
+across `j, k`. -/
+theorem GordonCondition.row_cov_le_symm {X Y : Fin m → Fin n → Ω → ℝ}
+    (hcond : GordonCondition X Y μ) (i : Fin m) (j k : Fin n) (hjk : j ≠ k) :
+    ∫ ω, X i k ω * X i j ω ∂μ ≤ ∫ ω, Y i k ω * Y i j ω ∂μ :=
+  hcond.row_cov_le i k j (Ne.symm hjk)
+
+omit [IsProbabilityMeasure μ] in
+/-- **Column-covariance symmetry**: the column covariance inequality transposes
+across `i, k`. -/
+theorem GordonCondition.col_cov_ge_symm {X Y : Fin m → Fin n → Ω → ℝ}
+    (hcond : GordonCondition X Y μ) (i k : Fin m) (j : Fin n) (hik : i ≠ k) :
+    ∫ ω, X k j ω * X i j ω ∂μ ≥ ∫ ω, Y k j ω * Y i j ω ∂μ :=
+  hcond.col_cov_ge k i j (Ne.symm hik)
 
 /-- **Gordon's Minimax Theorem**: Under Gordon's condition,
 `E[min_i max_j X_{ij}] ≤ E[min_i max_j Y_{ij}]`. -/

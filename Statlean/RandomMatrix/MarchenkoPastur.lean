@@ -142,6 +142,50 @@ lemma mp_total_mass_identity {γ : ℝ} (hγ : 0 < γ) :
     rw [min_eq_right h1, max_eq_left h2]
     field_simp; ring
 
+/-- `mpDensity` vanishes outside the support region `[λ₋, λ₊] ∩ (0, ∞)`. -/
+lemma mpDensity_eq_zero_of_not_mem (σ γ x : ℝ)
+    (hx : ¬ (x ∈ Set.Icc (mpLowerEdge σ γ) (mpUpperEdge σ γ) ∧ 0 < x)) :
+    mpDensity σ γ x = 0 := by
+  unfold mpDensity
+  rw [if_neg hx]
+
+/-- When `x < 0`, the Marchenko-Pastur density vanishes. -/
+lemma mpDensity_eq_zero_of_nonpos (σ γ x : ℝ) (hx : x ≤ 0) :
+    mpDensity σ γ x = 0 := by
+  apply mpDensity_eq_zero_of_not_mem
+  rintro ⟨_, hpos⟩
+  linarith
+
+/-- When `x > λ₊`, the Marchenko-Pastur density vanishes. -/
+lemma mpDensity_eq_zero_of_gt_upper (σ γ x : ℝ) (hx : mpUpperEdge σ γ < x) :
+    mpDensity σ γ x = 0 := by
+  apply mpDensity_eq_zero_of_not_mem
+  rintro ⟨hmem, _⟩
+  exact absurd hmem.2 (not_le.mpr hx)
+
+/-- When `x < λ₋`, the Marchenko-Pastur density vanishes. -/
+lemma mpDensity_eq_zero_of_lt_lower (σ γ x : ℝ) (hx : x < mpLowerEdge σ γ) :
+    mpDensity σ γ x = 0 := by
+  apply mpDensity_eq_zero_of_not_mem
+  rintro ⟨hmem, _⟩
+  exact absurd hmem.1 (not_le.mpr hx)
+
+/-- In the degenerate case `γ = 0`, the support collapses (`λ₋ = λ₊ = σ²`),
+so the density vanishes whenever `x ≠ σ²`. -/
+lemma mpDensity_zero_of_gamma_zero (σ x : ℝ) (hx : x ≠ σ ^ 2) :
+    mpDensity σ 0 x = 0 := by
+  unfold mpDensity
+  have hl : mpLowerEdge σ 0 = σ ^ 2 := by
+    unfold mpLowerEdge; rw [Real.sqrt_zero]; ring
+  have hu : mpUpperEdge σ 0 = σ ^ 2 := by
+    unfold mpUpperEdge; rw [Real.sqrt_zero]; ring
+  split_ifs with h
+  · obtain ⟨hmem, _⟩ := h
+    rw [hl, hu] at hmem
+    have : x = σ ^ 2 := le_antisymm hmem.2 hmem.1
+    exact absurd this hx
+  · rfl
+
 /-- The Marchenko-Pastur measure is a probability measure when `σ > 0`, `γ > 0`. -/
 theorem mpMeasure_isProbabilityMeasure {σ γ : ℝ} (hσ : 0 < σ) (hγ : 0 < γ) :
     IsProbabilityMeasure (mpMeasure σ γ) := by
@@ -155,6 +199,24 @@ section StieltjesTransform
   `m_ν(z) = ∫ 1/(x - z) dν(x)` for `z ∈ ℂ \ ℝ` (or `z ∈ ℝ` off support). -/
 noncomputable def stieltjesTransform (ν : Measure ℝ) (z : ℝ) : ℝ :=
   ∫ x, (x - z)⁻¹ ∂ν
+
+/-- The Stieltjes transform of the zero measure is identically zero. -/
+lemma stieltjesTransform_zero (z : ℝ) : stieltjesTransform 0 z = 0 := by
+  unfold stieltjesTransform
+  simp
+
+/-- The Stieltjes transform of a Dirac mass at `a` evaluated at `z ≠ a`
+  is `(a - z)⁻¹`. -/
+lemma stieltjesTransform_dirac (a z : ℝ) :
+    stieltjesTransform (Measure.dirac a) z = (a - z)⁻¹ := by
+  unfold stieltjesTransform
+  rw [integral_dirac]
+
+/-- The Stieltjes transform is linear under scalar multiplication of the measure. -/
+lemma stieltjesTransform_smul (c : ℝ≥0∞) (ν : Measure ℝ) (z : ℝ) :
+    stieltjesTransform (c • ν) z = c.toReal * stieltjesTransform ν z := by
+  unfold stieltjesTransform
+  rw [MeasureTheory.integral_smul_measure, smul_eq_mul]
 
 /-- The Stieltjes transform of the MP distribution satisfies the fixed-point equation:
   `m = 1 / (-z + γσ² / (1 + σ²m))`. -/
@@ -174,6 +236,17 @@ the uniform measure on its eigenvalues.
 For now, we define this abstractly via a finite sequence of eigenvalues. -/
 noncomputable def empiricalSpectralMeasure {p : ℕ} (eigenvalues : Fin p → ℝ) : Measure ℝ :=
   (p : ℝ≥0∞)⁻¹ • ∑ i : Fin p, Measure.dirac (eigenvalues i)
+
+/-- The empirical spectral measure assigns mass `1/p` to each eigenvalue's Dirac atom. -/
+lemma empiricalSpectralMeasure_def {p : ℕ} (eigenvalues : Fin p → ℝ) :
+    empiricalSpectralMeasure eigenvalues =
+      (p : ℝ≥0∞)⁻¹ • ∑ i : Fin p, Measure.dirac (eigenvalues i) := rfl
+
+/-- The empirical spectral measure of an empty eigenvalue list is the zero measure. -/
+lemma empiricalSpectralMeasure_zero (eigenvalues : Fin 0 → ℝ) :
+    empiricalSpectralMeasure eigenvalues = 0 := by
+  unfold empiricalSpectralMeasure
+  simp
 
 /-- The empirical spectral measure is a probability measure when `p > 0`. -/
 lemma empiricalSpectralMeasure_isProbabilityMeasure
