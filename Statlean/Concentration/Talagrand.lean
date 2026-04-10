@@ -331,7 +331,59 @@ lemma hoeffding_convexity [IsProbabilityMeasure μ]
     (s : ℝ) (hs : 0 < s) :
     ∫ ω, Real.exp (s * X ω) ∂μ ≤
       b / (b - a) * Real.exp (s * a) + (-a) / (b - a) * Real.exp (s * b) := by
-  sorry
+  have hba : 0 < b - a := sub_pos.mpr hab
+  have hba_ne : b - a ≠ 0 := ne_of_gt hba
+  have hX_int : Integrable X μ := integrable_of_ae_bound hX_meas hlo hhi
+  have h_pointwise : ∀ᵐ ω ∂μ,
+      Real.exp (s * X ω) ≤
+        (b - X ω) / (b - a) * Real.exp (s * a) +
+          (X ω - a) / (b - a) * Real.exp (s * b) := by
+    filter_upwards [hlo, hhi] with ω hω_lo hω_hi
+    set p : ℝ := (b - X ω) / (b - a) with hp_def
+    set q : ℝ := (X ω - a) / (b - a) with hq_def
+    have hp_nn : 0 ≤ p := div_nonneg (by linarith) hba.le
+    have hq_nn : 0 ≤ q := div_nonneg (by linarith) hba.le
+    have hpq : p + q = 1 := by
+      have h1 : (b - X ω) / (b - a) + (X ω - a) / (b - a) = (b - a) / (b - a) := by
+        rw [← add_div]; congr 1; ring
+      have h2 : (b - a) / (b - a) = 1 := div_self hba_ne
+      change (b - X ω) / (b - a) + (X ω - a) / (b - a) = 1
+      rw [h1, h2]
+    have hx_eq : s * X ω = p • (s * a) + q • (s * b) := by
+      change s * X ω = (b - X ω) / (b - a) * (s * a) + (X ω - a) / (b - a) * (s * b)
+      field_simp
+      ring
+    have h_conv := convexOn_exp.2 (Set.mem_univ (s * a)) (Set.mem_univ (s * b))
+      hp_nn hq_nn hpq
+    rw [hx_eq]
+    simpa [smul_eq_mul] using h_conv
+  have h_exp_meas : Measurable (fun ω => Real.exp (s * X ω)) :=
+    Real.measurable_exp.comp (measurable_const.mul hX_meas)
+  have h_exp_bound : ∀ᵐ ω ∂μ, ‖Real.exp (s * X ω)‖ ≤ Real.exp (s * b) := by
+    filter_upwards [hhi] with ω hω
+    rw [Real.norm_eq_abs, abs_of_pos (Real.exp_pos _)]
+    exact Real.exp_le_exp.mpr (by nlinarith)
+  have h_exp_int : Integrable (fun ω => Real.exp (s * X ω)) μ :=
+    Integrable.of_bound h_exp_meas.aestronglyMeasurable (Real.exp (s * b)) h_exp_bound
+  have h_term1_int : Integrable (fun ω => (b - X ω) / (b - a)) μ := by
+    have h1 : Integrable (fun ω => b - X ω) μ := (integrable_const b).sub hX_int
+    exact h1.div_const (b - a)
+  have h_term2_int : Integrable (fun ω => (X ω - a) / (b - a)) μ := by
+    have h1 : Integrable (fun ω => X ω - a) μ := hX_int.sub (integrable_const a)
+    exact h1.div_const (b - a)
+  calc ∫ ω, Real.exp (s * X ω) ∂μ
+      ≤ ∫ ω, (b - X ω) / (b - a) * Real.exp (s * a) +
+          (X ω - a) / (b - a) * Real.exp (s * b) ∂μ :=
+        integral_mono_ae h_exp_int
+          ((h_term1_int.mul_const _).add (h_term2_int.mul_const _)) h_pointwise
+    _ = b / (b - a) * Real.exp (s * a) + (-a) / (b - a) * Real.exp (s * b) := by
+        rw [integral_add (h_term1_int.mul_const _) (h_term2_int.mul_const _),
+            integral_mul_const, integral_mul_const,
+            integral_div, integral_div,
+            integral_sub (integrable_const b) hX_int,
+            integral_sub hX_int (integrable_const a),
+            integral_const, integral_const, hmean]
+        simp
 
 /-- **Hoeffding's lemma**: If `X` is a random variable with `E[X] = 0` and `a ≤ X ≤ b` a.s.,
 then `E[exp(sX)] ≤ exp(s²(b-a)²/8)` for all `s > 0`.
