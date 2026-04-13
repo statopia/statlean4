@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 144
+entry_count: 145
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -797,3 +797,11 @@ L1_tactic_tips:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776097310
     evolve_trace_refs: ["cli-20260413-mpMeasure_isProbabilityMeasure-oz60"]
+
+  - trigger: "Need to unfold or work with `TendstoInMeasure μ f l g` in terms of norm"
+    tip: "Use `MeasureTheory.tendstoInMeasure_iff_norm` which rewrites `TendstoInMeasure μ f l g` as `∀ ε > 0, Tendsto (fun i => μ {x | ε ≤ ‖f i x - g x‖}) l (nhds 0)`. This is the correct iff characterization in Mathlib for seminormed groups."
+    key_api: ["MeasureTheory.tendstoInMeasure_iff_norm"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776106138
+    evolve_trace_refs: ["cli-20260413-uniform_bound_on_FPC_score_estimation_error-o4ho"]
