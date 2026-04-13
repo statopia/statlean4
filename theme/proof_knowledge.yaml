@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 130
+entry_count: 133
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -220,6 +220,14 @@ L3_strategies:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776072749
     evolve_trace_refs: ["cli-20260413-var_add_le-lcsn"]
+
+  - trigger: "Proving `|∑ f*g| ≤ bound` when only the one-sided Cauchy-Schwarz lemma is available"
+    strategy: "Apply the one-sided lemma twice: once for `f` and once for `fun k => -f k`. Show the negated-sum equals the negation of the original sum via `neg_mul`+`Finset.sum_neg_distrib`, and the squared terms are unchanged via `ring`. Then close with `abs_le` splitting into upper and lower bounds, each handled by `linarith`."
+    key_api: ["Real.sum_mul_le_sqrt_mul_sqrt","abs_le","linarith"]
+    confidence: 5
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776083109
+    evolve_trace_refs: ["cli-20260413-cox_s3_cauchy_schwarz_tail-z322"]
 L2_api_chains:
 
   - trigger: "pullout m-measurable factor from condExp"
@@ -484,6 +492,14 @@ L2_api_chains:
     evolve_source: "evolve-opus"
     evolve_created_at: 1776072769
     evolve_trace_refs: ["cli-20260413-var_add_le-lcsn"]
+
+  - trigger: "Goal is `|∑ k ∈ s, f k * g k| ≤ √(∑ k ∈ s, f k ^ 2) * √(∑ k ∈ s, g k ^ 2)` (absolute-value Cauchy-Schwarz over a Finset)"
+    chain: ["Real.sum_mul_le_sqrt_mul_sqrt","neg_mul","Finset.sum_neg_distrib","abs_le","linarith"]
+    key_api: ["Real.sum_mul_le_sqrt_mul_sqrt","Finset.sum_neg_distrib","abs_le"]
+    confidence: 5
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776083109
+    evolve_trace_refs: ["cli-20260413-cox_s3_cauchy_schwarz_tail-z322"]
 L1_tactic_tips:
 
   - trigger: "∀ᵐ x ∂μ, P x (ae goal)"
@@ -685,3 +701,11 @@ L1_tactic_tips:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776072704
     evolve_trace_refs: ["cli-20260413-rename_trigger-n70b"]
+
+  - trigger: "Searching Mathlib for Cauchy-Schwarz over Finset (finite sum) — common name guesses fail"
+    tip: "The correct Mathlib name is `Real.sum_mul_le_sqrt_mul_sqrt` (not `inner_mul_le_norm`, `Finset.inner_mul_le_norm`, `abs_inner_le_norm`, or `sum_mul_sq_le_sq_mul_sq`). Also note `Finset.sum_mul_sq_le_sq_mul_sq` exists but has different (semiring) hypotheses. Use `grep_api` pattern `sum_mul_le_sqrt` to locate it quickly."
+    key_api: ["Real.sum_mul_le_sqrt_mul_sqrt","Finset.sum_mul_sq_le_sq_mul_sq"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776083109
+    evolve_trace_refs: ["cli-20260413-cox_s3_cauchy_schwarz_tail-z322"]
