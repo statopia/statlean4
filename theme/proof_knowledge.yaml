@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 142
+entry_count: 144
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -236,6 +236,14 @@ L3_strategies:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776096345
     evolve_trace_refs: ["cli-20260413-slepian_lemma-5kp2"]
+
+  - trigger: "IsProbabilityMeasure goal for a measure defined as withDensity (continuous density on compact support) + optional point mass at 0"
+    strategy: "Decompose into two obligations: (1) total mass of the AC part equals the expected weight — introduce this as `have hinteg : ∫⁻ ... = ... := by sorry` since it requires a non-trivial real-analysis identity; (2) mechanically reduce `measure_univ = 1` using `isProbabilityMeasure_iff`, `Measure.add_apply`, `smul_apply`, `dirac_apply`, `withDensity_apply`, then close with `simp [hinteg, ...]`. Never try to compute the integral inline; always isolate it as a named sorry-lemma so the proof structure compiles independently."
+    key_api: ["MeasureTheory.isProbabilityMeasure_iff","MeasureTheory.withDensity_apply","MeasureTheory.Measure.add_apply","MeasureTheory.Measure.smul_apply","MeasureTheory.Measure.dirac_apply"]
+    confidence: 2
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776097310
+    evolve_trace_refs: ["cli-20260413-mpMeasure_isProbabilityMeasure-oz60"]
 L2_api_chains:
 
   - trigger: "pullout m-measurable factor from condExp"
@@ -781,3 +789,11 @@ L1_tactic_tips:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776096748
     evolve_trace_refs: ["cli-20260413-marchenko_pastur_convergence-db5b"]
+
+  - trigger: "check_type call fails with 'Unknown constant MeasureTheory.Measure.withDensity_apply'"
+    tip: "The correct name is `MeasureTheory.withDensity_apply`, NOT `MeasureTheory.Measure.withDensity_apply`. The lemma lives in the root `MeasureTheory` namespace, not under `Measure`. Signature: `MeasurableSet s → (μ.withDensity f) s = ∫⁻ a in s, f a ∂μ`."
+    key_api: ["MeasureTheory.withDensity_apply"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776097310
+    evolve_trace_refs: ["cli-20260413-mpMeasure_isProbabilityMeasure-oz60"]
