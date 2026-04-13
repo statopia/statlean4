@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 138
+entry_count: 140
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -228,6 +228,14 @@ L3_strategies:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776083109
     evolve_trace_refs: ["cli-20260413-cox_s3_cauchy_schwarz_tail-z322"]
+
+  - trigger: "Goal is a Gaussian comparison inequality (Slepian-type): E[f(X)] ≤ E[f(Y)] given covariance ordering conditions on centered Gaussian vectors"
+    strategy: "Lindeberg interpolation: define Z(t) = sqrt(t)·X + sqrt(1-t)·Y, show d/dt E[f(Z(t))] has definite sign using coordinate-wise Gaussian IBP (Stein's identity) applied to each partial derivative. Requires: (1) smooth approximation of f (e.g. softmax for max), (2) differentiation under the integral sign with dominated convergence, (3) `gaussian_ibp_coord` for the IBP step, (4) covariance comparison to control the sign. If `gaussian_ibp_coord` only covers `stdGaussianPi`, the interpolated measure Z(t) must first be reduced to standard form via a covariance factorization lemma."
+    key_api: ["gaussian_ibp_coord","stein_identity","stein_identity_of_lipschitz","MeasureTheory.integral_hasDerivAt","ProbabilityTheory.gaussianReal_apply_eq_integral"]
+    confidence: 2
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776096345
+    evolve_trace_refs: ["cli-20260413-slepian_lemma-5kp2"]
 L2_api_chains:
 
   - trigger: "pullout m-measurable factor from condExp"
@@ -749,3 +757,11 @@ L1_tactic_tips:
     evolve_source: "evolve-opus"
     evolve_created_at: 1776092314
     evolve_trace_refs: ["cli-20260413-mcdiarmid_mgf_bound-4wey"]
+
+  - trigger: "Searching for Gaussian integration-by-parts or Stein's lemma in the project"
+    tip: "The StatLean project has `stein_identity` (C¹ functions), `stein_identity_of_lipschitz` (Lipschitz functions), and `gaussian_ibp_coord` (multi-dimensional IBP for `stdGaussianPi`) in `Statlean/Gaussian/Stein.lean`. Search with pattern `stein|gaussian.*ibp|gaussian_ibp_coord` rather than `integral_mul_gaussian` to find these."
+    key_api: ["stein_identity","stein_identity_of_lipschitz","gaussian_ibp_coord"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776096345
+    evolve_trace_refs: ["cli-20260413-slepian_lemma-5kp2"]
