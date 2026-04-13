@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 133
+entry_count: 138
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -709,3 +709,43 @@ L1_tactic_tips:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776083109
     evolve_trace_refs: ["cli-20260413-cox_s3_cauchy_schwarz_tail-z322"]
+
+  - trigger: "need to bound f(x) ≤ g(x) on an interval using derivative comparison"
+    tip: "The lemma `image_le_of_deriv_right_le_deriv_boundary` does NOT exist in Mathlib. The correct approach is: define h = g - f, show `antitoneOn_of_deriv_nonpos` does not apply directly either — instead use `monotoneOn_of_deriv_nonneg` on (g - f) or show AntitoneOn on f - g, then evaluate at the left boundary to get f(a) ≤ g(a) and propagate."
+    key_api: ["monotoneOn_of_deriv_nonneg","antitoneOn_of_deriv_nonpos","strictMonoOn_of_deriv_pos"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776089347
+    evolve_trace_refs: ["cli-20260413-hoeffding_cgf_bound-3yfb"]
+
+  - trigger: "searching for a 'comparison via derivatives on an interval' lemma in Mathlib"
+    tip: "Avoid grep-searching for `image_le_of_*`, `deriv.*boundary`, `le_of_hasDerivAt`, `sub_le_of_hasDerivAt`, or `norm_sub_le_of_le_deriv` — none of these patterns exist in current Mathlib. The canonical API for interval-monotonicity from derivatives is: `monotoneOn_of_deriv_nonneg` (ConvexDomain, ContinuousOn, deriv ≥ 0 on interior → MonotoneOn), `antitoneOn_of_deriv_nonpos` (same shape, nonpos → AntitoneOn), `strictMonoOn_of_deriv_pos`."
+    key_api: ["monotoneOn_of_deriv_nonneg","antitoneOn_of_deriv_nonpos","strictMonoOn_of_deriv_pos"]
+    confidence: 5
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776089347
+    evolve_trace_refs: ["cli-20260413-hoeffding_cgf_bound-3yfb"]
+
+  - trigger: "Need to rewrite ∫ f d(Measure.pi μ) over Fin (n+1) as iterated integral (one coordinate + rest)"
+    tip: "There is no `integral_fin_succ` lemma in Mathlib. The correct route is: (1) apply `MeasurePreserving.integral_comp` using `measurePreserving_piFinSuccAbove` to change variables, then (2) convert to iterated integral via `MeasureTheory.integral_prod`. The map `piFinSuccAbove` is measure-preserving but you also need `MeasurableEmbedding` — supply it via the underlying `MeasurableEquiv` (`.measurableEmbedding` or `.toMeasurableEmbedding`)."
+    key_api: ["MeasureTheory.measurePreserving_piFinSuccAbove","MeasureTheory.MeasurePreserving.integral_comp","MeasureTheory.integral_prod","MeasurableEquiv.measurableEmbedding"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776092270
+    evolve_trace_refs: ["cli-20260413-mcdiarmid_mgf_bound-4wey"]
+
+  - trigger: "Using `MeasurePreserving.integral_comp` when the underlying map is a `MeasurableEquiv`"
+    tip: "`MeasurePreserving.integral_comp` has signature `MeasurePreserving f μ ν → MeasurableEmbedding f → ∀ g, ∫ x, g (f x) ∂μ = ∫ y, g y ∂ν`. When f comes from a `MeasurableEquiv` e, supply `e.measurableEmbedding` (or `MeasurableEquiv.toMeasurableEmbedding`) as the second argument."
+    key_api: ["MeasureTheory.MeasurePreserving.integral_comp","MeasurableEquiv.measurableEmbedding"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776092270
+    evolve_trace_refs: ["cli-20260413-mcdiarmid_mgf_bound-4wey"]
+
+  - trigger: "Need to rewrite integral under a MeasurePreserving map"
+    tip: "Use `MeasurePreserving.integral_comp` which has signature: `MeasurePreserving f μ ν → MeasurableEmbedding f → ∀ (g : β → G), ∫ x, g (f x) ∂μ = ∫ y, g y ∂ν`. Note it requires BOTH MeasurePreserving AND MeasurableEmbedding. For equivalences, you may need to extract the MeasurableEmbedding from the MeasurableEquiv. Also available: `MeasurePreserving.lintegral_comp` and `MeasurePreserving.lintegral_comp_emb` for ℝ≥0∞-valued integrals."
+    key_api: ["MeasureTheory.MeasurePreserving.integral_comp","MeasureTheory.MeasurePreserving.lintegral_comp","MeasureTheory.MeasurePreserving.lintegral_comp_emb"]
+    confidence: 4
+    evolve_source: "evolve-opus"
+    evolve_created_at: 1776092314
+    evolve_trace_refs: ["cli-20260413-mcdiarmid_mgf_bound-4wey"]
