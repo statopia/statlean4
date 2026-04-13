@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 140
+entry_count: 142
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -508,6 +508,14 @@ L2_api_chains:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776083109
     evolve_trace_refs: ["cli-20260413-cox_s3_cauchy_schwarz_tail-z322"]
+
+  - trigger: "goal is weak convergence of probability measures on ℝ expressed via Tendsto on ProbabilityMeasure or FiniteMeasure"
+    chain: ["MeasureTheory.ProbabilityMeasure.tendsto_iff_forall_integral_tendsto","BoundedContinuousFunction.integral_tendsto","MeasureTheory.integral_congr_ae"]
+    key_api: ["MeasureTheory.ProbabilityMeasure.tendsto_iff_forall_integral_tendsto","MeasureTheory.FiniteMeasure.tendsto_of_forall_integral_tendsto","BoundedContinuousFunction"]
+    confidence: 2
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776096748
+    evolve_trace_refs: ["cli-20260413-marchenko_pastur_convergence-db5b"]
 L1_tactic_tips:
 
   - trigger: "∀ᵐ x ∂μ, P x (ae goal)"
@@ -765,3 +773,11 @@ L1_tactic_tips:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776096345
     evolve_trace_refs: ["cli-20260413-slepian_lemma-5kp2"]
+
+  - trigger: "Filter.Tendsto or MeasureTheory identifiers not resolving in a Lean 4 file (autoImplicit treating them as unknown variables)"
+    tip: "When Lean reports 'The identifier `Tendsto` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable', add `open Filter MeasureTheory` (or `open scoped`) at the top of the section/file. The autoImplicit trap means missing opens silently create bogus implicit variables instead of giving a 'unknown identifier' error."
+    key_api: ["Filter.Tendsto","MeasureTheory.ProbabilityMeasure"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776096748
+    evolve_trace_refs: ["cli-20260413-marchenko_pastur_convergence-db5b"]
