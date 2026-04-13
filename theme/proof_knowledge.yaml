@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 117
+entry_count: 130
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -196,6 +196,30 @@ L3_strategies:
 # ═══════════════════════════════════════════
 # L2 — API 链路（Mathlib 引理串联方案）
 # ═══════════════════════════════════════════
+
+  - trigger: "Chebyshev-type probability inequality goals: `P(|X - E[X]| ≥ ε) ≤ Var(X)/ε²` or `.toReal` variant"
+    strategy: "1) Apply `meas_ge_le_variance_div_sq hX hε` to get ENNReal bound. 2) Establish nonnegativity of RHS via `div_nonneg (variance_nonneg ...) (by positivity)`. 3) Show measure finiteness with `measure_ne_top`. 4) Rewrite goal with `← ENNReal.toReal_ofReal` then close with `(ENNReal.toReal_le_toReal ...).mpr`."
+    key_api: ["ProbabilityTheory.meas_ge_le_variance_div_sq","ProbabilityTheory.variance_nonneg","MeasureTheory.measure_ne_top","ENNReal.toReal_ofReal","ENNReal.toReal_le_toReal"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072554
+    evolve_trace_refs: ["cli-20260413-chebyshev_simple-7uph"]
+
+  - trigger: "measure inequality goal involving set intersection, e.g. `μ (A ∩ B) ≤ f(μ A, μ B)` where f is min or either argument"
+    strategy: "Decompose via `le_min` (or `le_inf`) into two separate `measure_mono` goals, then discharge each with the appropriate subset lemma (`Set.inter_subset_left` or `Set.inter_subset_right`). MeasurableSet hypotheses are not needed by `measure_mono` — monotonicity holds for all sets in a measure space."
+    key_api: ["le_min","measure_mono","Set.inter_subset_left","Set.inter_subset_right"]
+    confidence: 5
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072664
+    evolve_trace_refs: ["cli-20260413-measure_inter_le_min-xxot"]
+
+  - trigger: "goal shape `Var[X+Y; μ] ≤ c * Var[X; μ] + c * Var[Y; μ]` with MemLp hypotheses"
+    strategy: "1. Rewrite via `variance_add_eq` to get `Var[X] + 2·Cov(X,Y) + Var[Y]`. 2. Obtain Cauchy-Schwarz bound `Cov(X,Y)² ≤ Var[X] · Var[Y]` from `sq_covariance_le_variance_mul`. 3. Collect nonnegativity facts (`variance_nonneg`). 4. Close arithmetic with `nlinarith` supplying `sq_nonneg (Var[X] - Var[Y])` and `sq_nonneg (Cov(X,Y))` as hints — the AM-GM step `2·Cov ≤ Var[X] + Var[Y]` then follows."
+    key_api: ["Statlean.Moments.variance_add_eq","Statlean.Moments.sq_covariance_le_variance_mul","ProbabilityTheory.variance_nonneg","nlinarith"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072749
+    evolve_trace_refs: ["cli-20260413-var_add_le-lcsn"]
 L2_api_chains:
 
   - trigger: "pullout m-measurable factor from condExp"
@@ -420,6 +444,46 @@ L2_api_chains:
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
+
+  - trigger: "Goal is `(μ {ω | ε ≤ |X ω - μ[X]|}).toReal ≤ Var[X;μ] / ε^2` — Chebyshev inequality with ENNReal measure converted to Real"
+    chain: ["meas_ge_le_variance_div_sq","variance_nonneg","measure_ne_top","ENNReal.toReal_ofReal","ENNReal.toReal_le_toReal"]
+    key_api: ["ProbabilityTheory.meas_ge_le_variance_div_sq","ProbabilityTheory.variance_nonneg","MeasureTheory.measure_ne_top","ENNReal.toReal_ofReal","ENNReal.toReal_le_toReal"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072554
+    evolve_trace_refs: ["cli-20260413-chebyshev_simple-7uph"]
+
+  - trigger: "goal is `0 ≤ ∫ x, f x ∂μ` with hypothesis `h : 0 ≤ᵐ[μ] f`"
+    chain: ["MeasureTheory.integral_nonneg_of_ae"]
+    key_api: ["MeasureTheory.integral_nonneg_of_ae"]
+    confidence: 5
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072597
+    evolve_trace_refs: ["cli-20260413-integral_test-25mm"]
+
+  - trigger: "goal of the form `μ (A ∩ B) ≤ min (μ A) (μ B)` or `μ (s ∩ t) ≤ min (μ s) (μ t)`"
+    chain: ["le_min","measure_mono Set.inter_subset_left","measure_mono Set.inter_subset_right"]
+    key_api: ["le_min","measure_mono","Set.inter_subset_left","Set.inter_subset_right"]
+    confidence: 5
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072664
+    evolve_trace_refs: ["cli-20260413-measure_inter_le_min-xxot"]
+
+  - trigger: "goal is ‖a + b - c‖ ≤ ‖a - c‖ + ‖b‖ (or similar ‖x + y - z‖ ≤ ‖x - z‖ + ‖y‖) in SeminormedAddCommGroup or NormedAddCommGroup"
+    chain: ["have h : a + b - c = (a - c) + b := by abel","rw [h]","exact norm_add_le (a - c) b"]
+    key_api: ["abel","norm_add_le"]
+    confidence: 5
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072698
+    evolve_trace_refs: ["cli-20260413-norm_sub_add_bound-qcy0"]
+
+  - trigger: "Goal involves Var[X + Y] and needs to decompose into variance + covariance terms"
+    chain: ["variance_add_eq","sq_covariance_le_variance_mul","variance_nonneg","nlinarith [sq_nonneg ...]"]
+    key_api: ["ProbabilityTheory.variance_add_eq","sq_covariance_le_variance_mul","ProbabilityTheory.variance_nonneg","nlinarith","sq_nonneg"]
+    confidence: 4
+    evolve_source: "evolve-opus"
+    evolve_created_at: 1776072769
+    evolve_trace_refs: ["cli-20260413-var_add_le-lcsn"]
 L1_tactic_tips:
 
   - trigger: "∀ᵐ x ∂μ, P x (ae goal)"
@@ -581,3 +645,43 @@ L1_tactic_tips:
   - trigger: "variance_map pattern matching"
     tip: "DO NOT try rw [← variance_map] — Lean won't match f against id∘f. Use have := (variance_map ...).symm instead."
     frequency: 1
+
+  - trigger: "Converting `μ S ≤ ENNReal.ofReal r` to `.toReal` inequality when goal is in ℝ"
+    tip: "Use `rw [← ENNReal.toReal_ofReal hr]` then `exact (ENNReal.toReal_le_toReal (measure_ne_top μ _) ENNReal.ofReal_ne_top).mpr h` to bridge an ENNReal ≤ ENNReal hypothesis into a Real ≤ Real goal."
+    key_api: ["ENNReal.toReal_ofReal","ENNReal.toReal_le_toReal","MeasureTheory.measure_ne_top","ENNReal.ofReal_ne_top"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072554
+    evolve_trace_refs: ["cli-20260413-chebyshev_simple-7uph"]
+
+  - trigger: "need nonnegativity of a Bochner/Lebesgue integral over an arbitrary measure"
+    tip: "Prefer `integral_nonneg_of_ae` (takes an ae hypothesis `0 ≤ᵐ[μ] f`) over `integral_nonneg` (requires pointwise `∀ x, 0 ≤ f x`). Use the ae variant whenever the hypothesis is already phrased almost-everywhere."
+    key_api: ["MeasureTheory.integral_nonneg_of_ae","MeasureTheory.integral_nonneg"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072597
+    evolve_trace_refs: ["cli-20260413-integral_test-25mm"]
+
+  - trigger: "Searching Mathlib for IsBoundedInProbability or stochastic order O_P notation"
+    tip: "IsBoundedInProbability, IsNegligibleInProbability, and ConvergesInProbability are NOT in Mathlib — they are defined in Statlean.EmpiricalProcess.StochasticOrder. Always import that module and search there, not via grep_api on Mathlib."
+    key_api: ["IsBoundedInProbability","IsNegligibleInProbability","ConvergesInProbability"]
+    confidence: 5
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072624
+    evolve_trace_refs: ["cli-20260413-lemma_S2-crle"]
+
+  - trigger: "need to rearrange additive group expression (e.g., a + b - c = (a - c) + b) in a type that is SeminormedAddCommGroup / AddCommGroup but not necessarily a CommRing"
+    tip: "Use `abel` instead of `ring` for additive rearrangements. `ring` requires a (semi)ring structure; `abel` works for any additive commutative group and handles sub/add permutations correctly."
+    key_api: ["abel"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072698
+    evolve_trace_refs: ["cli-20260413-norm_sub_add_bound-qcy0"]
+
+  - trigger: "goal of the form `a ^ n ≤ b ^ n` with `0 ≤ a` and `a ≤ b`"
+    tip: "Use `pow_le_pow_left₀` (not `pow_le_pow_left`) in Mathlib v4.28+. The rename dropped the unprimed name; `exact pow_le_pow_left₀ ha hab n` closes the goal directly."
+    key_api: ["pow_le_pow_left₀"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776072704
+    evolve_trace_refs: ["cli-20260413-rename_trigger-n70b"]
