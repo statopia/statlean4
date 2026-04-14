@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 152
+entry_count: 157
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -859,3 +859,43 @@ L1_tactic_tips:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776155888
     evolve_trace_refs: ["cli-20260414-exponential_moment_bound-r4p7"]
+
+  - trigger: "`by omega` inside a Fin bound proof when `N` is an existential or local `ℕ` variable without explicit linear arithmetic hypotheses in context"
+    tip: "`omega` requires explicit linear arithmetic facts visible in the local context. When constructing `Fin N` elements where `N` comes from an existential (`∃ N, ...`), omega has no usable constraints. Use `Nat.pos_of_ne_zero` / `Nat.zero_lt_succ` or restate the hypothesis explicitly, or use `norm_num` / `positivity` instead."
+    key_api: ["Nat.zero_lt_of_lt","Nat.pos_of_ne_zero"]
+    confidence: 2
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776157948
+    evolve_trace_refs: ["cli-20260414-uniform_convergence_of_empirical_processes-zdgq"]
+
+  - trigger: "`one_ne_top` used without namespace in ENNReal context"
+    tip: "Use `ENNReal.one_ne_top` (fully namespaced). The bare identifier `one_ne_top` is unknown in Lean 4 / Mathlib 4."
+    key_api: ["ENNReal.one_ne_top"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776157948
+    evolve_trace_refs: ["cli-20260414-uniform_convergence_of_empirical_processes-zdgq"]
+
+  - trigger: "Need to bound `(μ S).toReal ≤ 1` for a probability measure"
+    tip: "Use `prob_le_one` (type: `μ S ≤ 1` in ENNReal) then convert: `(ENNReal.toReal_le_toReal (measure_ne_top μ S) ENNReal.one_ne_top).mpr prob_le_one` followed by `ENNReal.toReal_one`. Do NOT use the non-existent `ENNReal.toReal_le_one`."
+    key_api: ["prob_le_one","ENNReal.toReal_le_toReal","ENNReal.toReal_one","ENNReal.one_ne_top"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776157948
+    evolve_trace_refs: ["cli-20260414-uniform_convergence_of_empirical_processes-zdgq"]
+
+  - trigger: "`field_simp` followed by `ring` causes 'No goals to be solved' error"
+    tip: "`field_simp` often closes the goal entirely (especially for simple algebraic identities over fields). Adding `ring` after it will error with 'No goals to be solved'. Use `field_simp` alone, or guard with `try ring`."
+    key_api: ["field_simp"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776157948
+    evolve_trace_refs: ["cli-20260414-uniform_convergence_of_empirical_processes-zdgq"]
+
+  - trigger: "absolute value notation `|expr|` used inside or near set-builder notation `{... | ...}`"
+    tip: "Replace `|expr|` with `abs expr` (or `‖expr‖` for norms) when the pipe character conflicts with set-builder syntax. Lean 4 parser treats `|` as the set-builder separator, producing 'unexpected token >' or similar parse errors."
+    key_api: ["abs"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776157948
+    evolve_trace_refs: ["cli-20260414-uniform_convergence_of_empirical_processes-zdgq"]
