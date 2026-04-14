@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 150
+entry_count: 152
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -844,3 +844,18 @@ L1_tactic_tips:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776146243
     evolve_trace_refs: ["cli-20260414-uniform_convergence_of_Gn-awyt"]
+
+  - trigger: "structure field or integral expression contains ℝ≥0∞ and triggers 'expected token' at column ~28-30"
+    tip: "Replace ℝ≥0∞ with ENNReal everywhere in the file (they are definitionally equal). The Unicode sequence ℝ≥0∞ is sometimes tokenized as ℝ≥0 (NNReal) + a stray ∞ token inside complex expressions, producing 'expected token' or 'failed to synthesize LE Type' errors. Adding 'open ENNReal' at the top reinforces this."
+    key_api: ["ENNReal","NNReal"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776155888
+    evolve_trace_refs: ["cli-20260414-exponential_moment_bound-r4p7"]
+
+  - trigger: "∀ r ∈ ({0, 1, 2} : Set ℕ) inside a theorem statement causes 'expected token' parse error"
+    tip: "Lean's parser misreads {0, 1, 2} after ∈ as an implicit binder. Rewrite as '∀ r : ℕ, r ∈ ({0, 1, 2} : Set ℕ) →' or factor the finite set into a local def/let before the ∀."
+    confidence: 2
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776155888
+    evolve_trace_refs: ["cli-20260414-exponential_moment_bound-r4p7"]
