@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 145
+entry_count: 146
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -805,3 +805,11 @@ L1_tactic_tips:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776106138
     evolve_trace_refs: ["cli-20260413-uniform_bound_on_FPC_score_estimation_error-o4ho"]
+
+  - trigger: "MeasurableSpace Ω instance synthesis failure when using probability measure P in a snippet check"
+    tip: "When check_snippet or extract_goal fails with `failed to synthesize instance MeasurableSpace Ω`, add `[MeasurableSpace Ω] [MeasureProbabilitySpace Ω]` (or `IsProbabilityMeasure`) as explicit variable declarations above the theorem, or open a `variable` block. The issue is that Ω is abstract and Lean cannot infer its measurable structure without an explicit instance."
+    key_api: ["MeasurableSpace","MeasureTheory.IsProbabilityMeasure","ProbabilityTheory.ProbabilitySpace"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776145537
+    evolve_trace_refs: ["cli-20260414-smoothed_empirical_process_approximation_S3-f7qh"]
