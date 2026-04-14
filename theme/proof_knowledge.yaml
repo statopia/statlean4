@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 149
+entry_count: 150
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -244,6 +244,14 @@ L3_strategies:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776097310
     evolve_trace_refs: ["cli-20260413-mpMeasure_isProbabilityMeasure-oz60"]
+
+  - trigger: "Uniform convergence of supremum empirical process: goal of the form ConvergesInProbTo μ (fun n ω => ⨆ t, ⨆ θ, |Sn r n t θ ω - s r t θ|) (rate_n) where rate involves sqrt(log d_n / n)"
+    strategy: "This class of goals (van der Vaart-Wellner type uniform LLN over function classes) is NOT directly provable in Mathlib as of 2025. The required tool is a bracketing entropy / covering number bound + maximal inequality (Markov + sub-Gaussian or exponential moment). Strategy: (1) Admit the core concentration step as a hypothesis (expMomentBound-style assumption) and reduce to showing the probability bound converges to 0 via squeeze theorem. (2) Use sorry for the Markov/maximal inequality step explicitly and document it as a Mathlib gap. Do NOT attempt to construct ε-brackets inside Lean — the bracket existence proof requires custom measurability infrastructure not in Mathlib. The skeleton should axiomatize the empirical process bound and prove the convergence-in-probability statement as a consequence."
+    key_api: ["MeasureTheory.tendsto_measure_iUnion","Filter.Tendsto","Real.sqrt_div","MeasureTheory.measure_iUnion_le"]
+    confidence: 2
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776155058
+    evolve_trace_refs: ["cli-20260414-uniform_convergence_of_empirical_processes-7sog"]
 L2_api_chains:
 
   - trigger: "pullout m-measurable factor from condExp"
