@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 146
+entry_count: 149
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -813,3 +813,26 @@ L1_tactic_tips:
     evolve_source: "evolve-sonnet"
     evolve_created_at: 1776145537
     evolve_trace_refs: ["cli-20260414-smoothed_empirical_process_approximation_S3-f7qh"]
+
+  - trigger: "Need sSup {a} = a in a ConditionallyCompleteLattice (e.g., ℝ)"
+    tip: "Use csSup_singleton, not sSup_singleton. The latter does not exist in Mathlib; the former has signature @csSup_singleton : ∀ {α} [ConditionallyCompleteLattice α] (a : α), sSup {a} = a."
+    key_api: ["csSup_singleton"]
+    confidence: 4
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776146243
+    evolve_trace_refs: ["cli-20260414-uniform_convergence_of_Gn-awyt"]
+
+  - trigger: "simp_rw fails to rewrite an eta-reduced function application (e.g., supNormDiff A n) inside a larger goal"
+    tip: "simp_rw cannot rewrite under eta-reduced terms when the function head is opaque. Instead, use show to introduce an explicit lambda, or unfold the definition manually with unfold/simp only [...], before rewriting."
+    confidence: 2
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776146243
+    evolve_trace_refs: ["cli-20260414-uniform_convergence_of_Gn-awyt"]
+
+  - trigger: "Need (fun x => c) '' s = {c} for a nonempty set s"
+    tip: "Use Set.Nonempty.image_const (applied as hne.image_const c), not the non-existent Set.image_const. Signature: s.Nonempty → ∀ (a : β), (fun _ => a) '' s = {a}."
+    key_api: ["Set.Nonempty.image_const"]
+    confidence: 3
+    evolve_source: "evolve-sonnet"
+    evolve_created_at: 1776146243
+    evolve_trace_refs: ["cli-20260414-uniform_convergence_of_Gn-awyt"]
