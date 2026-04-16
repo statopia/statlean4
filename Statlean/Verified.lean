@@ -123,7 +123,8 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **Estimator/Basic**: MSE = Bias² + Var, unbiased MSE = Var, risk dominance, loss functions,
   likelihood, IsMLE, MLE invariance, IsConsistent, IsAdmissible, IsMinimax, BayesRisk, IsEfficient
 - **Estimator/Asymptotic**: IsAsymptoticallyNormal, HasAsymptoticMSE, HasAsymptoticBias,
-  ARE, CLT→asymptotic normality bridge, scaled MSE decomposition, ARE inversion/comparison
+  ARE, CLT→asymptotic normality bridge, scaled MSE decomposition, ARE inversion/comparison,
+  Shao Thm 2.6 (scalar amse delta method: distribution + second moment + variance formulas)
 - **Estimator/UMVUE**: UMVUE a.e. uniqueness (parallelogram identity), efficient ⇒ UMVUE,
   Rao-Blackwell UMVUE bridge, exponential family UMVUE, unestimability theorem
 - **ExpFamily/Basic**: MLE existence in natural exponential families

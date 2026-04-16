@@ -1,5 +1,6 @@
 import Statlean.Estimator.Basic
 import Statlean.LimitTheorems.Levy
+import Statlean.LimitTheorems.DeltaMethod
 import Statlean.Information.Basic
 import Mathlib.Probability.Distributions.Gaussian.CharFun
 
@@ -204,5 +205,98 @@ theorem mle_an_implies_efficient
   exact ⟨v, han, fun θ hI => by simp [deriv_id', one_pow, hv θ hI]⟩
 
 end MLEAsymptotics
+
+section Amse
+
+/-! ## Theorem 2.6 (Shao) — Delta method applied to amse (scalar case)
+
+Reference: Shao, *Mathematical Statistics*, Theorem 2.6 (p. 139).
+
+**Statement (Shao)**: Let `g` be a function on `ℝᵏ` differentiable at `θ ∈ ℝᵏ`,
+and let `Uₙ` be a `k`-vector of statistics with `aₙ(Uₙ - θ) →ᵈ Y` where
+`Y` is a random `k`-vector with `0 < E‖Y‖² < ∞`, and `aₙ → ∞`.
+Let `Tₙ = g(Uₙ)`. Then
+  `amseTₙ(P) = E{[∇g(θ)]ᵀ Y}² / aₙ²`,
+  `asymptotic variance = [∇g(θ)]ᵀ Var(Y) ∇g(θ) / aₙ²`.
+
+**Scope of this formalization**: scalar case `k = 1`. The multivariate case
+requires a multivariate delta method, which is not yet in `StatLean`; once
+available, the argument is the same with `d · Y` replaced by `⟨∇g(θ), Y⟩`.
+
+Structure of the scalar proof:
+1. `amse_delta_method_convergence` — `aₙ(g(Uₙ) - g(θ)) →ᵈ d · Y` via `delta_method`.
+2. `amse_delta_method_second_moment` — `E[(d·Y)²] = d² · E[Y²]` (algebra).
+3. `amse_delta_method_variance` — `Var(d·Y) = d² · Var(Y)` via `variance_const_mul`.
+-/
+
+open Statlean.LimitTheorems
+
+variable {Ω : Type*} {m : MeasurableSpace Ω} {μ : Measure Ω} [IsProbabilityMeasure μ]
+
+/-- **Theorem 2.6, convergence part (scalar case)**: under delta-method
+hypotheses, `aₙ(g(Uₙ) - g(θ)) →ᵈ d · Y`. This is a direct application of
+`delta_method` from `Statlean.LimitTheorems.DeltaMethod`. -/
+theorem amse_delta_method_convergence
+    {U : ℕ → Ω → ℝ} {Y : Ω → ℝ} {θ d : ℝ} {a : ℕ → ℝ}
+    (ha_pos : ∀ᶠ n in Filter.atTop, 0 < a n)
+    (ha_top : Filter.Tendsto a Filter.atTop Filter.atTop)
+    (hconv : TendstoInDistribution (fun n ω => a n * (U n ω - θ)) Filter.atTop Y μ)
+    {g : ℝ → ℝ} (hg : HasDerivAt g d θ) (hg_meas : Measurable g)
+    (hU_meas : ∀ n, AEMeasurable (U n) μ) :
+    TendstoInDistribution (fun n ω => a n * (g (U n ω) - g θ)) Filter.atTop
+      (fun ω => d * Y ω) μ :=
+  delta_method ha_pos ha_top hconv hg hg_meas hU_meas
+
+omit [IsProbabilityMeasure μ] in
+/-- **Theorem 2.6, second moment identity (scalar case)**: if the limiting
+random variable `Y` satisfies `E[Y²] = EY2`, then the limit `d · Y` has
+second moment `d² · EY2`. This is Shao's amse formula `E{[∇g(θ)]ᵀ Y}²`
+specialised to `k = 1`. -/
+theorem amse_delta_method_second_moment (d : ℝ) (Y : Ω → ℝ) :
+    ∫ ω, (d * Y ω) ^ 2 ∂μ = d ^ 2 * ∫ ω, (Y ω) ^ 2 ∂μ := by
+  simp only [mul_pow]
+  exact integral_const_mul (d ^ 2) _
+
+omit [IsProbabilityMeasure μ] in
+/-- **Theorem 2.6, asymptotic variance identity (scalar case)**: the variance
+of the scalar limit `d · Y` is `d² · Var(Y)`. This gives the `asymptotic
+variance = [∇g(θ)]ᵀ Var(Y) ∇g(θ) / aₙ²` formula of Shao's Theorem 2.6 in
+the `k = 1` case. -/
+theorem amse_delta_method_variance (d : ℝ) (Y : Ω → ℝ) :
+    ProbabilityTheory.variance (fun ω => d * Y ω) μ =
+      d ^ 2 * ProbabilityTheory.variance Y μ :=
+  ProbabilityTheory.variance_const_mul d Y μ
+
+/-- **Theorem 2.6 (Shao) — scalar case, packaged form**.
+Given:
+* a scaling sequence `aₙ → ∞` with `aₙ > 0` eventually,
+* a sequence of scalar statistics `Uₙ` with `aₙ(Uₙ - θ) →ᵈ Y`,
+* a function `g : ℝ → ℝ` differentiable at `θ` with derivative `d`
+  and measurable,
+
+the plug-in estimator `Tₙ := g ∘ Uₙ` satisfies:
+* (distribution) `aₙ(Tₙ - g θ) →ᵈ d · Y`;
+* (amse formula) the second moment of the limit equals `d² · E[Y²]`;
+* (asymptotic variance) the variance of the limit equals `d² · Var(Y)`.
+
+Divided by `aₙ²`, these give exactly the `amseTₙ(P) = d² · E[Y²]/aₙ²` and
+`asymptotic variance = d² · Var(Y)/aₙ²` formulas of Shao, Theorem 2.6. -/
+theorem amse_delta_method_scalar
+    {U : ℕ → Ω → ℝ} {Y : Ω → ℝ} {θ d : ℝ} {a : ℕ → ℝ}
+    (ha_pos : ∀ᶠ n in Filter.atTop, 0 < a n)
+    (ha_top : Filter.Tendsto a Filter.atTop Filter.atTop)
+    (hconv : TendstoInDistribution (fun n ω => a n * (U n ω - θ)) Filter.atTop Y μ)
+    {g : ℝ → ℝ} (hg : HasDerivAt g d θ) (hg_meas : Measurable g)
+    (hU_meas : ∀ n, AEMeasurable (U n) μ) :
+    TendstoInDistribution (fun n ω => a n * (g (U n ω) - g θ)) Filter.atTop
+        (fun ω => d * Y ω) μ ∧
+      (∫ ω, (d * Y ω) ^ 2 ∂μ = d ^ 2 * ∫ ω, (Y ω) ^ 2 ∂μ) ∧
+      ProbabilityTheory.variance (fun ω => d * Y ω) μ =
+        d ^ 2 * ProbabilityTheory.variance Y μ :=
+  ⟨amse_delta_method_convergence ha_pos ha_top hconv hg hg_meas hU_meas,
+    amse_delta_method_second_moment d Y,
+    amse_delta_method_variance d Y⟩
+
+end Amse
 
 end Statlean.Estimator
