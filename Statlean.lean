@@ -92,6 +92,7 @@ import Statlean.LimitTheorems.CLT
 import Statlean.LimitTheorems.LindebergFeller
 import Statlean.LimitTheorems.DeltaMethod
 import Statlean.LimitTheorems.CramerWold
+import Statlean.LimitTheorems.AsymptoticExpectation
 import Statlean.Pipeline.Lecture9Handout
 
 -- Causal inference (Lin, Kong, Wang 2022)
