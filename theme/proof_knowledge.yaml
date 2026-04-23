@@ -1,1072 +1,739 @@
+# theme/proof_knowledge.yaml — 四层证明知识库
+# 使用方法：按 trigger 字段匹配当前 goal，读对应 strategy/chain/tip
+# 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
+# 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 157
+entry_count: 161
+
+# ═══════════════════════════════════════════
+# L3 — 证明策略（按 goal 形状索引）
+# ═══════════════════════════════════════════
 L3_strategies:
-  - trigger: Var[X] ≥ ... or ∫ f ≤ ∫ g (variance/integral inequality)
-    strategy: 正交分解 / completing-the-square / Cauchy-Schwarz → linarith [step1..stepN]
-    key_api:
-      - integral_nonneg
-      - sq_nonneg
-      - inner_mul_le_norm_mul_nnorm
-    source:
-      - ANOVA
-      - RaoBlackwell
-      - LehmannScheffe
+
+  - trigger: "Var[X] ≥ ... or ∫ f ≤ ∫ g (variance/integral inequality)"
+    strategy: "正交分解 / completing-the-square / Cauchy-Schwarz → linarith [step1..stepN]"
+    key_api: ['integral_nonneg', 'sq_nonneg', 'inner_mul_le_norm_mul_nnorm']
+    source: ['ANOVA', 'RaoBlackwell', 'LehmannScheffe']
     confidence: 5
-  - trigger: ‖a - b‖ ≤ C (norm inequality via intermediate steps)
+
+  - trigger: "‖a - b‖ ≤ C (norm inequality via intermediate steps)"
     strategy: "calc chain: triangle ‖A-C‖+‖C-B‖ via norm_add_le, then gcongr/linarith"
-    key_api:
-      - norm_add_le
-      - norm_sub_le
-      - gcongr
-    source:
-      - USLLN
-      - Taylor
+    key_api: ['norm_add_le', 'norm_sub_le', 'gcongr']
+    source: ['USLLN', 'Taylor']
     confidence: 5
-  - trigger: 0 ≤ ∫ f dμ (nonnegativity of integral)
-    strategy: integral_nonneg + pointwise bound (sq_nonneg, mul_self_nonneg)
-    key_api:
-      - integral_nonneg
-      - integral_nonneg_of_ae
-      - sq_nonneg
-    source:
-      - RaoBlackwell
-      - LehmannScheffe
+
+  - trigger: "0 ≤ ∫ f dμ (nonnegativity of integral)"
+    strategy: "integral_nonneg + pointwise bound (sq_nonneg, mul_self_nonneg)"
+    key_api: ['integral_nonneg', 'integral_nonneg_of_ae', 'sq_nonneg']
+    source: ['RaoBlackwell', 'LehmannScheffe']
     confidence: 5
-  - trigger: f =ᵐ[μ] condExp m f (ae equality with condExp)
+
+  - trigger: "f =ᵐ[μ] condExp m f (ae equality with condExp)"
     strategy: "ae_eq_condExp_of_forall_setIntegral_eq: prove (1) IntegrableOn, (2) ∫_s h = ∫_s f for m-meas s, (3) AEStronglyMeasurable[m]"
-    key_api:
-      - ae_eq_condExp_of_forall_setIntegral_eq
-      - setIntegral_condExp
-      - stronglyMeasurable_condExp
-    source:
-      - Factorization
+    key_api: ['ae_eq_condExp_of_forall_setIntegral_eq', 'setIntegral_condExp', 'stronglyMeasurable_condExp']
+    source: ['Factorization']
     confidence: 5
-  - trigger: P[P[f|M]|N] =ᵐ P[P[f|N]|M] (condExp commutativity)
-    strategy: Integrable.ae_eq_of_forall_setIntegral_eq → MeasurableSpace.induction_on_inter on π-system → independence + pullout + tower
-    key_api:
-      - induction_on_inter
-      - iIndepFun
-      - condExp_mul_of_aestronglyMeasurable_left
-    source:
-      - EfronStein
+
+  - trigger: "P[P[f|M]|N] =ᵐ P[P[f|N]|M] (condExp commutativity)"
+    strategy: "Integrable.ae_eq_of_forall_setIntegral_eq → MeasurableSpace.induction_on_inter on π-system → independence + pullout + tower"
+    key_api: ['induction_on_inter', 'iIndepFun', 'condExp_mul_of_aestronglyMeasurable_left']
+    source: ['EfronStein']
     confidence: 4
-  - trigger: f =ᵐ g from unbiased + completeness
+
+  - trigger: "f =ᵐ g from unbiased + completeness"
     strategy: "差 = 0 → 完备性/零测集: integral_sub + sub_self + completeness"
-    key_api:
-      - integral_sub
-      - condExp_of_stronglyMeasurable
-    source:
-      - LehmannScheffe
+    key_api: ['integral_sub', 'condExp_of_stronglyMeasurable']
+    source: ['LehmannScheffe']
     confidence: 4
-  - trigger: f = g ∘ T (factorization through statistic)
+
+  - trigger: "f = g ∘ T (factorization through statistic)"
     strategy: "Doob-Dynkin: StronglyMeasurable[m_T].measurable.exists_eq_measurable_comp → obtain ⟨h, hh_meas, hψ_eq⟩"
-    key_api:
-      - exists_eq_measurable_comp
-      - comap_measurable
-      - StandardBorelSpace
-    source:
-      - Factorization
-      - Basu
-      - LehmannScheffe
+    key_api: ['exists_eq_measurable_comp', 'comap_measurable', 'StandardBorelSpace']
+    source: ['Factorization', 'Basu', 'LehmannScheffe']
     confidence: 5
-  - trigger: ∫ f dμ = ∫ g dμ (integral equality)
-    strategy: integral_congr_ae for pointwise → tower/pullout for condExp chains
-    key_api:
-      - integral_congr_ae
-      - integral_condExp
-      - condExp_mul_of_aestronglyMeasurable_left
-    source:
-      - Factorization
-      - ANOVA
-      - Basu
+
+  - trigger: "∫ f dμ = ∫ g dμ (integral equality)"
+    strategy: "integral_congr_ae for pointwise → tower/pullout for condExp chains"
+    key_api: ['integral_congr_ae', 'integral_condExp', 'condExp_mul_of_aestronglyMeasurable_left']
+    source: ['Factorization', 'ANOVA', 'Basu']
     confidence: 5
-  - trigger: Integrable f μ or MemLp f p μ (integrability)
+
+  - trigger: "Integrable f μ or MemLp f p μ (integrability)"
     strategy: "L^p chain: MemLp q → MemLp p via mono_exponent (p≤q), or memLp_two_iff_integrable_sq for L²↔sq"
-    key_api:
-      - MemLp.mono_exponent
-      - memLp_two_iff_integrable_sq
-      - Integrable.of_bound
-    source:
-      - Taylor
-      - ANOVA
-      - LehmannScheffe
+    key_api: ['MemLp.mono_exponent', 'memLp_two_iff_integrable_sq', 'Integrable.of_bound']
+    source: ['Taylor', 'ANOVA', 'LehmannScheffe']
     confidence: 5
-  - trigger: Integrable (fun y => ∫ t, φ(update y j t) dμ) (stdGaussianPi n)
+
+  - trigger: "Integrable (fun y => ∫ t, φ(update y j t) dμ) (stdGaussianPi n)"
     strategy: "piFinSuccAbove decomposition: e := MeasurableEquiv.piFinSuccAbove j, hmp.symm.integrable_comp_of_integrable → hprod.integral_prod_right → .comp_snd → hmp.integrable_comp_of_integrable. Key identity: update y j t = e.symm (t, (e y).2) via Fin.update_insertNth."
-    key_api:
-      - MeasurableEquiv.piFinSuccAbove
-      - measurePreserving_piFinSuccAbove
-      - Integrable.integral_prod_right
-      - Integrable.comp_snd
-      - MeasurePreserving.integrable_comp_of_integrable
-      - Fin.update_insertNth
-    source:
-      - LogSobolev
+    key_api: ['MeasurableEquiv.piFinSuccAbove', 'measurePreserving_piFinSuccAbove', 'Integrable.integral_prod_right', 'Integrable.comp_snd', 'MeasurePreserving.integrable_comp_of_integrable', 'Fin.update_insertNth']
+    source: ['LogSobolev']
     confidence: 5
-  - trigger: Integrable (fun x => condEntropyAt μ g j x) (stdGaussianPi n)
+
+  - trigger: "Integrable (fun x => condEntropyAt μ g j x) (stdGaussianPi n)"
     strategy: "Unfold condEntropyAt = A - B. A integrable by Fubini (integrable_condExpect_stdGaussianPi_gen). B = (E_j g)·log(E_j g) dominated by |A| + 1/e: Jensen upper (convexOn_mul_log.map_integral_le, needs ae slice integrability via prod_left_ae + ae_snd_of_ae_marginal + QuasiMeasurePreserving.ae), lower -1/e (mul_log_ge_neg_inv_exp). Then Integrable.mono'."
-    key_api:
-      - convexOn_mul_log
-      - continuous_mul_log
-      - Integrable.mono'
-      - mul_log_ge_neg_inv_exp
-      - ae_snd_of_ae_marginal
-    source:
-      - LogSobolev
+    key_api: ['convexOn_mul_log', 'continuous_mul_log', "Integrable.mono'", 'mul_log_ge_neg_inv_exp', 'ae_snd_of_ae_marginal']
+    source: ['LogSobolev']
     confidence: 5
-  - trigger: μ = ν on σ-algebra (measure equality)
+
+  - trigger: "μ = ν on σ-algebra (measure equality)"
     strategy: "π-λ / 单调类: ext_of_generate_finite or induction_on_inter"
-    key_api:
-      - ext_of_generate_finite
-      - induction_on_inter
-    source:
-      - EfronStein
+    key_api: ['ext_of_generate_finite', 'induction_on_inter']
+    source: ['EfronStein']
     confidence: 4
-  - trigger: ∫ F_n → ∫ F (dominated convergence for integrals)
+
+  - trigger: "∫ F_n → ∫ F (dominated convergence for integrals)"
     strategy: "tendsto_integral_of_dominated_convergence: bound, F_n-measurability, bound-integrable, norm bound, pointwise limit"
-    key_api:
-      - tendsto_integral_of_dominated_convergence
-    source:
-      - USLLN
-      - Taylor
+    key_api: ['tendsto_integral_of_dominated_convergence']
+    source: ['USLLN', 'Taylor']
     confidence: 5
-  - trigger: Continuous (θ ↦ ∫ f(x,θ) dμ) (continuity of parameter integral)
+
+  - trigger: "Continuous (θ ↦ ∫ f(x,θ) dμ) (continuity of parameter integral)"
     strategy: "continuous_of_dominated: F measurable, bound ae, bound integrable, F continuous in param"
-    key_api:
-      - continuous_of_dominated
-    source:
-      - USLLN
+    key_api: ['continuous_of_dominated']
+    source: ['USLLN']
     confidence: 4
-  - trigger: aₙ(g(Xₙ)-g(c)) →ᵈ d·Y (delta method)
-    strategy: Decompose aₙ(g(X)-g(c)) = d·W + R, W→ᵈY via continuous_comp, R→ᵖ0 via isLittleO + tightness
-    key_api:
-      - tendstoInDistribution_of_tendstoInMeasure_sub
-      - hasDerivAt_iff_isLittleO
-    source:
-      - DeltaMethod
+
+  - trigger: "aₙ(g(Xₙ)-g(c)) →ᵈ d·Y (delta method)"
+    strategy: "Decompose aₙ(g(X)-g(c)) = d·W + R, W→ᵈY via continuous_comp, R→ᵖ0 via isLittleO + tightness"
+    key_api: ['tendstoInDistribution_of_tendstoInMeasure_sub', 'hasDerivAt_iff_isLittleO']
+    source: ['DeltaMethod']
     confidence: 4
-  - trigger: Wₙ →ᵈ Y implies tail P(|Wₙ|≥M)→0 (tightness)
-    strategy: ProbMeasure extraction → tail decay via tendsto_measure_iInter → Portmanteau limsup → eventually_lt
-    key_api:
-      - tendsto_measure_iInter_atTop
-      - ProbabilityMeasure
-    source:
-      - DeltaMethod
+
+  - trigger: "Wₙ →ᵈ Y implies tail P(|Wₙ|≥M)→0 (tightness)"
+    strategy: "ProbMeasure extraction → tail decay via tendsto_measure_iInter → Portmanteau limsup → eventually_lt"
+    key_api: ['tendsto_measure_iInter_atTop', 'ProbabilityMeasure']
+    source: ['DeltaMethod']
     confidence: 4
-  - trigger: dimension reduction on product space (∀ i, X i) → ℝ
-    strategy: restrict map + comap_iSup + Doob-Dynkin factoring + measurePreserving_piEquivPiSubtypeProd → induction
-    key_api:
-      - comap_iSup
-      - comap_comp
-      - measurePreserving_piEquivPiSubtypeProd
-      - integrable_map_measure
-    source:
-      - EfronStein
+
+  - trigger: "dimension reduction on product space (∀ i, X i) → ℝ"
+    strategy: "restrict map + comap_iSup + Doob-Dynkin factoring + measurePreserving_piEquivPiSubtypeProd → induction"
+    key_api: ['comap_iSup', 'comap_comp', 'measurePreserving_piEquivPiSubtypeProd', 'integrable_map_measure']
+    source: ['EfronStein']
     confidence: 3
-  - trigger: ∫∫ f d(μ×ν) Fubini order swap
-    strategy: integral_integral_swap for iterated → integral_prod_symm for coord swap
-    key_api:
-      - integral_integral_swap
-      - integral_prod_symm
-      - Integrable.prod_right_ae
-    source:
-      - ANOVA
+
+  - trigger: "∫∫ f d(μ×ν) Fubini order swap"
+    strategy: "integral_integral_swap for iterated → integral_prod_symm for coord swap"
+    key_api: ['integral_integral_swap', 'integral_prod_symm', 'Integrable.prod_right_ae']
+    source: ['ANOVA']
     confidence: 4
-  - trigger: charFun (μ.map Y) t = ∫ exp(itY) dμ (characteristic function)
-    strategy: charFun_apply_real + integral_map_of_stronglyMeasurable → push_cast; ring
-    key_api:
-      - charFun_apply_real
-      - integral_map_of_stronglyMeasurable
-      - integral_complex_ofReal
-    source:
-      - Taylor
+
+  - trigger: "charFun (μ.map Y) t = ∫ exp(itY) dμ (characteristic function)"
+    strategy: "charFun_apply_real + integral_map_of_stronglyMeasurable → push_cast; ring"
+    key_api: ['charFun_apply_real', 'integral_map_of_stronglyMeasurable', 'integral_complex_ofReal']
+    source: ['Taylor']
     confidence: 5
-  - trigger: Ent(g) ≤ ∑_i ∫ condEnt_i(g) (entropy subadditivity)
+
+  - trigger: "Ent(g) ≤ ∑_i ∫ condEnt_i(g) (entropy subadditivity)"
     strategy: "Telescoping: h_k = iterated E_k...E_0[g], chain rule + data processing (Jensen for x·log(x))"
-    key_api:
-      - entropy_chain_rule_pi
-    source:
-      - LogSobolev
+    key_api: ['entropy_chain_rule_pi']
+    source: ['LogSobolev']
     confidence: 3
-  - trigger: Ent_γ(f²) ≤ 2∫(f')² (Gaussian log-Sobolev inequality)
-    strategy: DO NOT use Stein identity ∫xh dγ = ∫h' dγ. Stein gives Poincaré (Var ≤ ∫f'²) but NOT LSI, because entropy involves nonlinear x·log(x) which cannot be extracted from the linear Stein identity. Must use OU semigroup infrastructure (Bakry-Emery / hypercontractivity / two-point CLT).
+
+  - trigger: "Ent_γ(f²) ≤ 2∫(f')² (Gaussian log-Sobolev inequality)"
+    strategy: "DO NOT use Stein identity ∫xh dγ = ∫h' dγ. Stein gives Poincaré (Var ≤ ∫f'²) but NOT LSI, because entropy involves nonlinear x·log(x) which cannot be extracted from the linear Stein identity. Must use OU semigroup infrastructure (Bakry-Emery / hypercontractivity / two-point CLT)."
     key_api: []
-    source:
-      - LogSobolev
-      - prove-deep-2026-03-11
+    source: ['LogSobolev', 'prove-deep-2026-03-11']
     confidence: 5
-  - trigger: finite subcover of compact space
-    strategy: isCompact_univ.elim_finite_subcover with open balls + covering proof
-    key_api:
-      - isCompact_univ.elim_finite_subcover
-      - isOpen_ball
-    source:
-      - USLLN
+
+  - trigger: "finite subcover of compact space"
+    strategy: "isCompact_univ.elim_finite_subcover with open balls + covering proof"
+    key_api: ['isCompact_univ.elim_finite_subcover', 'isOpen_ball']
+    source: ['USLLN']
     confidence: 4
-  - trigger: Var[Y] = ∫ Var[Y|G] + Var[E[Y|G]] (law of total variance)
+
+  - trigger: "Var[Y] = ∫ Var[Y|G] + Var[E[Y|G]] (law of total variance)"
     strategy: "Direct: integral_condVar_add_variance_condExp hG hY"
-    key_api:
-      - integral_condVar_add_variance_condExp
-      - setIntegral_condVar
-    source:
-      - RaoBlackwell
+    key_api: ['integral_condVar_add_variance_condExp', 'setIntegral_condVar']
+    source: ['RaoBlackwell']
     confidence: 5
-  - trigger: Var[X] = E[X²] - (E[X])² (variance expansion)
-    strategy: variance_eq_sub hX_memLp2 then simp only [Pi.pow_apply]
-    key_api:
-      - variance_eq_sub
-      - Pi.pow_apply
-    source:
-      - ANOVA
-      - RaoBlackwell
+
+  - trigger: "Var[X] = E[X²] - (E[X])² (variance expansion)"
+    strategy: "variance_eq_sub hX_memLp2 then simp only [Pi.pow_apply]"
+    key_api: ['variance_eq_sub', 'Pi.pow_apply']
+    source: ['ANOVA', 'RaoBlackwell']
     confidence: 5
-  - trigger: OU invariance integral_ouSemigroup Fubini Gaussian affine
+
+  - trigger: "OU invariance integral_ouSemigroup Fubini Gaussian affine"
     strategy: "Fubini swap + gaussianReal_add_gaussianReal_of_indepFun: show aX+bY ~ N(0,1) when a²+b²=1, X,Y iid. Use IndepFun from product measure, gaussianReal_map_const_mul for scalar, then integral_map."
-    key_api:
-      - gaussianReal_add_gaussianReal_of_indepFun
-      - gaussianReal_map_const_mul
-      - indepFun_iff_map_prod_eq_prod_map_map
-      - integral_prod
-      - integral_map
+    key_api: ['gaussianReal_add_gaussianReal_of_indepFun', 'gaussianReal_map_const_mul', 'indepFun_iff_map_prod_eq_prod_map_map', 'integral_prod', 'integral_map']
     confidence: 5
-  - trigger: OU commutation hasDerivAt ouSemigroup differentiate under integral
+
+  - trigger: "OU commutation hasDerivAt ouSemigroup differentiate under integral"
     strategy: "Use hasDerivAt_integral_of_dominated_loc_of_deriv_le from Mathlib. Chain rule: d/dx f(ax+cy) = a·f'(ax+cy). Need: uniform bound on f', integrability of f∘φ, ae measurability of a·f'∘φ."
-    key_api:
-      - hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    key_api: ['hasDerivAt_integral_of_dominated_loc_of_deriv_le']
     confidence: 5
-  - trigger: ae_ae_comm / swap ∀ᵐ x, ∀ᵐ y ↔ ∀ᵐ y, ∀ᵐ x (MeasurableSet blocker)
+
+  - trigger: "ae_ae_comm / swap ∀ᵐ x, ∀ᵐ y ↔ ∀ᵐ y, ∀ᵐ x (MeasurableSet blocker)"
     strategy: "AEStronglyMeasurable proxy: replace f with f' = hf.aestronglyMeasurable.mk f (StronglyMeasurable), prove MeasurableSet for proxy predicate (trivial), apply ae_ae_comm on proxy, transfer back via ae_eq"
-    workflow: 1. set F' := hF.aestronglyMeasurable.mk F; 2. get hF'_sm := stronglyMeasurable_mk; 3. prove MeasurableSet for F'-based predicate (use hF'_sm.measurable + measurableSet_singleton); 4. transfer h_fwd to proxy predicates via filter_upwards + ae_eq; 5. apply ae_ae_comm on proxy; 6. transfer back via filter_upwards + ae_eq
-    key_api:
-      - Measure.ae_ae_comm
-      - AEStronglyMeasurable.mk
-      - AEStronglyMeasurable.stronglyMeasurable_mk
-      - AEStronglyMeasurable.ae_eq_mk
-      - Measure.ae_ae_of_ae_prod
+    workflow: "1. set F' := hF.aestronglyMeasurable.mk F; 2. get hF'_sm := stronglyMeasurable_mk; 3. prove MeasurableSet for F'-based predicate (use hF'_sm.measurable + measurableSet_singleton); 4. transfer h_fwd to proxy predicates via filter_upwards + ae_eq; 5. apply ae_ae_comm on proxy; 6. transfer back via filter_upwards + ae_eq"
+    key_api: ['Measure.ae_ae_comm', 'AEStronglyMeasurable.mk', 'AEStronglyMeasurable.stronglyMeasurable_mk', 'AEStronglyMeasurable.ae_eq_mk', 'Measure.ae_ae_of_ae_prod']
     source: DPI entropy_convex_mixture hab_ac_ae
     confidence: 5
-  - trigger: ∫_s[∫_t f_s(t)·g(t)] = ∫_t g(t)·(∫_s f_s(t)) (Fubini + pull out t-only factor)
-    strategy: integral_integral_swap + integral_mul_right/integral_mul_const to pull factor independent of inner variable
-    workflow: 1. establish Integrable (uncurry F) (μ.prod ν) via integrable_prod_iff'; 2. rw [integral_integral_swap hprod]; 3. congr 1; ext t; rw [integral_mul_right/integral_mul_const]
-    key_api:
-      - integral_integral_swap
-      - integral_mul_right
-      - integral_mul_const
-      - integral_mul_left
+
+  - trigger: "∫_s[∫_t f_s(t)·g(t)] = ∫_t g(t)·(∫_s f_s(t)) (Fubini + pull out t-only factor)"
+    strategy: "integral_integral_swap + integral_mul_right/integral_mul_const to pull factor independent of inner variable"
+    workflow: "1. establish Integrable (uncurry F) (μ.prod ν) via integrable_prod_iff'; 2. rw [integral_integral_swap hprod]; 3. congr 1; ext t; rw [integral_mul_right/integral_mul_const]"
+    key_api: ['integral_integral_swap', 'integral_mul_right', 'integral_mul_const', 'integral_mul_left']
     source: DPI entropy_convex_mixture hfub_cross
     confidence: 5
-  - trigger: Integrable (fun t => f_s(t) * g(t)) for ae s (cross-term product integrability)
+
+  - trigger: "Integrable (fun t => f_s(t) * g(t)) for ae s (cross-term product integrability)"
     strategy: "Show product function integrable on μ×ν via integrable_prod_iff', then use Integrable.prod_right_ae for ae-s slice. Tonelli trick: ∫∫|f_s·g| ds dt = ∫|g(t)|·h(t) dt when h = ∫f_s"
-    workflow: 1. AEStronglyMeasurable of product via hprod.aestronglyMeasurable.mul hg.comp_snd; 2. ae-slice condition from hprod.prod_left_ae + .mul_const; 3. norm-integral = ∫h·|g| via integral_mul_const + simp; 4. (integrable_prod_iff' hG_aesm).mpr ⟨cond1, cond2⟩; 5. .prod_right_ae
-    key_api:
-      - integrable_prod_iff'
-      - Integrable.prod_right_ae
-      - Integrable.prod_left_ae
-      - integral_mul_const
+    workflow: "1. AEStronglyMeasurable of product via hprod.aestronglyMeasurable.mul hg.comp_snd; 2. ae-slice condition from hprod.prod_left_ae + .mul_const; 3. norm-integral = ∫h·|g| via integral_mul_const + simp; 4. (integrable_prod_iff' hG_aesm).mpr ⟨cond1, cond2⟩; 5. .prod_right_ae"
+    key_api: ["integrable_prod_iff'", 'Integrable.prod_right_ae', 'Integrable.prod_left_ae', 'integral_mul_const']
     source: DPI entropy_convex_mixture hcross_int
     confidence: 5
-  - trigger: sSup |D| ≤ I/π + C·M/T via bracket
-    strategy: DO NOT use Fejér bracket to prove |D| ≤ (1/π)I + CM/T. Bracket gives 1/(2π) coefficient + additive constant 1/3 from tail 2(1-Ψ_F(a)). The 1/3 CANNOT be absorbed when I and M/T are both small. Must use integral method (Durrett) or Fourier inversion instead.
+
+  - trigger: "sSup |D| ≤ I/π + C·M/T via bracket"
+    strategy: "DO NOT use Fejér bracket to prove |D| ≤ (1/π)I + CM/T. Bracket gives 1/(2π) coefficient + additive constant 1/3 from tail 2(1-Ψ_F(a)). The 1/3 CANNOT be absorbed when I and M/T are both small. Must use integral method (Durrett) or Fourier inversion instead."
     confidence: 5
-  - trigger: esseen smoothing ineq I < 2π/3 case
-    strategy: DO NOT try variable-a bracket (a=S/(4M)) for the I < 2π/3 case. Quadratic bound S² ≤ SI/π + 32M/(πT) is too weak when I/π + 48M/(πT) < 2/3. Algebraically proven impossible.
+
+  - trigger: "esseen smoothing ineq I < 2π/3 case"
+    strategy: "DO NOT try variable-a bracket (a=S/(4M)) for the I < 2π/3 case. Quadratic bound S² ≤ SI/π + 32M/(πT) is too weak when I/π + 48M/(πT) < 2/3. Algebraically proven impossible."
     confidence: 5
+
   - trigger: "Chebyshev-type probability inequality goals: `P(|X - E[X]| ≥ ε) ≤ Var(X)/ε²` or `.toReal` variant"
-    strategy: 1) Apply `meas_ge_le_variance_div_sq hX hε` to get ENNReal bound. 2) Establish nonnegativity of RHS via `div_nonneg (variance_nonneg ...) (by positivity)`. 3) Show measure finiteness with `measure_ne_top`. 4) Rewrite goal with `← ENNReal.toReal_ofReal` then close with `(ENNReal.toReal_le_toReal ...).mpr`.
-    key_api:
-      - ProbabilityTheory.meas_ge_le_variance_div_sq
-      - ProbabilityTheory.variance_nonneg
-      - MeasureTheory.measure_ne_top
-      - ENNReal.toReal_ofReal
-      - ENNReal.toReal_le_toReal
+    strategy: "1) Apply `meas_ge_le_variance_div_sq hX hε` to get ENNReal bound. 2) Establish nonnegativity of RHS via `div_nonneg (variance_nonneg ...) (by positivity)`. 3) Show measure finiteness with `measure_ne_top`. 4) Rewrite goal with `← ENNReal.toReal_ofReal` then close with `(ENNReal.toReal_le_toReal ...).mpr`."
+    key_api: ['ProbabilityTheory.meas_ge_le_variance_div_sq', 'ProbabilityTheory.variance_nonneg', 'MeasureTheory.measure_ne_top', 'ENNReal.toReal_ofReal', 'ENNReal.toReal_le_toReal']
     confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072554
-    evolve_trace_refs:
-      - cli-20260413-chebyshev_simple-7uph
-  - trigger: measure inequality goal involving set intersection, e.g. `μ (A ∩ B) ≤ f(μ A, μ B)` where f is min or either argument
-    strategy: Decompose via `le_min` (or `le_inf`) into two separate `measure_mono` goals, then discharge each with the appropriate subset lemma (`Set.inter_subset_left` or `Set.inter_subset_right`). MeasurableSet hypotheses are not needed by `measure_mono` — monotonicity holds for all sets in a measure space.
-    key_api:
-      - le_min
-      - measure_mono
-      - Set.inter_subset_left
-      - Set.inter_subset_right
+
+  - trigger: "measure inequality goal involving set intersection, e.g. `μ (A ∩ B) ≤ f(μ A, μ B)` where f is min or either argument"
+    strategy: "Decompose via `le_min` (or `le_inf`) into two separate `measure_mono` goals, then discharge each with the appropriate subset lemma (`Set.inter_subset_left` or `Set.inter_subset_right`). MeasurableSet hypotheses are not needed by `measure_mono` — monotonicity holds for all sets in a measure space."
+    key_api: ['le_min', 'measure_mono', 'Set.inter_subset_left', 'Set.inter_subset_right']
     confidence: 5
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072664
-    evolve_trace_refs:
-      - cli-20260413-measure_inter_le_min-xxot
-  - trigger: goal shape `Var[X+Y; μ] ≤ c * Var[X; μ] + c * Var[Y; μ]` with MemLp hypotheses
-    strategy: 1. Rewrite via `variance_add_eq` to get `Var[X] + 2·Cov(X,Y) + Var[Y]`. 2. Obtain Cauchy-Schwarz bound `Cov(X,Y)² ≤ Var[X] · Var[Y]` from `sq_covariance_le_variance_mul`. 3. Collect nonnegativity facts (`variance_nonneg`). 4. Close arithmetic with `nlinarith` supplying `sq_nonneg (Var[X] - Var[Y])` and `sq_nonneg (Cov(X,Y))` as hints — the AM-GM step `2·Cov ≤ Var[X] + Var[Y]` then follows.
-    key_api:
-      - Statlean.Moments.variance_add_eq
-      - Statlean.Moments.sq_covariance_le_variance_mul
-      - ProbabilityTheory.variance_nonneg
-      - nlinarith
+
+  - trigger: "goal shape `Var[X+Y; μ] ≤ c * Var[X; μ] + c * Var[Y; μ]` with MemLp hypotheses"
+    strategy: "1. Rewrite via `variance_add_eq` to get `Var[X] + 2·Cov(X,Y) + Var[Y]`. 2. Obtain Cauchy-Schwarz bound `Cov(X,Y)² ≤ Var[X] · Var[Y]` from `sq_covariance_le_variance_mul`. 3. Collect nonnegativity facts (`variance_nonneg`). 4. Close arithmetic with `nlinarith` supplying `sq_nonneg (Var[X] - Var[Y])` and `sq_nonneg (Cov(X,Y))` as hints — the AM-GM step `2·Cov ≤ Var[X] + Var[Y]` then follows."
+    key_api: ['Statlean.Moments.variance_add_eq', 'Statlean.Moments.sq_covariance_le_variance_mul', 'ProbabilityTheory.variance_nonneg', 'nlinarith']
     confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072749
-    evolve_trace_refs:
-      - cli-20260413-var_add_le-lcsn
-  - trigger: Proving `|∑ f*g| ≤ bound` when only the one-sided Cauchy-Schwarz lemma is available
+
+  - trigger: "Proving `|∑ f*g| ≤ bound` when only the one-sided Cauchy-Schwarz lemma is available"
     strategy: "Apply the one-sided lemma twice: once for `f` and once for `fun k => -f k`. Show the negated-sum equals the negation of the original sum via `neg_mul`+`Finset.sum_neg_distrib`, and the squared terms are unchanged via `ring`. Then close with `abs_le` splitting into upper and lower bounds, each handled by `linarith`."
-    key_api:
-      - Real.sum_mul_le_sqrt_mul_sqrt
-      - abs_le
-      - linarith
+    key_api: ['Real.sum_mul_le_sqrt_mul_sqrt', 'abs_le', 'linarith']
     confidence: 5
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776083109
-    evolve_trace_refs:
-      - cli-20260413-cox_s3_cauchy_schwarz_tail-z322
+
   - trigger: "Goal is a Gaussian comparison inequality (Slepian-type): E[f(X)] ≤ E[f(Y)] given covariance ordering conditions on centered Gaussian vectors"
     strategy: "Lindeberg interpolation: define Z(t) = sqrt(t)·X + sqrt(1-t)·Y, show d/dt E[f(Z(t))] has definite sign using coordinate-wise Gaussian IBP (Stein's identity) applied to each partial derivative. Requires: (1) smooth approximation of f (e.g. softmax for max), (2) differentiation under the integral sign with dominated convergence, (3) `gaussian_ibp_coord` for the IBP step, (4) covariance comparison to control the sign. If `gaussian_ibp_coord` only covers `stdGaussianPi`, the interpolated measure Z(t) must first be reduced to standard form via a covariance factorization lemma."
-    key_api:
-      - gaussian_ibp_coord
-      - stein_identity
-      - stein_identity_of_lipschitz
-      - MeasureTheory.integral_hasDerivAt
-      - ProbabilityTheory.gaussianReal_apply_eq_integral
+    key_api: ['gaussian_ibp_coord', 'stein_identity', 'stein_identity_of_lipschitz', 'MeasureTheory.integral_hasDerivAt', 'ProbabilityTheory.gaussianReal_apply_eq_integral']
     confidence: 2
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776096345
-    evolve_trace_refs:
-      - cli-20260413-slepian_lemma-5kp2
-  - trigger: IsProbabilityMeasure goal for a measure defined as withDensity (continuous density on compact support) + optional point mass at 0
+
+  - trigger: "IsProbabilityMeasure goal for a measure defined as withDensity (continuous density on compact support) + optional point mass at 0"
     strategy: "Decompose into two obligations: (1) total mass of the AC part equals the expected weight — introduce this as `have hinteg : ∫⁻ ... = ... := by sorry` since it requires a non-trivial real-analysis identity; (2) mechanically reduce `measure_univ = 1` using `isProbabilityMeasure_iff`, `Measure.add_apply`, `smul_apply`, `dirac_apply`, `withDensity_apply`, then close with `simp [hinteg, ...]`. Never try to compute the integral inline; always isolate it as a named sorry-lemma so the proof structure compiles independently."
-    key_api:
-      - MeasureTheory.isProbabilityMeasure_iff
-      - MeasureTheory.withDensity_apply
-      - MeasureTheory.Measure.add_apply
-      - MeasureTheory.Measure.smul_apply
-      - MeasureTheory.Measure.dirac_apply
+    key_api: ['MeasureTheory.isProbabilityMeasure_iff', 'MeasureTheory.withDensity_apply', 'MeasureTheory.Measure.add_apply', 'MeasureTheory.Measure.smul_apply', 'MeasureTheory.Measure.dirac_apply']
     confidence: 2
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776097310
-    evolve_trace_refs:
-      - cli-20260413-mpMeasure_isProbabilityMeasure-oz60
+
   - trigger: "Uniform convergence of supremum empirical process: goal of the form ConvergesInProbTo μ (fun n ω => ⨆ t, ⨆ θ, |Sn r n t θ ω - s r t θ|) (rate_n) where rate involves sqrt(log d_n / n)"
     strategy: "This class of goals (van der Vaart-Wellner type uniform LLN over function classes) is NOT directly provable in Mathlib as of 2025. The required tool is a bracketing entropy / covering number bound + maximal inequality (Markov + sub-Gaussian or exponential moment). Strategy: (1) Admit the core concentration step as a hypothesis (expMomentBound-style assumption) and reduce to showing the probability bound converges to 0 via squeeze theorem. (2) Use sorry for the Markov/maximal inequality step explicitly and document it as a Mathlib gap. Do NOT attempt to construct ε-brackets inside Lean — the bracket existence proof requires custom measurability infrastructure not in Mathlib. The skeleton should axiomatize the empirical process bound and prove the convergence-in-probability statement as a consequence."
-    key_api:
-      - MeasureTheory.tendsto_measure_iUnion
-      - Filter.Tendsto
-      - Real.sqrt_div
-      - MeasureTheory.measure_iUnion_le
+    key_api: ['MeasureTheory.tendsto_measure_iUnion', 'Filter.Tendsto', 'Real.sqrt_div', 'MeasureTheory.measure_iUnion_le']
     confidence: 2
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776155058
-    evolve_trace_refs:
-      - cli-20260414-uniform_convergence_of_empirical_processes-7sog
-  - trigger: integrated Cauchy–Schwarz ∫ω ‖∫s f ω s ∂ν‖² ∂μ ≤ ν(univ) · ∫ω ∫s ‖f ω s‖² ∂ν ∂μ from only `Integrable f (μ.prod ν)`
-    strategy: "DO NOT attempt. Statement is FALSE from `Integrable` (L¹) alone. Counterexample: f(ω,s)=(ω−½)·g(s), g∈L¹\\L² (e.g. g(s)=1/√s on [0,1]). Then f is μ⊗ν-integrable but ‖f(ω,·)‖² ∉ L¹(ν) a.e., so by real-Bochner convention ∫s ‖f‖² = 0 pointwise → RHS = 0 while LHS > 0. Correct hypothesis is MemLp f 2 (μ.prod ν); under that, proof is norm_integral_le_integral_norm + integral_mul_le_Lp_mul_Lq_of_nonneg (p=q=2) + integral_const_mul. If signature locked to Integrable, leave honest sorry citing counterexample."
+
+  - trigger: "integrated Cauchy–Schwarz ∫ω ‖∫s f ω s ∂ν‖² ∂μ ≤ ν(univ) · ∫ω ∫s ‖f ω s‖² ∂ν ∂μ from only `Integrable f (μ.prod ν)`"
+    strategy: "DO NOT attempt. Statement is FALSE from `Integrable` (L¹) alone. Counterexample: f(ω,s)=(ω−½)·g(s), g∈L¹\L² (e.g. g(s)=1/√s on [0,1]). Then f is μ⊗ν-integrable but ‖f(ω,·)‖² ∉ L¹(ν) a.e., so by real-Bochner convention ∫s ‖f‖² = 0 pointwise → RHS = 0 while LHS > 0. Correct hypothesis is MemLp f 2 (μ.prod ν); under that, proof is norm_integral_le_integral_norm + integral_mul_le_Lp_mul_Lq_of_nonneg (p=q=2) + integral_const_mul. If signature locked to Integrable, leave honest sorry citing counterexample."
     confidence: 5
-    anti: true
+
+# ═══════════════════════════════════════════
+# L2 — API 链路（Mathlib 引理串联方案）
+# ═══════════════════════════════════════════
 L2_api_chains:
-  - trigger: pullout m-measurable factor from condExp
-    chain: condExp_mul_of_aestronglyMeasurable_left (needs AEStronglyMeasurable[m] + both Integrable)
-    source:
-      - Factorization
-      - LehmannScheffe
+
+  - trigger: "pullout m-measurable factor from condExp"
+    chain: "condExp_mul_of_aestronglyMeasurable_left (needs AEStronglyMeasurable[m] + both Integrable)"
+    source: ['Factorization', 'LehmannScheffe']
     confidence: 5
-  - trigger: tower property ∫ E[f|m] = ∫ f
+
+  - trigger: "tower property ∫ E[f|m] = ∫ f"
     chain: "integral_condExp hm_le (needs hm : m ≤ m₀, Integrable f)"
-    source:
-      - Basu
-      - LehmannScheffe
-      - RaoBlackwell
+    source: ['Basu', 'LehmannScheffe', 'RaoBlackwell']
     confidence: 5
-  - trigger: setIntegral characterization of condExp
-    chain: setIntegral_condExp hm hf_int hs (needs MeasurableSet[m] s)
-    source:
-      - Factorization
-      - Basu
+
+  - trigger: "setIntegral characterization of condExp"
+    chain: "setIntegral_condExp hm hf_int hs (needs MeasurableSet[m] s)"
+    source: ['Factorization', 'Basu']
     confidence: 5
-  - trigger: condExp of m-measurable function = itself
-    chain: condExp_of_stronglyMeasurable hG hYm hYint → rw/simp
-    source:
-      - RaoBlackwell
+
+  - trigger: "condExp of m-measurable function = itself"
+    chain: "condExp_of_stronglyMeasurable hG hYm hYint → rw/simp"
+    source: ['RaoBlackwell']
     confidence: 5
-  - trigger: E[f|m] ae-nonneg from f ae-nonneg
-    chain: condExp_nonneg (ae_of_all _ fun x => <bound>)
-    source:
-      - Factorization
-      - RaoBlackwell
+
+  - trigger: "E[f|m] ae-nonneg from f ae-nonneg"
+    chain: "condExp_nonneg (ae_of_all _ fun x => <bound>)"
+    source: ['Factorization', 'RaoBlackwell']
     confidence: 5
-  - trigger: E[f|m] ≤ᵃᵉ E[g|m] from f ≤ᵃᵉ g
-    chain: condExp_mono hf_int hg_int (ae_of_all _ fun x => ...)
-    source:
-      - Factorization
-      - Basu
+
+  - trigger: "E[f|m] ≤ᵃᵉ E[g|m] from f ≤ᵃᵉ g"
+    chain: "condExp_mono hf_int hg_int (ae_of_all _ fun x => ...)"
+    source: ['Factorization', 'Basu']
     confidence: 5
-  - trigger: AEStronglyMeasurable[m] for condExp
-    chain: stronglyMeasurable_condExp.aestronglyMeasurable (or .mono hle for coarser σ-alg)
-    source:
-      - Factorization
-      - LehmannScheffe
+
+  - trigger: "AEStronglyMeasurable[m] for condExp"
+    chain: "stronglyMeasurable_condExp.aestronglyMeasurable (or .mono hle for coarser σ-alg)"
+    source: ['Factorization', 'LehmannScheffe']
     confidence: 5
-  - trigger: MemLp condExp from MemLp f (L² contraction)
-    chain: hf.condExp (MemLp.condExp preserves Lp membership)
-    source:
-      - RaoBlackwell
-      - LehmannScheffe
+
+  - trigger: "MemLp condExp from MemLp f (L² contraction)"
+    chain: "hf.condExp (MemLp.condExp preserves Lp membership)"
+    source: ['RaoBlackwell', 'LehmannScheffe']
     confidence: 5
-  - trigger: ∫ f ≤ ∫ g with integrability
-    chain: integral_mono_ae h_f_int h_g_int (ae_of_all _ fun x => <bound>)
-    source:
-      - Taylor
-      - ANOVA
-      - RaoBlackwell
+
+  - trigger: "∫ f ≤ ∫ g with integrability"
+    chain: "integral_mono_ae h_f_int h_g_int (ae_of_all _ fun x => <bound>)"
+    source: ['Taylor', 'ANOVA', 'RaoBlackwell']
     confidence: 5
-  - trigger: ∫ c * f = c * ∫ f
-    chain: integral_const_mul (also integral_mul_const for f * c form)
-    source:
-      - Hermite
-      - Basu
-      - ANOVA
+
+  - trigger: "∫ c * f = c * ∫ f"
+    chain: "integral_const_mul (also integral_mul_const for f * c form)"
+    source: ['Hermite', 'Basu', 'ANOVA']
     confidence: 5
-  - trigger: ∫ (f+g) = ∫ f + ∫ g or ∫ (f-g) = ∫ f - ∫ g
-    chain: integral_add h1_int h2_int / integral_sub h1_int h2_int (explicit integrability!)
-    source:
-      - LehmannScheffe
-      - ANOVA
-      - Taylor
+
+  - trigger: "∫ (f+g) = ∫ f + ∫ g or ∫ (f-g) = ∫ f - ∫ g"
+    chain: "integral_add h1_int h2_int / integral_sub h1_int h2_int (explicit integrability!)"
+    source: ['LehmannScheffe', 'ANOVA', 'Taylor']
     confidence: 5
-  - trigger: lintegral rnDeriv finiteness for trimmed measure
-    chain: lintegral_trim hle → Measure.lintegral_rnDeriv_le → trim_measurableSet_eq → ne_top_of_le_ne_top
-    source:
-      - Factorization
+
+  - trigger: "lintegral rnDeriv finiteness for trimmed measure"
+    chain: "lintegral_trim hle → Measure.lintegral_rnDeriv_le → trim_measurableSet_eq → ne_top_of_le_ne_top"
+    source: ['Factorization']
     confidence: 4
-  - trigger: Integrable rnDeriv.toReal • f ↔ Integrable f (change of measure)
-    chain: integrable_rnDeriv_smul_iff hμ + setIntegral_rnDeriv_smul hμ hs
-    source:
-      - Factorization
+
+  - trigger: "Integrable rnDeriv.toReal • f ↔ Integrable f (change of measure)"
+    chain: "integrable_rnDeriv_smul_iff hμ + setIntegral_rnDeriv_smul hμ hs"
+    source: ['Factorization']
     confidence: 4
-  - trigger: MemLp f p from MemLp f q where p ≤ q
+
+  - trigger: "MemLp f p from MemLp f q where p ≤ q"
     chain: "hLp.mono_exponent (by norm_num : (p : ENNReal) ≤ q)"
-    source:
-      - Taylor
+    source: ['Taylor']
     confidence: 5
-  - trigger: MemLp f 2 ↔ Integrable (f²)
-    chain: memLp_two_iff_integrable_sq hf_aesm
-    source:
-      - ANOVA
-      - LehmannScheffe
+
+  - trigger: "MemLp f 2 ↔ Integrable (f²)"
+    chain: "memLp_two_iff_integrable_sq hf_aesm"
+    source: ['ANOVA', 'LehmannScheffe']
     confidence: 5
-  - trigger: Integrable f from uniform bound
-    chain: Integrable.of_bound h_aesm C h_bound_ae
-    source:
-      - Factorization
+
+  - trigger: "Integrable f from uniform bound"
+    chain: "Integrable.of_bound h_aesm C h_bound_ae"
+    source: ['Factorization']
     confidence: 4
-  - trigger: Integrable (f-g) or (f+g)
-    chain: hf.sub hg / hf.add hg / hf.sub (integrable_const c)
-    source:
-      - LehmannScheffe
-      - ANOVA
+
+  - trigger: "Integrable (f-g) or (f+g)"
+    chain: "hf.sub hg / hf.add hg / hf.sub (integrable_const c)"
+    source: ['LehmannScheffe', 'ANOVA']
     confidence: 5
-  - trigger: Integrable gtil (P.map restrict) from Integrable (gtil∘restrict) P
-    chain: integrable_map_measure hgtil_sm.aestronglyMeasurable hrestrict_meas.aemeasurable
-    source:
-      - EfronStein
+
+  - trigger: "Integrable gtil (P.map restrict) from Integrable (gtil∘restrict) P"
+    chain: "integrable_map_measure hgtil_sm.aestronglyMeasurable hrestrict_meas.aemeasurable"
+    source: ['EfronStein']
     confidence: 3
-  - trigger: Measurable[comap T m] for functions factoring through T
-    chain: comap_measurable T + .comp_measurable for g∘T; hT.comap_le for m_T ≤ mΩ
-    source:
-      - Factorization
-      - Basu
+
+  - trigger: "Measurable[comap T m] for functions factoring through T"
+    chain: "comap_measurable T + .comp_measurable for g∘T; hT.comap_le for m_T ≤ mΩ"
+    source: ['Factorization', 'Basu']
     confidence: 5
-  - trigger: MemLp (f∘π) on product from MemLp f (measure-preserving)
-    chain: hg_lp.comp_measurePreserving measurePreserving_snd/fst
-    source:
-      - ANOVA
+
+  - trigger: "MemLp (f∘π) on product from MemLp f (measure-preserving)"
+    chain: "hg_lp.comp_measurePreserving measurePreserving_snd/fst"
+    source: ['ANOVA']
     confidence: 4
-  - trigger: a.toReal = b.toReal ↔ a = b (ENNReal)
-    chain: ENNReal.toReal_eq_toReal_iff' h_ne_top h_ne_top
-    source:
-      - Factorization
-      - Basu
+
+  - trigger: "a.toReal = b.toReal ↔ a = b (ENNReal)"
+    chain: "ENNReal.toReal_eq_toReal_iff' h_ne_top h_ne_top"
+    source: ['Factorization', 'Basu']
     confidence: 4
-  - trigger: μ s ≠ ⊤ for finite measure
-    chain: measure_ne_top μ s (from IsFiniteMeasure)
-    source:
-      - Factorization
+
+  - trigger: "μ s ≠ ⊤ for finite measure"
+    chain: "measure_ne_top μ s (from IsFiniteMeasure)"
+    source: ['Factorization']
     confidence: 5
-  - trigger: ae finite intersection from countable family
-    chain: ae_ball_iff (Finset.countable_toSet S) for ∀ᵐ ω, ∀ θ ∈ S, P ω θ
-    source:
-      - USLLN
+
+  - trigger: "ae finite intersection from countable family"
+    chain: "ae_ball_iff (Finset.countable_toSet S) for ∀ᵐ ω, ∀ θ ∈ S, P ω θ"
+    source: ['USLLN']
     confidence: 4
-  - trigger: ⨆ k, f k ≤ C from pointwise bound
-    chain: ciSup_le (fun k => hf_le k) (needs BddAbove)
-    source:
-      - USLLN
+
+  - trigger: "⨆ k, f k ≤ C from pointwise bound"
+    chain: "ciSup_le (fun k => hf_le k) (needs BddAbove)"
+    source: ['USLLN']
     confidence: 4
-  - trigger: ‖exp(i·t·x)‖ = 1
-    chain: Complex.norm_exp_ofReal_mul_I
-    source:
-      - Taylor
-      - Hermite
+
+  - trigger: "‖exp(i·t·x)‖ = 1"
+    chain: "Complex.norm_exp_ofReal_mul_I"
+    source: ['Taylor', 'Hermite']
     confidence: 5
+
   - trigger: "∫ (↑f : ℂ) dμ = ↑(∫ f dμ)"
-    chain: integral_complex_ofReal
-    source:
-      - Taylor
+    chain: "integral_complex_ofReal"
+    source: ['Taylor']
     confidence: 5
-  - trigger: Integrable (φ ∘ Prod.snd ∘ e) (stdGaussianPi n)
-    chain: hmarg.comp_snd stdGaussian → hmp.integrable_comp_of_integrable. Where hmarg := hprod.integral_prod_right, hprod := hmp.symm.integrable_comp_of_integrable hφ.
-    source:
-      - LogSobolev
+
+  - trigger: "Integrable (φ ∘ Prod.snd ∘ e) (stdGaussianPi n)"
+    chain: "hmarg.comp_snd stdGaussian → hmp.integrable_comp_of_integrable. Where hmarg := hprod.integral_prod_right, hprod := hmp.symm.integrable_comp_of_integrable hφ."
+    source: ['LogSobolev']
     confidence: 5
-  - trigger: Function.update y j t = e.symm (t, (e y).2) (piFinSuccAbove identity)
-    chain: conv_lhs => rw [(e.symm_apply_apply y).symm]; simp only [e, MeasurableEquiv.piFinSuccAbove_symm_apply]; exact @Fin.update_insertNth n (fun _ => ℝ) j (e y).1 t (e y).2
-    source:
-      - LogSobolev
+
+  - trigger: "Function.update y j t = e.symm (t, (e y).2) (piFinSuccAbove identity)"
+    chain: "conv_lhs => rw [(e.symm_apply_apply y).symm]; simp only [e, MeasurableEquiv.piFinSuccAbove_symm_apply]; exact @Fin.update_insertNth n (fun _ => ℝ) j (e y).1 t (e y).2"
+    source: ['LogSobolev']
     confidence: 5
-  - trigger: ∀ᵐ y ∂γⁿ⁺¹, Integrable (fun t => g(update y j t)) γ (ae slice integrability)
-    chain: hg_prod.prod_left_ae → ae_snd_of_ae_marginal γ₁ γn → hmp.quasiMeasurePreserving.ae → .mono (rewrite via Fin.update_insertNth)
-    source:
-      - LogSobolev
+
+  - trigger: "∀ᵐ y ∂γⁿ⁺¹, Integrable (fun t => g(update y j t)) γ (ae slice integrability)"
+    chain: "hg_prod.prod_left_ae → ae_snd_of_ae_marginal γ₁ γn → hmp.quasiMeasurePreserving.ae → .mono (rewrite via Fin.update_insertNth)"
+    source: ['LogSobolev']
     confidence: 5
-  - trigger: integral Cauchy-Schwarz (∫h)²/(∫k) ≤ ∫(h²/k)
+
+  - trigger: "integral Cauchy-Schwarz (∫h)²/(∫k) ≤ ∫(h²/k)"
     chain: "by_cases ∫k > 0: div_le_iff → set c = (∫h)/(∫k) → expand ∫(h-ck)²/k ≥ 0 → integral_congr_ae + field_simp + ring → nlinarith. Case ∫k = 0: div_zero + integral_nonneg_of_ae."
     confidence: 5
-  - trigger: Gaussian Dirichlet form ∫(Lφ)ψ dγ = -∫φ'ψ' dγ OU generator
-    chain: Apply stein_identity to h=φ'·ψ, h'=φ''·ψ+φ'·ψ'. Then integral_add + integral_sub → linarith.
+
+  - trigger: "Gaussian Dirichlet form ∫(Lφ)ψ dγ = -∫φ'ψ' dγ OU generator"
+    chain: "Apply stein_identity to h=φ'·ψ, h'=φ''·ψ+φ'·ψ'. Then integral_add + integral_sub → linarith."
     confidence: 5
-  - trigger: Integrable g∘affine stdGaussian bounded derivative linear growth
-    chain: lipschitzWith_of_nnnorm_deriv_le → LipschitzWith.norm_sub_le → linear growth |g(w)| ≤ |g(0)| + C*|w|. Decompose g = g(0) + (g - g(0)). Bound difference by Integrable.mono with C*|a| + C*|b|*‖y‖. Use IsGaussian.integrable_fun_id for ‖y‖ integrability.
+
+  - trigger: "Integrable g∘affine stdGaussian bounded derivative linear growth"
+    chain: "lipschitzWith_of_nnnorm_deriv_le → LipschitzWith.norm_sub_le → linear growth |g(w)| ≤ |g(0)| + C*|w|. Decompose g = g(0) + (g - g(0)). Bound difference by Integrable.mono with C*|a| + C*|b|*‖y‖. Use IsGaussian.integrable_fun_id for ‖y‖ integrability."
     confidence: 5
-  - trigger: ae transfer g > 0 ae(γ) composition affine map absolutelyContinuous
+
+  - trigger: "ae transfer g > 0 ae(γ) composition affine map absolutelyContinuous"
     chain: "ae_of_ae_map + AbsolutelyContinuous.ae_le: (1) map_affine_stdGaussian to rewrite map, (2) gaussianReal_absolutelyContinuous for ≪ volume, (3) gaussianReal_absolutelyContinuous' for volume ≪ stdGaussian, (4) .trans to chain, (5) ae_of_ae_map converts ae(map φ γ) to ae(γ) about φ-preimage."
     confidence: 5
-  - trigger: pointwise positivity ouSemigroup Lipschitz all slices integrable
+
+  - trigger: "pointwise positivity ouSemigroup Lipschitz all slices integrable"
     chain: "bounded g' → Lipschitz → g∘affine integrable for ALL x (not just ae). Then ouSemigroup_pos argument works pointwise: by_contra → integral 0 → slice zero ae → ae_zero_of_comp_affine → g=0 ae → contradicts ∫g>0."
     confidence: 5
-  - trigger: Integrable.mono ae bound nonneg divisor Fubini slice
-    chain: integrable_mehler_prod + .prod_right_ae → ae slice integrability. Then ouSemigroup_sq_div_le gives ae pointwise bound. Use Integrable.mono with ae norm bound (abs_of_nonneg for both sides) to prove LHS integrable from RHS integrable.
+
+  - trigger: "Integrable.mono ae bound nonneg divisor Fubini slice"
+    chain: "integrable_mehler_prod + .prod_right_ae → ae slice integrability. Then ouSemigroup_sq_div_le gives ae pointwise bound. Use Integrable.mono with ae norm bound (abs_of_nonneg for both sides) to prove LHS integrable from RHS integrable."
     confidence: 5
-  - trigger: stdGaussian.real set Gaussian measure lower bound interval
-    chain: gaussianReal_apply_eq_integral 0 (1≠0) gives stdGaussian(S) as integral of gaussianPDFReal over S. Then setIntegral_ge_of_const_le with inf density on S + volume_Icc for interval length.
+
+  - trigger: "stdGaussian.real set Gaussian measure lower bound interval"
+    chain: "gaussianReal_apply_eq_integral 0 (1≠0) gives stdGaussian(S) as integral of gaussianPDFReal over S. Then setIntegral_ge_of_const_le with inf density on S + volume_Icc for interval length."
     confidence: 5
-  - trigger: MemLp bounded times L² product Hölder
+
+  - trigger: "MemLp bounded times L² product Hölder"
     chain: "bounded f → memLp_top_of_bound → MemLp ∞. Then MemLp.mul' with HolderTriple ∞ 2 2 (or HolderTriple 2 ∞ 2). Caution: argument order in mul' matters."
     confidence: 5
-  - trigger: MemLp f 2 from integrable square norm
+
+  - trigger: "MemLp f 2 from integrable square norm"
     chain: "memLp_two_iff_integrable_sq_norm (needs AEStronglyMeasurable): MemLp f 2 ↔ Integrable (‖f‖²). For log-growth: |1+log(P_t g x)| ≤ A + B|x| → squared ≤ 2A²+2B²x² → integrable since ∫x²dγ<∞."
     confidence: 5
-  - trigger: chain rule derivative u*log(u) HasDerivAt mul log
-    chain: d/ds[u·log u] = u'·log u + u·(u'/u) = u'·(1+log u). Use HasDerivAt.mul + HasDerivAt.log (needs u(s)>0). Works pointwise for P_s g when ouSemigroup_lower_bound gives P_s g > 0.
+
+  - trigger: "chain rule derivative u*log(u) HasDerivAt mul log"
+    chain: "d/ds[u·log u] = u'·log u + u·(u'/u) = u'·(1+log u). Use HasDerivAt.mul + HasDerivAt.log (needs u(s)>0). Works pointwise for P_s g when ouSemigroup_lower_bound gives P_s g > 0."
     confidence: 5
-  - trigger: ∫ (f+g) = ∫ f + ∫ g or ∫ (f-g) multiple integral_add integral_sub rewrite chain
-    chain: integral_add h1_int h2_int / integral_sub h1_int h2_int → integral_const_mul → integral_congr_ae
+
+  - trigger: "∫ (f+g) = ∫ f + ∫ g or ∫ (f-g) multiple integral_add integral_sub rewrite chain"
+    chain: "integral_add h1_int h2_int / integral_sub h1_int h2_int → integral_const_mul → integral_congr_ae"
     workflow: "BEFORE writing any integral rewrite chain: (1) list ALL sub-terms that appear inside integrals, (2) prove Integrable for EACH sub-term as named have statements, (3) THEN assemble the rw/calc chain referencing those have names. Never write integral_add/sub inline without pre-built Integrable proofs."
-    source:
-      - OrnsteinUhlenbeck
+    source: ['OrnsteinUhlenbeck']
     confidence: 5
-  - trigger: hasDerivAt_integral_of_dominated_loc_of_deriv_le domination bound ∃ bound Integrable uniform
+
+  - trigger: "hasDerivAt_integral_of_dominated_loc_of_deriv_le domination bound ∃ bound Integrable uniform"
     chain: "Split into 3 independent sub-lemmas: (1) integrand_bound: ‖F(s,x)‖ ≤ B₁(x), (2) parameter_bound: ‖∂F/∂s(s,x)‖ ≤ B₂(x), (3) product_integrability: Integrable (B₁·B₂). Prove (1)(2) in parallel, then (3)."
     workflow: "For domination bounds >100 lines: MUST decompose into ≤50-line independent sub-lemmas BEFORE attempting proof. Typical split for parametric Leibniz: generator_bound (polynomial in x), log_bound (polynomial in x from lower+upper), product_integrability (Gaussian moments). Each sub-lemma is independently compilable and parallelizable."
-    source:
-      - OrnsteinUhlenbeck
+    source: ['OrnsteinUhlenbeck']
     confidence: 5
-  - trigger: E[(ax+by)²] Gaussian moment computation ouSemigroup upper bound
+
+  - trigger: "E[(ax+by)²] Gaussian moment computation ouSemigroup upper bound"
     chain: "Expand (ax+by)² = a²x² + 2abxy + b²y². Integrate: E[y]=0 (integral_id_gaussianReal), E[y²]=1 (variance_eq_sub + variance_fun_id_gaussianReal). Result: a²x² + b². Cleaner than Cauchy-Schwarz for integral bounds."
     confidence: 5
-  - trigger: ae_ae_comm requires MeasurableSet but functions are only AEStronglyMeasurable
-    chain: AEStronglyMeasurable.mk → StronglyMeasurable.measurable → measurableSet_singleton → ae_ae_comm → filter_upwards transfer back
+
+  - trigger: "ae_ae_comm requires MeasurableSet but functions are only AEStronglyMeasurable"
+    chain: "AEStronglyMeasurable.mk → StronglyMeasurable.measurable → measurableSet_singleton → ae_ae_comm → filter_upwards transfer back"
     source: DPI hab_ac_ae
     confidence: 5
-  - trigger: integrable_prod_iff vs integrable_prod_iff' (which convention?)
+
+  - trigger: "integrable_prod_iff vs integrable_prod_iff' (which convention?)"
     chain: "integrable_prod_iff: ae in FIRST coord (x), integrable in SECOND (y). integrable_prod_iff': ae in SECOND coord (y), integrable in FIRST (x). prod_left_ae: ae in SECOND coord. prod_right_ae: ae in FIRST coord."
     source: DPI cross-term integrability
     confidence: 5
-  - trigger: variance via pushforward to gaussianReal
-    chain: variance_map + variance_id_gaussianReal
+
+  - trigger: "variance via pushforward to gaussianReal"
+    chain: "variance_map + variance_id_gaussianReal"
     confidence: 4
-  - trigger: covariance = inner product via polarization
-    chain: norm_add_sq_real + variance_eq + integral_congr_ae (ae linearity)
+
+  - trigger: "covariance = inner product via polarization"
+    chain: "norm_add_sq_real + variance_eq + integral_congr_ae (ae linearity)"
     confidence: 4
-  - trigger: Goal is `(μ {ω | ε ≤ |X ω - μ[X]|}).toReal ≤ Var[X;μ] / ε^2` — Chebyshev inequality with ENNReal measure converted to Real
-    chain:
-      - meas_ge_le_variance_div_sq
-      - variance_nonneg
-      - measure_ne_top
-      - ENNReal.toReal_ofReal
-      - ENNReal.toReal_le_toReal
-    key_api:
-      - ProbabilityTheory.meas_ge_le_variance_div_sq
-      - ProbabilityTheory.variance_nonneg
-      - MeasureTheory.measure_ne_top
-      - ENNReal.toReal_ofReal
-      - ENNReal.toReal_le_toReal
+
+  - trigger: "Goal is `(μ {ω | ε ≤ |X ω - μ[X]|}).toReal ≤ Var[X;μ] / ε^2` — Chebyshev inequality with ENNReal measure converted to Real"
+    chain: "['meas_ge_le_variance_div_sq', 'variance_nonneg', 'measure_ne_top', 'ENNReal.toReal_ofReal', 'ENNReal.toReal_le_toReal']"
     confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072554
-    evolve_trace_refs:
-      - cli-20260413-chebyshev_simple-7uph
+
   - trigger: "goal is `0 ≤ ∫ x, f x ∂μ` with hypothesis `h : 0 ≤ᵐ[μ] f`"
-    chain:
-      - MeasureTheory.integral_nonneg_of_ae
-    key_api:
-      - MeasureTheory.integral_nonneg_of_ae
+    chain: "['MeasureTheory.integral_nonneg_of_ae']"
     confidence: 5
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072597
-    evolve_trace_refs:
-      - cli-20260413-integral_test-25mm
-  - trigger: goal of the form `μ (A ∩ B) ≤ min (μ A) (μ B)` or `μ (s ∩ t) ≤ min (μ s) (μ t)`
-    chain:
-      - le_min
-      - measure_mono Set.inter_subset_left
-      - measure_mono Set.inter_subset_right
-    key_api:
-      - le_min
-      - measure_mono
-      - Set.inter_subset_left
-      - Set.inter_subset_right
+
+  - trigger: "goal of the form `μ (A ∩ B) ≤ min (μ A) (μ B)` or `μ (s ∩ t) ≤ min (μ s) (μ t)`"
+    chain: "['le_min', 'measure_mono Set.inter_subset_left', 'measure_mono Set.inter_subset_right']"
     confidence: 5
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072664
-    evolve_trace_refs:
-      - cli-20260413-measure_inter_le_min-xxot
-  - trigger: goal is ‖a + b - c‖ ≤ ‖a - c‖ + ‖b‖ (or similar ‖x + y - z‖ ≤ ‖x - z‖ + ‖y‖) in SeminormedAddCommGroup or NormedAddCommGroup
-    chain:
-      - "have h : a + b - c = (a - c) + b := by abel"
-      - rw [h]
-      - exact norm_add_le (a - c) b
-    key_api:
-      - abel
-      - norm_add_le
+
+  - trigger: "goal is ‖a + b - c‖ ≤ ‖a - c‖ + ‖b‖ (or similar ‖x + y - z‖ ≤ ‖x - z‖ + ‖y‖) in SeminormedAddCommGroup or NormedAddCommGroup"
+    chain: "['have h : a + b - c = (a - c) + b := by abel', 'rw [h]', 'exact norm_add_le (a - c) b']"
     confidence: 5
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072698
-    evolve_trace_refs:
-      - cli-20260413-norm_sub_add_bound-qcy0
-  - trigger: Goal involves Var[X + Y] and needs to decompose into variance + covariance terms
-    chain:
-      - variance_add_eq
-      - sq_covariance_le_variance_mul
-      - variance_nonneg
-      - nlinarith [sq_nonneg ...]
-    key_api:
-      - ProbabilityTheory.variance_add_eq
-      - sq_covariance_le_variance_mul
-      - ProbabilityTheory.variance_nonneg
-      - nlinarith
-      - sq_nonneg
+
+  - trigger: "Goal involves Var[X + Y] and needs to decompose into variance + covariance terms"
+    chain: "['variance_add_eq', 'sq_covariance_le_variance_mul', 'variance_nonneg', 'nlinarith [sq_nonneg ...]']"
     confidence: 4
-    evolve_source: evolve-opus
-    evolve_created_at: 1776072769
-    evolve_trace_refs:
-      - cli-20260413-var_add_le-lcsn
-  - trigger: Goal is `|∑ k ∈ s, f k * g k| ≤ √(∑ k ∈ s, f k ^ 2) * √(∑ k ∈ s, g k ^ 2)` (absolute-value Cauchy-Schwarz over a Finset)
-    chain:
-      - Real.sum_mul_le_sqrt_mul_sqrt
-      - neg_mul
-      - Finset.sum_neg_distrib
-      - abs_le
-      - linarith
-    key_api:
-      - Real.sum_mul_le_sqrt_mul_sqrt
-      - Finset.sum_neg_distrib
-      - abs_le
+
+  - trigger: "Goal is `|∑ k ∈ s, f k * g k| ≤ √(∑ k ∈ s, f k ^ 2) * √(∑ k ∈ s, g k ^ 2)` (absolute-value Cauchy-Schwarz over a Finset)"
+    chain: "['Real.sum_mul_le_sqrt_mul_sqrt', 'neg_mul', 'Finset.sum_neg_distrib', 'abs_le', 'linarith']"
     confidence: 5
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776083109
-    evolve_trace_refs:
-      - cli-20260413-cox_s3_cauchy_schwarz_tail-z322
-  - trigger: goal is weak convergence of probability measures on ℝ expressed via Tendsto on ProbabilityMeasure or FiniteMeasure
-    chain:
-      - MeasureTheory.ProbabilityMeasure.tendsto_iff_forall_integral_tendsto
-      - BoundedContinuousFunction.integral_tendsto
-      - MeasureTheory.integral_congr_ae
-    key_api:
-      - MeasureTheory.ProbabilityMeasure.tendsto_iff_forall_integral_tendsto
-      - MeasureTheory.FiniteMeasure.tendsto_of_forall_integral_tendsto
-      - BoundedContinuousFunction
+
+  - trigger: "goal is weak convergence of probability measures on ℝ expressed via Tendsto on ProbabilityMeasure or FiniteMeasure"
+    chain: "['MeasureTheory.ProbabilityMeasure.tendsto_iff_forall_integral_tendsto', 'BoundedContinuousFunction.integral_tendsto', 'MeasureTheory.integral_congr_ae']"
     confidence: 2
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776096748
-    evolve_trace_refs:
-      - cli-20260413-marchenko_pastur_convergence-db5b
-  - trigger: pointwise Cauchy–Schwarz (∫|g| dν)² ≤ ν(univ).toReal · ∫ g² dν for ℝ-valued g, requires MemLp g 2
-    chain: Apply integral_mul_le_Lp_mul_Lq_of_nonneg with f=g, g=1, p=q=2 (Real.HolderConjugate instance); then square both sides; use `(∫ 1^2 ∂ν) = ν(univ).toReal` and `(ν(univ).toReal)^(1/2))^2 = ν(univ).toReal`
+
+  - trigger: "pointwise Cauchy–Schwarz (∫|g| dν)² ≤ ν(univ).toReal · ∫ g² dν for ℝ-valued g, requires MemLp g 2"
+    chain: "Apply integral_mul_le_Lp_mul_Lq_of_nonneg with f=g, g=1, p=q=2 (Real.HolderConjugate instance); then square both sides; use `(∫ 1^2 ∂ν) = ν(univ).toReal` and `(ν(univ).toReal)^(1/2))^2 = ν(univ).toReal`"
+
+  - trigger: "Bayes rule / conditional probability product / μ[A|B] = μ[B|A] * μ A / μ B"
+    chain: "cond_mul_eq_inter hB A μ → cond_mul_eq_inter hA B μ → ENNReal.eq_div_iff hPB hB_ne_top → Set.inter_comm → mul_comm"
+    source: Statlean/Web/jobbayeso1y36/Main.lean (Bayes' rule, 4-line proof)
+    confidence: 5
+
+# ═══════════════════════════════════════════
+# L1 — Tactic 技巧（常见坑和惯用法）
+# ═══════════════════════════════════════════
 L1_tactic_tips:
-  - trigger: ∀ᵐ x ∂μ, P x (ae goal)
+
+  - trigger: "∀ᵐ x ∂μ, P x (ae goal)"
     tip: "filter_upwards [h1, h2] with x hx1 hx2; <proof>. For pointwise: ae_of_all _ fun x => <proof>"
     frequency: 20
-  - trigger: assembling real inequality from named steps
-    tip: linarith [step1, step2, ..., stepN] — dominant closer for ℝ inequalities
+
+  - trigger: "assembling real inequality from named steps"
+    tip: "linarith [step1, step2, ..., stepN] — dominant closer for ℝ inequalities"
     frequency: 20
-  - trigger: pure ring identity a = b
-    tip: ring; or ext x; ring; or congr 1; ext x; ring
+
+  - trigger: "pure ring identity a = b"
+    tip: "ring; or ext x; ring; or congr 1; ext x; ring"
     frequency: 20
-  - trigger: coercion goals ℕ→ℝ, ℤ→ℝ, ℝ→ℂ
-    tip: push_cast; ring (push_cast [Nat.factorial_succ] for factorial)
+
+  - trigger: "coercion goals ℕ→ℝ, ℤ→ℝ, ℝ→ℂ"
+    tip: "push_cast; ring (push_cast [Nat.factorial_succ] for factorial)"
     frequency: 10
-  - trigger: numeric fact (2:ENNReal)≤3 or 0<4
-    tip: by norm_num (inline as argument)
+
+  - trigger: "numeric fact (2:ENNReal)≤3 or 0<4"
+    tip: "by norm_num (inline as argument)"
     frequency: 15
-  - trigger: division / fractions / nonzero denom
-    tip: field_simp [h_ne_zero]; ring
+
+  - trigger: "division / fractions / nonzero denom"
+    tip: "field_simp [h_ne_zero]; ring"
     frequency: 8
-  - trigger: monotone inequality f a ≤ f b
-    tip: gcongr (monotonicity tactic for norm, mul, pow etc.)
+
+  - trigger: "monotone inequality f a ≤ f b"
+    tip: "gcongr (monotonicity tactic for norm, mul, pow etc.)"
     frequency: 8
-  - trigger: (f^2) x ≠ f x^2 for Pi-functions
-    tip: simp only [Pi.pow_apply] before ring/linarith. Same for Pi.sub_apply, Pi.mul_apply
+
+  - trigger: "(f^2) x ≠ f x^2 for Pi-functions"
+    tip: "simp only [Pi.pow_apply] before ring/linarith. Same for Pi.sub_apply, Pi.mul_apply"
     frequency: 5
-  - trigger: lambda vs Pi form mismatch with condExp
+
+  - trigger: "lambda vs Pi form mismatch with condExp"
     tip: "Three fixes: (1) have h_eq : (fun ω => ...) = f - g := rfl; rw [h_eq] (2) change (3) filter_upwards + Pi.sub_apply"
     frequency: 5
-  - trigger: set m := MeasurableSpace.comap causes instance confusion
-    tip: DON'T set m. Use explicit condExp m ν f. Inline MeasurableSpace.comap T ‹MeasurableSpace α›
+
+  - trigger: "set m := MeasurableSpace.comap causes instance confusion"
+    tip: "DON'T set m. Use explicit condExp m ν f. Inline MeasurableSpace.comap T ‹MeasurableSpace α›"
     frequency: 3
-  - trigger: AEMeasurable f μ from Measurable f
-    tip: .aemeasurable coercion (also .aestronglyMeasurable)
+
+  - trigger: "AEMeasurable f μ from Measurable f"
+    tip: ".aemeasurable coercion (also .aestronglyMeasurable)"
     frequency: 15
-  - trigger: need typeclass instance mid-proof
+
+  - trigger: "need typeclass instance mid-proof"
     tip: "haveI : IsProbabilityMeasure ... := ... (haveI not have, for instance synthesis)"
     frequency: 10
-  - trigger: failed to synthesize SigmaFinite for trimmed measure
+
+  - trigger: "failed to synthesize SigmaFinite for trimmed measure"
     tip: "haveI : SigmaFinite (μ.trim hm) := inferInstance (from IsFiniteMeasure auto)"
     frequency: 3
+
   - trigger: "rewrite failed: pattern not found (lambda vs Pi)"
     tip: "Add have h_eq : (fun ω => ...) = ... := rfl then rw [h_eq]; or use change/show"
     frequency: 4
-  - trigger: integral_add rewrite fails (Pi form mismatch)
-    tip: Use have h := integral_add ... then linarith, don't rw
+
+  - trigger: "integral_add rewrite fails (Pi form mismatch)"
+    tip: "Use have h := integral_add ... then linarith, don't rw"
     frequency: 3
-  - trigger: simp made no progress
-    tip: Switch to simp only [specific_lemma] or use rw instead
+
+  - trigger: "simp made no progress"
+    tip: "Switch to simp only [specific_lemma] or use rw instead"
     frequency: 5
-  - trigger: linarith failed (missing premise)
-    tip: Extract needed inequalities with have first, then linarith [h1, h2, h3]
+
+  - trigger: "linarith failed (missing premise)"
+    tip: "Extract needed inequalities with have first, then linarith [h1, h2, h3]"
     frequency: 4
-  - trigger: exact? found no match
-    tip: Upgrade to Level 3 Mathlib search, or build helper lemma
+
+  - trigger: "exact? found no match"
+    tip: "Upgrade to Level 3 Mathlib search, or build helper lemma"
     frequency: 3
-  - trigger: unknown identifier after Mathlib upgrade
+
+  - trigger: "unknown identifier after Mathlib upgrade"
     tip: "v4.28 renames: pow_le_pow_left₀, div_le_div_iff₀, exp_nat_mul. Use #check to verify"
     frequency: 3
-  - trigger: ENNReal Summable
-    tip: ALWAYS true for ENNReal! Use ∑' ≠ ⊤ instead for Borel-Cantelli style arguments
+
+  - trigger: "ENNReal Summable"
+    tip: "ALWAYS true for ENNReal! Use ∑' ≠ ⊤ instead for Borel-Cantelli style arguments"
     frequency: 3
-  - trigger: ∃ x, P x (extract witness)
-    tip: obtain ⟨g, hg, hgT⟩ := ... (standard destructuring)
+
+  - trigger: "∃ x, P x (extract witness)"
+    tip: "obtain ⟨g, hg, hgT⟩ := ... (standard destructuring)"
     frequency: 15
-  - trigger: strong induction on ℕ
-    tip: induction k using Nat.strongRecOn with | ind k ih =>
+
+  - trigger: "strong induction on ℕ"
+    tip: "induction k using Nat.strongRecOn with | ind k ih =>"
     frequency: 2
-  - trigger: integral on Fin 0 → ℝ (singleton space)
-    tip: Subsingleton.elim x Fin.elim0 + integral_const + Measure.real + measure_univ
+
+  - trigger: "integral on Fin 0 → ℝ (singleton space)"
+    tip: "Subsingleton.elim x Fin.elim0 + integral_const + Measure.real + measure_univ"
     frequency: 2
-  - trigger: nlinarith for mul_comm in inequalities
-    tip: nlinarith handles commutativity that linarith cannot
+
+  - trigger: "nlinarith for mul_comm in inequalities"
+    tip: "nlinarith handles commutativity that linarith cannot"
     frequency: 3
-  - trigger: linarith loses < in ≤+< chains
-    tip: Use add_lt_add_of_le_of_lt explicitly instead
+
+  - trigger: "linarith loses < in ≤+< chains"
+    tip: "Use add_lt_add_of_le_of_lt explicitly instead"
     frequency: 2
-  - trigger: ∫ (g')²/g dμ where g = f² (Fisher information of square)
-    tip: I(f²) = ∫(2ff')²/f² = 4∫(f')². Lean 0/0=0 makes f=0 case automatic — no need for hf_ne_zero hypothesis. Use div_self_sqrt or direct field_simp.
+
+  - trigger: "∫ (g')²/g dμ where g = f² (Fisher information of square)"
+    tip: "I(f²) = ∫(2ff')²/f² = 4∫(f')². Lean 0/0=0 makes f=0 case automatic — no need for hf_ne_zero hypothesis. Use div_self_sqrt or direct field_simp."
     frequency: 1
-  - trigger: ∀ᵐ y ∂ν, P(y) → ∀ᵐ z ∂(μ.prod ν), P(z.2)
+
+  - trigger: "∀ᵐ y ∂ν, P(y) → ∀ᵐ z ∂(μ.prod ν), P(z.2)"
     tip: "Use Measure.prod_prod_le: show {z | ¬P z.2} ⊆ univ ×ˢ {y | ¬P y}, bound (μ.prod ν)(univ ×ˢ S) ≤ μ(univ) * ν(S) = 0. No measurability needed. See ae_snd_of_ae_marginal in LogSobolev.lean."
     frequency: 3
-  - trigger: ∀ᵐ z ∂γn, P(z) → ∀ᵐ y ∂γⁿ⁺¹, P((e y).2) via piFinSuccAbove
+
+  - trigger: "∀ᵐ z ∂γn, P(z) → ∀ᵐ y ∂γⁿ⁺¹, P((e y).2) via piFinSuccAbove"
     tip: "Chain: prod_left_ae → ae_snd_of_ae_marginal (transfer to product) → QuasiMeasurePreserving.ae (transfer via e). Then .mono to rewrite predicate using Fin.update_insertNth."
     frequency: 3
-  - trigger: f ∈ L²(γ) implies f·poly ∈ L²(γ)?
+
+  - trigger: "f ∈ L²(γ) implies f·poly ∈ L²(γ)?"
     tip: "FALSE! Counterexample exists. Use Hölder: L²·L² ⊆ L¹. Only claim L¹ for products."
     frequency: 1
-  - trigger: entropy_subadditivity for g·log(g) NOT integrable (Lean Bochner convention)
-    tip: LIKELY FALSE under Lean's ∫=0 convention for non-integrable functions. When g·log(g) ∉ L¹, entropyPi = -(∫g)·log(∫g) can be positive, but ∑∫condEnt_i could be 0 (each condEntropyAt non-integrable → Lean ∫ = 0). Eliminate this case split; use Integrable(g·log g) as hypothesis instead.
+
+  - trigger: "entropy_subadditivity for g·log(g) NOT integrable (Lean Bochner convention)"
+    tip: "LIKELY FALSE under Lean's ∫=0 convention for non-integrable functions. When g·log(g) ∉ L¹, entropyPi = -(∫g)·log(∫g) can be positive, but ∑∫condEnt_i could be 0 (each condEntropyAt non-integrable → Lean ∫ = 0). Eliminate this case split; use Integrable(g·log g) as hypothesis instead."
     frequency: 1
-  - trigger: Gaussian product independence IndepFun Prod.fst Prod.snd
-    tip: indepFun_iff_map_prod_eq_prod_map_map + Measure.map_fst_prod + Measure.map_snd_prod + measure_univ
+
+  - trigger: "Gaussian product independence IndepFun Prod.fst Prod.snd"
+    tip: "indepFun_iff_map_prod_eq_prod_map_map + Measure.map_fst_prod + Measure.map_snd_prod + measure_univ"
     frequency: 1
-  - trigger: NNReal coercion lipschitzWith_of_nnnorm_deriv_le
+
+  - trigger: "NNReal coercion lipschitzWith_of_nnnorm_deriv_le"
     tip: "Set Cnn : NNReal := ⟨C, hC_nn⟩ and prove (Cnn : ℝ) = C := rfl. Then in the nnnorm bound: rw [← NNReal.coe_le_coe, coe_nnnorm, hCnn_eq, (hg_deriv x).deriv]; exact hC x"
     frequency: 1
-  - trigger: ae_map_iff requires MeasurableSet use ae_of_ae_map instead
-    tip: ae_map_iff needs MeasurableSet {x | p x}. Use ae_of_ae_map instead — it takes AEMeasurable f μ and ∀ᵐ y ∂(map f μ), p y, returns ∀ᵐ x ∂μ, p (f x), with no measurability requirement on the predicate set.
+
+  - trigger: "ae_map_iff requires MeasurableSet use ae_of_ae_map instead"
+    tip: "ae_map_iff needs MeasurableSet {x | p x}. Use ae_of_ae_map instead — it takes AEMeasurable f μ and ∀ᵐ y ∂(map f μ), p y, returns ∀ᵐ x ∂μ, p (f x), with no measurability requirement on the predicate set."
     frequency: 1
-  - trigger: ouSemigroup nonnegativity t=0 only ae not pointwise
+
+  - trigger: "ouSemigroup nonnegativity t=0 only ae not pointwise"
     tip: "ouSemigroup 0 g x = g x. If g ≥ 0 only ae(γ), cannot prove g x ≥ 0 for all x. Use ae statements: filter_upwards [hg_nn] with x hx; rw [ouSemigroup_zero]; exact hx."
     frequency: 1
-  - trigger: nlinarith abs |z| ≤ 1 + z²
+
+  - trigger: "nlinarith abs |z| ≤ 1 + z²"
     tip: "nlinarith can't handle abs directly. Use: have h := sq_nonneg (|z| - 1); have := sq_abs z; have := abs_nonneg z. Then nlinarith closes |z| ≤ 1 + z²."
     frequency: 1
-  - trigger: exp(-s)^2 = exp(-2s) in Lean
-    tip: rw [sq, ← Real.exp_add]; congr 1; ring
+
+  - trigger: "exp(-s)^2 = exp(-2s) in Lean"
+    tip: "rw [sq, ← Real.exp_add]; congr 1; ring"
     frequency: 1
-  - trigger: ae quantifier swap
-    tip: Do NOT try to prove MeasurableSet directly when functions are only AEStronglyMeasurable. Use .mk proxy approach instead.
+
+  - trigger: "ae quantifier swap"
+    tip: "Do NOT try to prove MeasurableSet directly when functions are only AEStronglyMeasurable. Use .mk proxy approach instead."
     frequency: 1
-  - trigger: integral_map argument order
-    tip: integral_map takes AEMeasurable f μ first, then AEStronglyMeasurable g (μ.map f)
+
+  - trigger: "integral_map argument order"
+    tip: "integral_map takes AEMeasurable f μ first, then AEStronglyMeasurable g (μ.map f)"
     frequency: 1
-  - trigger: memLp_map_measure_iff needs AEStronglyMeasurable for composed function
-    tip: memLp_map_measure_iff requires AEStronglyMeasurable g (μ.map f), not f, and returns ↔ for MemLp (g∘f)
+
+  - trigger: "memLp_map_measure_iff needs AEStronglyMeasurable for composed function"
+    tip: "memLp_map_measure_iff requires AEStronglyMeasurable g (μ.map f), not f, and returns ↔ for MemLp (g∘f)"
     frequency: 1
-  - trigger: variance_map pattern matching
-    tip: DO NOT try rw [← variance_map] — Lean won't match f against id∘f. Use have := (variance_map ...).symm instead.
+
+  - trigger: "variance_map pattern matching"
+    tip: "DO NOT try rw [← variance_map] — Lean won't match f against id∘f. Use have := (variance_map ...).symm instead."
     frequency: 1
-  - trigger: Converting `μ S ≤ ENNReal.ofReal r` to `.toReal` inequality when goal is in ℝ
-    tip: Use `rw [← ENNReal.toReal_ofReal hr]` then `exact (ENNReal.toReal_le_toReal (measure_ne_top μ _) ENNReal.ofReal_ne_top).mpr h` to bridge an ENNReal ≤ ENNReal hypothesis into a Real ≤ Real goal.
-    key_api:
-      - ENNReal.toReal_ofReal
-      - ENNReal.toReal_le_toReal
-      - MeasureTheory.measure_ne_top
-      - ENNReal.ofReal_ne_top
-    confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072554
-    evolve_trace_refs:
-      - cli-20260413-chebyshev_simple-7uph
-  - trigger: need nonnegativity of a Bochner/Lebesgue integral over an arbitrary measure
-    tip: Prefer `integral_nonneg_of_ae` (takes an ae hypothesis `0 ≤ᵐ[μ] f`) over `integral_nonneg` (requires pointwise `∀ x, 0 ≤ f x`). Use the ae variant whenever the hypothesis is already phrased almost-everywhere.
-    key_api:
-      - MeasureTheory.integral_nonneg_of_ae
-      - MeasureTheory.integral_nonneg
-    confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072597
-    evolve_trace_refs:
-      - cli-20260413-integral_test-25mm
-  - trigger: Searching Mathlib for IsBoundedInProbability or stochastic order O_P notation
-    tip: IsBoundedInProbability, IsNegligibleInProbability, and ConvergesInProbability are NOT in Mathlib — they are defined in Statlean.EmpiricalProcess.StochasticOrder. Always import that module and search there, not via grep_api on Mathlib.
-    key_api:
-      - IsBoundedInProbability
-      - IsNegligibleInProbability
-      - ConvergesInProbability
-    confidence: 5
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072624
-    evolve_trace_refs:
-      - cli-20260413-lemma_S2-crle
-  - trigger: need to rearrange additive group expression (e.g., a + b - c = (a - c) + b) in a type that is SeminormedAddCommGroup / AddCommGroup but not necessarily a CommRing
-    tip: Use `abel` instead of `ring` for additive rearrangements. `ring` requires a (semi)ring structure; `abel` works for any additive commutative group and handles sub/add permutations correctly.
-    key_api:
-      - abel
-    confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072698
-    evolve_trace_refs:
-      - cli-20260413-norm_sub_add_bound-qcy0
-  - trigger: goal of the form `a ^ n ≤ b ^ n` with `0 ≤ a` and `a ≤ b`
-    tip: Use `pow_le_pow_left₀` (not `pow_le_pow_left`) in Mathlib v4.28+. The rename dropped the unprimed name; `exact pow_le_pow_left₀ ha hab n` closes the goal directly.
-    key_api:
-      - pow_le_pow_left₀
-    confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776072704
-    evolve_trace_refs:
-      - cli-20260413-rename_trigger-n70b
-  - trigger: Searching Mathlib for Cauchy-Schwarz over Finset (finite sum) — common name guesses fail
-    tip: The correct Mathlib name is `Real.sum_mul_le_sqrt_mul_sqrt` (not `inner_mul_le_norm`, `Finset.inner_mul_le_norm`, `abs_inner_le_norm`, or `sum_mul_sq_le_sq_mul_sq`). Also note `Finset.sum_mul_sq_le_sq_mul_sq` exists but has different (semiring) hypotheses. Use `grep_api` pattern `sum_mul_le_sqrt` to locate it quickly.
-    key_api:
-      - Real.sum_mul_le_sqrt_mul_sqrt
-      - Finset.sum_mul_sq_le_sq_mul_sq
-    confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776083109
-    evolve_trace_refs:
-      - cli-20260413-cox_s3_cauchy_schwarz_tail-z322
-  - trigger: need to bound f(x) ≤ g(x) on an interval using derivative comparison
+
+  - trigger: "Converting `μ S ≤ ENNReal.ofReal r` to `.toReal` inequality when goal is in ℝ"
+    tip: "Use `rw [← ENNReal.toReal_ofReal hr]` then `exact (ENNReal.toReal_le_toReal (measure_ne_top μ _) ENNReal.ofReal_ne_top).mpr h` to bridge an ENNReal ≤ ENNReal hypothesis into a Real ≤ Real goal."
+
+  - trigger: "need nonnegativity of a Bochner/Lebesgue integral over an arbitrary measure"
+    tip: "Prefer `integral_nonneg_of_ae` (takes an ae hypothesis `0 ≤ᵐ[μ] f`) over `integral_nonneg` (requires pointwise `∀ x, 0 ≤ f x`). Use the ae variant whenever the hypothesis is already phrased almost-everywhere."
+
+  - trigger: "Searching Mathlib for IsBoundedInProbability or stochastic order O_P notation"
+    tip: "IsBoundedInProbability, IsNegligibleInProbability, and ConvergesInProbability are NOT in Mathlib — they are defined in Statlean.EmpiricalProcess.StochasticOrder. Always import that module and search there, not via grep_api on Mathlib."
+
+  - trigger: "need to rearrange additive group expression (e.g., a + b - c = (a - c) + b) in a type that is SeminormedAddCommGroup / AddCommGroup but not necessarily a CommRing"
+    tip: "Use `abel` instead of `ring` for additive rearrangements. `ring` requires a (semi)ring structure; `abel` works for any additive commutative group and handles sub/add permutations correctly."
+
+  - trigger: "goal of the form `a ^ n ≤ b ^ n` with `0 ≤ a` and `a ≤ b`"
+    tip: "Use `pow_le_pow_left₀` (not `pow_le_pow_left`) in Mathlib v4.28+. The rename dropped the unprimed name; `exact pow_le_pow_left₀ ha hab n` closes the goal directly."
+
+  - trigger: "Searching Mathlib for Cauchy-Schwarz over Finset (finite sum) — common name guesses fail"
+    tip: "The correct Mathlib name is `Real.sum_mul_le_sqrt_mul_sqrt` (not `inner_mul_le_norm`, `Finset.inner_mul_le_norm`, `abs_inner_le_norm`, or `sum_mul_sq_le_sq_mul_sq`). Also note `Finset.sum_mul_sq_le_sq_mul_sq` exists but has different (semiring) hypotheses. Use `grep_api` pattern `sum_mul_le_sqrt` to locate it quickly."
+
+  - trigger: "need to bound f(x) ≤ g(x) on an interval using derivative comparison"
     tip: "The lemma `image_le_of_deriv_right_le_deriv_boundary` does NOT exist in Mathlib. The correct approach is: define h = g - f, show `antitoneOn_of_deriv_nonpos` does not apply directly either — instead use `monotoneOn_of_deriv_nonneg` on (g - f) or show AntitoneOn on f - g, then evaluate at the left boundary to get f(a) ≤ g(a) and propagate."
-    key_api:
-      - monotoneOn_of_deriv_nonneg
-      - antitoneOn_of_deriv_nonpos
-      - strictMonoOn_of_deriv_pos
-    confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776089347
-    evolve_trace_refs:
-      - cli-20260413-hoeffding_cgf_bound-3yfb
-  - trigger: searching for a 'comparison via derivatives on an interval' lemma in Mathlib
+
+  - trigger: "searching for a 'comparison via derivatives on an interval' lemma in Mathlib"
     tip: "Avoid grep-searching for `image_le_of_*`, `deriv.*boundary`, `le_of_hasDerivAt`, `sub_le_of_hasDerivAt`, or `norm_sub_le_of_le_deriv` — none of these patterns exist in current Mathlib. The canonical API for interval-monotonicity from derivatives is: `monotoneOn_of_deriv_nonneg` (ConvexDomain, ContinuousOn, deriv ≥ 0 on interior → MonotoneOn), `antitoneOn_of_deriv_nonpos` (same shape, nonpos → AntitoneOn), `strictMonoOn_of_deriv_pos`."
-    key_api:
-      - monotoneOn_of_deriv_nonneg
-      - antitoneOn_of_deriv_nonpos
-      - strictMonoOn_of_deriv_pos
-    confidence: 5
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776089347
-    evolve_trace_refs:
-      - cli-20260413-hoeffding_cgf_bound-3yfb
-  - trigger: Need to rewrite ∫ f d(Measure.pi μ) over Fin (n+1) as iterated integral (one coordinate + rest)
+
+  - trigger: "Need to rewrite ∫ f d(Measure.pi μ) over Fin (n+1) as iterated integral (one coordinate + rest)"
     tip: "There is no `integral_fin_succ` lemma in Mathlib. The correct route is: (1) apply `MeasurePreserving.integral_comp` using `measurePreserving_piFinSuccAbove` to change variables, then (2) convert to iterated integral via `MeasureTheory.integral_prod`. The map `piFinSuccAbove` is measure-preserving but you also need `MeasurableEmbedding` — supply it via the underlying `MeasurableEquiv` (`.measurableEmbedding` or `.toMeasurableEmbedding`)."
-    key_api:
-      - MeasureTheory.measurePreserving_piFinSuccAbove
-      - MeasureTheory.MeasurePreserving.integral_comp
-      - MeasureTheory.integral_prod
-      - MeasurableEquiv.measurableEmbedding
-    confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776092270
-    evolve_trace_refs:
-      - cli-20260413-mcdiarmid_mgf_bound-4wey
-  - trigger: Using `MeasurePreserving.integral_comp` when the underlying map is a `MeasurableEquiv`
+
+  - trigger: "Using `MeasurePreserving.integral_comp` when the underlying map is a `MeasurableEquiv`"
     tip: "`MeasurePreserving.integral_comp` has signature `MeasurePreserving f μ ν → MeasurableEmbedding f → ∀ g, ∫ x, g (f x) ∂μ = ∫ y, g y ∂ν`. When f comes from a `MeasurableEquiv` e, supply `e.measurableEmbedding` (or `MeasurableEquiv.toMeasurableEmbedding`) as the second argument."
-    key_api:
-      - MeasureTheory.MeasurePreserving.integral_comp
-      - MeasurableEquiv.measurableEmbedding
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776092270
-    evolve_trace_refs:
-      - cli-20260413-mcdiarmid_mgf_bound-4wey
-  - trigger: Need to rewrite integral under a MeasurePreserving map
+
+  - trigger: "Need to rewrite integral under a MeasurePreserving map"
     tip: "Use `MeasurePreserving.integral_comp` which has signature: `MeasurePreserving f μ ν → MeasurableEmbedding f → ∀ (g : β → G), ∫ x, g (f x) ∂μ = ∫ y, g y ∂ν`. Note it requires BOTH MeasurePreserving AND MeasurableEmbedding. For equivalences, you may need to extract the MeasurableEmbedding from the MeasurableEquiv. Also available: `MeasurePreserving.lintegral_comp` and `MeasurePreserving.lintegral_comp_emb` for ℝ≥0∞-valued integrals."
-    key_api:
-      - MeasureTheory.MeasurePreserving.integral_comp
-      - MeasureTheory.MeasurePreserving.lintegral_comp
-      - MeasureTheory.MeasurePreserving.lintegral_comp_emb
-    confidence: 4
-    evolve_source: evolve-opus
-    evolve_created_at: 1776092314
-    evolve_trace_refs:
-      - cli-20260413-mcdiarmid_mgf_bound-4wey
-  - trigger: Searching for Gaussian integration-by-parts or Stein's lemma in the project
-    tip: The StatLean project has `stein_identity` (C¹ functions), `stein_identity_of_lipschitz` (Lipschitz functions), and `gaussian_ibp_coord` (multi-dimensional IBP for `stdGaussianPi`) in `Statlean/Gaussian/Stein.lean`. Search with pattern `stein|gaussian.*ibp|gaussian_ibp_coord` rather than `integral_mul_gaussian` to find these.
-    key_api:
-      - stein_identity
-      - stein_identity_of_lipschitz
-      - gaussian_ibp_coord
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776096345
-    evolve_trace_refs:
-      - cli-20260413-slepian_lemma-5kp2
-  - trigger: Filter.Tendsto or MeasureTheory identifiers not resolving in a Lean 4 file (autoImplicit treating them as unknown variables)
-    tip: When Lean reports 'The identifier `Tendsto` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable', add `open Filter MeasureTheory` (or `open scoped`) at the top of the section/file. The autoImplicit trap means missing opens silently create bogus implicit variables instead of giving a 'unknown identifier' error.
-    key_api:
-      - Filter.Tendsto
-      - MeasureTheory.ProbabilityMeasure
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776096748
-    evolve_trace_refs:
-      - cli-20260413-marchenko_pastur_convergence-db5b
-  - trigger: check_type call fails with 'Unknown constant MeasureTheory.Measure.withDensity_apply'
+
+  - trigger: "Searching for Gaussian integration-by-parts or Stein's lemma in the project"
+    tip: "The StatLean project has `stein_identity` (C¹ functions), `stein_identity_of_lipschitz` (Lipschitz functions), and `gaussian_ibp_coord` (multi-dimensional IBP for `stdGaussianPi`) in `Statlean/Gaussian/Stein.lean`. Search with pattern `stein|gaussian.*ibp|gaussian_ibp_coord` rather than `integral_mul_gaussian` to find these."
+
+  - trigger: "Filter.Tendsto or MeasureTheory identifiers not resolving in a Lean 4 file (autoImplicit treating them as unknown variables)"
+    tip: "When Lean reports 'The identifier `Tendsto` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable', add `open Filter MeasureTheory` (or `open scoped`) at the top of the section/file. The autoImplicit trap means missing opens silently create bogus implicit variables instead of giving a 'unknown identifier' error."
+
+  - trigger: "check_type call fails with 'Unknown constant MeasureTheory.Measure.withDensity_apply'"
     tip: "The correct name is `MeasureTheory.withDensity_apply`, NOT `MeasureTheory.Measure.withDensity_apply`. The lemma lives in the root `MeasureTheory` namespace, not under `Measure`. Signature: `MeasurableSet s → (μ.withDensity f) s = ∫⁻ a in s, f a ∂μ`."
-    key_api:
-      - MeasureTheory.withDensity_apply
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776097310
-    evolve_trace_refs:
-      - cli-20260413-mpMeasure_isProbabilityMeasure-oz60
-  - trigger: Need to unfold or work with `TendstoInMeasure μ f l g` in terms of norm
-    tip: Use `MeasureTheory.tendstoInMeasure_iff_norm` which rewrites `TendstoInMeasure μ f l g` as `∀ ε > 0, Tendsto (fun i => μ {x | ε ≤ ‖f i x - g x‖}) l (nhds 0)`. This is the correct iff characterization in Mathlib for seminormed groups.
-    key_api:
-      - MeasureTheory.tendstoInMeasure_iff_norm
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776106138
-    evolve_trace_refs:
-      - cli-20260413-uniform_bound_on_FPC_score_estimation_error-o4ho
-  - trigger: MeasurableSpace Ω instance synthesis failure when using probability measure P in a snippet check
-    tip: When check_snippet or extract_goal fails with `failed to synthesize instance MeasurableSpace Ω`, add `[MeasurableSpace Ω] [MeasureProbabilitySpace Ω]` (or `IsProbabilityMeasure`) as explicit variable declarations above the theorem, or open a `variable` block. The issue is that Ω is abstract and Lean cannot infer its measurable structure without an explicit instance.
-    key_api:
-      - MeasurableSpace
-      - MeasureTheory.IsProbabilityMeasure
-      - ProbabilityTheory.ProbabilitySpace
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776145537
-    evolve_trace_refs:
-      - cli-20260414-smoothed_empirical_process_approximation_S3-f7qh
-  - trigger: Need sSup {a} = a in a ConditionallyCompleteLattice (e.g., ℝ)
+
+  - trigger: "Need to unfold or work with `TendstoInMeasure μ f l g` in terms of norm"
+    tip: "Use `MeasureTheory.tendstoInMeasure_iff_norm` which rewrites `TendstoInMeasure μ f l g` as `∀ ε > 0, Tendsto (fun i => μ {x | ε ≤ ‖f i x - g x‖}) l (nhds 0)`. This is the correct iff characterization in Mathlib for seminormed groups."
+
+  - trigger: "MeasurableSpace Ω instance synthesis failure when using probability measure P in a snippet check"
+    tip: "When check_snippet or extract_goal fails with `failed to synthesize instance MeasurableSpace Ω`, add `[MeasurableSpace Ω] [MeasureProbabilitySpace Ω]` (or `IsProbabilityMeasure`) as explicit variable declarations above the theorem, or open a `variable` block. The issue is that Ω is abstract and Lean cannot infer its measurable structure without an explicit instance."
+
+  - trigger: "Need sSup {a} = a in a ConditionallyCompleteLattice (e.g., ℝ)"
     tip: "Use csSup_singleton, not sSup_singleton. The latter does not exist in Mathlib; the former has signature @csSup_singleton : ∀ {α} [ConditionallyCompleteLattice α] (a : α), sSup {a} = a."
-    key_api:
-      - csSup_singleton
-    confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776146243
-    evolve_trace_refs:
-      - cli-20260414-uniform_convergence_of_Gn-awyt
-  - trigger: simp_rw fails to rewrite an eta-reduced function application (e.g., supNormDiff A n) inside a larger goal
-    tip: simp_rw cannot rewrite under eta-reduced terms when the function head is opaque. Instead, use show to introduce an explicit lambda, or unfold the definition manually with unfold/simp only [...], before rewriting.
-    confidence: 2
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776146243
-    evolve_trace_refs:
-      - cli-20260414-uniform_convergence_of_Gn-awyt
-  - trigger: Need (fun x => c) '' s = {c} for a nonempty set s
+
+  - trigger: "simp_rw fails to rewrite an eta-reduced function application (e.g., supNormDiff A n) inside a larger goal"
+    tip: "simp_rw cannot rewrite under eta-reduced terms when the function head is opaque. Instead, use show to introduce an explicit lambda, or unfold the definition manually with unfold/simp only [...], before rewriting."
+
+  - trigger: "Need (fun x => c) '' s = {c} for a nonempty set s"
     tip: "Use Set.Nonempty.image_const (applied as hne.image_const c), not the non-existent Set.image_const. Signature: s.Nonempty → ∀ (a : β), (fun _ => a) '' s = {a}."
-    key_api:
-      - Set.Nonempty.image_const
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776146243
-    evolve_trace_refs:
-      - cli-20260414-uniform_convergence_of_Gn-awyt
-  - trigger: structure field or integral expression contains ℝ≥0∞ and triggers 'expected token' at column ~28-30
-    tip: Replace ℝ≥0∞ with ENNReal everywhere in the file (they are definitionally equal). The Unicode sequence ℝ≥0∞ is sometimes tokenized as ℝ≥0 (NNReal) + a stray ∞ token inside complex expressions, producing 'expected token' or 'failed to synthesize LE Type' errors. Adding 'open ENNReal' at the top reinforces this.
-    key_api:
-      - ENNReal
-      - NNReal
-    confidence: 4
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776155888
-    evolve_trace_refs:
-      - cli-20260414-exponential_moment_bound-r4p7
+
+  - trigger: "structure field or integral expression contains ℝ≥0∞ and triggers 'expected token' at column ~28-30"
+    tip: "Replace ℝ≥0∞ with ENNReal everywhere in the file (they are definitionally equal). The Unicode sequence ℝ≥0∞ is sometimes tokenized as ℝ≥0 (NNReal) + a stray ∞ token inside complex expressions, producing 'expected token' or 'failed to synthesize LE Type' errors. Adding 'open ENNReal' at the top reinforces this."
+
   - trigger: "∀ r ∈ ({0, 1, 2} : Set ℕ) inside a theorem statement causes 'expected token' parse error"
     tip: "Lean's parser misreads {0, 1, 2} after ∈ as an implicit binder. Rewrite as '∀ r : ℕ, r ∈ ({0, 1, 2} : Set ℕ) →' or factor the finite set into a local def/let before the ∀."
-    confidence: 2
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776155888
-    evolve_trace_refs:
-      - cli-20260414-exponential_moment_bound-r4p7
+
   - trigger: "`by omega` inside a Fin bound proof when `N` is an existential or local `ℕ` variable without explicit linear arithmetic hypotheses in context"
     tip: "`omega` requires explicit linear arithmetic facts visible in the local context. When constructing `Fin N` elements where `N` comes from an existential (`∃ N, ...`), omega has no usable constraints. Use `Nat.pos_of_ne_zero` / `Nat.zero_lt_succ` or restate the hypothesis explicitly, or use `norm_num` / `positivity` instead."
-    key_api:
-      - Nat.zero_lt_of_lt
-      - Nat.pos_of_ne_zero
-    confidence: 2
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776157948
-    evolve_trace_refs:
-      - cli-20260414-uniform_convergence_of_empirical_processes-zdgq
+
   - trigger: "`one_ne_top` used without namespace in ENNReal context"
-    tip: Use `ENNReal.one_ne_top` (fully namespaced). The bare identifier `one_ne_top` is unknown in Lean 4 / Mathlib 4.
-    key_api:
-      - ENNReal.one_ne_top
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776157948
-    evolve_trace_refs:
-      - cli-20260414-uniform_convergence_of_empirical_processes-zdgq
-  - trigger: Need to bound `(μ S).toReal ≤ 1` for a probability measure
+    tip: "Use `ENNReal.one_ne_top` (fully namespaced). The bare identifier `one_ne_top` is unknown in Lean 4 / Mathlib 4."
+
+  - trigger: "Need to bound `(μ S).toReal ≤ 1` for a probability measure"
     tip: "Use `prob_le_one` (type: `μ S ≤ 1` in ENNReal) then convert: `(ENNReal.toReal_le_toReal (measure_ne_top μ S) ENNReal.one_ne_top).mpr prob_le_one` followed by `ENNReal.toReal_one`. Do NOT use the non-existent `ENNReal.toReal_le_one`."
-    key_api:
-      - prob_le_one
-      - ENNReal.toReal_le_toReal
-      - ENNReal.toReal_one
-      - ENNReal.one_ne_top
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776157948
-    evolve_trace_refs:
-      - cli-20260414-uniform_convergence_of_empirical_processes-zdgq
+
   - trigger: "`field_simp` followed by `ring` causes 'No goals to be solved' error"
     tip: "`field_simp` often closes the goal entirely (especially for simple algebraic identities over fields). Adding `ring` after it will error with 'No goals to be solved'. Use `field_simp` alone, or guard with `try ring`."
-    key_api:
-      - field_simp
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776157948
-    evolve_trace_refs:
-      - cli-20260414-uniform_convergence_of_empirical_processes-zdgq
-  - trigger: absolute value notation `|expr|` used inside or near set-builder notation `{... | ...}`
-    tip: Replace `|expr|` with `abs expr` (or `‖expr‖` for norms) when the pipe character conflicts with set-builder syntax. Lean 4 parser treats `|` as the set-builder separator, producing 'unexpected token >' or similar parse errors.
-    key_api:
-      - abs
-    confidence: 3
-    evolve_source: evolve-sonnet
-    evolve_created_at: 1776157948
-    evolve_trace_refs:
-      - cli-20260414-uniform_convergence_of_empirical_processes-zdgq
-  - trigger: unexpected `∫ g ∂ν = 0` for nonneg but non-integrable real-valued g in Bochner integral
-    tip: Mathlib's real Bochner integral DEFINES `∫ g ∂ν = 0` when g is not μ-integrable, regardless of sign. Hypothesis `Integrable f (μ.prod ν)` (L¹) does NOT imply `Integrable (fun ω ↦ ∫ s, ‖f ω s‖² ∂ν) μ`. For L²-flavored bounds that reference `∫ ‖f‖²`, you must strengthen to `MemLp f 2` (or equivalently integrable_sq), otherwise RHS can silently collapse to 0 on non-L² slices, making pointwise-in-ω chains fail.
+
+  - trigger: "absolute value notation `|expr|` used inside or near set-builder notation `{... | ...}`"
+    tip: "Replace `|expr|` with `abs expr` (or `‖expr‖` for norms) when the pipe character conflicts with set-builder syntax. Lean 4 parser treats `|` as the set-builder separator, producing 'unexpected token >' or similar parse errors."
+
+  - trigger: "unexpected `∫ g ∂ν = 0` for nonneg but non-integrable real-valued g in Bochner integral"
+    tip: "Mathlib's real Bochner integral DEFINES `∫ g ∂ν = 0` when g is not μ-integrable, regardless of sign. Hypothesis `Integrable f (μ.prod ν)` (L¹) does NOT imply `Integrable (fun ω ↦ ∫ s, ‖f ω s‖² ∂ν) μ`. For L²-flavored bounds that reference `∫ ‖f‖²`, you must strengthen to `MemLp f 2` (or equivalently integrable_sq), otherwise RHS can silently collapse to 0 on non-L² slices, making pointwise-in-ω chains fail."

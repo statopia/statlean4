@@ -250,6 +250,8 @@ import Statlean.Web.headless_test_mnv0smhn.Main
 import Statlean.Web.headless_test_mnv0uj46.Main
 import Statlean.Web.jobartifacttest02.Main
 import Statlean.Web.jobbatch1smoketest.Main
+import Statlean.Web.jobbayesnro6t.Main
+import Statlean.Web.jobbayeso1y36.Main
 import Statlean.Web.jobmn9rf4srqk3w.Main
 import Statlean.Web.jobmn9rqwi97ush.Main
 import Statlean.Web.jobmnfrosueh4uz.Main
