@@ -1,6 +1,6 @@
-version: v169
-generated: 2026-04-23
-total_sorry: 396
+version: v175
+generated: 2026-04-24
+total_sorry: 397
 
 sorry_items:
 
@@ -11,14 +11,7 @@ sorry_items:
   type: blocked
   depth: 3
   priority: 40
-  blocker: "DKW inequality with sharp Massart constant 2. Requires: (a) measurability
-of the supremum event sup_x |F_n - F|; (b) symmetrization argument or
-McDiarmid/Talagrand bounded-differences; (c) VC-chaining bound for the
-half-line class (VC dim 1) or equivalent. Mathlib currently lacks a
-sharp McDiarmid inequality at constant 2 and a VC chaining infrastructure.
-Partially unlocked once `Statlean.Concentration.Talagrand.mcdiarmid` is
-strengthened to the 2-constant Massart form.
-"
+  blocker: "DKW inequality with sharp Massart constant 2. Requires: (a) measurability of the supremum event sup_x |F_n - F|; (b) symmetrization argument or McDiarmid/Talagrand bounded-differences; (c) VC-chaining bound for the half-line class (VC dim 1) or equivalent. Mathlib currently lacks a sharp McDiarmid inequality at constant 2 and a VC chaining infrastructure. Partially unlocked once `Statlean.Concentration.Talagrand.mcdiarmid` is strengthened to the 2-constant Massart form. "
   estimated_lines: 350
   dependencies: [concentration.talagrand.mcdiarmid_mgf_bound]
   unlocks: []
@@ -1589,6 +1582,17 @@ strengthened to the 2-constant Massart form.
   file: Statlean/Web/jobmoa25m2b4k04/Main.lean
   line: 181
   theorem: ratio_tendsto_of_degenerate
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmod1vqffc6zl.theorem_001_theorem_2.theorem_001_theorem_2
+  file: Statlean/Web/jobmod1vqffc6zl/theorem_001_theorem_2.lean
+  line: 109
+  theorem: theorem_001_theorem_2
   type: unknown
   depth: 1
   priority: 99
