@@ -143,6 +143,21 @@ If `--prove-depth deep`:
 2. **Whole-file zero sorry** → update `Verified.lean`.
 3. **Remaining sorry** → structured comment + `sorry_backlog.yaml` registration.
 
+After any sorry-count change (completion of a prove subagent, extraction,
+fresh skeleton write), regenerate the structured sorry list so the web
+UI can render it without its own regex scan (roadmap A3):
+
+```bash
+python3 theme/scripts/extract_sorries.py \
+    --sandbox "$SANDBOX" --output "$SANDBOX/sorry_list.json"
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" \
+    artifact --kind-tag sorry-list --path sorry_list.json
+```
+
+The web UI's `JobRunner.onArtifact` replaces `job.sorryTargets` verbatim
+from this JSON on every emit, so stale entries from earlier writes are
+cleared automatically.
+
 ## Step 5.7: Knowledge Ingestion（自动）
 
 对 Step 5 中成功证明的定理，收集 agent 返回的 `new_knowledge` YAML 块并入库：

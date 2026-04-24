@@ -208,28 +208,66 @@ who may not have emit installed).
 
 ---
 
-## §3. (Reserved) Error Code Enum
+## §3. Error Code Enum
 
-**Status**: Not yet implemented. Roadmap item A4.
+**Status**: ✅ infrastructure landed (roadmap A4). Skills are being
+migrated to emit structured codes; until then the web falls back to
+prose-regex matching for legacy system errors.
 
-**Target**: When a skill fails in a structured way the agent MUST emit
+### When to use
 
-```
-ERROR_CODE: <CODE>
-<human-readable explanation>
-```
+Two preferred paths, both accepted by the web UI's `friendlyErrorMessage`:
 
-on a line of its own (typically inside the failing step's narrative).
-`<CODE>` is from a fixed enum maintained below. The web UI maps code →
-friendly message via a lookup table.
+1. **Emit via `events.jsonl`** (preferred, machine-readable):
+   ```bash
+   python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" \
+       error --code INTEGRITY_VIOLATION --msg "theorem signature was altered at line 42"
+   ```
+   The web server forwards this as a `ui_event` SSE frame; JobRunner
+   promotes it to `job.errorMessage` in the shape
+   ```
+   ERROR_CODE: INTEGRITY_VIOLATION
+   theorem signature was altered at line 42
+   ```
 
-Enum (initial sketch, to be finalized with A4):
+2. **Print inline in skill prose** (fallback, human-readable):
+   ```
+   [agent narrative explaining what failed]
+   ERROR_CODE: OCR_FAIL
+   MinerU failed on both hybrid and pipeline backends for this PDF.
+   ```
+   The same `ERROR_CODE:` prefix is picked up by `extractErrorCode` in
+   `website/src/lib/errorMessages.ts`.
 
-- `INTEGRITY_VIOLATION` — Rule 3 statement-integrity gate rejected the proof
-- `OCR_FAIL` — PDF extraction exhausted all MinerU backends
-- `BUILD_TIMEOUT` — `lake build` did not finish within its budget
-- `SCOPE_DECLINE` — theorem is outside what this skill can attempt
-- `USER_ABORT` — user aborted via `request_user_decision`
+Either path triggers the UI's friendly-message lookup. Use path 1 when
+you have a concrete sandbox; path 2 when you're aborting hard and don't
+want to depend on the emit script being reachable.
+
+### Enum
+
+| Code | Meaning | Typical emitter |
+|------|---------|-----------------|
+| `INTEGRITY_VIOLATION` | Rule 3 statement-integrity gate rejected the proof (signature altered, trivialized, or wrapped) | `/prove` / `writeFile` tool / pre-promote audit |
+| `LOCK_FAIL_TRIVIAL` | Skeleton is vacuous (conclusion `True`, `False` hypothesis, etc.) — pipeline bug upstream | `lock_signatures` tool / `/tex2lean` honesty check |
+| `OCR_FAIL` | MinerU exhausted all backends; no usable markdown produced | `pdf_extract.py` (`run_mineru` raising SystemExit) |
+| `BUILD_TIMEOUT` | `lake build` exceeded its wall budget | `/build-fix` |
+| `BUILD_ERROR` | `lake build` produced errors the agent could not repair within retry budget | `/build-fix` (final give-up) |
+| `SNIPPET_TIMEOUT` | `check_snippet.sh` incremental compile timed out — divergent tactic | `/prove` Phase 2 |
+| `SCOPE_DECLINE` | Theorem is outside what this skill can attempt (missing Mathlib dep, statement needs redesign) | `/prove` / `/pipeline` after triage |
+| `USER_ABORT` | User aborted via `request_user_decision` | whichever skill hosted the decision prompt |
+
+Add new codes by editing this table AND
+`website/src/lib/errorMessages.ts::ERROR_CODE_MESSAGES` in the same
+commit. The `§13` contract registry row in
+`website/docs/CLI_WEB_CONFORMANCE.md` tracks the sync.
+
+### What NOT to use error codes for
+
+System-level errors that originate outside skill code (provider API key
+invalid, HTTP 429 rate limit, filesystem ENOENT, network outage) are
+handled by the prose-regex fallback in `errorMessages.ts`. Don't force
+these into the code enum — they're not skill-level and the code taxonomy
+should stay compact.
 
 ---
 
