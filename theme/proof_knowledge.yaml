@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 161
+entry_count: 169
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -229,7 +229,15 @@ L3_strategies:
     confidence: 2
 
   - trigger: "integrated Cauchy–Schwarz ∫ω ‖∫s f ω s ∂ν‖² ∂μ ≤ ν(univ) · ∫ω ∫s ‖f ω s‖² ∂ν ∂μ from only `Integrable f (μ.prod ν)`"
-    strategy: "DO NOT attempt. Statement is FALSE from `Integrable` (L¹) alone. Counterexample: f(ω,s)=(ω−½)·g(s), g∈L¹\L² (e.g. g(s)=1/√s on [0,1]). Then f is μ⊗ν-integrable but ‖f(ω,·)‖² ∉ L¹(ν) a.e., so by real-Bochner convention ∫s ‖f‖² = 0 pointwise → RHS = 0 while LHS > 0. Correct hypothesis is MemLp f 2 (μ.prod ν); under that, proof is norm_integral_le_integral_norm + integral_mul_le_Lp_mul_Lq_of_nonneg (p=q=2) + integral_const_mul. If signature locked to Integrable, leave honest sorry citing counterexample."
+    strategy: "DO NOT attempt. Statement is FALSE from `Integrable` (L¹) alone. Counterexample: f(ω,s)=(ω−½)·g(s), g∈L¹ ² (e.g. g(s)=1/√s on [0,1]). Then f is μ⊗ν-integrable but ‖f(ω,·)‖² ∉ L¹(ν) a.e., so by real-Bochner convention ∫s ‖f‖² = 0 pointwise → RHS = 0 while LHS > 0. Correct hypothesis is MemLp f 2 (μ.prod ν); under that, proof is norm_integral_le_integral_norm + integral_mul_le_Lp_mul_Lq_of_nonneg (p=q=2) + integral_const_mul. If signature locked to Integrable, leave honest sorry citing counterexample."
+    confidence: 5
+
+  - trigger: "need O_P ⇒ o_P(1) conversion; rewrite to ENNReal.tendsto_nhds_zero then case-split δ = ⊤"
+    strategy: "rw [ENNReal.tendsto_nhds_zero]; intro δ hδ; by_cases htop : δ = ⊤; · simp-le_top; · toReal_pos from pos_iff_ne_zero + htop; apply O_P at δ.toReal; measure_mono with {ε|X|} ⊆ {M·r<|X|} using eventual M·|r| < ε"
+    confidence: 4
+
+  - trigger: "ENNReal AM-GM: (a+b)^2 ≤ 2*(a^2+b^2)"
+    strategy: "by_cases ha: a = ⊤ (simp closes); by_cases hb: b = ⊤ (simp closes); lift a,b to NNReal; coe_add/coe_pow/coe_mul rewrite to NNReal.coe_le_coe; push_cast; nlinarith [sq_nonneg (a - b : ℝ)]"
     confidence: 5
 
 # ═══════════════════════════════════════════
@@ -492,6 +500,18 @@ L2_api_chains:
     source: Statlean/Web/jobbayeso1y36/Main.lean (Bayes' rule, 4-line proof)
     confidence: 5
 
+  - trigger: "goal: IsNegligibleInProbability μ X (fun _ => 1) from IsBoundedInProbability at vanishing rate"
+    chain: "use `IsBoundedInProbability.to_negligible_of_rate_vanish hOP hrate` where hrate : Tendsto r atTop (𝓝 0)"
+    confidence: 5
+
+  - trigger: "ENNReal goal: (⨆ θ ∈ Θ, F θ)^n with n ≠ 0"
+    chain: "rw [ENNReal.iSup_pow_of_ne_zero h]; apply iSup_congr; intro θ; rw [ENNReal.iSup_pow_of_ne_zero h]; apply iSup_congr; intro hθ"
+    confidence: 5
+
+  - trigger: "need lintegral_add_left for sum split, but integrand is ⨆ θ ∈ Θ over non-countable Θ"
+    chain: "no way to split without AEMeasurable hypothesis — pass it as a theorem hypothesis, since uncountable sup is NOT automatically measurable even if component functions are. skeleton auto-gen assumptions with IsBounded Θ alone are insufficient"
+    confidence: 4
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -737,3 +757,15 @@ L1_tactic_tips:
 
   - trigger: "unexpected `∫ g ∂ν = 0` for nonneg but non-integrable real-valued g in Bochner integral"
     tip: "Mathlib's real Bochner integral DEFINES `∫ g ∂ν = 0` when g is not μ-integrable, regardless of sign. Hypothesis `Integrable f (μ.prod ν)` (L¹) does NOT imply `Integrable (fun ω ↦ ∫ s, ‖f ω s‖² ∂ν) μ`. For L²-flavored bounds that reference `∫ ‖f‖²`, you must strengthen to `MemLp f 2` (or equivalently integrable_sq), otherwise RHS can silently collapse to 0 on non-L² slices, making pointwise-in-ω chains fail."
+
+  - trigger: "goal says `tendsto_abs_nhds_zero_iff` — name wrong"
+    tip: "correct Mathlib name is `tendsto_zero_iff_abs_tendsto_zero` (r → 0 ↔ |r| → 0)"
+    frequency: 1
+
+  - trigger: "need lintegral_const_mul but no measurability"
+    tip: "use MeasureTheory.lintegral_const_mul' which only requires r ≠ ⊤ (NOT measurability of f)"
+    frequency: 1
+
+  - trigger: "ENNReal.ofReal (Real.exp x)^n goal"
+    tip: "rw [← ENNReal.ofReal_pow (Real.exp_nonneg _), sq, ← Real.exp_add]; ring_nf"
+    frequency: 1

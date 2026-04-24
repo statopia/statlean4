@@ -1,6 +1,6 @@
-version: v175
-generated: 2026-04-24
-total_sorry: 397
+version: v176
+generated: 2026-04-25
+total_sorry: 393
 
 sorry_items:
 
@@ -1132,51 +1132,6 @@ sorry_items:
   file: Statlean/Web/jobmo46vxcj36zl/Main.lean
   line: 186
   theorem: lemma_s3_oP
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: web.jobmo4buybbcxdk.main.lemma_s4
-  file: Statlean/Web/jobmo4buybbcxdk/Main.lean
-  line: 77
-  theorem: lemma_s4
-  type: unknown
-  depth: 1
-  priority: 99
-  blocker: "ENNReal iSup monotone-square, (a+b)^2 le 2(a^2+b^2) in ENNReal,"
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: web.jobmo4buybbcxdk.main.lemma_s4_add_sq_bound
-  file: Statlean/Web/jobmo4buybbcxdk/Main.lean
-  line: 45
-  theorem: lemma_s4_add_sq_bound
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: web.jobmo4buybbcxdk.main.lemma_s4_supr_sq_lintegral_bound
-  file: Statlean/Web/jobmo4buybbcxdk/Main.lean
-  line: 53
-  theorem: lemma_s4_supr_sq_lintegral_bound
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: web.jobmo4buybbcxdk.main.lemma_s4_z1_const_factor
-  file: Statlean/Web/jobmo4buybbcxdk/Main.lean
-  line: 62
-  theorem: lemma_s4_z1_const_factor
   type: unknown
   depth: 1
   priority: 99
