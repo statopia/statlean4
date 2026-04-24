@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 169
+entry_count: 173
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -239,6 +239,10 @@ L3_strategies:
   - trigger: "ENNReal AM-GM: (a+b)^2 ≤ 2*(a^2+b^2)"
     strategy: "by_cases ha: a = ⊤ (simp closes); by_cases hb: b = ⊤ (simp closes); lift a,b to NNReal; coe_add/coe_pow/coe_mul rewrite to NNReal.coe_le_coe; push_cast; nlinarith [sq_nonneg (a - b : ℝ)]"
     confidence: 5
+
+  - trigger: "show d n * exp(-c * M² * log(d n)) → 0 given d n → ∞ and choice of M"
+    strategy: "choose M := sqrt(α/c) so c*M² = α (typically α=2); compute (M*sqrt L)² = M² L; -c (M² L) = -α L; exp(-2 log x) = x⁻¹ * x⁻¹ via log_inv + exp_add + exp_log; product simplifies to constant/d n; d n → ∞ gives (d n)⁻¹ → 0 via Tendsto.inv_tendsto_atTop"
+    confidence: 4
 
 # ═══════════════════════════════════════════
 # L2 — API 链路（Mathlib 引理串联方案）
@@ -512,6 +516,10 @@ L2_api_chains:
     chain: "no way to split without AEMeasurable hypothesis — pass it as a theorem hypothesis, since uncountable sup is NOT automatically measurable even if component functions are. skeleton auto-gen assumptions with IsBounded Θ alone are insufficient"
     confidence: 4
 
+  - trigger: "goal: (μ {ω | ∃ k < N, p k ω}).toReal ≤ N * bound"
+    chain: "rewrite set as ⋃ k ∈ Finset.range N, {ω | p k ω} via `ext; simp [Finset.mem_range]`; measure_biUnion_finset_le; convert via ENNReal.toReal_mono + ENNReal.toReal_sum; Finset.sum_le_sum of constant = N * bound"
+    confidence: 5
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -768,4 +776,12 @@ L1_tactic_tips:
 
   - trigger: "ENNReal.ofReal (Real.exp x)^n goal"
     tip: "rw [← ENNReal.ofReal_pow (Real.exp_nonneg _), sq, ← Real.exp_add]; ring_nf"
+    frequency: 1
+
+  - trigger: "positivity fails on `2 / A.c_tail` with c_tail : field element"
+    tip: "positivity can't see through structure access; name hypothesis `have hc := A.hc_pos` first, then positivity sees h2_over_c_pos via have h2_over_c_pos : 0 < 2 / A.c_tail := by positivity"
+    frequency: 1
+
+  - trigger: "need Real.exp (-2 * Real.log x) = x⁻¹ * x⁻¹"
+    tip: "rewrite -2 * log x = log x⁻¹ + log x⁻¹ via `rw [Real.log_inv]; ring`; then exp_add + exp_log (needs positivity of x)"
     frequency: 1

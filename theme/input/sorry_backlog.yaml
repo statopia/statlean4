@@ -1,6 +1,6 @@
-version: v176
+version: v177
 generated: 2026-04-25
-total_sorry: 393
+total_sorry: 391
 
 sorry_items:
 
@@ -1678,30 +1678,6 @@ sorry_items:
   type: unknown
   depth: 1
   priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: web.smokemo5sjvj9.main.lemma_s5
-  file: Statlean/Web/smokemo5sjvj9/Main.lean
-  line: 121
-  theorem: lemma_s5
-  type: unknown
-  depth: 1
-  priority: 99
-  blocker: "Need d_n^{1-cM²} → 0 when cM² > 1, requires Real.rpow_tendsto or"
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: web.smokemo5sjvj9.main.union_bound_tail
-  file: Statlean/Web/smokemo5sjvj9/Main.lean
-  line: 93
-  theorem: union_bound_tail
-  type: unknown
-  depth: 1
-  priority: 99
-  blocker: "Need to rewrite the ∃-set as a finite union, apply measure_iUnion_le,"
   estimated_lines: 50
   dependencies: []
   unlocks: []
