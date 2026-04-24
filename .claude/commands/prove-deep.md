@@ -1,6 +1,6 @@
 ---
 description: Deep prove mode — DAG-driven work-stealing scheduler with 3 saturated agents
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash(lake:*), Bash(grep:*), Bash(echo:*), Bash(python3:*), Bash(git:*), Task, Agent, WebSearch, WebFetch
+allowed-tools: Read, Edit, Write, Grep, Glob, Bash(lake:*), Bash(grep:*), Bash(echo:*), Bash(python3:*), Bash(git:*), Task, Agent, WebSearch, WebFetch, mcp__statlean_web_ui__request_user_decision
 model: opus
 argument-hint: [sorry-id from backlog, or "next" for highest priority, or "all-leaves"] [--time-budget Xh]
 ---
@@ -193,6 +193,28 @@ elif result.status == "stuck":
   - Mark sorry as pending
   - Increase priority by 5 (deprioritize)
   - Log blocker info for future reference
+  - **User-trust gate** (web-UI only — silently skipped in CLI-standalone
+    mode when the tool is unavailable):
+    If the blocker description mentions missing Mathlib infrastructure
+    (patterns: "unknown identifier", "unknown constant", "no such lemma",
+    "API doesn't exist", "需要 X 但 Mathlib 没有") OR the sorry has been
+    stuck twice in a row, call
+    `mcp__statlean_web_ui__request_user_decision` with:
+      question: "Sorry <theorem_name> is stuck (blocker: <one-line>). Trust as axiom, investigate deeper, or abort?"
+      options: ["trust_as_axiom", "investigate_deeper", "abort"]
+    Act on the reply:
+      - USER_CHOICE: trust_as_axiom   → leave the sorry with comment
+        `-- TRUSTED (user-approved infra gap: <reason>)`, skip further
+        dispatches for this id, continue DAG loop.
+      - USER_CHOICE: investigate_deeper → keep in ready_queue with
+        original priority, re-dispatch with time budget ×1.5.
+      - USER_CHOICE: <free-text hint>  → treat as R1 proof-route hint
+        for the next dispatch of this sorry (inject via
+        `parse_proof_roadmap.py --inline "<hint>" --theorem <name>`).
+      - USER_ABORTED: <reason>         → mark sorry as stuck in backlog,
+        never re-dispatch this session.
+      - Tool not found / tool error    → fall back to CLI-default
+        (keep as pending with deprioritized priority, continue).
 
 elif result.status == "need_sub_lemma":
   - Create sub-items in backlog with dependency edges
@@ -329,3 +351,21 @@ This follows the original `/prove-deep` flow but with:
 - 知识入库 → "入库 N 条 pattern"（YAML 和脚本输出在 Bash 工具内）
 - 经验报告 → "经验报告已写入 reports/session_report.md"
 - 工具调用输出（Bash、Read、Grep 等）不计入此预算
+
+## Output Conventions (REQUIRED — web UI contract)
+
+See `theme/conventions/ui-signals.md` for full specification.
+
+When driving the web UI (via `/pipeline` → prove subagents), announce
+major Phase transitions with `## Step N: <title>` lines. See `/prove`'s
+"Output Conventions" section for the canonical formatting rules
+(two hashes, exact spacing, colon, no dash).
+
+For DAG Phase 1-3 (decomposition + parallel dispatch + reassembly),
+each Phase gets one `## Step N:` marker at the Phase boundary. Individual
+sub-agent launches and results are narrative-only inside their parent
+Phase's body — do NOT create a `## Step N:` for each sub-agent or the
+UI will show a flood of sibling cards.
+
+Fallback shapes `### Step N:` / `**Step N:**` / `# Step N:` are
+tolerated by the parser but MUST NOT be introduced in new skills.

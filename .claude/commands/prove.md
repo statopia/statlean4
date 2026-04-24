@@ -1,6 +1,6 @@
 ---
 description: Attack a specific sorry with full Mathlib search
-allowed-tools: Read, Edit, Grep, Glob, Bash(lake:*), Bash(grep:*), Task, WebSearch, WebFetch
+allowed-tools: Read, Edit, Grep, Glob, Bash(lake:*), Bash(grep:*), Task, WebSearch, WebFetch, mcp__statlean_web_ui__request_user_decision
 model: opus
 argument-hint: [file:line or theorem-name]
 ---
@@ -171,6 +171,21 @@ grep -n 'sorry' <file> | head -30
 ```
 For each sorry, spend 2 minutes checking if Mathlib has the needed API. If not → Honest. If yes → classify as Leaf/Intermediate/Blocked.
 
+**User-trust gate for Honest sorries** (web-UI only — silently skipped in CLI-standalone mode when the tool is unavailable):
+Immediately after classifying a sorry as Honest, call the MCP tool:
+```
+mcp__statlean_web_ui__request_user_decision({
+  question: "Sorry <theorem_name> at <file:line> seems blocked by missing Mathlib infrastructure (describe what's missing in one sentence). How should we proceed?",
+  options: ["trust_as_axiom", "investigate_deeper", "abort"]
+})
+```
+Act on the returned tool result:
+- `USER_CHOICE: trust_as_axiom` → leave the `sorry` in place with comment `-- TRUSTED (user-approved infra gap: <reason>)`, move to the next sorry. Do **not** spend further cycles on this one.
+- `USER_CHOICE: investigate_deeper` → treat it as a non-Honest sorry and proceed to Phase 1.
+- `USER_CHOICE: <free-text hint>` → the user gave a proof route; feed the hint into Phase 0.5 R1 (`parse_proof_roadmap.py --inline "<hint>" --theorem <name>`) and continue.
+- `USER_ABORTED: …` → stop working on this sorry, report it in the final summary.
+- Tool not found / tool error → fall back to CLI-default behavior (leave honest sorry with comment, do NOT spend cycles).
+
 ### Depth Budget
 
 Each proof branch gets a **depth budget** (default: 3 levels of sorry-replacement before escalation).
@@ -340,3 +355,34 @@ For proving bounds on `charFun (μ.map Y)`:
 - Phase 5 知识入库 → "入库 N 条 pattern"（YAML 和脚本输出在 Bash 工具内）
 - 工具调用输出（Bash、Read、Grep 等）不计入此预算
 - `/prove-out` 模式豁免此限制（演示模式需要详细输出）
+
+## Output Conventions (REQUIRED — web UI contract)
+
+See `theme/conventions/ui-signals.md` for full specification.
+
+When invoked as part of the web pipeline (report stream is being read
+by `statlean-web`'s `StepBreakdown` panel), announce each Phase
+transition with a line of the exact form:
+
+```
+## Step N: <short title>
+```
+
+(two hashes, space, word `Step`, space, integer, colon, space, title).
+Map prove's internal Phases to Step numbers as follows (or as each
+phase actually executes; the numbering is for UI ordering, not a
+rigid protocol):
+
+- `## Step 1: Phase 0 — route search + signature probe`
+- `## Step 2: Phase 1 — goal analysis`
+- `## Step 3: Phase 2 — tactic attempts + build loop`
+- `## Step 4: Phase 3 — honesty check + extraction`
+- `## Step 5: Phase 4 — report + knowledge ingestion`
+
+Skip the UI announcement if the prove session is CLI-standalone
+(no web connection) — adding harmless markdown headers does no harm
+but is unnecessary noise for CLI-only users. When launched as a prove
+subagent by `/pipeline`, you ARE driving the web UI and MUST emit.
+
+Fallback shapes `### Step N:` / `**Step N:**` / `# Step N:` are
+tolerated by the parser but MUST NOT be introduced in new skills.

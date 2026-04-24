@@ -16,14 +16,58 @@ Run the complete pipeline: PDF → LaTeX → YAML → Lean 4 → Prove → Gate
 ## Step 1: PDF Extract
 
 ```bash
-# Default: pymupdf (local, zero API cost)
-python3 theme/scripts/pdf_extract.py <pdf> [--theorem <name>] [--pages <range>]
+# Default for math-heavy papers: mineru (local VLM OCR, preserves LaTeX)
+python3 theme/scripts/pdf_extract.py --pdf <pdf> --output-dir <dir> --backend mineru [--theorem <name>] [--pages <range>]
+
+# Fallback if mineru is unavailable or the paper is text-only:
+python3 theme/scripts/pdf_extract.py --pdf <pdf> --output-dir <dir> --backend pymupdf [...]
 ```
 
-pymupdf extracts raw text locally. If math formulas need LaTeX restoration,
-do it in-session (read the .md file and fix LaTeX inline) — no API cost.
+**Backend choice rule (STRICT — do NOT skip):**
+- Math-heavy papers (theorems with formulas, integrals, subscripts, matrix
+  notation) → **always** `--backend mineru`. pymupdf will emit broken LaTeX
+  tokens that cannot be reliably reconstructed and will poison every
+  downstream step (LaTeX Ingest, Lean Skeleton, Prove).
+- Text-only papers (no math, no diagrams) → `--backend pymupdf` is acceptable
+  and ~10× faster.
+- When in doubt, pick `mineru`. The script auto-detects mineru availability
+  when `--backend` is omitted, but be explicit in this pipeline so the
+  choice shows up in the tool_result log.
 
-Report: number of blocks extracted, key theorems found.
+If mineru's output still has noise (rare), **do not in-session hand-patch
+broken LaTeX** — the hand-patching step was the root of past Rule 3
+violations where agents invented statements to fill OCR gaps. Instead:
+call `mcp__statlean_web_ui__request_user_decision` with
+options ["paste_statement","abort"] and let the user supply the raw
+theorem text.
+
+**OCR failure cascade (handled inside the wrapper)**: the wrapper retries
+automatically:
+
+1. `-b hybrid-auto-engine` (default — VLM, fastest+cleanest on CPU per
+   empirical comparison, ~14 s/page on this box)
+2. `-b pipeline -d cpu` fallback if attempt 1 silently failed (exit 0
+   with empty `.md` output — observed on 83-page PDFs). Pipeline is
+   ~1.7× slower and has minor English OCR glitches but reliably produces
+   output.
+
+If **both** attempts fail the wrapper raises `SystemExit` with a
+`MinerU failed on BOTH ...` message. When you see that error:
+**do NOT retry with pymupdf and do NOT hallucinate content**. Call:
+
+```
+mcp__statlean_web_ui__request_user_decision({
+  question: "MinerU couldn't OCR this PDF. Either paste the theorem statement, or supply a smaller --pages range.",
+  options: ["paste_statement", "retry_smaller_pages", "abort"]
+})
+```
+
+**Page-count sanity**: before invoking the wrapper, if the PDF is longer
+than ~15 pages AND `--pages` / `--theorem` was not supplied by the
+caller, warn in the Step 1 report: "OCR on N pages ≈ N×15s on CPU —
+consider a page range via user input before proceeding."
+
+Report: number of blocks extracted, key theorems found, backend used.
 
 ## Step 2: LaTeX Ingest
 
@@ -121,3 +165,26 @@ After EACH step, report:
 - Key outputs
 - Time estimate
 - Any issues encountered
+
+## Output Conventions (REQUIRED — web UI contract)
+
+See `theme/conventions/ui-signals.md` for full specification.
+
+You MUST announce each step in the report narrative with a line of the
+exact form:
+
+```
+## Step N: <short title>
+```
+
+(two hashes, space, word `Step`, space, integer, colon, space, title).
+The web UI's `StepBreakdown` panel parses these lines to render step
+cards. Deviating (e.g. `Step 1:` without `## `, or `STEP` in caps,
+or `## Step 1 - title` with a dash) makes that step invisible in the
+UI. Fallback shapes `### Step N:` / `**Step N:**` / `# Step N:` are
+tolerated but MUST NOT be introduced in new skills.
+
+After completing a step, continue narrative on subsequent lines until
+the next `## Step N:` marker. The UI treats everything between two
+markers as that step's body and extracts an auto-headline (first
+"Found" / "✓" / "Result:" line if present, else first line).
