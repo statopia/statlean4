@@ -356,33 +356,26 @@ For proving bounds on `charFun (μ.map Y)`:
 - 工具调用输出（Bash、Read、Grep 等）不计入此预算
 - `/prove-out` 模式豁免此限制（演示模式需要详细输出）
 
-## Output Conventions (REQUIRED — web UI contract)
+## Output Conventions (web UI contract)
 
-See `theme/conventions/ui-signals.md` for full specification.
+See `theme/conventions/ui-signals.md` for full specification of the
+event + Markdown-header protocol.
 
-When invoked as part of the web pipeline (report stream is being read
-by `statlean-web`'s `StepBreakdown` panel), announce each Phase
-transition with a line of the exact form:
+**When invoked as a subagent by `/pipeline`** (the common web case):
+the OUTER pipeline owns the Step-number namespace and emits Step
+events on the shared `events.jsonl`. Do NOT emit your own `## Step N:`
+headers or `emit_event.py step` calls from inside prove — a second
+`Step 1` from the subagent would collide with pipeline's Step 1 and
+the UI would render confusing merged cards.
 
-```
-## Step N: <short title>
-```
+Your Phase 0-4 prose still lands in the Report stream (right-column
+feed); the web UI reads it there. Use normal narrative — you don't
+need to fit into the Markdown header grammar.
 
-(two hashes, space, word `Step`, space, integer, colon, space, title).
-Map prove's internal Phases to Step numbers as follows (or as each
-phase actually executes; the numbering is for UI ordering, not a
-rigid protocol):
+**When invoked CLI-standalone** (`claude /prove ...` directly by a
+human, no pipeline wrapper): no UI is listening, no conventions apply.
+Emit nothing.
 
-- `## Step 1: Phase 0 — route search + signature probe`
-- `## Step 2: Phase 1 — goal analysis`
-- `## Step 3: Phase 2 — tactic attempts + build loop`
-- `## Step 4: Phase 3 — honesty check + extraction`
-- `## Step 5: Phase 4 — report + knowledge ingestion`
-
-Skip the UI announcement if the prove session is CLI-standalone
-(no web connection) — adding harmless markdown headers does no harm
-but is unnecessary noise for CLI-only users. When launched as a prove
-subagent by `/pipeline`, you ARE driving the web UI and MUST emit.
-
-Fallback shapes `### Step N:` / `**Step N:**` / `# Step N:` are
-tolerated by the parser but MUST NOT be introduced in new skills.
+**Artifact events** are still welcome from prove (e.g. on writing
+`sorry_list.json`). Those don't collide with pipeline's step namespace
+because the kind_tag is the discriminator, not an integer id.

@@ -82,23 +82,129 @@ MUST also update that fixture; otherwise `npm run test` goes red.
 
 ---
 
-## §2. (Reserved) Events JSONL Stream
+## §2. Events JSONL Stream
 
-**Status**: Not yet implemented. Roadmap items A1 + A2.
+**Status**: ✅ infrastructure landed (roadmap A1 in progress). Skills are
+being migrated to emit. Until every skill has emit calls, §1's Step
+header parser continues to serve as fallback.
 
-**Target**: Each sandbox (`Statlean/Web/<jobId>/`) will contain an
-`events.jsonl` file that skill tools append structured events to.
-Schema TBD, but will include at minimum:
+### Location
+
+Each job sandbox (`<STATLEAN_ROOT>/Statlean/Web/<jobId>/`) contains one
+`events.jsonl` file. Append-only, one JSON object per line, UTF-8.
+Skills emit by calling `theme/scripts/emit_event.py` (see below).
+
+### Schema
+
+All events share `ts` (int, milliseconds since epoch) and `kind`
+(enum). Remaining fields depend on kind.
+
+#### `kind: "step"`
+
+Announces a phase boundary. Pairs 1:1 with the Markdown Step header
+in §1 (same `id` integer).
 
 ```jsonl
-{"ts": 1777000000, "kind": "step",     "id": 1, "title": "PDF Extract", "status": "start"}
-{"ts": 1777000030, "kind": "step",     "id": 1, "status": "done"}
-{"ts": 1777000030, "kind": "artifact", "kind_tag": "pdf-extract", "path": "extracted/paper.tex", "size": 1191}
-{"ts": 1777000045, "kind": "error",    "code": "OCR_FAIL", "msg": "..."}
+{"ts": 1777000000, "kind": "step", "id": 1, "title": "PDF Extract", "status": "start"}
+{"ts": 1777000030, "kind": "step", "id": 1, "status": "done"}
 ```
 
-Once live this will supersede §1's header-parsing path for step-breakdown
-rendering. §1 will remain as a human-readable narrative signal.
+- `id` (int, required): step number, matches the `N` in `## Step N:` marker.
+- `title` (string, optional on `done`/`error`, REQUIRED on `start`):
+  short human-readable step name.
+- `status` (enum, required): `"start"` | `"done"` | `"error"`.
+  `"error"` is used when the step itself failed and the web UI should
+  render the card in an error state; for general agent-level errors
+  use a separate `error` event (below) instead.
+
+#### `kind: "artifact"`
+
+Announces that a file is ready for the UI to surface.
+
+```jsonl
+{"ts": 1777000030, "kind": "artifact", "kind_tag": "pdf-extract", "path": "extracted/paper.tex", "size": 1191}
+```
+
+- `kind_tag` (enum, required): UI classifier. One of:
+  `"pdf-extract"` · `"yaml"` · `"lean-skeleton"` · `"lean-live"` ·
+  `"sorry-list"` · `"sub-agent-result"`.
+- `path` (string, required): path **relative to the sandbox**, not
+  absolute. The web UI displays this; absolute server paths would
+  leak `/home/gavin/...` to the client.
+- `size` (int, optional): bytes. If omitted, the emit script stats
+  the path on disk.
+
+#### `kind: "error"`
+
+Structured error report. See §3 for the `code` enum.
+
+```jsonl
+{"ts": 1777000045, "kind": "error", "code": "OCR_FAIL", "msg": "MinerU failed on both backends"}
+```
+
+- `code` (enum, required): from the enum in §3 below.
+- `msg` (string, required): human-readable detail.
+
+### How skills emit
+
+Use the `emit_event.py` helper. From a Bash cell:
+
+```bash
+SANDBOX=/home/gavin/statlean/Statlean/Web/$JOB_ID
+
+# Step start
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" step \
+    --id 1 --title "PDF Extract" --status start
+
+# Step done (same id, no --title needed)
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" step \
+    --id 1 --status done
+
+# Artifact ready (size auto-stats from disk)
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" artifact \
+    --kind-tag pdf-extract --path extracted/paper.tex
+
+# Structured error
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" error \
+    --code OCR_FAIL --msg "MinerU failed on both backends"
+```
+
+Behavior and guarantees:
+
+- **Append-only atomicity**: `O_APPEND` write(2) calls with payloads
+  under 4 KB (PIPE_BUF) are atomic under POSIX, so parallel sub-agents
+  can emit concurrently without explicit locking.
+- **Loud on misuse**: unwritable sandbox / missing sandbox / bad
+  arguments → non-zero exit, stderr message. A silent malformed emit
+  would show stale UI, which is worse than a visible failure.
+- **Fire-and-forget cost**: each call ~20 ms (Python interpreter
+  startup dominates). Don't emit in tight inner loops — once per
+  step / artifact / error is the right granularity.
+- **CLI-standalone safe**: if a skill emits but no web UI is
+  listening, `events.jsonl` just sits in the sandbox. No harm.
+
+### Consumer side
+
+The web server (`server/routes/proveCli.ts`) tails `events.jsonl`
+during a live job and re-emits each parsed event as an SSE `ui_event`
+frame. The web UI stores them in `job.events[]` and `StepBreakdown`
+renders from that when non-empty, falling back to §1's Markdown
+parser when empty (legacy sessions or skills that haven't migrated).
+
+### Migration status
+
+Skills that have emit calls wired in:
+
+- [ ] `pipeline.md`
+- [ ] `prove.md`
+- [ ] `prove-deep.md`
+- [ ] `tex2lean.md`
+- [ ] `build-fix.md`
+- [ ] `theme/skills/pdf-extract/SKILL.md`
+
+When all are checked, the §1 Markdown parser can be retired (current
+plan is to keep it as fallback indefinitely for CLI-standalone users
+who may not have emit installed).
 
 ---
 

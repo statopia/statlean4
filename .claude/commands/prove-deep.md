@@ -352,20 +352,22 @@ This follows the original `/prove-deep` flow but with:
 - 经验报告 → "经验报告已写入 reports/session_report.md"
 - 工具调用输出（Bash、Read、Grep 等）不计入此预算
 
-## Output Conventions (REQUIRED — web UI contract)
+## Output Conventions (web UI contract)
 
-See `theme/conventions/ui-signals.md` for full specification.
+See `theme/conventions/ui-signals.md` for the event + Markdown-header
+protocol.
 
-When driving the web UI (via `/pipeline` → prove subagents), announce
-major Phase transitions with `## Step N: <title>` lines. See `/prove`'s
-"Output Conventions" section for the canonical formatting rules
-(two hashes, exact spacing, colon, no dash).
+`/prove-deep` runs as a subagent of `/pipeline` (Step 5 = "prove").
+The Step-number namespace on `events.jsonl` is owned by the outer
+pipeline — this skill MUST NOT emit `## Step N:` Markdown headers or
+`emit_event.py step` events for its internal DAG Phases. Doing so
+collides with pipeline's Step 5 and the UI renders confusing merged
+cards.
 
-For DAG Phase 1-3 (decomposition + parallel dispatch + reassembly),
-each Phase gets one `## Step N:` marker at the Phase boundary. Individual
-sub-agent launches and results are narrative-only inside their parent
-Phase's body — do NOT create a `## Step N:` for each sub-agent or the
-UI will show a flood of sibling cards.
+DAG Phase narrative (Phase 0 route search → Phase 1 decomposition →
+Phase 2 parallel dispatch → Phase 3 reassembly) goes in normal prose,
+which lands in the Report stream where the user can follow along.
 
-Fallback shapes `### Step N:` / `**Step N:**` / `# Step N:` are
-tolerated by the parser but MUST NOT be introduced in new skills.
+**Artifact events** remain welcome (e.g. `sorry_list.json`,
+per-sub-agent result files). Those are namespaced by `kind_tag`,
+not by integer step id, and don't collide.

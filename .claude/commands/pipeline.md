@@ -188,3 +188,51 @@ After completing a step, continue narrative on subsequent lines until
 the next `## Step N:` marker. The UI treats everything between two
 markers as that step's body and extracts an auto-headline (first
 "Found" / "✓" / "Result:" line if present, else first line).
+
+### Structured events (REQUIRED)
+
+The `## Step N:` Markdown header is the human-readable signal — the UI
+parses it as a fallback when structured events are absent. The
+**canonical** signal for step/artifact/error state is the
+`events.jsonl` stream described in `theme/conventions/ui-signals.md` §2,
+populated via `theme/scripts/emit_event.py`.
+
+For every pipeline job you MUST emit:
+
+1. **One `step start` event** right before each step's main work:
+   ```bash
+   SANDBOX="$(dirname "$PDF_PATH")"   # derive from the PDF arg
+   python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" \
+     step --id N --title "<short title>" --status start
+   ```
+
+2. **One `step done` event** when the step finishes successfully:
+   ```bash
+   python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" \
+     step --id N --status done
+   ```
+   (Use `--status error` instead if the step failed.)
+
+3. **One `artifact` event** immediately after writing any file the UI
+   should surface (paper.tex, theorems.yaml, Main.lean, sorry_list.json,
+   ...). Use the relative path inside the sandbox; `--size` auto-stats
+   from disk when omitted:
+   ```bash
+   python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" \
+     artifact --kind-tag <kind> --path <relative/path>
+   ```
+   Valid `<kind>` values: `pdf-extract`, `yaml`, `lean-skeleton`,
+   `lean-live`, `sorry-list`, `sub-agent-result`.
+
+4. **`error` events** for structured failures (instead of only prose):
+   ```bash
+   python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" \
+     error --code <CODE> --msg "<short message>"
+   ```
+
+Do not pre-emit the whole sequence at job start. Emit events as the
+step boundaries are crossed in real time so the UI updates live.
+
+The script is append-only with atomic POSIX semantics, so parallel
+sub-agents (Phase 2 DAG dispatch) can emit concurrently without any
+locking.
