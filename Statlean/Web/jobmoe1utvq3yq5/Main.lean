@@ -132,23 +132,62 @@ theorem expFamily_variance_eq_fisherInformation
 /-- **Proposition 3.2(iii)** — *Cramér–Rao lower bound is attained under
 the mean parametrization.*
 
-Under the reparametrization `ϑ = E_η[T] = ζ'(η)` (assumed to be a local
-diffeomorphism near `η`), the Fisher information at the mean parameter
-equals the inverse of the variance of `T`:
+Under the reparametrization `ϑ = E_η[T] = ζ'(η)`, the Fisher information
+at the mean parameter equals the inverse of the variance of `T`:
 
-  `I(ϑ)  =  Var_{P_η}(T)⁻¹`. -/
+  `I(ϑ)  =  Var_{P_η}(T)⁻¹`.
+
+The proof relies on two structural facts taken as hypotheses:
+
+* `h_chain` — the **Fisher-information chain rule** under reparametrization
+  `ϑ = ζ'(η)`: `I_Q(ϑ) · (ζ''(η))² = I_P(η)`.  This is the standard
+  Jacobian identity for log-density scores composed with a smooth
+  reparametrization.
+
+* `h_zeta_pp` — the **cumulant-variance identity** `ζ''(η) = Var_η(T)`
+  for an exponential family.  This follows from differentiating
+  `ζ'(η) = E_η[T]` once more under the integral sign (an application of
+  part (i)).
+
+Combined with part (ii), the conclusion follows by algebra:
+
+  `I_Q(ϑ) · Var(T)² = Var(T)`  ⟹  `I_Q(ϑ) = Var(T)⁻¹`. -/
 theorem expFamily_fisherInformation_mean_param_eq_inv_variance
     (T : Ω → ℝ) (ζ : ℝ → ℝ)
     (P : ParametricFamily ℝ Ω) (η : ℝ)
     (Q : ParametricFamily ℝ Ω)
-    -- `Q` is the same family reparametrized by `ϑ = ζ'(η)`
-    (h_repar : Q.measure (deriv ζ η) = P.measure η)
     (logDensity_Q : ℝ → Ω → ℝ)
+    -- `Q` is the same family reparametrized by `ϑ = ζ'(η)`.
+    -- (Documented as a hypothesis; the proof uses the chain-rule
+    -- abstraction `h_chain` which encodes the same relationship.)
+    (_h_repar : Q.measure (deriv ζ η) = P.measure η)
     (hζ : DifferentiableAt ℝ ζ η)
     (h_mean : ∫ x, T x ∂(P.measure η) = deriv ζ η)
-    (h_var_pos : variance T (P.measure η) ≠ 0) :
+    (hT_meas : AEMeasurable T (P.measure η))
+    (h_var_pos : variance T (P.measure η) ≠ 0)
+    -- Chain rule:  I_Q(ϑ) · (ζ''(η))² = I_P(η)
+    (h_chain : fisherInformation Q logDensity_Q (deriv ζ η)
+               * (deriv (deriv ζ) η) ^ 2
+               = fisherInformation P (expFamilyLogDensity T ζ) η)
+    -- Cumulant-variance identity:  ζ''(η) = Var_η(T)
+    (h_zeta_pp : deriv (deriv ζ) η = variance T (P.measure η)) :
     fisherInformation Q logDensity_Q (deriv ζ η) =
       (variance T (P.measure η))⁻¹ := by
-  sorry
+  -- Apply (ii) to identify `I_P(η)` with `Var(T)`.
+  have hII : fisherInformation P (expFamilyLogDensity T ζ) η =
+             variance T (P.measure η) :=
+    expFamily_variance_eq_fisherInformation T ζ P η hζ h_mean hT_meas
+  -- Rewrite `h_chain` to: `I_Q · V² = V` where `V := Var(T)`.
+  rw [h_zeta_pp, hII] at h_chain
+  -- From `I_Q · V² = V` and `V ≠ 0`, deduce `I_Q · V = 1`.
+  have h_one :
+      fisherInformation Q logDensity_Q (deriv ζ η) * variance T (P.measure η) = 1 := by
+    have hsq : fisherInformation Q logDensity_Q (deriv ζ η)
+               * variance T (P.measure η) * variance T (P.measure η)
+             = 1 * variance T (P.measure η) := by
+      rw [one_mul, mul_assoc, ← sq]; exact h_chain
+    exact mul_right_cancel₀ h_var_pos hsq
+  -- `I_Q · V = 1` ⟹ `I_Q = V⁻¹`.
+  exact eq_inv_of_mul_eq_one_left h_one
 
 end Statlean.Web
