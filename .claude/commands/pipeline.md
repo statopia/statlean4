@@ -69,6 +69,19 @@ consider a page range via user input before proceeding."
 
 Report: number of blocks extracted, key theorems found, backend used.
 
+**REQUIRED auto-vs-manual telemetry**: in the Step 1 report narrative, include a line of exactly the form
+
+```
+auto_extracted: <integer>  agent_corrected: <true|false>  agent_correction_kind: <none|env_wrap|hand_transcribe|page_clip|other>
+```
+
+where:
+- `auto_extracted` = number of structured theorem blocks the auto-extractor found unaided (0 means the structural extractor produced nothing usable on this paper).
+- `agent_corrected` = true iff you wrote / edited `paper.tex` outside of what the auto-extractor produced (e.g. hand-transcribed a `Theorem 2.3.` plain-text header into a `\begin{theorem}` env so Step 2 can ingest it).
+- `agent_correction_kind` = one short tag describing the kind of patch — `env_wrap` (wrapped a plain-text header in a theorem env), `hand_transcribe` (typed the body from clean OCR), `page_clip` (re-extracted a smaller page range), `other`, or `none`.
+
+Reason: the auto-extractor silently returns `0 blocks` on papers that use `Theorem N.` plain text instead of `\begin{theorem}` envs. Without this line, downstream metrics conflate "auto pipeline succeeded" with "agent papered over a broken extractor", and we cannot detect when the extractor regresses.
+
 ## Step 2: LaTeX Ingest
 
 ```bash
@@ -77,10 +90,23 @@ python3 theme/scripts/from_tex.py theme/input/paper.tex -o theme/input/theorems.
 
 Report: number of theorem entries in YAML.
 
+**REQUIRED auto-vs-manual telemetry**: in the Step 2 report narrative, include a line of exactly the form
+
+```
+auto_canonicalized: <true|false>  agent_corrected: <true|false>  agent_correction_kind: <none|canonical_name|namespace|both|other>
+```
+
+where:
+- `auto_canonicalized` = true iff `from_tex.py`'s heuristic canonical-name + namespace assignment was kept verbatim.
+- `agent_corrected` = true iff you edited the YAML's `canonical_name` and/or `namespace` after the script ran (e.g. the heuristic mis-tagged Shao 2.3 minimal-sufficiency as `student_t` and you fixed it to `minimal_sufficient_tools` under `Statlean.Sufficiency.MinimalSufficiency`).
+- `agent_correction_kind` = `canonical_name`, `namespace`, `both`, `other`, or `none`.
+
+Reason: the heuristic canonicalizer keyword-matches and silently mis-tags theorems whose surface text overlaps with a known family. Without this line we cannot detect the canonicalizer's miss rate and the wrong namespace cascades into Step 2.5 (existing-symbol scan looks in the wrong file) and Step 3 (skeleton lands in the wrong module).
+
 ## Step 3: Lean Skeleton (use /tex2lean skill)
 
 **Follow `theme/formalize_playbook.md` Steps 2-4** for each theorem:
-1. Check existing code (grep + read Verified.lean)
+1. **Check existing code first** — for each yaml entry, locate `Statlean/<namespace-as-path>.lean` and grep for the canonical name + variants (snake/camel; multi-part suffixes like `_of_subfamily`). Skeleton only the missing sub-parts; if all parts already exist, stop the pipeline as "already covered" without writing anything (Shao 2.3 case: (i)+(iii) were `minimalSufficient_of_subfamily`/`_of_densityRatio` in `MinimalSufficiency.lean`, only (ii) was new).
 2. Read `theme/mathlib_api_index.md` for Mathlib type mappings
    - 补充：`grep -i '<keyword>' theme/mathlib_full_type_index.tsv`（51K 条全量 Mathlib 索引）
 3. Design Lean signature (must reflect precise math content)
@@ -88,7 +114,43 @@ Report: number of theorem entries in YAML.
 5. Build to verify skeleton compiles
 6. Run honesty check (Step 6 of playbook): no trivial wrappers, no hidden sorry
 
+### Step 3 follow-up: drift detection (REQUIRED)
+
+After Step 3 emits its skeleton, compare the source spec against the
+generated Lean to catch math-content drift (dimension reduction,
+hypothesis externalization, conclusion replacement) the agent didn't
+self-report. Pure additive — emits a `formalization_delta` event
+(ui-signals.md §6) only when drift is detected; silent on faithful
+encodings.
+
+```bash
+# Run once per skeleton'd theorem. The script short-circuits on
+# byte-identical inputs and uses a cheap haiku model otherwise.
+# Failure is non-fatal — the script reports + exits non-zero but the
+# pipeline continues. Skip silently when --pages-derived sandbox is
+# CLI-standalone with no sandbox dir.
+if [[ -n "$SANDBOX" ]]; then
+  python3 theme/scripts/detect_delta.py \
+    --before "$SANDBOX/theorems.yaml" \
+    --after "$SANDBOX/Main.lean" \
+    --before-rel theorems.yaml --after-rel Main.lean \
+    --sandbox "$SANDBOX" --quiet \
+    || echo "[pipeline] detect_delta non-zero (informational, continuing)"
+fi
+```
+
+Why: `theorems.yaml → Main.lean` is the highest-drift transition in
+the pipeline — the agent picks Mathlib types, may narrow ℝ→ℕ to make
+something typecheck, may wrap conclusions in `True ∧ ...`. If a
+breaking delta lands here, the Layer 4 judge at promotion time
+(`judge-integrity.ts --events`) sees it as structured context and
+biases verdict appropriately.
+
 ## Step 4: Build & Fix (use /build-fix skill)
+
+**Pass the changed module(s) as `$ARGUMENTS` to `/build-fix`** — i.e. the namespace you wrote a skeleton into in Step 3 (e.g. `Statlean.Sufficiency.MinimalSufficiency`), comma-separated if more than one. **Never invoke `/build-fix` with empty arguments**: that triggers a default `lake build` which compiles the whole `Statlean` umbrella (and historically pulls in 540+ Web sandbox modules pre-Bug-1-fix), surfacing hundreds of pre-existing errors that have nothing to do with this run. The full-project regression check belongs to Step 6's promotion gate, not Step 4.
+
+Step 4 declares PASS iff `lake build <changed-module>` itself returns clean (allowed-sorry exemptions apply per playbook). Do not invent a "PASS (scoped)" status — narrow build means narrow gate.
 
 Iterate until clean compilation (max 5 cycles).
 
@@ -132,7 +194,7 @@ If `--prove-depth deep`:
   3. Wait for all agents to complete
   4. For each target, verify sorry eliminated: `grep -c '\bsorry\b' <file>`
   5. If any target made progress but still has sorry, optionally re-dispatch
-  6. Run `lake build` to verify everything compiles
+  6. Run `lake build <changed-modules>` (the same set Step 4 used — comma-list if multiple) to verify the touched modules still compile after prove edits. Do NOT run a bare `lake build` here; full-project verification is Step 6's job.
 
 **Important**: This uses Claude Code subagents (Max plan quota), NOT the `claude` CLI
 (which would consume API credits). The prove_loop.sh fallback is only for CI environments.
@@ -140,7 +202,7 @@ If `--prove-depth deep`:
 ## Step 5.5: Infrastructure Extraction (inline, per CLAUDE.md rules)
 
 1. **Zero-sorry infrastructure** → placed in same file, isolated by `section`.
-2. **Whole-file zero sorry** → update `Verified.lean`.
+2. **Whole-file zero sorry** → promote to main tree, then update `Verified.lean`. Target path is `Statlean/<MathArea>/<MathObject>.lean` where `<MathObject>` is a PascalCase math-object name (`Talagrand`, `BerryEsseen`, `RemainderTailOp`) — never a paper-section / theorem-number / chapter ref (`LemmaS3`, `Shao32`, `Thm411`, `MainTheorem`). The inner `namespace ...` and matching `end ...` must match the new path. The `/api/statlean/promote-to-statlib` server endpoint enforces this with `validateTargetName` — bad names are rejected before any disk write.
 3. **Remaining sorry** → structured comment + `sorry_backlog.yaml` registration.
 
 After any sorry-count change (completion of a prove subagent, extraction,
@@ -227,6 +289,24 @@ For every pipeline job you MUST emit:
      step --id N --status done
    ```
    (Use `--status error` instead if the step failed.)
+
+   **Plus the matching `milestone` event** for the gate that step
+   crossed. The milestone names are fixed (ui-signals.md §7); pair
+   them 1:1 with `step done`:
+   - Step 1 done → `--name pdf-extracted`
+   - Step 2 done → `--name yaml-complete`
+   - Step 3 done → `--name skeleton-locked`
+   - Step 4 done → `--name lake-build-clean`
+   - Step 5 done with `grep -c '\bsorry\b' = 0` across all targets → `--name sorry-zero`
+   - Step 6 gate PASS → `--name proof-verified`
+   ```bash
+   python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" \
+     milestone --name <gate-name>
+   ```
+   Milestones are what `server/services/sandboxWatcher.ts` listens
+   for — `proof-verified` paired with `lake-build-clean` and no
+   `breaking` formalization_delta triggers the UI's "promote
+   suggested" banner. Skip the milestone if the step errored.
 
 3. **One `artifact` event** immediately after writing any file the UI
    should surface (paper.tex, theorems.yaml, Main.lean, sorry_list.json,

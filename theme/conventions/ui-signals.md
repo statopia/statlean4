@@ -195,12 +195,14 @@ parser when empty (legacy sessions or skills that haven't migrated).
 
 Skills that have emit calls wired in:
 
-- [ ] `pipeline.md`
-- [ ] `prove.md`
-- [ ] `prove-deep.md`
-- [ ] `tex2lean.md`
-- [ ] `build-fix.md`
-- [ ] `theme/skills/pdf-extract/SKILL.md`
+- [x] `pipeline.md` — owns all milestone emits (1:1 with step done) plus
+  the post-Step-3 `detect_delta.py` invocation. Sub-skills don't emit
+  milestones to avoid double-counting.
+- [ ] `prove.md` (sub-skill — milestones owned by pipeline.md)
+- [ ] `prove-deep.md` (sub-skill — milestones owned by pipeline.md)
+- [ ] `tex2lean.md` (sub-skill — milestones owned by pipeline.md)
+- [ ] `build-fix.md` (sub-skill — milestones owned by pipeline.md)
+- [ ] `theme/skills/pdf-extract/SKILL.md` (sub-skill — milestones owned by pipeline.md)
 
 When all are checked, the §1 Markdown parser can be retired (current
 plan is to keep it as fallback indefinitely for CLI-standalone users
