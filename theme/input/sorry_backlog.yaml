@@ -1,4 +1,4 @@
-version: v179
+version: v180
 generated: 2026-04-25
 total_sorry: 22
 
@@ -101,7 +101,7 @@ sorry_items:
 
 - id: coxchangepoint.auto.smoothed_empirical_process_approximation.smoothed_empirical_process_approximation
   file: Statlean/CoxChangePoint/Auto/smoothed_empirical_process_approximation.lean
-  line: 129
+  line: 121
   theorem: smoothed_empirical_process_approximation
   type: unknown
   depth: 1
@@ -112,7 +112,7 @@ sorry_items:
 
 - id: coxchangepoint.auto.smoothed_empirical_process_approximation.smoothed_empirical_process_approximation_S1
   file: Statlean/CoxChangePoint/Auto/smoothed_empirical_process_approximation.lean
-  line: 74
+  line: 66
   theorem: smoothed_empirical_process_approximation_S1
   type: unknown
   depth: 1
@@ -123,7 +123,7 @@ sorry_items:
 
 - id: coxchangepoint.auto.smoothed_empirical_process_approximation.smoothed_empirical_process_approximation_S2
   file: Statlean/CoxChangePoint/Auto/smoothed_empirical_process_approximation.lean
-  line: 88
+  line: 80
   theorem: smoothed_empirical_process_approximation_S2
   type: unknown
   depth: 1
@@ -134,7 +134,7 @@ sorry_items:
 
 - id: coxchangepoint.auto.smoothed_empirical_process_approximation.smoothed_empirical_process_approximation_S3
   file: Statlean/CoxChangePoint/Auto/smoothed_empirical_process_approximation.lean
-  line: 102
+  line: 94
   theorem: smoothed_empirical_process_approximation_S3
   type: unknown
   depth: 1

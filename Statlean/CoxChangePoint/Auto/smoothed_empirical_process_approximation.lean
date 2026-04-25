@@ -44,14 +44,6 @@ structure AssumptionsA8A9 where
   τ : ℝ
   hτ_pos : 0 < τ
 
-/-- The k-th order empirical process S_n^{(k)} based on true FPC scores. -/
-noncomputable def empiricalProcess (k : ℕ) (n : ℕ) (t : ℝ) (θ : CoxParam)
-    (ω : Ω) : ℝ := sorry
-
-/-- The k-th order smoothed empirical process S_n^{(k)*} based on estimated FPC scores. -/
-noncomputable def smoothedEmpiricalProcess (k : ℕ) (n : ℕ) (t : ℝ) (θ : CoxParam)
-    (ω : Ω) : ℝ := sorry
-
 /-- The approximation rate r_n = n^{-1/2} d_n^{3/2} + d_n^{-b} + d_n^{1-2b} log n. -/
 noncomputable def approxRate (A : AssumptionsA8A9) (n : ℕ) : ℝ :=
   (n : ℝ) ^ (-(1 : ℝ) / 2) * (A.d n : ℝ) ^ ((3 : ℝ) / 2)
