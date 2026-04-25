@@ -156,6 +156,16 @@ else
   if [[ -n "$REF_FILE" && -f "$REF_FILE" ]]; then
     JUDGE_ARGS+=("--ref" "$REF_FILE")
   fi
+  # Same-provider review is fine: independence comes from
+  # judge-integrity.ts:JUDGE_SYSTEM_PROMPT + fresh session, not from
+  # picking a different LLM. Set JUDGE_PROVIDER=anthropic (and
+  # JUDGE_API_KEY=$ANTHROPIC_API_KEY) to reuse your prover key.
+  if [[ -n "$JUDGE_PROVIDER" ]]; then
+    JUDGE_ARGS+=("--provider" "$JUDGE_PROVIDER")
+  fi
+  if [[ -n "$JUDGE_MODEL" ]]; then
+    JUDGE_ARGS+=("--model" "$JUDGE_MODEL")
+  fi
   # Layer 4 + Step 6 of elegant-plan: feed the agent's
   # formalization_delta events (ui-signals.md §6) as structured
   # context so the judge can cross-reference self-reported drift
