@@ -38,28 +38,77 @@ open MeasureTheory ProbabilityTheory
 variable {Ω : Type*} [MeasurableSpace Ω]
 
 /-- **Proposition 3.2(i)** — *Regularity / interchange of derivative and
-integral for an exponential family.*
+integral for an exponential family, in dominated form.*
 
-If `f_η(x) = exp(η · T(x) − ζ(η)) c(x)` is the density of `P_η` w.r.t. a
-σ-finite reference measure `μ`, and `h : Ω → ℝ` is `P_η`-integrable, then
+Let `f_η(x) = exp(η · T(x) − ζ(η)) c(x)` be the density of `P_η` w.r.t. a
+σ-finite reference measure `μ`.  Suppose, on an open ball `Ball(η, ε)`:
+
+* `ζ` is differentiable at every point;
+* the integrand `h(x) f_η'(x) := h(x) · exp(η' T(x) − ζ(η'))` and its
+  formal derivative `h(x) (T(x) − ζ'(η')) f_η'(x)` admit a `μ`-integrable
+  dominating function `bound : Ω → ℝ`;
+
+then
 
   `d/dη ∫ h(x) f_η(x) dμ = ∫ h(x) (T(x) − ζ'(η)) f_η(x) dμ`.
 
-(The right-hand side equals `∫ h · score · dP_η`; see
-`Statlean.Information.Basic.expFamily_score_eq`.) -/
+The right-hand side equals `∫ h · score · dP_η`; see
+`Statlean.Information.Basic.expFamily_score_eq`. -/
 theorem expFamily_regularity
     (T : Ω → ℝ) (ζ : ℝ → ℝ) (μ : Measure Ω) [SigmaFinite μ]
-    (η : ℝ)
-    (hζ : DifferentiableAt ℝ ζ η)
+    (η ε : ℝ) (hε : 0 < ε)
+    (hζ_local : ∀ η' ∈ Metric.ball η ε, DifferentiableAt ℝ ζ η')
     (h : Ω → ℝ)
-    (h_int : Integrable
-      (fun x => h x * Real.exp (η * T x - ζ η)) μ) :
+    (hh_meas : AEStronglyMeasurable h μ)
+    (hT_meas : Measurable T)
+    (h_int : Integrable (fun x => h x * Real.exp (η * T x - ζ η)) μ)
+    (bound : Ω → ℝ)
+    (bound_int : Integrable bound μ)
+    (h_dom : ∀ᵐ x ∂μ, ∀ η' ∈ Metric.ball η ε,
+      ‖h x * (T x - deriv ζ η') * Real.exp (η' * T x - ζ η')‖ ≤ bound x) :
     HasDerivAt (fun η' : ℝ =>
         ∫ x, h x * Real.exp (η' * T x - ζ η') ∂μ)
       (∫ x, h x * (T x - deriv ζ η) *
               Real.exp (η * T x - ζ η) ∂μ)
       η := by
-  sorry
+  -- Apply the Leibniz rule for differentiation under the integral sign
+  have leibniz := hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    (μ := μ)
+    (F := fun η' x => h x * Real.exp (η' * T x - ζ η'))
+    (F' := fun η' x => h x * (T x - deriv ζ η') * Real.exp (η' * T x - ζ η'))
+    (x₀ := η)
+    (s := Metric.ball η ε)
+    (bound := bound)
+    -- s ∈ nhds η
+    (Metric.ball_mem_nhds η hε)
+    -- ∀ᶠ η' in nhds η, AEStronglyMeasurable (F η') μ
+    (by
+      apply Filter.Eventually.of_forall; intro η'
+      exact hh_meas.mul (hT_meas.const_mul η' |>.sub measurable_const |>.exp
+        |>.aestronglyMeasurable))
+    -- Integrable (F η) μ
+    h_int
+    -- AEStronglyMeasurable (F' η) μ
+    (by
+      apply AEStronglyMeasurable.mul
+      · exact hh_meas.mul (hT_meas.sub measurable_const |>.aestronglyMeasurable)
+      · exact (hT_meas.const_mul η |>.sub measurable_const |>.exp
+          |>.aestronglyMeasurable))
+    -- ∀ᵐ a ∂μ, ∀ η' ∈ s, ‖F' η' a‖ ≤ bound a
+    h_dom
+    -- Integrable bound μ
+    bound_int
+    -- ∀ᵐ a ∂μ, ∀ η' ∈ s, HasDerivAt (fun η' => F η' a) (F' η' a) η'
+    (by
+      apply Filter.Eventually.of_forall
+      intro x η' hη'
+      have hg : HasDerivAt (fun η => η * T x - ζ η) (T x - deriv ζ η') η' :=
+        (hasDerivAt_mul_const (T x)).sub (hζ_local η' hη').hasDerivAt
+      have hfull : HasDerivAt (fun η => h x * Real.exp (η * T x - ζ η))
+          (h x * (Real.exp (η' * T x - ζ η') * (T x - deriv ζ η'))) η' :=
+        hg.exp.const_mul (h x)
+      convert hfull using 1; ring)
+  exact leibniz.2
 
 /-- **Proposition 3.2(ii)** — *In an exponential family, Fisher
 information equals the variance of the sufficient statistic.*
