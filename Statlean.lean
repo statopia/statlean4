@@ -133,6 +133,11 @@ import Statlean.ExpFamily.Regularity
 -- 5 substantive results promoted to proper namespaces (the 4 imports above + B-section duplicates
 -- merged into existing modules). Backup tarball: /tmp/statlean_web_backup_2026-04-25.tar.gz.
 -- Three sandbox dirs remain under Statlean/Web/ pending review:
---   - jobmodvzyf9s5r9                              (active prove job at sweep time)
---   - jobmnfrosueh4uz                              (Decision/Risk infrastructure; markdown-wrapped, needs unwrap before promotion)
---   - v2_consistency_of_RLEs_qwen_1775549228569    (suspect Rule 3 trivialization: estimator hardcoded as constant θ_star)
+--   - jobmodvzyf9s5r9
+--       (active prove job at sweep time)
+--   - jobmnfrosueh4uz
+--       (Decision/Risk infrastructure; markdown-wrapped,
+--        needs unwrap before promotion)
+--   - v2_consistency_of_RLEs_qwen_1775549228569
+--       (suspect Rule 3 trivialization: estimator hardcoded
+--        as constant θ_star)
