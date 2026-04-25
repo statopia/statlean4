@@ -1,0 +1,50 @@
+version: v1
+theorem_set: input-tex-batch
+source_tag: input
+defaults:
+  lean_namespace: Formalization.Imported
+  layer: formalization
+  allow_axiom: false
+theorems:
+- id: input.theorem.001.hoeffding_inequality
+  title: Hoeffding's theorem
+  kind: theorem
+  latex_statement: "\\label{thm:hoeffding-u-statistic}\nFor a U-statistic $U_n$ given\
+    \ by (3.11) with $E[h(X_1,\\dots,X_m)]^2 < \\infty$,\n\\[\n  \\mathrm{Var}(U_n)\
+    \ = \\binom{n}{m}^{-1} \\sum_{k=1}^{m} \\binom{m}{k} \\binom{n-m}{m-k} \\zeta_k,\n\
+    \\]\nwhere\n\\[\n  \\zeta_k = \\mathrm{Var}(h_k(X_1,\\dots,X_k)).\n\\]"
+  latex_proof_hint: "Consider two sets $\\{i_1,\\dots,i_m\\}$ and $\\{j_1,\\dots,j_m\\\
+    }$ of $m$ distinct\nintegers from $\\{1,\\dots,n\\}$ with exactly $k$ integers\
+    \ in common. The number of\ndistinct choices of two such sets is $\\binom{n}{m}\\\
+    binom{m}{k}\\binom{n-m}{m-k}$.\nBy the symmetry of $\\tilde{h}_m$ and independence\
+    \ of $X_1,\\dots,X_n$,\n\\[\n  E[\\tilde{h}(X_{i_1},\\dots,X_{i_m}) \\tilde{h}(X_{j_1},\\\
+    dots,X_{j_m})] = \\zeta_k \\tag{3.17}\n\\]\nfor $k=1,\\dots,m$ (exercise). Then,\
+    \ by (3.16),\n\\[\n  \\mathrm{Var}(U_n)\n    = \\binom{n}{m}^{-2} \\sum_c \\sum_c\
+    \ E[\\tilde{h}(X_{i_1},\\dots,X_{i_m}) \\tilde{h}(X_{j_1},\\dots,X_{j_m})]\n \
+    \   = \\binom{n}{m}^{-2} \\sum_{k=1}^{m} \\binom{n}{m} \\binom{m}{k} \\binom{n-m}{m-k}\
+    \ \\zeta_k.\n\\]\nThis proves the result."
+  proof_body: "Consider two sets $\\{i_1,\\dots,i_m\\}$ and $\\{j_1,\\dots,j_m\\}$\
+    \ of $m$ distinct\nintegers from $\\{1,\\dots,n\\}$ with exactly $k$ integers\
+    \ in common. The number of\ndistinct choices of two such sets is $\\binom{n}{m}\\\
+    binom{m}{k}\\binom{n-m}{m-k}$.\nBy the symmetry of $\\tilde{h}_m$ and independence\
+    \ of $X_1,\\dots,X_n$,\n\\[\n  E[\\tilde{h}(X_{i_1},\\dots,X_{i_m}) \\tilde{h}(X_{j_1},\\\
+    dots,X_{j_m})] = \\zeta_k \\tag{3.17}\n\\]\nfor $k=1,\\dots,m$ (exercise). Then,\
+    \ by (3.16),\n\\[\n  \\mathrm{Var}(U_n)\n    = \\binom{n}{m}^{-2} \\sum_c \\sum_c\
+    \ E[\\tilde{h}(X_{i_1},\\dots,X_{i_m}) \\tilde{h}(X_{j_1},\\dots,X_{j_m})]\n \
+    \   = \\binom{n}{m}^{-2} \\sum_{k=1}^{m} \\binom{n}{m} \\binom{m}{k} \\binom{n-m}{m-k}\
+    \ \\zeta_k.\n\\]\nThis proves the result."
+  lean_name: u_statistic_variance_decomposition
+  lean_namespace: Statlean.Variance.UStatistic
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: 'Shao §3.2.2 Theorem 3.4. Hoeffding''s variance decomposition for U-statistics
+    (NOT the Hoeffding concentration inequality). Decomposes Var(U_n) into the projections
+    ζ_k = Var(h_k(X_1,...,X_k)) where h_k is the k-th coordinate conditional expectation
+    of the kernel h. Closely related to Efron-Stein (Statlean.Variance.EfronStein).'
+  canonical_name: Hoeffding's Theorem (U-statistic variance)

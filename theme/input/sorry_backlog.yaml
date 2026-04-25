@@ -1,6 +1,6 @@
-version: v180
+version: v181
 generated: 2026-04-25
-total_sorry: 22
+total_sorry: 24
 
 sorry_items:
 
@@ -257,6 +257,28 @@ sorry_items:
   file: Statlean/Sufficiency/MinimalSufficiency.lean
   line: 258
   theorem: mixtureRatio_satisfies_DRC
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.ustatistic.u_statistic_variance_decomposition
+  file: Statlean/Variance/UStatistic.lean
+  line: 107
+  theorem: u_statistic_variance_decomposition
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmoei21sk619x.main.u_statistic_variance_decomposition
+  file: Statlean/Web/jobmoei21sk619x/Main.lean
+  line: 107
+  theorem: u_statistic_variance_decomposition
   type: unknown
   depth: 1
   priority: 99
