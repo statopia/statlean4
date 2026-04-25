@@ -3,15 +3,15 @@ open MeasureTheory ProbabilityTheory Filter Topology Asymptotics ENNReal
 
 namespace Statlean.CoxChangePoint.Auto
 
-structure ParameterSpace (d : ℕ) where
+private structure ParameterSpace (d : ℕ) where
   Θ : Set (EuclideanSpace ℝ (Fin d))
 
-structure AssumptionA1 (d : ℕ) (Ω : Type*) [MeasurableSpace Ω] (μ : Measure Ω) where
+private structure AssumptionA1 (d : ℕ) (Ω : Type*) [MeasurableSpace Ω] (μ : Measure Ω) where
   Z₁ : Ω → EuclideanSpace ℝ (Fin d)
   ξ : Ω → ℝ
   R₀ : Ω → ℝ
 
-structure AssumptionA7 {d : ℕ} (Ω : Type*) [MeasurableSpace Ω] (μ : Measure Ω)
+private structure AssumptionA7 {d : ℕ} (Ω : Type*) [MeasurableSpace Ω] (μ : Measure Ω)
     (ps : ParameterSpace d) (a1 : AssumptionA1 d Ω μ) where
   θ₀ : EuclideanSpace ℝ (Fin d)
   g : EuclideanSpace ℝ (Fin d) → Ω → ℝ

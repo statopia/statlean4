@@ -19,13 +19,13 @@ noncomputable section
 
 /-- X_n = O_P(r_n): for every ε > 0 there exist M > 0 and N such that
     P(|X_n| > M r_n) < ε for all n ≥ N. -/
-def IsBigOP {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
+private def IsBigOP {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
     (X : ℕ → Ω → ℝ) (r : ℕ → ℝ) : Prop :=
   ∀ ε > (0 : ℝ), ∃ M > (0 : ℝ), ∃ N : ℕ, ∀ n ≥ N,
     μ {ω | M * r n < |X n ω|} ≤ ENNReal.ofReal ε
 
 /-- Assumption (A8): kernel regularity conditions. -/
-structure KernelAssumption (K : ℝ → ℝ) : Prop where
+private structure KernelAssumption (K : ℝ → ℝ) : Prop where
   bounded : ∃ C > (0 : ℝ), ∀ x, |K x| ≤ C
   symmetric : ∀ x, K (-x) = K x
   integrable : Integrable K volume
@@ -34,14 +34,14 @@ structure KernelAssumption (K : ℝ → ℝ) : Prop where
   lipschitz : ∃ L > (0 : ℝ), ∀ x y, |K x - K y| ≤ L * |x - y|
 
 /-- Assumption (A9): truncation level d_n and eigenvalue decay rate b. -/
-structure TruncationAssumption (d : ℕ → ℝ) (b : ℝ) : Prop where
+private structure TruncationAssumption (d : ℕ → ℝ) (b : ℝ) : Prop where
   b_gt_half : (1 : ℝ) / 2 < b
   d_pos : ∀ n, 0 < d n
   d_tendsto_top : Tendsto d atTop atTop
   d_sublinear : Tendsto (fun n => d n / (n : ℝ)) atTop (nhds 0)
 
 /-- The approximation rate: n^{-1/2} d_n^{3/2} + d_n^{-b} + d_n^{1-2b} log n. -/
-def approxRate (d : ℕ → ℝ) (b : ℝ) (n : ℕ) : ℝ :=
+private def approxRate (d : ℕ → ℝ) (b : ℝ) (n : ℕ) : ℝ :=
   (n : ℝ) ^ (-(1 : ℝ) / 2) * (d n) ^ ((3 : ℝ) / 2) +
   (d n) ^ (-b) +
   (d n) ^ (1 - 2 * b) * Real.log (n : ℝ)
@@ -52,7 +52,7 @@ def approxRate (d : ℕ → ℝ) (b : ℝ) (n : ℕ) : ℝ :=
     use estimated scores ξ̂ᵢₖ from kernel-smoothed covariance estimation.
     The parameter θ = (η, α, β) ranges over a compact set Θ and
     t ranges over the observation window [0, τ]. -/
-structure SmoothedEmpiricalProcesses (Ω : Type*) [MeasurableSpace Ω]
+private structure SmoothedEmpiricalProcesses (Ω : Type*) [MeasurableSpace Ω]
     (μ : Measure Ω) [IsProbabilityMeasure μ] where
   /-- Covariate dimension (number of scalar covariates Z₂) -/
   q : ℕ

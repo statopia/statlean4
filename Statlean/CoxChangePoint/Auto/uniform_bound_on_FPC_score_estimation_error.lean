@@ -17,7 +17,7 @@ noncomputable section
 
 /-- Assumptions (A6)–(A10) for the functional Cox regression model with a change point.
     Each field encodes the mathematical content of one assumption with concrete types. -/
-structure FPCAssumptions (p : ℕ) where
+private structure FPCAssumptions (p : ℕ) where
   /-- Parameter space Θ ⊆ ℝ^p -/
   Θ : Set (Fin p → ℝ)
   Θ_compact : IsCompact Θ
@@ -47,7 +47,7 @@ structure FPCAssumptions (p : ℕ) where
 
 /-- Data for the FPC score estimation error in the Cox change-point model.
     Packages the random variables and the Lemma S1 eigenfunction estimation rate. -/
-structure FPCScoreErrorData {p : ℕ} (Ω : Type*) [MeasurableSpace Ω]
+private structure FPCScoreErrorData {p : ℕ} (Ω : Type*) [MeasurableSpace Ω]
     (P : Measure Ω) (A : FPCAssumptions p) where
   /-- v_{n,i}(θ)(ω) = Σ_{k=1}^{d(n)} (ξ̂_{ik} − ξ_{ik})(ω) ·
       [α_k(θ) · 𝟙{Z_{2i}(ω) ≤ η(θ)} + β_k(θ) · 𝟙{Z_{2i}(ω) > η(θ)}] -/
@@ -66,7 +66,7 @@ structure FPCScoreErrorData {p : ℕ} (Ω : Type*) [MeasurableSpace Ω]
   hS_bound : ∀ n θ, θ ∈ A.Θ → ∀ i, i < n → ∀ ω, |v n i θ ω| ≤ S n ω
 
 /-- The rate sequence r_n = d_n^{3/2} · n^{−1/2} · (log n)^{1/2}. -/
-def fpcRate (d : ℕ → ℕ) (n : ℕ) : ℝ :=
+private def fpcRate (d : ℕ → ℕ) (n : ℕ) : ℝ :=
   (d n : ℝ) ^ ((3 : ℝ) / 2) * (n : ℝ) ^ (-(1 : ℝ) / 2) * Real.log (n : ℝ) ^ ((1 : ℝ) / 2)
 
 theorem uniform_bound_on_FPC_score_estimation_error

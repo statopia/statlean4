@@ -18,7 +18,7 @@ noncomputable section
 
 /-- Parameter for the Cox change-point model with `d` FPC components:
     coefficient vectors α, β and scalar change point η. -/
-structure CoxParam (d : ℕ) where
+private structure CoxParam (d : ℕ) where
   α : Fin d → ℝ
   β : Fin d → ℝ
   η : ℝ
@@ -26,7 +26,7 @@ structure CoxParam (d : ℕ) where
 /-- Paper-specific assumptions (A1)–(A10) for the functional linear Cox regression
     model with a change point in the covariate. Each assumption is a concrete-typed
     named field. -/
-structure Assumptions where
+private structure Assumptions where
   -- (A1) Observation window [0, τ]
   tau : ℝ
   hτ_pos : 0 < tau
@@ -59,7 +59,7 @@ structure Assumptions where
   hinfo_pos : 0 < info_lower_bound
 
 /-- Compact parameter space Θ_n for truncation dimension d. -/
-def paramSpace (A : Assumptions) (d : ℕ) : Set (CoxParam d) :=
+private def paramSpace (A : Assumptions) (d : ℕ) : Set (CoxParam d) :=
   {θ | (∀ k, |θ.α k| ≤ A.coeffBound) ∧
        (∀ k, |θ.β k| ≤ A.coeffBound) ∧
        θ.η ∈ Icc A.etaLo A.etaHi}
@@ -67,13 +67,13 @@ def paramSpace (A : Assumptions) (d : ℕ) : Set (CoxParam d) :=
 variable {Ω : Type*} [MeasurableSpace Ω] {P : Measure Ω} [IsProbabilityMeasure P]
 
 /-- Gn(θ) = n⁻¹{l*_n(θ) − l⁰_n(θ₀)}: the centred normalised profile log-likelihood. -/
-def Gn (A : Assumptions) (n : ℕ) : Ω → CoxParam (A.truncDim n) → ℝ := sorry
+private def Gn (A : Assumptions) (n : ℕ) : Ω → CoxParam (A.truncDim n) → ℝ := sorry
 
 /-- G(θ): the deterministic limit of Gn(θ) from equation (4.1). -/
-def G_limit (A : Assumptions) (n : ℕ) : CoxParam (A.truncDim n) → ℝ := sorry
+private def G_limit (A : Assumptions) (n : ℕ) : CoxParam (A.truncDim n) → ℝ := sorry
 
 /-- sup_{θ ∈ Θ_n} |Gn(θ)(ω) − G(θ)|. -/
-def supNormDiff (A : Assumptions) (n : ℕ) (ω : Ω) : ℝ :=
+private def supNormDiff (A : Assumptions) (n : ℕ) (ω : Ω) : ℝ :=
   sSup ((fun θ => |Gn A n ω θ - G_limit A n θ|) '' paramSpace A (A.truncDim n))
 
 /-- **Lemma S1.** Under Assumptions (A1)–(A10),

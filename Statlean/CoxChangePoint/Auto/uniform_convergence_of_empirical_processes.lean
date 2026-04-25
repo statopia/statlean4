@@ -3,7 +3,7 @@ open MeasureTheory ProbabilityTheory Filter Topology
 
 namespace Statlean.CoxChangePoint.Auto
 
-structure CoxAssumptions where
+private structure CoxAssumptions where
   τ : ℝ
   hτ_pos : 0 < τ
   p : ℕ
@@ -12,7 +12,7 @@ structure CoxAssumptions where
   d : ℕ → ℕ
   hd_tendsto : Tendsto (fun n => (d n : ℝ)) atTop atTop
 
-def ConvergesInProbTo {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
+private def ConvergesInProbTo {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
     (X : ℕ → Ω → ℝ) (rate : ℕ → ℝ) : Prop :=
   ∀ ε > 0, ∃ N, ∀ n ≥ N,
     (μ {ω | abs (X n ω) > ε * rate n}).toReal < ε

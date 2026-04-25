@@ -13,7 +13,7 @@ namespace Statlean.CoxChangePoint.Auto
 open MeasureTheory
 
 /-- Assumptions (A8)–(A10) for eigenfunction estimation (Zhou et al., 2023). -/
-structure CovarianceAssumptions (Ω D : Type*) [MeasurableSpace Ω] [MeasurableSpace D] where
+private structure CovarianceAssumptions (Ω D : Type*) [MeasurableSpace Ω] [MeasurableSpace D] where
   P : Measure Ω
   hP : IsProbabilityMeasure P
   ν : Measure D

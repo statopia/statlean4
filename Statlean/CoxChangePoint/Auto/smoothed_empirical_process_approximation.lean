@@ -15,7 +15,7 @@ open MeasureTheory ProbabilityTheory Filter Topology
 /-! ## Parameter and function spaces -/
 
 /-- The parameter space Θ for the Cox change-point model. -/
-structure CoxParam where
+private structure CoxParam where
   α : ℕ → ℝ
   β : ℕ → ℝ
   η : ℝ
@@ -23,7 +23,7 @@ structure CoxParam where
 /-- Assumptions (A8)–(A9) for the smoothed empirical process approximation.
     A8: kernel smoothness — the covariance kernel eigenfunctions satisfy Hölder-type regularity.
     A9: bandwidth/truncation coupling — d_n grows with n at a controlled rate. -/
-structure AssumptionsA8A9 where
+private structure AssumptionsA8A9 where
   /-- Smoothness exponent b > 1/2 controlling eigenvalue decay rate -/
   b : ℝ
   hb_pos : b > 1 / 2
@@ -45,7 +45,7 @@ structure AssumptionsA8A9 where
   hτ_pos : 0 < τ
 
 /-- The approximation rate r_n = n^{-1/2} d_n^{3/2} + d_n^{-b} + d_n^{1-2b} log n. -/
-noncomputable def approxRate (A : AssumptionsA8A9) (n : ℕ) : ℝ :=
+private noncomputable def approxRate (A : AssumptionsA8A9) (n : ℕ) : ℝ :=
   (n : ℝ) ^ (-(1 : ℝ) / 2) * (A.d n : ℝ) ^ ((3 : ℝ) / 2)
   + (A.d n : ℝ) ^ (-A.b)
   + (A.d n : ℝ) ^ (1 - 2 * A.b) * Real.log (n : ℝ)
