@@ -20,6 +20,18 @@ Invocation from Bash inside a skill:
     python3 theme/scripts/emit_event.py error \\
         --sandbox "$SANDBOX" --code OCR_FAIL --msg "MinerU ..."
 
+    python3 theme/scripts/emit_event.py delta \\
+        --sandbox "$SANDBOX" --change-type hypothesis-add \\
+        --summary "Added regularity assumption (continuity of f) to make Lemma 2.1 typecheck" \\
+        --severity notable --before-path theorems.yaml --after-path Main.lean
+
+    python3 theme/scripts/emit_event.py milestone \\
+        --sandbox "$SANDBOX" --name lake-build-clean
+
+    python3 theme/scripts/emit_event.py agent-state \\
+        --sandbox "$SANDBOX" --state awaiting-input \\
+        --prompt "Should I weaken the hypothesis to make this typecheck?"
+
 Design notes:
   - Append-only writes with O_APPEND. POSIX guarantees atomicity of a
     single write(2) under a buffer flush; we write one line per call
@@ -42,6 +54,55 @@ import os
 import sys
 import time
 from pathlib import Path
+
+# `_artifact_classify` lives next to this script. Import it via the
+# script-relative path so callers don't need PYTHONPATH wiring.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _artifact_classify import classify_artifact_path  # noqa: E402
+
+
+# ── Enum tables — single source of truth for arg validation ───────────
+#
+# Mirrored on the TS consumer side (`src/lib/types.ts` event union, when
+# Step 3 lands the LifecyclePanel reducer). Keeping them as module-level
+# tuples means argparse's `choices=` reflects the canonical taxonomy and
+# any future enum addition lives in one place.
+
+DELTA_CHANGE_TYPES = (
+    "dim-reduction",        # weakened a quantifier domain (e.g. ℝ → ℕ, ℝ^n → ℝ^1)
+    "hypothesis-add",       # tacked on a regularity / structure assumption
+    "hypothesis-remove",    # dropped a hypothesis the agent thought was redundant
+    "type-weaken",          # changed a type to a less general one
+    "conclusion-replace",   # replaced the conclusion (e.g. with `True ∧ ...`)
+    "structure-introduce",  # introduced a `structure ... { holds : True }` shim
+    "scope-restrict",       # narrowed the universally-quantified scope
+    "other",                # caller writes their own summary; UI surfaces as-is
+)
+
+DELTA_SEVERITIES = (
+    "info",      # additive / cosmetic, no semantic change
+    "notable",   # semantic change worth surfacing; default
+    "breaking",  # weakened the theorem; integrity gate should ideally catch
+)
+
+MILESTONE_NAMES = (
+    "lake-build-clean",
+    "sorry-zero",
+    "yaml-complete",
+    "pdf-extracted",
+    "skeleton-locked",
+    "proof-verified",
+    "promoted",
+    "other",
+)
+
+AGENT_STATES = (
+    "thinking",         # model is generating tokens
+    "tool-call",        # tool is executing
+    "awaiting-input",   # blocked on user response (request_user_decision)
+    "idle",             # turn done, waiting for next user turn
+    "done",             # session finished
+)
 
 
 def _now_ms() -> int:
@@ -97,12 +158,35 @@ def _cmd_step(args: argparse.Namespace) -> dict:
 def _cmd_artifact(args: argparse.Namespace) -> dict:
     # path is relative-to-sandbox by convention so the web UI can
     # display it without leaking absolute server paths.
+    #
+    # kind_tag defaults from path if --kind-tag is omitted. The shared
+    # classifier (mirror of artifactClassifier.ts) covers the canonical
+    # taxonomy so skill authors don't have to repeat themselves. If
+    # caller passes --kind-tag explicitly AND it disagrees with the
+    # path-inferred kind, we still honour the explicit value here — the
+    # web side runs reconcileKindTag and surfaces the mismatch as
+    # telemetry, which is the right place to flag drift.
+    declared = args.kind_tag
+    inferred = classify_artifact_path(args.path) if args.path else None
+    effective = declared or inferred
+    if effective is None:
+        print(
+            f"[emit_event] artifact path '{args.path}' is not classifiable "
+            "and --kind-tag was not supplied; refusing to emit untagged artifact.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     event: dict = {
         "ts": _now_ms(),
         "kind": "artifact",
-        "kind_tag": args.kind_tag,
+        "kind_tag": effective,
         "path": args.path,
     }
+    # Record the inferred kind alongside so the web side can compare
+    # without re-running the classifier (and so events.jsonl is self-
+    # describing for forensic replay).
+    if inferred is not None and inferred != effective:
+        event["kind_tag_inferred"] = inferred
     if args.size is not None:
         event["size"] = args.size
     # Allow callers to pass --size auto to resolve from disk.
@@ -120,6 +204,105 @@ def _cmd_error(args: argparse.Namespace) -> dict:
         "code": args.code,
         "msg": args.msg,
     }
+
+
+def _parse_json_details(raw: str | None) -> dict | None:
+    """Parse --details payloads (JSON object). Caller-fatal on bad shape.
+
+    Accepts `None` (caller omitted --details) and returns `None` so the
+    event omits the field entirely. Anything else must parse to a JSON
+    object; non-objects (lists / scalars) are rejected so consumers can
+    rely on `event["details"]` being a dict when present.
+    """
+    if raw is None:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(
+            f"[emit_event] --details is not valid JSON: {e}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    if not isinstance(parsed, dict):
+        print(
+            f"[emit_event] --details must be a JSON object, got {type(parsed).__name__}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    return parsed
+
+
+def _cmd_delta(args: argparse.Namespace) -> dict:
+    """formalization_delta — agent declares a notable math-content change.
+
+    Used by the Rule 3 gates: Layer 4 judge consumes deltas during
+    promotion; the web UI surfaces `severity=notable|breaking` deltas in
+    the LifecyclePanel so the user can review before approving.
+    """
+    if not args.summary or not args.summary.strip():
+        print("[emit_event] delta requires non-empty --summary", file=sys.stderr)
+        sys.exit(2)
+    event: dict = {
+        "ts": _now_ms(),
+        "kind": "formalization_delta",
+        "change_type": args.change_type,
+        "summary": args.summary,
+        "severity": args.severity,
+    }
+    if args.before_path:
+        event["before_path"] = args.before_path
+    if args.after_path:
+        event["after_path"] = args.after_path
+    details = _parse_json_details(args.details)
+    if details is not None:
+        event["details"] = details
+    return event
+
+
+def _cmd_milestone(args: argparse.Namespace) -> dict:
+    """sandbox_milestone — sandbox crossed a meaningful gate.
+
+    Triggers downstream daemons (sandbox_watcher, Step 4) and gives the
+    UI clean transition points without parsing tool prose.
+    """
+    event: dict = {
+        "ts": _now_ms(),
+        "kind": "sandbox_milestone",
+        "name": args.name,
+    }
+    if args.path:
+        event["path"] = args.path
+    details = _parse_json_details(args.details)
+    if details is not None:
+        event["details"] = details
+    return event
+
+
+def _cmd_agent_state(args: argparse.Namespace) -> dict:
+    """agent_state — explicit turn-state stream.
+
+    Replaces the SDK's `session_state_changed` (V2-unstable, never
+    actually emitted in stream-json IPC mode). Skill authors emit on
+    state transitions; the web side reduces to a single Lifecycle state
+    via Step 3's agentStateReducer.
+    """
+    if args.since_ms is not None and args.since_ms < 0:
+        print(
+            f"[emit_event] --since-ms must be >= 0, got {args.since_ms}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    event: dict = {
+        "ts": _now_ms(),
+        "kind": "agent_state",
+        "state": args.state,
+    }
+    if args.since_ms is not None:
+        event["since_ms"] = args.since_ms
+    if args.prompt:
+        event["prompt"] = args.prompt
+    return event
 
 
 def main() -> None:
@@ -143,8 +326,15 @@ def main() -> None:
     p_art = sub.add_parser("artifact", help="Artifact-ready event.")
     p_art.add_argument(
         "--kind-tag",
-        required=True,
-        help="UI artifact classifier: pdf-extract | yaml | lean-skeleton | lean-live | sorry-list | sub-agent-result",
+        required=False,
+        default=None,
+        help=(
+            "UI artifact classifier: pdf-extract | yaml | lean-skeleton "
+            "| lean-live | sorry-list | sub-agent-result. "
+            "Optional — defaults to the path-inferred kind via "
+            "_artifact_classify.classify_artifact_path. Pass explicitly only "
+            "when emitting an out-of-taxonomy kind (e.g. sub-agent-result)."
+        ),
     )
     p_art.add_argument(
         "--path",
@@ -161,6 +351,80 @@ def main() -> None:
     p_err.add_argument("--code", required=True, help="Enum from ui-signals.md §3.")
     p_err.add_argument("--msg", required=True)
 
+    # ── delta / milestone / agent-state — Step 2 of elegant-plan ────
+    p_delta = sub.add_parser(
+        "delta",
+        help="Formalization delta event — agent declares a math-content change.",
+    )
+    p_delta.add_argument(
+        "--change-type",
+        required=True,
+        choices=DELTA_CHANGE_TYPES,
+        help="Categorical kind of change. See ui-signals.md §6.",
+    )
+    p_delta.add_argument(
+        "--summary",
+        required=True,
+        help="Short human-readable description of what changed and why.",
+    )
+    p_delta.add_argument(
+        "--severity",
+        choices=DELTA_SEVERITIES,
+        default="notable",
+        help="Default 'notable'. Use 'info' for cosmetic, 'breaking' for weakening.",
+    )
+    p_delta.add_argument(
+        "--before-path",
+        help="Relative path of the artifact before the change (e.g. theorems.yaml).",
+    )
+    p_delta.add_argument(
+        "--after-path",
+        help="Relative path of the artifact after the change (e.g. Main.lean).",
+    )
+    p_delta.add_argument(
+        "--details",
+        help="Optional JSON object with extra fields (e.g. {\"old_type\":\"ℝ\",\"new_type\":\"ℕ\"}).",
+    )
+
+    p_ms = sub.add_parser(
+        "milestone",
+        help="Sandbox milestone event — gate crossed; downstream daemons may react.",
+    )
+    p_ms.add_argument(
+        "--name",
+        required=True,
+        choices=MILESTONE_NAMES,
+        help="Canonical milestone name. See ui-signals.md §7.",
+    )
+    p_ms.add_argument(
+        "--path",
+        help="Optional relative path of the artifact that triggered the milestone.",
+    )
+    p_ms.add_argument(
+        "--details",
+        help="Optional JSON object with extra fields (e.g. {\"count_before\":3}).",
+    )
+
+    p_state = sub.add_parser(
+        "agent-state",
+        help="Agent turn-state event — explicit unified lifecycle stream.",
+    )
+    p_state.add_argument(
+        "--state",
+        required=True,
+        choices=AGENT_STATES,
+        help="Canonical state. See ui-signals.md §8.",
+    )
+    p_state.add_argument(
+        "--since-ms",
+        type=int,
+        help="Optional: how long the agent has been in this state (ms).",
+    )
+    p_state.add_argument(
+        "--prompt",
+        help="Optional: when state=awaiting-input, the question being asked.",
+    )
+
     args = ap.parse_args()
     if args.kind == "step":
         event = _cmd_step(args)
@@ -168,6 +432,12 @@ def main() -> None:
         event = _cmd_artifact(args)
     elif args.kind == "error":
         event = _cmd_error(args)
+    elif args.kind == "delta":
+        event = _cmd_delta(args)
+    elif args.kind == "milestone":
+        event = _cmd_milestone(args)
+    elif args.kind == "agent-state":
+        event = _cmd_agent_state(args)
     else:
         ap.error(f"unknown kind: {args.kind}")
 

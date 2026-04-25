@@ -271,6 +271,142 @@ should stay compact.
 
 ---
 
+## §6. Formalization Delta
+
+**Status**: ✅ infrastructure landed (Step 2 of elegant-plan, 2026-04-25).
+Skills are being migrated to emit; the Layer 4 judge consumes during
+promotion.
+
+### When to use
+
+The agent declares a notable math-content change to the formalization —
+something a human reviewer would want to know about before signing off
+on a "proved" verdict. Concretely:
+
+- Dimension reduction (ℝ → ℕ, ℝ^n → ℝ^1) to make a proof typecheck
+- Adding a regularity hypothesis the original statement didn't have
+- Replacing the conclusion with a wrapper (`True ∧ original`)
+- Introducing a `structure` shim that hides assumptions
+
+These are exactly the patterns Rule 3 (statement integrity) is designed
+to catch. Emitting a `formalization_delta` is the agent's way of saying
+"I made this change deliberately; here's the rationale" — and it gives
+the Layer 4 judge structured input rather than having to re-derive the
+delta from a diff.
+
+### Schema
+
+```jsonl
+{"ts": 1777000000, "kind": "formalization_delta", "change_type": "hypothesis-add", "summary": "Added continuity of f to make Lemma 2.1 typecheck", "severity": "notable", "before_path": "theorems.yaml", "after_path": "Main.lean"}
+```
+
+- `change_type` (enum, required): `dim-reduction` | `hypothesis-add` |
+  `hypothesis-remove` | `type-weaken` | `conclusion-replace` |
+  `structure-introduce` | `scope-restrict` | `other`.
+- `summary` (string, required): short human-readable description of
+  what changed and why. Surfaced in the UI; consumed by the judge.
+- `severity` (enum, required, defaults to `notable`): `info` |
+  `notable` | `breaking`. `breaking` deltas should ideally have been
+  blocked by the integrity gate already; emitting one signals the
+  agent overrode (or the gate missed something).
+- `before_path` (string, optional): relative path to the artifact
+  before the change.
+- `after_path` (string, optional): relative path to the artifact
+  after the change.
+- `details` (object, optional): structured extra fields, e.g.
+  `{"old_type":"ℝ","new_type":"ℕ"}`.
+
+### How skills emit
+
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" delta \
+    --change-type hypothesis-add \
+    --summary "Added continuity of f to make Lemma 2.1 typecheck" \
+    --severity notable \
+    --before-path theorems.yaml \
+    --after-path Main.lean
+```
+
+---
+
+## §7. Sandbox Milestone
+
+**Status**: ✅ infrastructure landed (Step 2 of elegant-plan).
+
+### When to use
+
+The sandbox crossed a meaningful gate that downstream daemons or the UI
+should react to. Examples: `lake build` is now clean, sorry count
+dropped to zero, `theorems.yaml` is fully populated, the proof was
+promoted to the main tree. Emitting a milestone is preferred over
+having consumers parse tool-result prose.
+
+### Schema
+
+```jsonl
+{"ts": 1777000030, "kind": "sandbox_milestone", "name": "lake-build-clean"}
+{"ts": 1777000031, "kind": "sandbox_milestone", "name": "sorry-zero", "details": {"count_before": 3}}
+```
+
+- `name` (enum, required): `lake-build-clean` | `sorry-zero` |
+  `yaml-complete` | `pdf-extracted` | `skeleton-locked` |
+  `proof-verified` | `promoted` | `other`.
+- `path` (string, optional): relative path to the artifact that
+  triggered the milestone.
+- `details` (object, optional): structured extra fields.
+
+### How skills emit
+
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone \
+    --name lake-build-clean
+
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone \
+    --name sorry-zero --details '{"count_before":3}'
+```
+
+---
+
+## §8. Agent State
+
+**Status**: ✅ infrastructure landed (Step 2 of elegant-plan).
+
+### When to use
+
+Replaces the SDK's `session_state_changed` (V2-unstable, never actually
+emitted in stream-json IPC mode — the gap that surfaced from
+jobmoe1utvq3yq5). Skill code (or wrappers around it) emits explicit
+state transitions so the web side can render a single Lifecycle Panel
+without having to infer state from a tool-call timeline.
+
+### Schema
+
+```jsonl
+{"ts": 1777000060, "kind": "agent_state", "state": "thinking", "since_ms": 4500}
+{"ts": 1777000065, "kind": "agent_state", "state": "awaiting-input", "prompt": "Should I weaken the hypothesis to make this typecheck?"}
+{"ts": 1777000080, "kind": "agent_state", "state": "idle"}
+```
+
+- `state` (enum, required): `thinking` | `tool-call` |
+  `awaiting-input` | `idle` | `done`.
+- `since_ms` (int, optional, ≥ 0): how long the agent has been in
+  this state.
+- `prompt` (string, optional): when `state=awaiting-input`, the
+  question the agent is blocked on.
+
+### How skills emit
+
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" agent-state \
+    --state awaiting-input \
+    --prompt "Should I weaken the hypothesis to make this typecheck?"
+
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" agent-state \
+    --state idle
+```
+
+---
+
 ## §4. (Reserved) Tool Call Conventions
 
 **Status**: Not yet fleshed out.
