@@ -206,6 +206,84 @@ When all are checked, the §1 Markdown parser can be retired (current
 plan is to keep it as fallback indefinitely for CLI-standalone users
 who may not have emit installed).
 
+### Emit Migration Guide (Step 7 of elegant-plan)
+
+Copy-paste-ready snippets, by gate. Each is idempotent (skill can
+emit even if a previous attempt already emitted; the consumer
+de-dupes on its end). Place each line at the natural completion
+point of its gate.
+
+**Gate: PDF extracted** (skill: `pdf-extract` / `pipeline.md` Step 1)
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone --name pdf-extracted
+```
+
+**Gate: theorems.yaml fully populated** (skill: `tex2lean.md`)
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone --name yaml-complete
+```
+
+**Gate: skeleton locked** (skill: `tex2lean.md` Step 5 / lock_signatures)
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone --name skeleton-locked
+```
+
+**Gate: lake build clean** (skill: `build-fix.md`, after final successful build)
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone --name lake-build-clean
+```
+
+**Gate: sorry-zero** (skill: `prove.md` / `prove-deep.md`, after the
+last `sorry` closes)
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone --name sorry-zero
+```
+
+**Gate: proof verified** (skill: `prove.md` after Layer 1+2 integrity
+checks pass — Rule 3 verify_integrity step)
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone --name proof-verified
+```
+
+**Gate: promoted** (skill: `statlib-promoter` after the file lands in
+the main tree and the commit is created)
+```bash
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone --name promoted
+```
+
+**Optional — formalization deltas**: when an agent makes a math-content
+change (added a hypothesis, narrowed a quantifier, replaced a
+conclusion), emit a delta directly OR call the auto-detector:
+```bash
+# Self-report (preferred — agent supplies the rationale)
+python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" delta \
+    --change-type hypothesis-add \
+    --summary "Added continuity of f to make Lemma 2.1 typecheck" \
+    --severity notable
+
+# Auto-detect via LLM (mirrors propose_module_name.py pattern; cheap haiku call)
+python3 theme/scripts/detect_delta.py \
+    --before "$SANDBOX/theorems.yaml" \
+    --after "$SANDBOX/Main.lean" \
+    --before-rel theorems.yaml --after-rel Main.lean \
+    --sandbox "$SANDBOX"
+```
+
+These emissions feed:
+  - **LifecyclePanel** in the web UI (live state pill, milestones,
+    deltas — see `src/components/app/LifecyclePanel.tsx`)
+  - **sandboxWatcher** reactive policy (suggests promotion when
+    proof-verified arrives without breaking deltas — see
+    `server/services/sandboxWatcher.ts`)
+  - **Layer 4 judge** at promotion time (reads delta events as
+    structured context — see `server/scripts/judge-integrity.ts`
+    `--events` flag)
+
+Skills that don't emit produce a working but less-observable run:
+the web UI falls back to §1 Markdown parsing for steps, and the judge
+falls back to inferring integrity from Lean shape alone. So migration
+is purely additive — no skill is broken by waiting to adopt.
+
 ---
 
 ## §3. Error Code Enum
