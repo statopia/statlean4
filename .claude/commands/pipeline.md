@@ -127,9 +127,12 @@ encodings.
 # Run once per skeleton'd theorem. The script short-circuits on
 # byte-identical inputs and uses a cheap haiku model otherwise.
 # Failure is non-fatal — the script reports + exits non-zero but the
-# pipeline continues. Skip silently when --pages-derived sandbox is
-# CLI-standalone with no sandbox dir.
-if [[ -n "$SANDBOX" ]]; then
+# pipeline continues. Skip silently when sandbox is unset (CLI-standalone)
+# OR when the web server has already spawned the detector (sentinel:
+# .web_spawned_detect_delta). Web's server-side spawn is more reliable
+# than relying on agent bash compliance, so skipping here when web ran
+# it avoids duplicate haiku calls.
+if [[ -n "$SANDBOX" && ! -f "$SANDBOX/.web_spawned_detect_delta" ]]; then
   python3 theme/scripts/detect_delta.py \
     --before "$SANDBOX/theorems.yaml" \
     --after "$SANDBOX/Main.lean" \
