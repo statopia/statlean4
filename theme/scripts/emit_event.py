@@ -87,17 +87,21 @@ DELTA_SEVERITIES = (
 
 MILESTONE_NAMES = (
     "lake-build-clean",
-    "lake-build-fail",       # per-build failure (Phase 2 LOOP); pairs with lake-build-clean
+    "lake-build-fail",          # per-build failure (Phase 2 LOOP); pairs with lake-build-clean
     "sorry-zero",
-    "sorry-proved",          # one sorry just got proved (Phase 2 process_result)
+    "sorry-proved",             # one sorry just got proved (Phase 2 process_result)
     "yaml-complete",
     "skeleton-locked",
     "pdf-extracted",
     "proof-verified",
     "promoted",
-    "dispatch-batch-start",  # /prove-deep DAG cycle entry (Phase 2 LOOP open)
-    "subagent-stuck",        # one sub-agent reported `stuck` for a sorry
-    "dag-cycle-done",        # /prove-deep DAG cycle exit (Phase 3 end)
+    "dispatch-batch-start",     # /prove-deep DAG cycle entry (Phase 2 LOOP open)
+    "subagent-stuck",           # one sub-agent reported `stuck` for a sorry
+    "dag-cycle-done",           # /prove-deep DAG cycle exit (Phase 3 end)
+    "memory-md-updated",        # prove_deep_end.py wrote MEMORY.md (Phase 3 strict)
+    "subtasks-split",           # need_sub_lemma decomposition was accepted
+    "decomposition-rejected",   # validate_decomposition.py rejected (size-monotone fail)
+    "sorry-pool-snapshot",      # after each process_result: count, delta, depth_histogram
     "other",
 )
 

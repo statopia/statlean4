@@ -437,6 +437,15 @@ having consumers parse tool-result prose.
   - **DAG cycle markers** (`/prove-deep` Phase 2 entry / Phase 3 exit /
     sub-agent reported stuck): `dispatch-batch-start` | `subagent-stuck`
     | `dag-cycle-done`
+  - **Phase 3 finalization & decomposition health** (emitted by Wave-1
+    wrapper scripts — see `website/docs/CLI_WEB_CONFORMANCE.md` §0.0
+    for the determinism preference): `memory-md-updated` (Phase 3
+    `prove_deep_end.py` wrote MEMORY.md with non-empty summary) |
+    `subtasks-split` (need_sub_lemma decomposition accepted) |
+    `decomposition-rejected` (size-monotone check failed — pushing the
+    pea, see `validate_decomposition.py`) | `sorry-pool-snapshot`
+    (count + delta + depth_histogram, emitted by
+    `process_sorry_result.py` after every result)
   - `other` for anything not in the canonical list.
 
   The DAG-cycle markers are the CLI-side signal the web orchestrator
