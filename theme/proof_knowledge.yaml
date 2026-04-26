@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 181
+entry_count: 187
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -247,6 +247,10 @@ L3_strategies:
   - trigger: "consistency via well-separated maximum (van der Vaart Thm 5.7): θ̂ →ᵖ θ₀ from uniform convergence + well-separation + argmax"
     strategy: "intro ε, get δ from hWellSep; apply hUnif at δ/3; show {ε < dist} ⊆ {∃θ, δ/3 ≤ |G_n − G|} via by_contra + simp_only [not_exists, not_le] + linarith chain G(θ₀) < G_n(θ₀) + δ/3 ≤ G_n(θ̂) + δ/3 < G(θ̂) + 2δ/3 contradicting G(θ̂) + δ ≤ G(θ₀); sandwich via tendsto_of_tendsto_of_tendsto_of_le_of_le"
     confidence: 5
+
+  - trigger: "ustatistic_clt_nondegenerate: Tendsto (ProbabilityMeasure pushforward of sqrt(n)*(U_n - E U_n)) atTop (nhds gaussianReal)"
+    strategy: ""
+    confidence: 3
 
 # ═══════════════════════════════════════════
 # L2 — API 链路（Mathlib 引理串联方案）
@@ -538,6 +542,19 @@ L2_api_chains:
     chain: "phrase hypothesis as `∀ ε > 0, μ {ω | ∃ θ, ε ≤ |X_n n θ ω − μ θ|} → 0` (existential indexed set, not iSup); avoids needing measurability of the iSup"
     confidence: 4
 
+  - trigger: "Fin.append index split via cast → castAdd / natAdd"
+    chain: "Fin.castAdd → Fin.append_left ; Fin.natAdd → Fin.append_right"
+
+  - trigger: "charFun difference tendsto_zero via L2 closeness of random variables"
+    chain: "integral_map h.aemeasurable → norm_integral_le_integral_norm → Integrable.const_mul → Tendsto.const_mul (dot notation on hyp)"
+    source: UStatistic.lean charfun_close_of_l2
+    confidence: 4
+
+  - trigger: "infinite product space iid coordinate functions independence and mean"
+    chain: "iIndepFun_infinitePi → Measure.infinitePi_map_eval → integral_map (measurable_pi_apply i).aemeasurable"
+    source: UStatistic.lean hajek_clt proof exploration
+    confidence: 4
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -818,4 +835,12 @@ L1_tactic_tips:
 
   - trigger: "by_contra + push_neg fails on `ω ∉ {ω | ∃ x, p x ω}`"
     tip: "use `simp only [Set.mem_setOf_eq, not_exists, not_le] at hbad` instead of push_neg — the latter doesn't unfold setOf membership"
+    frequency: 1
+
+  - trigger: "Tendsto const_mul without open Filter"
+    tip: "Use dot notation h.const_mul c. NOT apply Tendsto.const_mul (unknown without open Filter namespace)."
+    frequency: 1
+
+  - trigger: "Integrable mul constant function"
+    tip: "Use hg.const_mul c. NOT (integrable_const c).mul hg — fails because integrable_const returns And, not Integrable."
     frequency: 1
