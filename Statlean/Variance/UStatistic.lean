@@ -596,7 +596,7 @@ private lemma sq_integral_le_integral_sq_prob_aux {Ω : Type*} [MeasurableSpace 
       rw [show (fun x => (f x - c)^2) =
           (fun x => (f x ^ 2 - 2 * f x * c) + c^2) from by ext x; ring]
       rw [integral_add hfm2fc (integrable_const _), integral_sub hf2 h2fc, integral_const]
-      simp only [smul_eq_mul, measure_univ, ENNReal.one_toReal, mul_one]
+      simp only [smul_eq_mul, measureReal_univ_eq_one, mul_one]
       rw [show (fun x => 2 * f x * c) = (fun x => (2*c) * f x) from by ext x; ring, integral_const_mul]
       ring
     linarith
@@ -798,24 +798,39 @@ lemma hajek_clt
   -- L¹ integrability of h (needed for Fubini/mean)
   have h_int : Integrable h (Measure.pi (fun _ : Fin (m'+1) => ν)) :=
     h_L2.integrable (by norm_num)
-  -- Square integrability of Z under ν
+  have hmeas_h1 : Measurable h1 := kernelProjection_one_measurable hm h ν h_meas
+  have hh1_sq_int : Integrable (fun xi : α => h1 xi ^ 2) ν :=
+    kernelProjection_one_sq_integrable hm h ν h_meas h_L2
+  have hh1_memLp2 : MemLp h1 2 ν := by
+    rw [memLp_two_iff_integrable_sq_norm hmeas_h1.aestronglyMeasurable]
+    simp only [Real.norm_eq_abs, sq_abs]; exact hh1_sq_int
+  have hh1_int : Integrable h1 ν := hh1_memLp2.integrable (by norm_num)
+  -- Square integrability of Z under ν.
+  -- Z² = h1² - 2 μh1 h1 + μh1², so use linearity from Integrable h1².
   have h_sq_int : Integrable (fun x => Z x ^ 2) ν := by
-    have hsq := kernelProjection_one_sq_integrable hm h ν h_meas h_L2
-    apply hsq.congr; filter_upwards with xi; simp only [Z, h1]; ring
+    have hZsq_eq : (fun x => Z x ^ 2) =
+        (fun x => h1 x ^ 2 - 2 * μh1 * h1 x + μh1 ^ 2) := by
+      ext x; simp only [Z]; ring
+    rw [hZsq_eq]
+    refine ((hh1_sq_int.sub ((hh1_int.const_mul (2 * μh1)).congr ?_)).add (integrable_const _))
+    filter_upwards with x; ring
   -- Mean of Z = 0
   have hZ_mean : ∫ xi : α, Z xi ∂ν = 0 := by
-    simp only [Z]
-    rw [integral_sub _ (integrable_const _)]
-    · rw [integral_h1_eq_kp0_aux hm h h_meas ν h_int]; ring
-    · apply fubini_piSucc_integrable ν h h_meas h_int |>.congr
-      filter_upwards with xi
-      simp only [kernelProjection, Nat.succ_sub_one]
-      congr 1; ext y; rw [appendFin_one_eq_cons_aux xi y]
+    have hZeq : (fun xi : α => Z xi) = (fun xi => h1 xi - μh1) := by
+      ext xi; simp [Z]
+    rw [show (∫ xi, Z xi ∂ν) = ∫ xi, (h1 xi - μh1) ∂ν from by
+      apply integral_congr_ae; filter_upwards with xi; simp [Z]]
+    rw [integral_sub hh1_int (integrable_const _)]
+    rw [integral_h1_eq_kp0_aux hm h h_meas ν h_int]
+    simp [μh1]
   -- ζ₁ = uZeta (m'+1) 1 h ν = Var[Z ; ν]
   let ζ₁ := uZeta (m'+1) 1 h ν
   have hζ₁_eq : ζ₁ = Var[Z ; ν] := by
+    show uZeta (m'+1) 1 h ν = Var[Z ; ν]
     rw [uZeta_one_eq_var_aux hm h ν h_meas]
-    congr 1; ext xi; simp [Z, h1]
+    -- Var[h1; ν] = Var[h1 - μh1; ν] (variance invariant under constant shift)
+    show Var[h1 ; ν] = Var[fun xi => h1 xi - μh1 ; ν]
+    rw [ProbabilityTheory.variance_sub_const hmeas_h1.aestronglyMeasurable]
   have hζ₁_pos : 0 < ζ₁ := h_zeta1_pos
   -- Normalizer sn n = sqrt(ζ₁ * (n+1))
   let sn : ℕ → ℝ := fun n => Real.sqrt (ζ₁ * (↑n + 1))
@@ -831,27 +846,36 @@ lemma hajek_clt
     (iIndepFun_infinitePi (fun _ => hZ_meas)).precomp Fin.val_injective
   -- (c) Mean zero (using marginal property of infinitePi)
   have hmean : ∀ n j, ∫ ω, Xnj n j ω ∂μlim = 0 := fun _n j => by
-    rw [show (fun ω : ℕ → α => Xnj _n j ω) = Z ∘ (fun ω => ω j.val) from rfl,
-        integral_map (measurable_pi_apply j.val).aemeasurable hZ_meas.aestronglyMeasurable,
-        Measure.infinitePi_map_eval]
-    exact hZ_mean
+    have key : (∫ ω, Xnj _n j ω ∂μlim) = ∫ x : α, Z x ∂ν := by
+      show (∫ ω, Z (ω j.val) ∂μlim) = ∫ x, Z x ∂ν
+      have hmap : (μlim.map (fun ω : ℕ → α => ω j.val)) = ν :=
+        Measure.infinitePi_map_eval _ _
+      conv_rhs => rw [← hmap]
+      rw [integral_map (measurable_pi_apply j.val).aemeasurable
+        (by rw [hmap]; exact hZ_meas.aestronglyMeasurable)]
+    rw [key]; exact hZ_mean
   -- (d) L² condition
   have hL2clf : ∀ n j, MemLp (Xnj n j) 2 μlim := fun _n j => by
     rw [memLp_two_iff_integrable_sq_norm (hXnj_meas _n j).aestronglyMeasurable]
     simp only [Real.norm_eq_abs, sq_abs]
     rw [show (fun ω : ℕ → α => Xnj _n j ω ^ 2) = (fun x : α => Z x ^ 2) ∘ (fun ω => ω j.val) from rfl]
-    exact h_sq_int.comp_measurable (measurable_pi_apply j.val)
+    refine Integrable.comp_measurable ?_ (measurable_pi_apply j.val)
+    rw [Measure.infinitePi_map_eval]
+    exact h_sq_int
   -- (e) Variance sum: ∑ j : Fin (n+1), Var[Xnj n j; μlim] = sn n²
   have hvar_sum : ∀ n, ∑ j : Fin (n+1), ∫ ω, (Xnj n j ω)^2 ∂μlim = (sn n)^2 := fun n => by
     conv_lhs => arg 2; ext j; rw [integral_sq_infinitePi_marginal ν Z hZ_meas j.val]
     rw [Finset.sum_const, Finset.card_univ, Fintype.card_fin, Real.sq_sqrt (by positivity)]
-    simp only [smul_eq_mul]; push_cast
-    rw [← hζ₁_eq]
-    simp only [Z, ζ₁]
-    rw [hζ₁_eq, variance_eq_sub (by
-      rw [memLp_two_iff_integrable_sq_norm hZ_meas.aestronglyMeasurable]
-      simp only [Real.norm_eq_abs, sq_abs]; exact h_sq_int)]
-    rw [hZ_mean]; ring
+    -- Goal: (n+1) • ∫ Z² ∂ν = ζ₁ * (n+1)
+    have hint_sq : ∫ x : α, Z x ^ 2 ∂ν = ζ₁ := by
+      have hZ_memLp2 : MemLp Z 2 ν := by
+        rw [memLp_two_iff_integrable_sq_norm hZ_meas.aestronglyMeasurable]
+        simp only [Real.norm_eq_abs, sq_abs]; exact h_sq_int
+      rw [hζ₁_eq, variance_eq_sub hZ_memLp2, hZ_mean]
+      simp only [Pi.pow_apply]; ring
+    rw [hint_sq]
+    push_cast
+    ring
   -- (f) Lindeberg condition: LindebergSum → 0
   have hLindeberg : ∀ ε > 0, Filter.Tendsto
       (fun n => Statlean.LimitTheorems.LindebergFeller.LindebergSum μlim (Xnj n) (sn n) ε)
@@ -871,11 +895,20 @@ lemma hajek_clt
         (f₁ := fun n => (1 / ζ₁) * ∫ x in {x : α | ε * sn n < |Z x|}, Z x ^ 2 ∂ν)
     · filter_upwards with n
       simp only [sn]
-      conv_lhs => arg 2; arg 2; ext j; rw [hterm_eq n j]
+      have hsum_rewrite :
+          ∑ j : Fin (n+1),
+              ∫ ω in {ω : ℕ → α | ε * sn n < |Z (ω j.val)|}, (Z (ω j.val))^2 ∂μlim =
+          ∑ _j : Fin (n+1),
+              ∫ x in {x : α | ε * sn n < |Z x|}, Z x ^ 2 ∂ν :=
+        Finset.sum_congr rfl (fun j _ => hterm_eq n j)
+      rw [hsum_rewrite]
       rw [Finset.sum_const, Finset.card_univ, Fintype.card_fin]
-      simp only [smul_eq_mul]
-      rw [Real.sq_sqrt (by positivity)]
-      field_simp; ring
+      simp only [sn, nsmul_eq_mul]
+      rw [Real.sq_sqrt (by positivity : (0:ℝ) ≤ ζ₁ * (↑n + 1))]
+      -- Goal of form: ζ₁⁻¹ * I = (n * I + I) * (ζ₁ * (n+1))⁻¹
+      have hne : ζ₁ * (↑n + 1) ≠ 0 := ne_of_gt (by positivity)
+      push_cast
+      field_simp
     · rw [show (nhds (0:ℝ)) = nhds ((1/ζ₁) * 0) from by simp]
       exact hconv.const_mul _
   -- Apply Lindeberg-Feller CLT: get μ₀ with charFun = N(0,1) and μs → μ₀
@@ -883,48 +916,83 @@ lemma hajek_clt
     Statlean.LimitTheorems.LindebergFeller.lindeberg_feller_clt
       (k := fun n => n + 1) (hk := fun n => Nat.succ_pos n)
       (X := Xnj) (s := sn) hsn_pos hXnj_meas hindep hmean hL2clf hvar_sum hLindeberg
+  -- Reintroduce the μs sequence (let-bound inside lindeberg_feller_clt)
+  let μs : ℕ → ProbabilityMeasure ℝ := fun n =>
+    ⟨μlim.map (fun ω => (∑ j : Fin (n+1), Xnj n j ω) / sn n),
+      Measure.isProbabilityMeasure_map
+        ((Finset.measurable_sum Finset.univ
+          (fun i _ => hXnj_meas n i)).div_const _).aemeasurable⟩
   -- μ₀ is N(0,1)
   have hμ₀_gaussian : (μ₀ : Measure ℝ) = gaussianReal 0 1 := by
-    apply ProbabilityMeasure.eq_of_forall_charFun_eq; intro t
-    rw [hμ₀_char t]; rfl
+    apply Measure.ext_of_charFun
+    funext t; rw [hμ₀_char t]
   -- Scaling constant c = (m'+1) * √ζ₁
   let c : ℝ := (↑(m'+1) : ℝ) * Real.sqrt ζ₁
+  have hc_cont : Continuous (fun x : ℝ => c * x) := by fun_prop
   -- μs n = ⟨μlim.map (fun ω => (∑ j : Fin(n+1), Z(ω j)) / sn n), ...⟩
   -- hajekLaw (n+1) = μlim.map (fun ω => (m/√(n+1)) * ∑ Z(ω j))
   --               = map (c * ·) (μs n)
   -- because (m'+1)*√ζ₁ * (∑ Z(ω j) / √(ζ₁*(n+1))) = (m'+1)/√(n+1) * ∑ Z(ω j)
-  have hlaw_eq_prob : ∀ n, hajekLaw (n+1) = (μs n).map ⟨(c * ·), by fun_prop⟩ := by
+  have hlaw_eq_meas : ∀ n,
+      (hajekLaw (n+1) : Measure ℝ) =
+        Measure.map (fun x : ℝ => c * x) ((μs n : Measure ℝ)) := by
     intro n
-    apply ProbabilityMeasure.toMeasure_injective
-    simp only [ProbabilityMeasure.coe_map, ProbabilityMeasure.mk_apply]
     show (Measure.pi (fun _ : Fin (n+1) => ν)).map
         (fun x : Fin (n+1) → α => (↑(m'+1) / Real.sqrt ↑(n+1)) *
           ∑ i : Fin (n+1), (h1 (x i) - μh1)) =
-      (μlim.map (fun ω => (∑ j : Fin (n+1), Xnj n j ω) / sn n)).map (c * ·)
-    rw [← Measure.map_map (by fun_prop) (by fun_prop),
+      (μlim.map (fun ω => (∑ j : Fin (n+1), Xnj n j ω) / sn n)).map (fun x : ℝ => c * x)
+    have hmul_meas : Measurable (fun x : ℝ => c * x) := hc_cont.measurable
+    have hsum_meas :
+        Measurable (fun ω : ℕ → α => (∑ j : Fin (n+1), Xnj n j ω) / sn n) :=
+      (Finset.measurable_sum Finset.univ (fun i _ => hXnj_meas n i)).div_const _
+    have hproj_meas :
+        Measurable (fun ω : ℕ → α => fun i : Fin (n+1) => ω i) := by fun_prop
+    have hbig_meas :
+        Measurable (fun x : Fin (n+1) → α =>
+          (↑(m'+1) / Real.sqrt ↑(n+1)) * ∑ i : Fin (n+1), (h1 (x i) - μh1)) := by
+      refine Measurable.const_mul ?_ _
+      exact Finset.measurable_sum _ (fun i _ => (hmeas_h1.comp (measurable_pi_apply i)).sub_const _)
+    -- Reduce both sides to (infinitePi).map of a single function via Measure.map_map
+    rw [Measure.map_map hmul_meas hsum_meas,
         ← infinitePi_map_fin_proj_aux (n+1) ν,
-        Measure.map_map (by fun_prop) (by fun_prop)]
+        Measure.map_map hbig_meas hproj_meas]
     congr 1; ext ω
     simp only [Function.comp, Xnj, sn, Z, h1, c]
     have hsn_ne : Real.sqrt (ζ₁ * (↑n + 1)) ≠ 0 := Real.sqrt_ne_zero'.mpr (by positivity)
     have hζ_sqrt_ne : Real.sqrt ζ₁ ≠ 0 := Real.sqrt_ne_zero'.mpr hζ₁_pos
+    have hns_ne : Real.sqrt ((↑n + 1 : ℝ)) ≠ 0 := Real.sqrt_ne_zero'.mpr (by positivity)
     rw [Real.sqrt_mul (le_of_lt hζ₁_pos)]
-    field_simp; ring
+    push_cast
+    field_simp
   -- hajekLaw (n+1) → map (c * ·) μ₀ by continuity of map
   have htendsto_succ : Filter.Tendsto (fun n => hajekLaw (n+1)) Filter.atTop
-      (nhds (μ₀.map ⟨(c * ·), by fun_prop⟩)) := by
-    simp_rw [hlaw_eq_prob]
-    exact ProbabilityMeasure.tendsto_map_of_tendsto_of_continuous hμs_tendsto ⟨by fun_prop⟩
+      (nhds (μ₀.map hc_cont.measurable.aemeasurable)) := by
+    have hcont_map :=
+      ProbabilityMeasure.tendsto_map_of_tendsto_of_continuous μs μ₀ hμs_tendsto hc_cont
+    -- hcont_map : Tendsto (fun n => (μs n).map _) atTop (𝓝 (μ₀.map _))
+    -- Compose with hajekLaw (n+1) = (μs n).map _
+    have heq : ∀ n, hajekLaw (n+1) =
+        ProbabilityMeasure.map (μs n) hc_cont.measurable.aemeasurable := by
+      intro n
+      apply ProbabilityMeasure.toMeasure_injective
+      rw [ProbabilityMeasure.toMeasure_map]
+      exact hlaw_eq_meas n
+    simpa only [heq] using hcont_map
   -- map (c * ·) μ₀ = gaussLimit
-  have hmap_gaussian : μ₀.map ⟨(c * ·), by fun_prop⟩ = gaussLimit := by
+  have hmap_gaussian :
+      ProbabilityMeasure.map μ₀ hc_cont.measurable.aemeasurable = gaussLimit := by
     apply ProbabilityMeasure.toMeasure_injective
-    simp only [ProbabilityMeasure.coe_map, ProbabilityMeasure.mk_apply, gaussLimit]
-    rw [hμ₀_gaussian, gaussianReal_map_const_mul]; simp only [mul_zero, mul_one]
-    congr 1; ext; simp only [NNReal.coe_mk, c]
+    rw [ProbabilityMeasure.toMeasure_map]
+    show (μ₀ : Measure ℝ).map (fun x => c * x) = (gaussLimit : Measure ℝ)
+    rw [hμ₀_gaussian, gaussianReal_map_const_mul]
+    simp only [mul_zero, mul_one, gaussLimit]
+    congr 1
+    ext
+    simp only [NNReal.coe_mk, NNReal.coe_mul, c]
     nlinarith [Real.sq_sqrt (le_of_lt hζ₁_pos)]
   rw [hmap_gaussian] at htendsto_succ
   -- hajekLaw → gaussLimit: use htendsto_succ (shift by 1)
-  rw [Filter.tendsto_atTop_nhds] at htendsto_succ ⊢
+  rw [tendsto_atTop_nhds] at htendsto_succ ⊢
   intro U hU_open hgL_in_U
   obtain ⟨N, hN⟩ := htendsto_succ U hU_open hgL_in_U
   exact ⟨N + 1, fun n hn => by

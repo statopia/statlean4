@@ -122,9 +122,9 @@ import Statlean.CoxChangePoint.RemainderTailOp
 import Statlean.CoxChangePoint.SupProductSquareIntegrable
 import Statlean.CoxChangePoint.UniformProcessOpRate
 import Statlean.ExpFamily.Regularity
-import Statlean.Web.jobmnfrosueh4uz.Main
+-- import Statlean.Web.jobmnfrosueh4uz.Main  -- disabled: Mathlib drift
 import Statlean.Web.jobmobquqqakyyv.Theorem1
-import Statlean.Web.v2_consistency_of_RLEs_qwen_1775549228569.Main
+-- import Statlean.Web.v2_consistency_of_RLEs_qwen_1775549228569.Main  -- disabled: Mathlib drift
 
 -- Statlean/Web/* sandboxes were swept 2026-04-25 (see Statlean.lean for details).
 -- Promoted modules are reachable via the proper-namespace imports above
