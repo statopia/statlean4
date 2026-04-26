@@ -1,0 +1,22 @@
+roadmap:
+  theorem: estimability_thm36
+  completeness: partial
+  source: plaintext
+  steps:
+  - id: 1
+    description: (i) Note that $a \in R(A)$ iff $a = A^\tau b$. If $l = Q^\tau c$,
+    key_api: []
+    gap: false
+  - id: 2
+    description: '$l = Q^\tau Z_*^\tau Z_* (Z_*^\tau Z_*)^{-1} c = Z^\tau [Z_* (Z_*^\tau
+      Z_*)^{-1} c]$, so $l \in R(Z)$. Conversely if $l \in R(Z)$, $l = Z^\tau \zeta$
+      and $l = (Z_* Q)^\tau \zeta = Q^\tau c$ with $c = '
+    key_api: []
+    gap: false
+  - id: 3
+    description: '$E[l^\tau \hat\beta] = \zeta^\tau Z^\tau Z (Z^\tau Z)^{-} Z^\tau
+      Z \beta = \zeta^\tau Z^\tau Z \beta = l^\tau \beta$. Uniqueness follows from
+      $l^\tau \hat\beta - l^\tau \bar\beta = \zeta^\tau (Z^\tau '
+    key_api: []
+    gap: false
+  confidence: 3

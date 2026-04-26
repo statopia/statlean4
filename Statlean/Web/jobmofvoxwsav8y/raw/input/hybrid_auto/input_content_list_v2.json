@@ -1,0 +1,1493 @@
+[
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is not of full rank, then there are infinitely many LSE’s of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". It can be shown (exercise) that any LSE of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is of the form "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                97,
+                870,
+                135
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\hat {\\beta} = \\left(Z ^ {\\tau} Z\\right) ^ {-} Z ^ {\\tau} X, \\tag {3.29}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/85d7d1efb99904ebc499eae39782c75e4cb8e301ae38be6aa22b54c0475df022.jpg"
+                }
+            },
+            "bbox": [
+                407,
+                147,
+                865,
+                166
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( Z ^ { \\tau } Z ) ^ { - }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is called a generalized inverse of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z ^ { \\tau } Z"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and satisfies "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                175,
+                781,
+                193
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "Z ^ {\\tau} Z (Z ^ {\\tau} Z) ^ {-} Z ^ {\\tau} Z = Z ^ {\\tau} Z.",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/a32d8bde85d2574cca856b975e3db9c95bc1e70d61d170d6e19f7e51f22ed545.jpg"
+                }
+            },
+            "bbox": [
+                369,
+                202,
+                624,
+                223
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Generalized inverse matrices are not unique unless "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is of full rank, in which case "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( Z ^ { \\tau } Z ) ^ { - } = ( Z ^ { \\tau } Z ) ^ { - 1 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and (3.29) reduces to (3.28). "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                232,
+                870,
+                270
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To study properties of LSE’s of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", we need some assumptions on the distribution of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Since "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "’s are nonrandom, assumptions on the distribution of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X"
+                    },
+                    {
+                        "type": "text",
+                        "content": "can be expressed in terms of assumptions on the distribution of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\varepsilon"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Several commonly adopted assumptions are stated as follows. "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                273,
+                870,
+                345
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Assumption A1: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\varepsilon"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is distributed as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "N _ { n } ( 0 , \\sigma ^ { 2 } I _ { n } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "with an unknown "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sigma ^ { 2 } > 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". "
+                    }
+                ]
+            },
+            "bbox": [
+                125,
+                355,
+                861,
+                376
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Assumption A2: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "E ( \\varepsilon ) = 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathrm { V a r } ( \\varepsilon ) = \\sigma ^ { 2 } I _ { n }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "with an unknown "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sigma ^ { 2 } > 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". "
+                    }
+                ]
+            },
+            "bbox": [
+                125,
+                379,
+                840,
+                399
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Assumption A3: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "E ( \\varepsilon ) = 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathrm { V a r } ( \\varepsilon )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is an unknown matrix. "
+                    }
+                ]
+            },
+            "bbox": [
+                125,
+                402,
+                735,
+                421
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Assumption A1 is the strongest and implies a parametric model. We may assume a slightly more general assumption that "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\varepsilon"
+                    },
+                    {
+                        "type": "text",
+                        "content": "has the "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "N _ { n } ( 0 , \\sigma ^ { 2 } D )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "distribution with unknown "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sigma ^ { 2 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "but a known positive definite matrix "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "D"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Let "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "D ^ { - 1 / 2 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "be the inverse of the square root matrix of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "D"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Then model (3.25) with assumption A1 holds if we replace "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\varepsilon"
+                    },
+                    {
+                        "type": "text",
+                        "content": "by the transformed variables "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\ddot { X } = D ^ { - 1 / 2 } X"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\ddot { Z } = D ^ { - 1 / 2 } Z"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\tilde { \\varepsilon } = D ^ { - 1 / 2 } \\varepsilon"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", respectively. A similar conclusion can be made for assumption A2. "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                432,
+                870,
+                558
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Under assumption A1, the distribution of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "N _ { n } ( Z \\beta , \\sigma ^ { 2 } I _ { n } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", which is in an exponential family "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { P }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "with parameter "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\theta = ( \\beta , \\sigma ^ { 2 } ) \\in \\mathcal { R } ^ { p } \\times ( 0 , \\infty )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". However, if the matrix "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is not of full rank, then "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { P }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is not identifiable (see 2.1.2), since "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z \\beta _ { 1 } = Z \\beta _ { 2 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "does not imply "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta _ { 1 } = \\beta _ { 2 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                561,
+                870,
+                636
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Suppose that the rank of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "r \\le p"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Then there is an "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "n \\times r"
+                    },
+                    {
+                        "type": "text",
+                        "content": "submatrix "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z _ { * }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z"
+                    },
+                    {
+                        "type": "text",
+                        "content": "such that "
+                    }
+                ]
+            },
+            "bbox": [
+                125,
+                639,
+                870,
+                672
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "Z = Z _ {*} Q \\tag {3.30}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/9179e06abf5dcd2cf250b1aba84a474e7a08e2589cb15231ed8791ca7802fb83.jpg"
+                }
+            },
+            "bbox": [
+                453,
+                675,
+                865,
+                693
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z _ { * }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is of rank "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "r"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Q"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is a fixed "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "r \\times p"
+                    },
+                    {
+                        "type": "text",
+                        "content": "matrix. Then "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                699,
+                715,
+                717
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "Z \\beta = Z _ {*} Q \\beta",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/5d1e1e40892ea0cfc7f588fb8ce08809553f16b212f39028b2ccb2eeb4d3128c.jpg"
+                }
+            },
+            "bbox": [
+                435,
+                726,
+                560,
+                747
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { P }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is identifiable if we consider the reparameterization "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\bar { \\beta } = Q \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Note that the new parameter "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\tilde { \\beta }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is in a subspace of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { R } ^ { p }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "with dimension "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "r"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                755,
+                870,
+                792
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In many applications, we are interested in estimating some linear functions of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", i.e., "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\vartheta = l ^ { \\tau } \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for some "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l \\in \\mathcal { R } ^ { p }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". From the previous discussion, however, estimation of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ^ { \\tau } \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is meaningless unless "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l = Q ^ { \\tau } c"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for some "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "c \\in \\mathcal { R } ^ { r }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "so that "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                795,
+                870,
+                866
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "l ^ {\\tau} \\beta = c ^ {\\tau} Q \\beta = c ^ {\\tau} \\tilde {\\beta}.",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/0d1e065e23f092c9a6a611396eb73c236a7a5a9cf5b83978cb95ec8d956d1667.jpg"
+                }
+            },
+            "bbox": [
+                400,
+                866,
+                596,
+                887
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "3.3. The LSE in Linear Models "
+                    }
+                ]
+            },
+            "bbox": [
+                125,
+                46,
+                441,
+                63
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "183 "
+                    }
+                ]
+            },
+            "bbox": [
+                831,
+                48,
+                870,
+                63
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The following result shows that "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ^ { \\tau } \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is estimable if "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\mathit { l } } = Q ^ { \\tau } c"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", which is also necessary for "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ^ { \\tau } \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "to be estimable under assumption A1. "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                99,
+                870,
+                136
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Theorem 3.6. Assume model (3.25) with assumption A3. "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                151,
+                715,
+                169
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(i) A necessary and sufficient condition for "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ~ \\in ~ \\mathcal { R } ^ { p }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "being "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Q ^ { \\tau } c"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for some "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "c \\in \\mathcal { R } ^ { r }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l \\in \\mathcal { R } ( Z ) = \\mathcal { R } ( Z ^ { \\tau } Z )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Q"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is given by (3.30) and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { R } ( A )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is the smallest linear subspace containing all rows of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                171,
+                870,
+                223
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(ii) If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l \\in \\mathcal { R } ( Z )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", then the LSE "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ^ { \\tau } \\hat { \\beta }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is unique and unbiased for "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ^ { \\tau } \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                225,
+                781,
+                241
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(iii) If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l \\not \\in \\mathcal { R } ( Z )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and assumption A1 holds, then "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ^ { \\tau } \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is not estimable. "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                243,
+                810,
+                259
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Proof. (i) Note that "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "a \\in { \\mathcal { R } } ( A )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "if and only if "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "a = A ^ { \\tau } b"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for some vector "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "b"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l = Q ^ { \\prime } c"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", then "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                259,
+                870,
+                295
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "l = Q ^ {\\tau} c = Q ^ {\\tau} Z _ {*} ^ {\\tau} Z _ {*} (Z _ {*} ^ {\\tau} Z _ {*}) ^ {- 1} c = Z ^ {\\tau} [ Z _ {*} (Z _ {*} ^ {\\tau} Z _ {*}) ^ {- 1} c ].",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/79ebd8768ea0be6b8032c8344d212c39f74694d4335ce9cbfe4c3fe3e3bc6f5a.jpg"
+                }
+            },
+            "bbox": [
+                239,
+                307,
+                753,
+                331
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Hence "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l \\in \\mathcal { R } ( Z )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l \\in \\mathcal { R } ( Z )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", then "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l = Z ^ { \\tau } \\zeta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for some "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\zeta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                342,
+                715,
+                361
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "l = \\left(Z _ {*} Q\\right) ^ {\\tau} \\zeta = Q ^ {\\tau} c",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/9985df7c33226fd75591228db13466dc91bbe8bc10ec92e14c43503be9245ddf.jpg"
+                }
+            },
+            "bbox": [
+                396,
+                373,
+                599,
+                393
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "c = Z _ { * } ^ { \\tau } \\zeta"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                406,
+                268,
+                423
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(ii) If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l \\in \\mathcal { R } ( Z ) = \\mathcal { R } ( Z ^ { \\tau } Z )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", then "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l = Z ^ { \\tau } Z \\zeta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for some "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\zeta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and by (3.29), "
+                    }
+                ]
+            },
+            "bbox": [
+                125,
+                424,
+                813,
+                442
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array}{l} E \\left(l ^ {\\tau} \\hat {\\beta}\\right) = E \\left[ l ^ {\\tau} \\left(Z ^ {\\tau} Z\\right) ^ {-} Z ^ {\\tau} X \\right] \\\\ = \\zeta^ {\\tau} Z ^ {\\tau} Z \\left(Z ^ {\\tau} Z\\right) ^ {-} Z ^ {\\tau} Z \\beta \\\\ = \\zeta^ {\\tau} Z ^ {\\tau} Z \\beta \\\\ = l ^ {\\tau} \\beta . \\\\ \\end{array}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/22301a6c8e0af9d184d5eeb557335e9a6d61bd62efe92d1d1f50ff75bb5f873a.jpg"
+                }
+            },
+            "bbox": [
+                343,
+                456,
+                651,
+                540
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is any other LSE of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", then, by (3.27), "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                555,
+                558,
+                576
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "l ^ {\\tau} \\hat {\\beta} - l ^ {\\tau} \\bar {\\beta} = \\zeta^ {\\tau} (Z ^ {\\tau} Z) (\\hat {\\beta} - \\bar {\\beta}) = \\zeta^ {\\tau} (Z ^ {\\tau} X - Z ^ {\\tau} X) = 0.",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/764a5764af8394b3b30701715cf31459b9af02a4519e9bbcdb00ede2f85847c1.jpg"
+                }
+            },
+            "bbox": [
+                227,
+                587,
+                765,
+                609
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(iii) Under assumption A1, if there is an estimator "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "h ( X , Z )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "unbiased for "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ^ { \\tau } \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", then "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                621,
+                870,
+                657
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "l ^ {\\tau} \\beta = \\int_ {\\mathcal {R} ^ {n}} h (x, Z) (2 \\pi) ^ {- n / 2} \\sigma^ {- n} \\exp \\left\\{- \\frac {1}{2 \\sigma^ {2}} \\| x - Z \\beta \\| ^ {2} \\right\\} d x.",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/565b0cdd032618924fbdc85e5d44653ec0bc8260c573471a014e7e0771fc7798.jpg"
+                }
+            },
+            "bbox": [
+                209,
+                669,
+                783,
+                710
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Differentiating w.r.t. "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and applying Theorem 2.1 lead to "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                717,
+                703,
+                737
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "l = Z ^ {\\tau} \\int_ {\\mathcal {R} ^ {n}} h (x, Z) (2 \\pi) ^ {- n / 2} \\sigma^ {- n - 2} (x - Z \\beta) \\exp \\left\\{- \\frac {1}{2 \\sigma^ {2}} \\| x - Z \\beta \\| ^ {2} \\right\\} d x,",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/7c21bb7cef96e2b3ab0c20c00df89d1675e3bc6c557fb9cb701cf02d500fe88a.jpg"
+                }
+            },
+            "bbox": [
+                148,
+                747,
+                842,
+                786
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "which implies "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l \\in \\mathcal { R } ( Z )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                797,
+                366,
+                816
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Theorem 3.6 shows that LSE’s are unbiased for estimable parameters "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ^ { \\tau } \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is of full rank, then "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { R } ( Z ) = \\mathcal { R } ^ { p }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and, therefore, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l ^ { \\tau } \\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is estimable for any "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l \\in \\mathcal { R } ^ { p }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                831,
+                870,
+                887
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "184 "
+                    }
+                ]
+            },
+            "bbox": [
+                127,
+                48,
+                166,
+                64
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "3. Unbiased Estimation "
+                    }
+                ]
+            },
+            "bbox": [
+                628,
+                48,
+                872,
+                64
+            ]
+        }
+    ]
+]

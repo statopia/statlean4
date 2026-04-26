@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 187
+entry_count: 189
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -249,6 +249,14 @@ L3_strategies:
     confidence: 5
 
   - trigger: "ustatistic_clt_nondegenerate: Tendsto (ProbabilityMeasure pushforward of sqrt(n)*(U_n - E U_n)) atTop (nhds gaussianReal)"
+    strategy: ""
+    confidence: 3
+
+  - trigger: "E[χ²_k] = k or Var[χ²_k] = 2k or integral of id w.r.t. chiSquaredMeasure"
+    strategy: "DO NOT look for ProbabilityTheory.variance_chiSquared or integral_chiSquaredMeasure_id or similar moment lemmas. None exist in Mathlib 4.28.0-rc1. chiSquaredMeasure is defined as gammaMeasure (k/2) (1/2) in Statlean.Distribution.TDist; Mathlib's ProbabilityTheory.gammaMeasure also lacks mean/variance lemmas. Must build from scratch via density integral: ∫ x · gammaPDFReal (k/2) (1/2) x = k (using Gamma function recurrence)."
+    confidence: 5
+
+  - trigger: "Gaussian unbiasedness converse: ¬IsEstimable → no unbiased estimator (Shao Thm 3.6 (iii))"
     strategy: ""
     confidence: 3
 
