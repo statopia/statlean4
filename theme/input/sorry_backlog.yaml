@@ -1,6 +1,6 @@
-version: v186
-generated: 2026-04-26
-total_sorry: 19
+version: v189
+generated: 2026-04-27
+total_sorry: 25
 
 sorry_items:
 
@@ -178,7 +178,7 @@ sorry_items:
 
 - id: variance.ustatistic.cov_hSub_eq_uZeta
   file: Statlean/Variance/UStatistic.lean
-  line: 263
+  line: 265
   theorem: cov_hSub_eq_uZeta
   type: unknown
   depth: 1
@@ -189,7 +189,7 @@ sorry_items:
 
 - id: variance.ustatistic.hajek_remainder_var_tendsto_zero
   file: Statlean/Variance/UStatistic.lean
-  line: 953
+  line: 955
   theorem: hajek_remainder_var_tendsto_zero
   type: unknown
   depth: 1
@@ -200,7 +200,7 @@ sorry_items:
 
 - id: variance.ustatistic.ustatistic_clt_degenerate
   file: Statlean/Variance/UStatistic.lean
-  line: 1170
+  line: 1172
   theorem: ustatistic_clt_degenerate
   type: unknown
   depth: 1
@@ -211,8 +211,19 @@ sorry_items:
 
 - id: variance.ustatistic.ustatistic_clt_nondegenerate
   file: Statlean/Variance/UStatistic.lean
-  line: 1127
+  line: 1129
   theorem: ustatistic_clt_nondegenerate
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.ustatistic.ustatistic_degenerate_limit_second_moment
+  file: Statlean/Variance/UStatistic.lean
+  line: 1238
+  theorem: ustatistic_degenerate_limit_second_moment
   type: unknown
   depth: 1
   priority: 99
@@ -224,6 +235,61 @@ sorry_items:
   file: Statlean/Web/jobmoek5rwlfk7c/Main.lean
   line: 201
   theorem: u_statistic_variance_decomposition
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmofswr7if8gp.main.cov_hSub_eq_uZeta
+  file: Statlean/Web/jobmofswr7if8gp/Main.lean
+  line: 265
+  theorem: cov_hSub_eq_uZeta
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmofswr7if8gp.main.hajek_remainder_var_tendsto_zero
+  file: Statlean/Web/jobmofswr7if8gp/Main.lean
+  line: 955
+  theorem: hajek_remainder_var_tendsto_zero
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmofswr7if8gp.main.ustatistic_clt_degenerate
+  file: Statlean/Web/jobmofswr7if8gp/Main.lean
+  line: 1172
+  theorem: ustatistic_clt_degenerate
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmofswr7if8gp.main.ustatistic_clt_nondegenerate
+  file: Statlean/Web/jobmofswr7if8gp/Main.lean
+  line: 1129
+  theorem: ustatistic_clt_nondegenerate
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmofswr7if8gp.main.ustatistic_degenerate_limit_second_moment
+  file: Statlean/Web/jobmofswr7if8gp/Main.lean
+  line: 1238
+  theorem: ustatistic_degenerate_limit_second_moment
   type: unknown
   depth: 1
   priority: 99
