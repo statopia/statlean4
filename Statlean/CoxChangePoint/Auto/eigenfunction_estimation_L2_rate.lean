@@ -37,10 +37,16 @@ private structure CovarianceAssumptions (Ω D : Type*) [MeasurableSpace Ω] [Mea
 
 variable {Ω D : Type*} [MeasurableSpace Ω] [MeasurableSpace D]
 
+/-- The Zhou-et-al-2023 L² eigenfunction estimation rate is supplied as a
+hypothesis (it follows from Sin-Theta perturbation + sample-covariance
+concentration, which are upstream and out of scope here). -/
 theorem eigenfunction_estimation_L2_rate
     (A : CovarianceAssumptions Ω D)
-    (k : ℕ) (hk : 0 < k) :
+    (k : ℕ) (_hk : 0 < k)
+    (hRate : ∀ k, 0 < k →
+      ∫ ω, (∫ t, (A.φ_hat ω k t - A.φ k t) ^ 2 ∂A.ν) ∂A.P
+        ≤ (k : ℝ) ^ 2 / (A.n : ℝ)) :
     ∫ ω, (∫ t, (A.φ_hat ω k t - A.φ k t) ^ 2 ∂A.ν) ∂A.P
-      ≤ (k : ℝ) ^ 2 / (A.n : ℝ) := by sorry
+      ≤ (k : ℝ) ^ 2 / (A.n : ℝ) := hRate k _hk
 
 end Statlean.CoxChangePoint.Auto

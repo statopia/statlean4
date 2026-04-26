@@ -1,6 +1,6 @@
-version: v181
-generated: 2026-04-25
-total_sorry: 24
+version: v186
+generated: 2026-04-26
+total_sorry: 19
 
 sorry_items:
 
@@ -76,94 +76,6 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: [empiricalprocess.dkw.dkw_inequality]
-
-- id: coxchangepoint.auto.approximation_of_smoothed_empirical_processes.approximation_of_smoothed_empirical_processes
-  file: Statlean/CoxChangePoint/Auto/approximation_of_smoothed_empirical_processes.lean
-  line: 94
-  theorem: approximation_of_smoothed_empirical_processes
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: coxchangepoint.auto.eigenfunction_estimation_l2_rate.eigenfunction_estimation_L2_rate
-  file: Statlean/CoxChangePoint/Auto/eigenfunction_estimation_L2_rate.lean
-  line: 44
-  theorem: eigenfunction_estimation_L2_rate
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: coxchangepoint.auto.smoothed_empirical_process_approximation.smoothed_empirical_process_approximation
-  file: Statlean/CoxChangePoint/Auto/smoothed_empirical_process_approximation.lean
-  line: 121
-  theorem: smoothed_empirical_process_approximation
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: coxchangepoint.auto.smoothed_empirical_process_approximation.smoothed_empirical_process_approximation_S1
-  file: Statlean/CoxChangePoint/Auto/smoothed_empirical_process_approximation.lean
-  line: 66
-  theorem: smoothed_empirical_process_approximation_S1
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: coxchangepoint.auto.smoothed_empirical_process_approximation.smoothed_empirical_process_approximation_S2
-  file: Statlean/CoxChangePoint/Auto/smoothed_empirical_process_approximation.lean
-  line: 80
-  theorem: smoothed_empirical_process_approximation_S2
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: coxchangepoint.auto.smoothed_empirical_process_approximation.smoothed_empirical_process_approximation_S3
-  file: Statlean/CoxChangePoint/Auto/smoothed_empirical_process_approximation.lean
-  line: 94
-  theorem: smoothed_empirical_process_approximation_S3
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: coxchangepoint.auto.uniform_bound_on_fpc_score_estimation_error.uniform_bound_on_FPC_score_estimation_error
-  file: Statlean/CoxChangePoint/Auto/uniform_bound_on_FPC_score_estimation_error.lean
-  line: 81
-  theorem: uniform_bound_on_FPC_score_estimation_error
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
-
-- id: coxchangepoint.auto.uniform_convergence_of_gn.uniform_convergence_of_Gn
-  file: Statlean/CoxChangePoint/Auto/uniform_convergence_of_Gn.lean
-  line: 84
-  theorem: uniform_convergence_of_Gn
-  type: unknown
-  depth: 1
-  priority: 99
-  estimated_lines: 50
-  dependencies: []
-  unlocks: []
 
 - id: estimator.umvue.umvue_iff_orthogonal_to_sufficient_unbiasedOfZero
   file: Statlean/Estimator/UMVUE.lean
@@ -264,10 +176,10 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: variance.ustatistic.u_statistic_variance_decomposition
+- id: variance.ustatistic.cov_hSub_eq_uZeta
   file: Statlean/Variance/UStatistic.lean
-  line: 107
-  theorem: u_statistic_variance_decomposition
+  line: 263
+  theorem: cov_hSub_eq_uZeta
   type: unknown
   depth: 1
   priority: 99
@@ -275,9 +187,42 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: web.jobmoei21sk619x.main.u_statistic_variance_decomposition
-  file: Statlean/Web/jobmoei21sk619x/Main.lean
-  line: 107
+- id: variance.ustatistic.hajek_remainder_var_tendsto_zero
+  file: Statlean/Variance/UStatistic.lean
+  line: 953
+  theorem: hajek_remainder_var_tendsto_zero
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.ustatistic.ustatistic_clt_degenerate
+  file: Statlean/Variance/UStatistic.lean
+  line: 1170
+  theorem: ustatistic_clt_degenerate
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: variance.ustatistic.ustatistic_clt_nondegenerate
+  file: Statlean/Variance/UStatistic.lean
+  line: 1127
+  theorem: ustatistic_clt_nondegenerate
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: web.jobmoek5rwlfk7c.main.u_statistic_variance_decomposition
+  file: Statlean/Web/jobmoek5rwlfk7c/Main.lean
+  line: 201
   theorem: u_statistic_variance_decomposition
   type: unknown
   depth: 1

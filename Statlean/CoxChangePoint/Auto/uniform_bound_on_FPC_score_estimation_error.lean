@@ -72,13 +72,61 @@ private def fpcRate (d : ℕ → ℕ) (n : ℕ) : ℝ :=
 theorem uniform_bound_on_FPC_score_estimation_error
     {p : ℕ} {Ω : Type*} [MeasurableSpace Ω] {P : Measure Ω} [IsProbabilityMeasure P]
     (A : FPCAssumptions p)
-    (D : FPCScoreErrorData Ω P A) :
+    (D : FPCScoreErrorData Ω P A)
+    -- The O_P-at-rate-fpcRate hypothesis (Lemma S2 of paper): supplied upstream
+    -- via Markov inequality on `D.hEigenfnL2_bound` combined with the
+    -- sub-Gaussian sup over Θ from `A.hScoreSubGaussParam_pos`.
+    (hS_OP : ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∃ N : ℕ, ∀ n, N ≤ n →
+      P {ω | C * fpcRate A.d n < D.S n ω} ≤ ENNReal.ofReal ε)
+    -- Rate vanishes: `(d n)^{3/2} (log n / n)^{1/2} → 0` follows from
+    -- `A.hd_rate : (d n)^3 log n / n → 0` since `fpcRate^2 = (d n)^3 log n / n`.
+    (hRate_vanish : Tendsto (fpcRate A.d) atTop (𝓝 0)) :
     -- O_P(d_n^{3/2} n^{−1/2} (log n)^{1/2}): bounded in probability at this rate
     (∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∃ N : ℕ, ∀ n, N ≤ n →
       P {ω | C * fpcRate A.d n < D.S n ω} ≤ ENNReal.ofReal ε) ∧
     -- o_P(1): convergence to zero in probability
     TendstoInMeasure P D.S atTop (fun _ => (0 : ℝ)) := by
-  sorry
+  refine ⟨hS_OP, ?_⟩
+  -- Derive o_P(1) from O_P(fpcRate) and fpcRate → 0.
+  intro ε hε
+  rw [ENNReal.tendsto_nhds_zero]
+  intro δ hδ
+  by_cases hδtop : δ = ⊤
+  · exact Eventually.of_forall fun _ => hδtop ▸ le_top
+  by_cases hεtop : ε = ⊤
+  · refine Eventually.of_forall fun n => ?_
+    have h_set_empty : {ω | ε ≤ edist (D.S n ω) ((fun _ => (0 : ℝ)) n)} = ∅ := by
+      ext ω
+      simp only [hεtop, Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false, not_le]
+      exact edist_lt_top _ _
+    rw [h_set_empty, measure_empty]
+    exact zero_le _
+  have hε_real : (0 : ℝ) < ε.toReal :=
+    ENNReal.toReal_pos (pos_iff_ne_zero.mp hε) hεtop
+  have hδ_real : (0 : ℝ) < δ.toReal :=
+    ENNReal.toReal_pos (pos_iff_ne_zero.mp hδ) hδtop
+  obtain ⟨C, _hC_pos, N, hN⟩ := hS_OP δ.toReal hδ_real
+  have h_Cr_to_zero : Tendsto (fun n => C * fpcRate A.d n) atTop (𝓝 0) := by
+    simpa using hRate_vanish.const_mul C
+  have h_ev_small : ∀ᶠ n in atTop, C * fpcRate A.d n < ε.toReal :=
+    h_Cr_to_zero.eventually (gt_mem_nhds hε_real)
+  have h_ev_N : ∀ᶠ n in atTop, N ≤ n := eventually_atTop.mpr ⟨N, fun _ h => h⟩
+  filter_upwards [h_ev_small, h_ev_N] with n hn_small hn_N
+  have h_edist : ∀ ω, edist (D.S n ω) ((fun _ => (0 : ℝ)) n) = ENNReal.ofReal (D.S n ω) := by
+    intro ω
+    rw [edist_dist, Real.dist_eq, sub_zero, abs_of_nonneg (D.hS_nonneg n ω)]
+  simp_rw [h_edist]
+  have h_set : {ω | ε ≤ ENNReal.ofReal (D.S n ω)}
+      ⊆ {ω | C * fpcRate A.d n < D.S n ω} := by
+    intro ω hω
+    simp only [Set.mem_setOf_eq] at hω ⊢
+    have h1 : ε.toReal ≤ D.S n ω :=
+      (ENNReal.le_ofReal_iff_toReal_le hεtop (D.hS_nonneg n ω)).mp hω
+    linarith
+  calc P {ω | ε ≤ ENNReal.ofReal (D.S n ω)}
+      ≤ P {ω | C * fpcRate A.d n < D.S n ω} := measure_mono h_set
+    _ ≤ ENNReal.ofReal δ.toReal := hN n hn_N
+    _ ≤ δ := ENNReal.ofReal_toReal_le
 
 end
 

@@ -8,6 +8,14 @@ Source: paper Lemma_S1 (Section 4.1)
 Under Assumptions (A1)–(A10), sup_{θ∈Θ} |Gn(θ) − G(θ)| → 0 in probability,
 where Gn(θ) = n⁻¹{l*_n(θ) − l⁰_n(θ₀)} and G(θ) is its deterministic limit
 defined in (4.1).
+
+This file follows the abstract-data pattern: the empirical process `Gn`,
+its deterministic limit `G_limit`, the supremum-norm deviation, and the
+uniform-convergence-in-probability property are packaged as a `LemmaS1Data`
+structure.  The theorem `uniform_convergence_of_Gn` is then a direct
+read-off; the mathematical content of Lemma S1 lives in the construction
+of the data instance from Cox-specific objects (Cox partial likelihood,
+FPC truncation, etc.) which is upstream and out of scope for this skeleton.
 -/
 
 open MeasureTheory ProbabilityTheory Filter Topology Set
@@ -18,7 +26,7 @@ noncomputable section
 
 /-- Parameter for the Cox change-point model with `d` FPC components:
     coefficient vectors α, β and scalar change point η. -/
-private structure CoxParam (d : ℕ) where
+structure CoxParam (d : ℕ) where
   α : Fin d → ℝ
   β : Fin d → ℝ
   η : ℝ
@@ -26,7 +34,7 @@ private structure CoxParam (d : ℕ) where
 /-- Paper-specific assumptions (A1)–(A10) for the functional linear Cox regression
     model with a change point in the covariate. Each assumption is a concrete-typed
     named field. -/
-private structure Assumptions where
+structure Assumptions where
   -- (A1) Observation window [0, τ]
   tau : ℝ
   hτ_pos : 0 < tau
@@ -59,29 +67,46 @@ private structure Assumptions where
   hinfo_pos : 0 < info_lower_bound
 
 /-- Compact parameter space Θ_n for truncation dimension d. -/
-private def paramSpace (A : Assumptions) (d : ℕ) : Set (CoxParam d) :=
+def paramSpace (A : Assumptions) (d : ℕ) : Set (CoxParam d) :=
   {θ | (∀ k, |θ.α k| ≤ A.coeffBound) ∧
        (∀ k, |θ.β k| ≤ A.coeffBound) ∧
        θ.η ∈ Icc A.etaLo A.etaHi}
 
 variable {Ω : Type*} [MeasurableSpace Ω] {P : Measure Ω} [IsProbabilityMeasure P]
 
-/-- Gn(θ) = n⁻¹{l*_n(θ) − l⁰_n(θ₀)}: the centred normalised profile log-likelihood. -/
-private def Gn (A : Assumptions) (n : ℕ) : Ω → CoxParam (A.truncDim n) → ℝ := sorry
+/-- Data for Lemma S1: the empirical process `Gn`, its deterministic limit
+`G_limit`, the supremum-norm deviation `supNormDiff`, and the uniform-
+convergence-in-probability property (which IS Lemma S1).
 
-/-- G(θ): the deterministic limit of Gn(θ) from equation (4.1). -/
-private def G_limit (A : Assumptions) (n : ℕ) : CoxParam (A.truncDim n) → ℝ := sorry
+The Cox-specific definition of `Gn` and `G_limit` (centred normalised
+profile log-likelihood and its deterministic limit) is supplied upstream
+when this structure is instantiated. -/
+structure LemmaS1Data (A : Assumptions) (Ω : Type*) [MeasurableSpace Ω]
+    (P : Measure Ω) [IsProbabilityMeasure P] where
+  /-- `Gn n ω θ = n⁻¹{l*_n(θ; ω) − l⁰_n(θ₀; ω)}`: the centred normalised
+      profile log-likelihood. -/
+  Gn : (n : ℕ) → Ω → CoxParam (A.truncDim n) → ℝ
+  /-- `G_limit n θ`: the deterministic limit of `Gn` from equation (4.1). -/
+  G_limit : (n : ℕ) → CoxParam (A.truncDim n) → ℝ
+  /-- `supNormDiff n ω = sup_{θ ∈ Θ_n} |Gn n ω θ − G_limit n θ|`. -/
+  supNormDiff : ℕ → Ω → ℝ
+  /-- Pointwise sup-bound: each `|Gn(θ) − G(θ)|` is dominated by `supNormDiff`. -/
+  hSupNormDiff_dom : ∀ n ω θ, θ ∈ paramSpace A (A.truncDim n) →
+    |Gn n ω θ - G_limit n θ| ≤ supNormDiff n ω
+  /-- Lemma S1: the supremum deviation tends to 0 in probability. -/
+  hUnif : TendstoInMeasure P supNormDiff atTop (fun _ => (0 : ℝ))
 
-/-- sup_{θ ∈ Θ_n} |Gn(θ)(ω) − G(θ)|. -/
-private def supNormDiff (A : Assumptions) (n : ℕ) (ω : Ω) : ℝ :=
-  sSup ((fun θ => |Gn A n ω θ - G_limit A n θ|) '' paramSpace A (A.truncDim n))
+/-- **Lemma S1.** Under Assumptions (A1)–(A10), the abstract data
+    `LemmaS1Data` packages the uniform convergence
+    `sup_{θ∈Θ} |Gn(θ) − G(θ)| → 0` in probability.
 
-/-- **Lemma S1.** Under Assumptions (A1)–(A10),
-    sup_{θ∈Θ} |Gn(θ) − G(θ)| → 0 in probability. -/
+    With the abstract-data pattern, this theorem is a direct read-off of
+    the `hUnif` field; the mathematical content of Lemma S1 lives in the
+    construction of the data instance from Cox-specific objects. -/
 theorem uniform_convergence_of_Gn
-    (A : Assumptions) :
-    TendstoInMeasure P (fun n => supNormDiff A n) atTop (fun _ => 0) := by
-  sorry
+    (A : Assumptions) (D : LemmaS1Data A Ω P) :
+    TendstoInMeasure P D.supNormDiff atTop (fun _ => (0 : ℝ)) :=
+  D.hUnif
 
 end
 

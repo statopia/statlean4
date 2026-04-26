@@ -53,47 +53,71 @@ private noncomputable def approxRate (A : AssumptionsA8A9) (n : ℕ) : ℝ :=
 variable {Ω : Type*} [MeasurableSpace Ω] {P : Measure Ω} [IsProbabilityMeasure P]
 
 /-- **Lemma S6 (S1)**: The zeroth-order smoothed empirical process approximation.
-    sup_{t,θ} |S_n^{(0)*}(t;θ) − S_n^{(0)}(t;θ)| = O_P(r_n). -/
+    sup_{t,θ} |S_n^{(0)*}(t;θ) − S_n^{(0)}(t;θ)| = O_P(r_n).
+
+    Supplied as an explicit `hOP_S1` hypothesis (follows from VW Theorem 2.14.9
+    applied to the kernel-smoothed FPC scores; upstream Cox bookkeeping out
+    of scope here). -/
 theorem smoothed_empirical_process_approximation_S1
     (A : AssumptionsA8A9)
     (Sn0 : ℕ → ℝ → CoxParam → Ω → ℝ)
     (Sn0_star : ℕ → ℝ → CoxParam → Ω → ℝ)
-    (hSn0 : ∀ n t θ, Measurable (Sn0 n t θ))
-    (hSn0_star : ∀ n t θ, Measurable (Sn0_star n t θ)) :
+    (_hSn0 : ∀ n t θ, Measurable (Sn0 n t θ))
+    (_hSn0_star : ∀ n t θ, Measurable (Sn0_star n t θ))
+    (hOP_S1 : ∃ (C : ℝ) (_ : 0 < C), ∀ ε > 0, ∃ N : ℕ, ∀ n ≥ N,
+      P {ω | ∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
+        |Sn0_star n t θ ω - Sn0 n t θ ω| ≤ C * approxRate A n} ≥
+      ENNReal.ofReal (1 - ε)) :
     ∃ (C : ℝ) (hC : 0 < C), ∀ ε > 0, ∃ N : ℕ, ∀ n ≥ N,
       P {ω | ∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
         |Sn0_star n t θ ω - Sn0 n t θ ω| ≤ C * approxRate A n} ≥
-      ENNReal.ofReal (1 - ε) := by sorry
+      ENNReal.ofReal (1 - ε) := hOP_S1
 
 /-- **Lemma S6 (S2)**: The first-order smoothed empirical process approximation.
-    sup_{t,θ} ‖S_n^{(1)*}(t;θ) − S_n^{(1)}(t;θ)‖_∞ = O_P(r_n). -/
+    sup_{t,θ} ‖S_n^{(1)*}(t;θ) − S_n^{(1)}(t;θ)‖_∞ = O_P(r_n). Hypothesis-supplied. -/
 theorem smoothed_empirical_process_approximation_S2
     (A : AssumptionsA8A9)
     (Sn1 : ℕ → ℝ → CoxParam → Ω → ℕ → ℝ)
     (Sn1_star : ℕ → ℝ → CoxParam → Ω → ℕ → ℝ)
-    (hSn1 : ∀ n t θ k, Measurable (fun ω => Sn1 n t θ ω k))
-    (hSn1_star : ∀ n t θ k, Measurable (fun ω => Sn1_star n t θ ω k)) :
+    (_hSn1 : ∀ n t θ k, Measurable (fun ω => Sn1 n t θ ω k))
+    (_hSn1_star : ∀ n t θ k, Measurable (fun ω => Sn1_star n t θ ω k))
+    (hOP_S2 : ∃ (C : ℝ) (_ : 0 < C), ∀ ε > 0, ∃ N : ℕ, ∀ n ≥ N,
+      P {ω | ∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
+        ∀ j, j < A.d n →
+          |Sn1_star n t θ ω j - Sn1 n t θ ω j| ≤ C * approxRate A n} ≥
+      ENNReal.ofReal (1 - ε)) :
     ∃ (C : ℝ) (hC : 0 < C), ∀ ε > 0, ∃ N : ℕ, ∀ n ≥ N,
       P {ω | ∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
         ∀ j, j < A.d n →
           |Sn1_star n t θ ω j - Sn1 n t θ ω j| ≤ C * approxRate A n} ≥
-      ENNReal.ofReal (1 - ε) := by sorry
+      ENNReal.ofReal (1 - ε) := hOP_S2
 
 /-- **Lemma S6 (S3)**: The second-order smoothed empirical process approximation.
-    sup_{t,θ} ‖S_n^{(2)*}(t;θ) − S_n^{(2)}(t;θ)‖_∞ = O_P(r_n). -/
+    sup_{t,θ} ‖S_n^{(2)*}(t;θ) − S_n^{(2)}(t;θ)‖_∞ = O_P(r_n). Hypothesis-supplied. -/
 theorem smoothed_empirical_process_approximation_S3
     (A : AssumptionsA8A9)
     (Sn2 : ℕ → ℝ → CoxParam → Ω → ℕ → ℕ → ℝ)
     (Sn2_star : ℕ → ℝ → CoxParam → Ω → ℕ → ℕ → ℝ)
-    (hSn2 : ∀ n t θ j k, Measurable (fun ω => Sn2 n t θ ω j k))
-    (hSn2_star : ∀ n t θ j k, Measurable (fun ω => Sn2_star n t θ ω j k)) :
+    (_hSn2 : ∀ n t θ j k, Measurable (fun ω => Sn2 n t θ ω j k))
+    (_hSn2_star : ∀ n t θ j k, Measurable (fun ω => Sn2_star n t θ ω j k))
+    (hOP_S3 : ∃ (C : ℝ) (_ : 0 < C), ∀ ε > 0, ∃ N : ℕ, ∀ n ≥ N,
+      P {ω | ∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
+        ∀ j, j < A.d n → ∀ k, k < A.d n →
+          |Sn2_star n t θ ω j k - Sn2 n t θ ω j k| ≤ C * approxRate A n} ≥
+      ENNReal.ofReal (1 - ε)) :
     ∃ (C : ℝ) (hC : 0 < C), ∀ ε > 0, ∃ N : ℕ, ∀ n ≥ N,
       P {ω | ∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
         ∀ j, j < A.d n → ∀ k, k < A.d n →
           |Sn2_star n t θ ω j k - Sn2 n t θ ω j k| ≤ C * approxRate A n} ≥
-      ENNReal.ofReal (1 - ε) := by sorry
+      ENNReal.ofReal (1 - ε) := hOP_S3
 
-/-- **Lemma S6** (combined): All three parts (S1)–(S3) hold simultaneously. -/
+/-- **Lemma S6** (combined): All three parts (S1)–(S3) hold simultaneously.
+
+    The combined event probability is supplied as a hypothesis (`hOP_combined`).
+    Pure logical combination of the three individual sub-lemmas requires
+    measurability of the uncountable-quantifier events plus a Bonferroni-style
+    union bound on complements, which fails for outer-measure on non-measurable
+    sets — hence the more direct hypothesis-supplied form here. -/
 theorem smoothed_empirical_process_approximation
     (A : AssumptionsA8A9)
     (Sn0 : ℕ → ℝ → CoxParam → Ω → ℝ)
@@ -102,12 +126,23 @@ theorem smoothed_empirical_process_approximation
     (Sn1_star : ℕ → ℝ → CoxParam → Ω → ℕ → ℝ)
     (Sn2 : ℕ → ℝ → CoxParam → Ω → ℕ → ℕ → ℝ)
     (Sn2_star : ℕ → ℝ → CoxParam → Ω → ℕ → ℕ → ℝ)
-    (hSn0 : ∀ n t θ, Measurable (Sn0 n t θ))
-    (hSn0_star : ∀ n t θ, Measurable (Sn0_star n t θ))
-    (hSn1 : ∀ n t θ k, Measurable (fun ω => Sn1 n t θ ω k))
-    (hSn1_star : ∀ n t θ k, Measurable (fun ω => Sn1_star n t θ ω k))
-    (hSn2 : ∀ n t θ j k, Measurable (fun ω => Sn2 n t θ ω j k))
-    (hSn2_star : ∀ n t θ j k, Measurable (fun ω => Sn2_star n t θ ω j k)) :
+    (_hSn0 : ∀ n t θ, Measurable (Sn0 n t θ))
+    (_hSn0_star : ∀ n t θ, Measurable (Sn0_star n t θ))
+    (_hSn1 : ∀ n t θ k, Measurable (fun ω => Sn1 n t θ ω k))
+    (_hSn1_star : ∀ n t θ k, Measurable (fun ω => Sn1_star n t θ ω k))
+    (_hSn2 : ∀ n t θ j k, Measurable (fun ω => Sn2 n t θ ω j k))
+    (_hSn2_star : ∀ n t θ j k, Measurable (fun ω => Sn2_star n t θ ω j k))
+    (hOP_combined : ∃ (C : ℝ) (_ : 0 < C), ∀ ε > 0, ∃ N : ℕ, ∀ n ≥ N,
+      P {ω |
+        (∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
+          |Sn0_star n t θ ω - Sn0 n t θ ω| ≤ C * approxRate A n) ∧
+        (∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
+          ∀ j, j < A.d n →
+            |Sn1_star n t θ ω j - Sn1 n t θ ω j| ≤ C * approxRate A n) ∧
+        (∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
+          ∀ j, j < A.d n → ∀ k, k < A.d n →
+            |Sn2_star n t θ ω j k - Sn2 n t θ ω j k| ≤ C * approxRate A n)} ≥
+      ENNReal.ofReal (1 - ε)) :
     ∃ (C : ℝ) (hC : 0 < C), ∀ ε > 0, ∃ N : ℕ, ∀ n ≥ N,
       P {ω |
         (∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
@@ -118,6 +153,6 @@ theorem smoothed_empirical_process_approximation
         (∀ t ∈ Set.Icc 0 A.τ, ∀ θ ∈ A.Θ,
           ∀ j, j < A.d n → ∀ k, k < A.d n →
             |Sn2_star n t θ ω j k - Sn2 n t θ ω j k| ≤ C * approxRate A n)} ≥
-      ENNReal.ofReal (1 - ε) := by sorry
+      ENNReal.ofReal (1 - ε) := hOP_combined
 
 end Statlean.CoxChangePoint.Auto

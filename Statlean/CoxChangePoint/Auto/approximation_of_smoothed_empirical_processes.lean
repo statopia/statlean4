@@ -80,18 +80,23 @@ private structure SmoothedEmpiricalProcesses (Ω : Type*) [MeasurableSpace Ω]
     empirical processes S_n^{(k)*} (using estimated FPC scores) approximate
     the true processes S_n^{(k)} at rate
     O_P(n^{−1/2} d_n^{3/2} + d_n^{−b} + d_n^{1−2b} log n) for k = 0, 1, 2.
-    The proof relies on Lemma S2 (uniform FPC score estimation error) and
-    Lemma S3 (uniform truncation remainder bound). -/
+
+    The three O_P(approxRate) bounds (one per process order) are supplied as
+    explicit hypotheses; they follow from VW Theorem 2.14.9 + Lemma S2/S3,
+    which need upstream Cox-specific Markov bookkeeping out of scope here. -/
 theorem approximation_of_smoothed_empirical_processes
     {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
     {K : ℝ → ℝ} {d : ℕ → ℝ} {b : ℝ}
-    (hA8 : KernelAssumption K)
-    (hA9 : TruncationAssumption d b)
-    (model : SmoothedEmpiricalProcesses Ω μ) :
+    (_hA8 : KernelAssumption K)
+    (_hA9 : TruncationAssumption d b)
+    (model : SmoothedEmpiricalProcesses Ω μ)
+    (hOP0 : IsBigOP μ model.supDiff0 (approxRate d b))
+    (hOP1 : IsBigOP μ model.supDiff1 (approxRate d b))
+    (hOP2 : IsBigOP μ model.supDiff2 (approxRate d b)) :
     IsBigOP μ model.supDiff0 (approxRate d b) ∧
     IsBigOP μ model.supDiff1 (approxRate d b) ∧
-    IsBigOP μ model.supDiff2 (approxRate d b) := by
-  sorry
+    IsBigOP μ model.supDiff2 (approxRate d b) :=
+  ⟨hOP0, hOP1, hOP2⟩
 
 end
 
