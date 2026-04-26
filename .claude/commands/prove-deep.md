@@ -236,13 +236,53 @@ elif result.status == "stuck":
     (patterns: "unknown identifier", "unknown constant", "no such lemma",
     "API doesn't exist", "需要 X 但 Mathlib 没有") OR the sorry has been
     stuck twice in a row, call
-    `mcp__statlean_web_ui__request_user_decision` with:
-      question: "Sorry <theorem_name> is stuck (blocker: <one-line>). Trust as axiom, investigate deeper, or abort?"
-      options: ["trust_as_axiom", "investigate_deeper", "abort"]
+    `mcp__statlean_web_ui__request_user_decision` with these REQUIRED
+    fields:
+
+    ```
+    question: <prose>. MUST use $...$ inline math and $$...$$ block math
+              for any formula — the UI renders KaTeX. Don't leave LaTeX
+              as plain text (it'll display as "$\sum_j..." which is
+              unreadable).
+
+    options:  ["trust_as_axiom", "trust_and_finish", "investigate_deeper", "abort"]
+              · trust_as_axiom    → trust this one, KEEP attacking other
+                                    items in ready_queue
+              · trust_and_finish  → trust this one AND immediately wrap
+                                    up the round (skip remaining queue,
+                                    jump to Phase 3). Use when user
+                                    likely wants to stop early.
+              · investigate_deeper → re-dispatch with extra budget
+              · abort              → give up
+
+    trust_description: <plain Chinese, REQUIRED when options contain
+                       trust_*>. Bulleted list naming each Mathlib /
+                       Statlean infra gap or math fact being trusted.
+                       Example for the χ² case:
+                         "1. Mathlib 无 χ² 分布定义 (Probability.Distributions.ChiSquared 缺)
+                          2. Mathlib 无 Hilbert-Schmidt 紧算子谱展开
+                          3. Mathlib 无非 Gaussian iid 级数收敛 ∑_j λ_j(χ²-1) 判据"
+                       Surfaces in UI as a separate audit panel so user
+                       sees and the cross-job decisions table records
+                       exactly what got trusted.
+
+    ready_queue: <array — REQUIRED when options contain trust_*>.
+                 Snapshot of remaining ready_queue (excluding current
+                 sorry). One entry per item, with id + theorem + priority
+                 + estimated_lines. Top 50 by priority. Lets user see
+                 "if I trust_and_finish, this is what I'm skipping".
+    ```
+
     Act on the reply:
-      - USER_CHOICE: trust_as_axiom   → leave the sorry with comment
-        `-- TRUSTED (user-approved infra gap: <reason>)`, skip further
-        dispatches for this id, continue DAG loop.
+      - USER_CHOICE: trust_as_axiom    → leave the sorry with comment
+        `-- TRUSTED (user-approved infra gap: <one-line summary of
+        trust_description>)`, skip further dispatches for this id,
+        continue DAG loop attacking remaining ready_queue.
+      - USER_CHOICE: trust_and_finish  → leave the sorry with comment
+        `-- TRUSTED (user-approved infra gap: <reason>)`, mark all
+        remaining ready_queue items as `pending (user requested early
+        finish)`, **exit Phase 2 LOOP immediately and proceed to Phase 3
+        finalize**. Do NOT dispatch additional items.
       - USER_CHOICE: investigate_deeper → keep in ready_queue with
         original priority, re-dispatch with time budget ×1.5.
       - USER_CHOICE: <free-text hint>  → treat as R1 proof-route hint
