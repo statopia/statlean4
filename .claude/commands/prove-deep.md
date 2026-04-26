@@ -71,6 +71,14 @@ active_agents = {}   # {task_id → sorry_id}
 ready_queue = [sorted by priority]
 start_time = now()
 
+# Emit a milestone so observability (UI, evolve harness) can see the
+# DAG cycle starting. Real bash, not pseudo-code:
+#   python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone \
+#       --name dispatch-batch-start
+# (See "Output Conventions" at end of file. The CLI is forbidden from
+# emitting `step` events for these phases; milestones are the correct
+# granularity here.)
+
 LOOP:
   # ── Fill slots to MAX_SLOTS ──
   while len(active_agents) < MAX_SLOTS and ready_queue is not empty:
@@ -181,8 +189,16 @@ if result.status == "proved":
            add downstream to ready_queue (sorted by priority)
      - Check whole-file zero sorry → update Verified.lean
      - git add + commit "prove: {theorem_name}"
+     - Emit milestone (real bash):
+         python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone \
+             --name sorry-proved \
+             --details "{\"sorry_id\":\"<sorry_id>\",\"theorem\":\"<theorem_name>\"}"
   3. if build FAIL:
      - Log error, mark sorry as pending, priority += 3
+     - Emit milestone:
+         python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone \
+             --name lake-build-fail \
+             --details "{\"sorry_id\":\"<sorry_id>\"}"
 
 if result.new_knowledge:
   - 将 new_knowledge YAML 块写入临时文件（如 /tmp/new_knowledge_{sorry_id}.yaml）
@@ -193,6 +209,10 @@ elif result.status == "stuck":
   - Mark sorry as pending
   - Increase priority by 5 (deprioritize)
   - Log blocker info for future reference
+  - Emit milestone:
+      python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone \
+          --name subagent-stuck \
+          --details "{\"sorry_id\":\"<sorry_id>\",\"blocker\":\"<one-line>\"}"
   - **User-trust gate** (web-UI only — silently skipped in CLI-standalone
     mode when the tool is unavailable):
     If the blocker description mentions missing Mathlib infrastructure
@@ -237,6 +257,17 @@ After the scheduling loop exits (all done, or time budget reached):
    - 运行 `python3 scripts/ingest_knowledge.py --input /tmp/new_knowledge.yaml`
    - 脚本自动验证、去重、追加到 `theme/proof_knowledge.yaml`
 5. **Report — 输出分流（强制）**:
+
+6. **Emit cycle-done milestone**（强制 — 在屏幕摘要打印之后）:
+   ```
+   python3 theme/scripts/emit_event.py --sandbox "$SANDBOX" milestone \
+       --name dag-cycle-done \
+       --details "{\"proved\":<K>,\"stuck\":<J>,\"remaining\":<R>}"
+   ```
+   This is the CLI-side signal the web orchestrator uses to close out
+   Round N's Step 9 framing (web-side derived; see
+   `website/docs/CLI_WEB_CONFORMANCE.md` §0.3). Do not skip even when
+   the cycle ended via hard deadline.
 
 **屏幕输出**（紧凑摘要，≤5 行）：
 ```

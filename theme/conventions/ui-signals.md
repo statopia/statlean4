@@ -428,9 +428,21 @@ having consumers parse tool-result prose.
 {"ts": 1777000031, "kind": "sandbox_milestone", "name": "sorry-zero", "details": {"count_before": 3}}
 ```
 
-- `name` (enum, required): `lake-build-clean` | `sorry-zero` |
-  `yaml-complete` | `pdf-extracted` | `skeleton-locked` |
-  `proof-verified` | `promoted` | `other`.
+- `name` (enum, required):
+  - **Pipeline gates** (Round 1): `pdf-extracted` | `yaml-complete` |
+    `skeleton-locked` | `lake-build-clean` | `proof-verified` |
+    `promoted` | `sorry-zero`
+  - **Per-build / per-sorry failures and proofs** (Phase 2 LOOP):
+    `lake-build-fail` | `sorry-proved`
+  - **DAG cycle markers** (`/prove-deep` Phase 2 entry / Phase 3 exit /
+    sub-agent reported stuck): `dispatch-batch-start` | `subagent-stuck`
+    | `dag-cycle-done`
+  - `other` for anything not in the canonical list.
+
+  The DAG-cycle markers are the CLI-side signal the web orchestrator
+  uses to derive Round/Step framing for "继续" rounds (web side adds
+  `round` + Step 7-9 framing; see
+  `website/docs/CLI_WEB_CONFORMANCE.md` §0.3).
 - `path` (string, optional): relative path to the artifact that
   triggered the milestone.
 - `details` (object, optional): structured extra fields.

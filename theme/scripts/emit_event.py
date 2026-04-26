@@ -87,12 +87,17 @@ DELTA_SEVERITIES = (
 
 MILESTONE_NAMES = (
     "lake-build-clean",
+    "lake-build-fail",       # per-build failure (Phase 2 LOOP); pairs with lake-build-clean
     "sorry-zero",
+    "sorry-proved",          # one sorry just got proved (Phase 2 process_result)
     "yaml-complete",
-    "pdf-extracted",
     "skeleton-locked",
+    "pdf-extracted",
     "proof-verified",
     "promoted",
+    "dispatch-batch-start",  # /prove-deep DAG cycle entry (Phase 2 LOOP open)
+    "subagent-stuck",        # one sub-agent reported `stuck` for a sorry
+    "dag-cycle-done",        # /prove-deep DAG cycle exit (Phase 3 end)
     "other",
 )
 
