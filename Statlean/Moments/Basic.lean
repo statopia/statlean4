@@ -1,4 +1,5 @@
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.MeasureTheory.Measure.CharacteristicFunction
 import Statlean.Variance.RaoBlackwell
 import Mathlib.Analysis.Calculus.IteratedDeriv.Defs
 import Mathlib.Probability.Moments.Basic
@@ -137,5 +138,53 @@ theorem chebyshev_ineq [IsProbabilityMeasure μ]
     (ProbabilityTheory.meas_ge_le_variance_div_sq hX ht)
 
 end Theorems
+
+/-! ## Multivariate m.g.f. and characteristic function (Shao Definition 1.5)
+
+Shao, *Mathematical Statistics*, Definition 1.5 introduces two maps associated
+with a random $k$-vector $X$ with distribution $P_X$:
+
+* $\psi_X(t) = \mathbb{E}\bigl[e^{t^\tau X}\bigr]$ — the **moment generating
+  function** (m.g.f.), for $t \in \mathbb{R}^k$;
+* $\varphi_X(t) = \mathbb{E}\bigl[e^{\sqrt{-1}\, t^\tau X}\bigr]
+  = \mathbb{E}[\cos(t^\tau X)] + \sqrt{-1}\,\mathbb{E}[\sin(t^\tau X)]$ — the
+  **characteristic function** (ch.f.).
+
+We formalize these for a general inner product space `E` so the signatures
+specialize to `EuclideanSpace ℝ (Fin k)` (Shao's setting) by taking the dot
+product, to `ℝ` (the scalar case, recovering `ProbabilityTheory.mgf`), and to
+arbitrary Hilbert-space-valued random elements used elsewhere in the library.
+Shao's `t^\tau X` is the real inner product `⟪t, X ω⟫`.
+-/
+
+section Definition_1_5
+
+variable {E : Type*}
+
+/-- **Shao Definition 1.5 (i)** — moment generating function of a random vector.
+
+For a random element `X : Ω → E` of an inner product space, the m.g.f. at
+`t : E` is `ψ_X(t) = 𝔼[exp ⟪t, X⟫]`. -/
+noncomputable def mgfVec [Inner ℝ E] (X : Ω → E) (t : E) : ℝ :=
+  ∫ ω, Real.exp (inner ℝ t (X ω)) ∂μ
+
+/-- **Shao Definition 1.5 (ii)** — characteristic function of a random vector.
+
+Defined as Mathlib's `MeasureTheory.charFun` applied to the pushforward
+`μ.map X`, so that `chfVec μ X t = ∫ exp (I · ⟪x, t⟫) d(μ.map X)`, which by
+`MeasureTheory.integral_map` equals `∫ exp (I · ⟪t, X ω⟫) dμ ω`. -/
+noncomputable def chfVec [MeasurableSpace E] [Inner ℝ E]
+    (X : Ω → E) (t : E) : ℂ :=
+  charFun (μ.map X) t
+
+/-- On the scalar case `E = ℝ` the multivariate m.g.f. reduces to
+`ProbabilityTheory.mgf`, matching the univariate special case of Shao
+Definition 1.5 (i). -/
+lemma mgfVec_real (X : Ω → ℝ) (t : ℝ) :
+    mgfVec μ X t = mgf X μ t := by
+  unfold mgfVec mgf
+  simp [mul_comm]
+
+end Definition_1_5
 
 end Statlean.Moments

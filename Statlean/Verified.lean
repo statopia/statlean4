@@ -19,6 +19,9 @@ import Statlean.Entropy.Basic
 -- Characteristic function Taylor bounds (verified)
 import Statlean.CharFun.Taylor
 
+-- High-dimensional mediation: structural assumption (A1) — pure predicate, zero sorry
+import Statlean.HDMediation.Assumptions
+
 -- USLLN (fully verified — uniform SLLN + all infrastructure)
 import Statlean.LimitTheorems.USLLN
 
@@ -96,6 +99,36 @@ import Statlean.LimitTheorems.LindebergFeller
 
 -- Cramér-Wold device (verified — multivariate Lévy + projection ⟺ weak convergence)
 import Statlean.LimitTheorems.CramerWold
+import Statlean.Analysis.CauchySchwarzAbs
+import Statlean.Analysis.Norm.NormSubAddBound
+import Statlean.Causal.Basic
+import Statlean.Causal.OptimalTransport
+import Statlean.CoxChangePoint.Auto.exponential_moment_bound
+import Statlean.CoxChangePoint.Auto.uniform_convergence_of_empirical_processes
+import Statlean.CoxChangePoint.S3CauchySchwarzTail
+import Statlean.Decision.Invariance
+import Statlean.EmpiricalProcess.Donsker
+import Statlean.EmpiricalProcess.DonskerInfra
+import Statlean.EmpiricalProcess.Equicontinuity
+import Statlean.EmpiricalProcess.HoeffdingLemma
+import Statlean.EmpiricalProcess.RiemannSum
+import Statlean.EmpiricalProcess.StochasticOrder
+import Statlean.EmpiricalProcess.Symmetrization
+import Statlean.Fourier.CDFInversion
+import Statlean.Fourier.JacksonKernel
+import Statlean.MeasureTheory.MeasureInterLeMin
+import Statlean.Pipeline.Lecture9Handout
+import Statlean.CoxChangePoint.RemainderTailOp
+import Statlean.CoxChangePoint.SupProductSquareIntegrable
+import Statlean.CoxChangePoint.UniformProcessOpRate
+import Statlean.ExpFamily.Regularity
+import Statlean.Web.jobmnfrosueh4uz.Main
+import Statlean.Web.jobmobquqqakyyv.Theorem1
+import Statlean.Web.v2_consistency_of_RLEs_qwen_1775549228569.Main
+
+-- Statlean/Web/* sandboxes were swept 2026-04-25 (see Statlean.lean for details).
+-- Promoted modules are reachable via the proper-namespace imports above
+-- (e.g. `Statlean.Concentration.Talagrand`, `Statlean.RandomMatrix.MarchenkoPastur`).
 
 /-! # Statlean Verified Library
 

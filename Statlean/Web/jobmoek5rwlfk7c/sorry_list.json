@@ -1,0 +1,12 @@
+[
+  {
+    "id": "jobmoek5rwlfk7c.u_statistic_variance_decomposition.L201",
+    "jobId": "jobmoek5rwlfk7c",
+    "theorem": "u_statistic_variance_decomposition",
+    "file": "Main.lean",
+    "startLine": 190,
+    "endLine": 201,
+    "context": "",
+    "dependencies": []
+  }
+]

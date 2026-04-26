@@ -1,0 +1,10 @@
+{
+  "pdf": "/home/gavin/statlean/Statlean/Web/jobmodvzyf9s5r9/input.pdf",
+  "backend": "mineru",
+  "blocks_extracted": 0,
+  "block_kinds": {},
+  "latex_warnings": 0,
+  "output_tex": "/home/gavin/statlean/Statlean/Web/jobmodvzyf9s5r9/paper.tex",
+  "notation_yaml": "/home/gavin/statlean/Statlean/Web/jobmodvzyf9s5r9/notation.yaml",
+  "raw_output": "/home/gavin/statlean/Statlean/Web/jobmodvzyf9s5r9/raw/input/auto/input.md"
+}

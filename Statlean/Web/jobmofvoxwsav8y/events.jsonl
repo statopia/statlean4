@@ -19,3 +19,6 @@
 {"ts":1777218462226,"kind":"sandbox_milestone","name":"sorry-zero"}
 {"ts":1777218471361,"kind":"step","id":6,"status":"start","title":"Sync & Gate"}
 {"ts":1777218471427,"kind":"artifact","kind_tag":"sorry-list","path":"sorry_list.json","size":3}
+{"ts":1777218594497,"kind":"step","id":6,"status":"done"}
+{"ts":1777218594521,"kind":"sandbox_milestone","name":"proof-verified"}
+{"ts":1777218626029,"kind":"sandbox_milestone","name":"dag-cycle-done","details":{"synthesized_by":"orchestrator-fallback","reason":"no agent emit within 30s of Step 6 done","round":1,"proved":null,"stuck":null,"remaining":null}}

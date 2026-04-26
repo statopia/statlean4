@@ -1,0 +1,52 @@
+[
+  {
+    "id": "jobmofcivlntebo.cov_hSub_eq_uZeta.L262",
+    "jobId": "jobmofcivlntebo",
+    "theorem": "cov_hSub_eq_uZeta",
+    "file": "UStatistic.lean",
+    "startLine": 255,
+    "endLine": 262,
+    "context": "",
+    "dependencies": []
+  },
+  {
+    "id": "jobmofcivlntebo.hajek_clt.L564",
+    "jobId": "jobmofcivlntebo",
+    "theorem": "hajek_clt",
+    "file": "UStatistic.lean",
+    "startLine": 534,
+    "endLine": 564,
+    "context": "",
+    "dependencies": []
+  },
+  {
+    "id": "jobmofcivlntebo.hajek_remainder_var_tendsto_zero.L587",
+    "jobId": "jobmofcivlntebo",
+    "theorem": "hajek_remainder_var_tendsto_zero",
+    "file": "UStatistic.lean",
+    "startLine": 574,
+    "endLine": 587,
+    "context": "",
+    "dependencies": []
+  },
+  {
+    "id": "jobmofcivlntebo.ustatistic_clt_nondegenerate.L761",
+    "jobId": "jobmofcivlntebo",
+    "theorem": "ustatistic_clt_nondegenerate",
+    "file": "UStatistic.lean",
+    "startLine": 741,
+    "endLine": 761,
+    "context": "",
+    "dependencies": []
+  },
+  {
+    "id": "jobmofcivlntebo.ustatistic_clt_degenerate.L804",
+    "jobId": "jobmofcivlntebo",
+    "theorem": "ustatistic_clt_degenerate",
+    "file": "UStatistic.lean",
+    "startLine": 776,
+    "endLine": 804,
+    "context": "",
+    "dependencies": []
+  }
+]
