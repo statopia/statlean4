@@ -445,7 +445,13 @@ having consumers parse tool-result prose.
     `decomposition-rejected` (size-monotone check failed — pushing the
     pea, see `validate_decomposition.py`) | `sorry-pool-snapshot`
     (count + delta + depth_histogram, emitted by
-    `process_sorry_result.py` after every result)
+    `process_sorry_result.py` after every result) |
+    `working-tree-stashed` (PR4: prove_deep_end / web-orchestrator
+    cancel auto-stashed residual uncommitted work; `details.stash_msg`
+    is the `git stash list` recovery handle, `details.files_count`
+    the size). Recover with
+    `git stash list | grep <stash_msg> && git stash pop`. Disable
+    per-CLI-user via env `STATLEAN_NO_AUTO_STASH=1`.
   - `other` for anything not in the canonical list.
 
   The DAG-cycle markers are the CLI-side signal the web orchestrator

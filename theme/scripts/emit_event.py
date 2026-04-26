@@ -102,6 +102,7 @@ MILESTONE_NAMES = (
     "subtasks-split",           # need_sub_lemma decomposition was accepted
     "decomposition-rejected",   # validate_decomposition.py rejected (size-monotone fail)
     "sorry-pool-snapshot",      # after each process_result: count, delta, depth_histogram
+    "working-tree-stashed",     # PR4: prove_deep_end / cancel auto-stashed residual WIP
     "other",
 )
 
