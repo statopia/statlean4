@@ -499,6 +499,31 @@ noncomputable def hajekProjection (m : ℕ) (hm : 1 ≤ m) (h : (Fin m → α) �
   let μh1 : ℝ := kernelProjection m 0 (Nat.zero_le m) h ν Fin.elim0
   (↑m / ↑n) * ∑ i : Fin n, (h1 (x i) - μh1)
 
+-- Helper: measurability of (xi, y) ↦ appendFin hm (fun _ => xi) y
+private lemma appendFin_const_measurable {m : ℕ} (hm : 1 ≤ m) :
+    Measurable (fun p : α × (Fin (m - 1) → α) =>
+      appendFin hm (fun _ : Fin 1 => p.1) p.2) := by
+  apply measurable_pi_lambda
+  intro j
+  rcases Nat.lt_or_ge j.val 1 with h1 | h1
+  · convert measurable_fst using 1
+    ext p; exact appendFin_castAdd_apply hm (fun _ => p.1) p.2 j (by omega)
+  · have hmk : j.val - 1 < m - 1 := by omega
+    have heq : ∀ p : α × (Fin (m - 1) → α),
+        appendFin hm (fun _ : Fin 1 => p.1) p.2 j = p.2 ⟨j.val - 1, hmk⟩ :=
+      fun p => appendFin_natAdd_apply hm (fun _ => p.1) p.2 j h1
+    simp_rw [heq]
+    exact (measurable_pi_apply (⟨j.val - 1, hmk⟩ : Fin (m - 1))).comp measurable_snd
+
+-- Helper: the first-order kernel projection is measurable as a function of the first coordinate
+private lemma kernelProjection_one_measurable
+    {m : ℕ} (hm : 1 ≤ m) (h : (Fin m → α) → ℝ) (ν : Measure α) [IsProbabilityMeasure ν]
+    (h_meas : Measurable h) :
+    Measurable (fun xi : α => kernelProjection m 1 hm h ν (fun _ => xi)) := by
+  simp only [kernelProjection]
+  apply (StronglyMeasurable.integral_prod_right _).measurable
+  exact h_meas.stronglyMeasurable.comp_measurable (appendFin_const_measurable hm)
+
 /-- **Sub-lemma 2 (CLT for Hájek projection)**: The rescaled Hájek projection
 `√n · T_n` converges in distribution to `N(0, m² ζ_1)`.
 
@@ -529,7 +554,8 @@ lemma hajek_clt
          apply Finset.measurable_sum (Finset.univ : Finset (Fin _))
          intro i _
          -- measurability of xi ↦ h1(x i) - μh1 where h1(xi) = ∫ h(xi, y) dν^{m-1}
-         sorry⟩
+         exact ((kernelProjection_one_measurable hm h ν h_meas).comp
+           (measurable_pi_apply i)).sub_const μh1⟩
     let gaussLimit : ProbabilityMeasure ℝ :=
       ⟨gaussianReal 0
         ⟨(m : ℝ)^2 * uZeta m 1 h ν, mul_nonneg (sq_nonneg _) (uZeta_nonneg m 1 h ν)⟩,
