@@ -1,0 +1,122 @@
+version: v1
+theorem_set: input-tex-batch
+source_tag: input
+defaults:
+  lean_namespace: Formalization.Imported
+  layer: statlib
+  allow_axiom: false
+theorems:
+- id: input.theorem.001.minimal_sufficient_tools
+  title: Minimal sufficient statistics (Shao Theorem 2.3)
+  kind: theorem
+  latex_statement: '\label{thm:2.3}
+
+    Let $\mathcal{P}$ be a family of distributions on $\mathcal{R}^{k}$.
+
+    \begin{itemize}
+
+    \item[(i)] Suppose that $\mathcal{P}_{0} \subset \mathcal{P}$ and a.s.\ $\mathcal{P}_{0}$
+    implies a.s.\ $\mathcal{P}$. If $T$ is sufficient for $P \in \mathcal{P}$ and
+    minimal sufficient for $P \in \mathcal{P}_{0}$, then $T$ is minimal sufficient
+    for $P \in \mathcal{P}$.
+
+
+    \item[(ii)] Suppose that $\mathcal{P}$ contains p.d.f.''s $f_{0}, f_{1}, f_{2},
+    \ldots$ w.r.t.\ a $\sigma$-finite measure, where $c_{i} > 0$ for all $i$ and $\sum_{i=0}^{\infty}
+    c_{i} = 1$. Let $f_{\infty}(x) = \sum_{i=0}^{\infty} c_{i} f_{i}(x)$, and let
+    $T_{i}(X) = f_{i}(x) / f_{\infty}(x)$ when $f_{\infty}(x) > 0$, $i = 0, 1, 2,
+    \ldots$. Then $T(X) = (T_{0}, T_{1}, T_{2}, \ldots)$ is minimal sufficient for
+    $P \in \mathcal{P}$. Furthermore, if $\{x : f_{i}(x) > 0\} \subset \{x : f_{0}(x)
+    > 0\}$ for all $i$, then we may replace $f_{\infty}$ by $f_{0}$, in which case
+    $T(X) = (T_{1}, T_{2}, \ldots)$ is minimal sufficient for $P \in \mathcal{P}$.
+
+
+    \item[(iii)] Suppose that $\mathcal{P}$ contains p.d.f.''s $f_{P}$ w.r.t.\ a $\sigma$-finite
+    measure and that there exists a sufficient statistic $T(X)$ such that, for any
+    possible values $x$ and $y$ of $X$, $f_{P}(x) = f_{P}(y) \phi(x, y)$ for all $P$
+    implies $T(x) = T(y)$, where $\phi$ is a measurable function. Then $T(X)$ is minimal
+    sufficient for $P \in \mathcal{P}$.
+
+    \end{itemize}'
+  latex_proof_hint: '(i) If $S$ is sufficient for $P \in \mathcal{P}$, then it is
+    also sufficient for $P \in \mathcal{P}_{0}$ and, therefore, $T = \psi(S)$ a.s.\
+    $\mathcal{P}_{0}$ holds for a measurable function $\psi$. The result follows from
+    the assumption that a.s.\ $\mathcal{P}_{0}$ implies a.s.\ $\mathcal{P}$.
+
+
+    (ii) Note that $f_{\infty} > 0$ a.s.\ $\mathcal{P}$. Let $g_{i}(T) = T_{i}$, $i
+    = 0, 1, 2, \ldots$. Then $f_{i}(x) = g_{i}(T(x)) f_{\infty}(x)$ a.s.\ $\mathcal{P}$.
+    By Theorem 2.2, $T$ is sufficient for $P \in \mathcal{P}$. Suppose that $S(X)$
+    is another sufficient statistic. By Theorem 2.2, there are Borel functions $h$
+    and $\tilde{g}_{i}$ such that $f_{i}(x) = \tilde{g}_{i}(S(x)) h(x)$, $i = 0, 1,
+    2, \ldots$. Then $T_{i}(x) = \tilde{g}_{i}(S(x)) / \sum_{j=0}^{\infty} c_{j} \tilde{g}_{j}(S(x))$
+    for $x$''s satisfying $f_{\infty}(x) > 0$. By Definition 2.5, $T$ is minimal sufficient
+    for $P \in \mathcal{P}$. The proof for the case where $f_{\infty}$ is replaced
+    by $f_{0}$ is the same.
+
+
+    (iii) From Bahadur (1957), there exists a minimal sufficient statistic $S(X)$.
+    The result follows if we can show that $T(X) = \psi(S(X))$ a.s.\ $\mathcal{P}$
+    for a measurable function $\psi$. By Theorem 2.2, there are Borel functions $g_{P}$
+    and $h$ such that $f_{P}(x) = g_{P}(S(x)) h(x)$ for all $P$. Let $A = \{x : h(x)
+    = 0\}$. Then $P(A) = 0$ for all $P$. For $x$ and $y$ such that $S(x) = S(y)$,
+    $x \notin A$ and $y \notin A$,
+
+    \[
+
+    f_{P}(x) = g_{P}(S(x)) h(x) = g_{P}(S(y)) h(x) h(y) / h(y) = f_{P}(y) h(x) / h(y)
+
+    \]
+
+    for all $P$. Hence $T(x) = T(y)$. This shows that there is a function $\psi$ such
+    that $T(x) = \psi(S(x))$ except for $x \in A$. It remains to show that $\psi$
+    is measurable. Since $S$ is minimal sufficient, $g(T(X)) = S(X)$ a.s.\ $\mathcal{P}$
+    for a measurable function $g$. Hence $g$ is one-to-one and $\psi = g^{-1}$. The
+    measurability of $\psi$ follows from Theorem 3.9 in Parthasarathy (1967).'
+  proof_body: '(i) If $S$ is sufficient for $P \in \mathcal{P}$, then it is also sufficient
+    for $P \in \mathcal{P}_{0}$ and, therefore, $T = \psi(S)$ a.s.\ $\mathcal{P}_{0}$
+    holds for a measurable function $\psi$. The result follows from the assumption
+    that a.s.\ $\mathcal{P}_{0}$ implies a.s.\ $\mathcal{P}$.
+
+
+    (ii) Note that $f_{\infty} > 0$ a.s.\ $\mathcal{P}$. Let $g_{i}(T) = T_{i}$, $i
+    = 0, 1, 2, \ldots$. Then $f_{i}(x) = g_{i}(T(x)) f_{\infty}(x)$ a.s.\ $\mathcal{P}$.
+    By Theorem 2.2, $T$ is sufficient for $P \in \mathcal{P}$. Suppose that $S(X)$
+    is another sufficient statistic. By Theorem 2.2, there are Borel functions $h$
+    and $\tilde{g}_{i}$ such that $f_{i}(x) = \tilde{g}_{i}(S(x)) h(x)$, $i = 0, 1,
+    2, \ldots$. Then $T_{i}(x) = \tilde{g}_{i}(S(x)) / \sum_{j=0}^{\infty} c_{j} \tilde{g}_{j}(S(x))$
+    for $x$''s satisfying $f_{\infty}(x) > 0$. By Definition 2.5, $T$ is minimal sufficient
+    for $P \in \mathcal{P}$. The proof for the case where $f_{\infty}$ is replaced
+    by $f_{0}$ is the same.
+
+
+    (iii) From Bahadur (1957), there exists a minimal sufficient statistic $S(X)$.
+    The result follows if we can show that $T(X) = \psi(S(X))$ a.s.\ $\mathcal{P}$
+    for a measurable function $\psi$. By Theorem 2.2, there are Borel functions $g_{P}$
+    and $h$ such that $f_{P}(x) = g_{P}(S(x)) h(x)$ for all $P$. Let $A = \{x : h(x)
+    = 0\}$. Then $P(A) = 0$ for all $P$. For $x$ and $y$ such that $S(x) = S(y)$,
+    $x \notin A$ and $y \notin A$,
+
+    \[
+
+    f_{P}(x) = g_{P}(S(x)) h(x) = g_{P}(S(y)) h(x) h(y) / h(y) = f_{P}(y) h(x) / h(y)
+
+    \]
+
+    for all $P$. Hence $T(x) = T(y)$. This shows that there is a function $\psi$ such
+    that $T(x) = \psi(S(x))$ except for $x \in A$. It remains to show that $\psi$
+    is measurable. Since $S$ is minimal sufficient, $g(T(X)) = S(X)$ a.s.\ $\mathcal{P}$
+    for a measurable function $g$. Hence $g$ is one-to-one and $\psi = g^{-1}$. The
+    measurability of $\psi$ follows from Theorem 3.9 in Parthasarathy (1967).'
+  lean_name: minimal_sufficient_tools
+  lean_namespace: Statlean.Sufficiency.MinimalSufficiency
+  layer: statlib
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+  canonical_name: Minimal Sufficient Statistics — Tools for Construction

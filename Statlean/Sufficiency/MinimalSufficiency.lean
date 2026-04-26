@@ -209,4 +209,76 @@ theorem densityRatio_satisfies_DRC
 
 end TheoremB
 
+section MixtureCriterion
+/-! ## Theorem 2.3(ii) (Shao): Countable mixture density ⇒ minimal sufficiency
+
+Source: Shao, *Mathematical Statistics*, Theorem 2.3(ii), p. 124.
+
+If 𝒫 = {f_0, f_1, ...} is a countable family of densities w.r.t. a σ-finite
+base measure ν, and (c_i) are weights with c_i > 0 and Σc_i = 1, define
+
+  f_∞(x) := Σ_i c_i · f_i(x),     T_i(x) := f_i(x) / f_∞(x)  (when f_∞(x) > 0).
+
+Then T(x) = (T_0, T_1, ...) is minimal sufficient for P ∈ 𝒫.
+
+The relation to the existing development:
+* Sufficiency of `T` follows from the factorization `f_i = T_i · f_∞` (Theorem 2.2).
+* Minimal sufficiency is reduced to the **density ratio condition** (Theorem C
+  = `minimalSufficient_of_densityRatio`): given `f_i(x) = f_i(y)·φ` for all `i`,
+  the explicit form of `T_i` shows `T(x) = T(y)`.
+
+PIPELINE_ID: lec4.theorem_2_3_ii
+-/
+
+/-- The mixture density `f_∞(x) = Σ_i c_i · f_i(x)` of a countable dominated
+family `(f_i)_{i ∈ ℕ}` weighted by `c : ℕ → ℝ≥0∞`. -/
+noncomputable def DominatedFamily.mixtureDensity
+    (P : DominatedFamily ℕ Ω) (c : ℕ → ℝ≥0∞) : Ω → ℝ≥0∞ :=
+  fun x => ∑' i, c i * P.density i x
+
+/-- The mixture-ratio statistic `T_i(x) = f_i(x) / f_∞(x)`. Outside the support
+of `f_∞` the value is `0/0 = 0` by `ENNReal` convention; this is fine because
+`f_∞ > 0` ν-a.s. when `c > 0` and (P.density i)_i are densities. -/
+noncomputable def DominatedFamily.mixtureRatio
+    (P : DominatedFamily ℕ Ω) (c : ℕ → ℝ≥0∞) : Ω → (ℕ → ℝ≥0∞) :=
+  fun x i => P.density i x / P.mixtureDensity c x
+
+/-- The mixture-ratio statistic satisfies the density ratio condition.
+
+If `f_i(x) = f_i(y) · φ` for all `i`, then summing weighted by `c_i` gives
+`f_∞(x) = f_∞(y) · φ`, hence `T_i(x) = f_i(x)/f_∞(x) = f_i(y)/f_∞(y) = T_i(y)`
+(when `φ ≠ 0, ⊤` and `f_∞(y) > 0`). -/
+theorem mixtureRatio_satisfies_DRC
+    (P : DominatedFamily ℕ Ω)
+    (c : ℕ → ℝ≥0∞) (hc_pos : ∀ i, 0 < c i) (hc_sum : ∑' i, c i = 1) :
+    ∀ x y : Ω,
+      (∃ φ : ℝ≥0∞, φ ≠ 0 ∧ φ ≠ ⊤ ∧
+        ∀ i, P.density i x = P.density i y * φ) →
+      P.mixtureRatio c x = P.mixtureRatio c y := by
+  sorry
+
+/-- **Theorem 2.3(ii)** (Shao). Minimal sufficiency of the mixture-ratio
+statistic for a countable dominated family.
+
+If `T = mixtureRatio P c` is sufficient and `(P.density i)_i` are well-defined
+densities, then for every statistic `U` admitting a joint factorization,
+`T` factors P-a.s. through `U` — i.e. `T` is minimal sufficient.
+
+This is obtained by combining `mixtureRatio_satisfies_DRC` (the density-ratio
+condition for the mixture form) with `minimalSufficient_of_densityRatio`
+(Theorem C). -/
+theorem mixtureRatio_minimalSufficient
+    {α : Type*} [MeasurableSpace α]
+    (P : DominatedFamily ℕ Ω)
+    (c : ℕ → ℝ≥0∞) (hc_pos : ∀ i, 0 < c i) (hc_sum : ∑' i, c i = 1)
+    (hT_meas : Measurable (P.mixtureRatio c))
+    (hT_suff : ∀ θ₁ θ₂,
+      IsSufficientFor (P.mixtureRatio c) (P.measure θ₁) (P.measure θ₂)) :
+    ∀ (U : Ω → α), Measurable U → HasJointFactorization P U →
+      ∃ ψ : α → (ℕ → ℝ≥0∞),
+        ∀ θ, P.mixtureRatio c =ᵐ[P.measure θ] ψ ∘ U := by
+  sorry
+
+end MixtureCriterion
+
 end Statlean.Sufficiency.MinimalSufficiency

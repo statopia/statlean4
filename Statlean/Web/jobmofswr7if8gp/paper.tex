@@ -1,0 +1,39 @@
+% Hand-wrapped from mineru OCR (page 196)
+% Backend: mineru (hybrid-auto-engine)
+% Raw content: raw/input/hybrid_auto/input.md
+\documentclass{article}
+\usepackage{amsmath,amssymb,amsthm}
+\newtheorem{lemma}{Lemma}[section]
+\setcounter{section}{3}
+\setcounter{lemma}{1}
+\begin{document}
+
+\begin{lemma}[Shao Lemma 3.2 — second moment of the U-statistic degenerate limit]
+\label{lem:shao_3_2}
+Let $Y = \dfrac{m(m-1)}{2} \sum_{j=1}^{\infty} \lambda_j \, (\chi_{1j}^2 - 1)$,
+where $\chi_{1j}^2$ are i.i.d. random variables having the chi-square distribution
+$\chi_1^2$, and $\lambda_j$'s are constants satisfying
+$\sum_{j=1}^{\infty} \lambda_j^2 = \zeta_2 < \infty$. Then
+\[
+E Y^2 = \frac{m^2 (m-1)^2}{2}\, \zeta_2 .
+\]
+\end{lemma}
+
+\begin{proof}
+Define
+\[
+Y_k = \frac{m(m-1)}{2} \sum_{j=1}^{k} \lambda_j \, (\chi_{1j}^2 - 1), \quad k = 1, 2, \dots
+\]
+It can be shown (exercise) that $\{Y_k^2\}$ is uniformly integrable. Since
+$Y_k \to_d Y$ as $k \to \infty$, we have $\lim_{k \to \infty} E Y_k^2 = E Y^2$
+(Theorem 1.8(viii)). Since $\chi_{1j}^2$'s are independent chi-square random
+variables with $E \chi_{1j}^2 = 1$ and $\mathrm{Var}(\chi_{1j}^2) = 2$,
+$E Y_k = 0$ for any $k$ and
+\[
+E Y_k^2 = \frac{m^2 (m-1)^2}{4} \sum_{j=1}^{k} \lambda_j^2 \, \mathrm{Var}(\chi_{1j}^2)
+       = \frac{m^2 (m-1)^2}{4} \left(2 \sum_{j=1}^{k} \lambda_j^2\right)
+       \to \frac{m^2 (m-1)^2}{2}\, \zeta_2 .
+\]
+\end{proof}
+
+\end{document}

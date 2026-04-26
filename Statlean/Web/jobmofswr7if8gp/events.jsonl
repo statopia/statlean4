@@ -1,0 +1,23 @@
+{"ts":1777209954096,"kind":"step","id":1,"status":"start","title":"PDF Extract"}
+{"ts":1777210140483,"kind":"artifact","kind_tag":"pdf-extract","path":"paper.tex","size":1419}
+{"ts":1777210140506,"kind":"step","id":1,"status":"done"}
+{"ts":1777210140529,"kind":"sandbox_milestone","name":"pdf-extracted"}
+{"ts":1777210147170,"kind":"step","id":2,"status":"start","title":"LaTeX Ingest"}
+{"ts":1777210288203,"kind":"artifact","kind_tag":"yaml","path":"theorems.yaml","size":3302}
+{"ts":1777210288227,"kind":"step","id":2,"status":"done"}
+{"ts":1777210288250,"kind":"sandbox_milestone","name":"yaml-complete"}
+{"ts":1777210297156,"kind":"step","id":3,"status":"start","title":"Lean Skeleton"}
+{"ts":1777210406933,"kind":"artifact","kind_tag":"lean-skeleton","path":"Main.lean","kind_tag_inferred":"lean-live","size":66191}
+{"ts":1777210416729,"kind":"step","id":3,"status":"done"}
+{"ts":1777210416753,"kind":"sandbox_milestone","name":"skeleton-locked"}
+{"ts":1777210430909,"kind":"step","id":4,"status":"start","title":"Build & Fix"}
+{"ts":1777210590524,"kind":"error","code":"PRE_EXISTING_BUILD_ERRORS","msg":"Statlean.Variance.UStatistic has pre-existing WIP errors (L527-L900) outside this run's scope; new skeleton at L1170+ compiles in isolation"}
+{"ts":1777210590550,"kind":"step","id":4,"status":"error"}
+{"ts":1777210625977,"kind":"step","id":5,"status":"start","title":"Prove (deep)"}
+{"ts":1777211279063,"kind":"artifact","kind_tag":"lean-live","path":"Main.lean","size":67422}
+{"ts":1777211279088,"kind":"artifact","kind_tag":"sub-agent-result","path":"proof_roadmap.yaml","kind_tag_inferred":"yaml","size":1412}
+{"ts":1777211293273,"kind":"step","id":5,"status":"done"}
+{"ts":1777211306728,"kind":"artifact","kind_tag":"sorry-list","path":"sorry_list.json","size":1318}
+{"ts":1777211325701,"kind":"step","id":6,"status":"start","title":"Sync Backlog & Gate"}
+{"ts":1777211367006,"kind":"error","code":"GATE_FAIL_PRE_EXISTING","msg":"Gate fails on pre-existing WIP errors L595-L900 in UStatistic.lean (unrelated to Lemma 3.2 skeleton at L1195+); skeleton + structured proof verified clean in /tmp/test_lemma_3_2_v2.lean"}
+{"ts":1777211367031,"kind":"step","id":6,"status":"error"}

@@ -1,6 +1,6 @@
 ---
 description: Deep prove mode — DAG-driven work-stealing scheduler with 3 saturated agents
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash(lake:*), Bash(grep:*), Bash(echo:*), Bash(python3:*), Bash(git:*), Task, Agent, WebSearch, WebFetch
+allowed-tools: Read, Edit, Write, Grep, Glob, Bash(lake:*), Bash(grep:*), Bash(echo:*), Bash(python3:*), Bash(git:*), Task, Agent, WebSearch, WebFetch, mcp__statlean_web_ui__request_user_decision
 model: opus
 argument-hint: [sorry-id from backlog, or "next" for highest priority, or "all-leaves"] [--time-budget Xh]
 ---
@@ -24,6 +24,17 @@ When one sorry is proved → incremental commit → unlock downstream → dispat
 ---
 
 ## Phase 0: Initialize DAG
+
+0. **Cycle entry (MANDATORY, real bash)**:
+   ```bash
+   python3 theme/scripts/prove_deep_begin.py \
+       --sandbox "$SANDBOX" --target "<TARGET>" --mode "<MODE>" \
+       --time-budget-min <N>
+   ```
+   This emits `dispatch-batch-start` milestone with the ready_queue dump
+   so the web orchestrator can derive Round/Step 8 framing and the user
+   can see what's being attacked. **Do not skip** — the milestone is
+   the only signal of cycle entry; consumers fail-closed when missing.
 
 1. **Sync backlog**: Run `python3 theme/scripts/sync_sorry_backlog.py` to ensure
    `sorry_backlog.yaml` matches actual code.
@@ -70,6 +81,10 @@ MAX_SLOTS = 3
 active_agents = {}   # {task_id → sorry_id}
 ready_queue = [sorted by priority]
 start_time = now()
+
+# NOTE: dispatch-batch-start milestone was emitted at Phase 0 step 0
+# via prove_deep_begin.py (which also dumped ready_queue with metrics).
+# Don't re-emit here.
 
 LOOP:
   # ── Fill slots to MAX_SLOTS ──
@@ -172,17 +187,38 @@ Phase 0 工具链 (强制):
 ### `process_result(sorry_id, result)` — Result Handler
 
 ```
+All branches MUST end with a single call to `process_sorry_result.py`
+(real bash, MANDATORY). The script bundles: backlog status update +
+sorry_list.json refresh (via extract_sorries.py) + per-status milestone
+emit + sorry-pool-snapshot telemetry. Skipping any individual step
+breaks downstream consumers — bundling makes that structurally
+impossible.
+
+```bash
+python3 theme/scripts/process_sorry_result.py \
+    --sandbox "$SANDBOX" \
+    --sorry-id "<sorry_id>" \
+    --status "proved|stuck|need_sub_lemma|lake_build_fail" \
+    --module "Statlean.<Module>" \
+    --lean-file "<path/to/file.lean>" \
+    [--blocker "<one-line>"] \
+    [--children-decomposition '<JSON>'] \
+    [--parent-metrics '<JSON>']
+```
+
+```
 if result.status == "proved":
   1. lake build Statlean.<Module>  — incremental verify
   2. if build OK:
-     - Update backlog: sorry_id.status = proved
      - Check unlocks: for each downstream in sorry.unlocks:
          if all(dep.status == proved for dep in downstream.dependencies):
            add downstream to ready_queue (sorted by priority)
      - Check whole-file zero sorry → update Verified.lean
      - git add + commit "prove: {theorem_name}"
+     - Call process_sorry_result.py --status proved --sorry-id ... --module ...
   3. if build FAIL:
      - Log error, mark sorry as pending, priority += 3
+     - Call process_sorry_result.py --status lake_build_fail --sorry-id ... --blocker ...
 
 if result.new_knowledge:
   - 将 new_knowledge YAML 块写入临时文件（如 /tmp/new_knowledge_{sorry_id}.yaml）
@@ -193,11 +229,84 @@ elif result.status == "stuck":
   - Mark sorry as pending
   - Increase priority by 5 (deprioritize)
   - Log blocker info for future reference
+  - Call process_sorry_result.py --status stuck --sorry-id ... --blocker ...
+  - **User-trust gate** (web-UI only — silently skipped in CLI-standalone
+    mode when the tool is unavailable):
+    If the blocker description mentions missing Mathlib infrastructure
+    (patterns: "unknown identifier", "unknown constant", "no such lemma",
+    "API doesn't exist", "需要 X 但 Mathlib 没有") OR the sorry has been
+    stuck twice in a row, call
+    `mcp__statlean_web_ui__request_user_decision` with these REQUIRED
+    fields:
+
+    ```
+    question: <prose>. MUST use $...$ inline math and $$...$$ block math
+              for any formula — the UI renders KaTeX. Don't leave LaTeX
+              as plain text (it'll display as "$\sum_j..." which is
+              unreadable).
+
+    options:  ["trust_as_axiom", "trust_and_finish", "investigate_deeper", "abort"]
+              · trust_as_axiom    → trust this one, KEEP attacking other
+                                    items in ready_queue
+              · trust_and_finish  → trust this one AND immediately wrap
+                                    up the round (skip remaining queue,
+                                    jump to Phase 3). Use when user
+                                    likely wants to stop early.
+              · investigate_deeper → re-dispatch with extra budget
+              · abort              → give up
+
+    trust_description: <plain Chinese, REQUIRED when options contain
+                       trust_*>. Bulleted list naming each Mathlib /
+                       Statlean infra gap or math fact being trusted.
+                       Example for the χ² case:
+                         "1. Mathlib 无 χ² 分布定义 (Probability.Distributions.ChiSquared 缺)
+                          2. Mathlib 无 Hilbert-Schmidt 紧算子谱展开
+                          3. Mathlib 无非 Gaussian iid 级数收敛 ∑_j λ_j(χ²-1) 判据"
+                       Surfaces in UI as a separate audit panel so user
+                       sees and the cross-job decisions table records
+                       exactly what got trusted.
+
+    ready_queue: <array — REQUIRED when options contain trust_*>.
+                 Snapshot of remaining ready_queue (excluding current
+                 sorry). One entry per item, with id + theorem + priority
+                 + estimated_lines. Top 50 by priority. Lets user see
+                 "if I trust_and_finish, this is what I'm skipping".
+    ```
+
+    Act on the reply:
+      - USER_CHOICE: trust_as_axiom    → leave the sorry with comment
+        `-- TRUSTED (user-approved infra gap: <one-line summary of
+        trust_description>)`, skip further dispatches for this id,
+        continue DAG loop attacking remaining ready_queue.
+      - USER_CHOICE: trust_and_finish  → leave the sorry with comment
+        `-- TRUSTED (user-approved infra gap: <reason>)`, mark all
+        remaining ready_queue items as `pending (user requested early
+        finish)`, **exit Phase 2 LOOP immediately and proceed to Phase 3
+        finalize**. Do NOT dispatch additional items.
+      - USER_CHOICE: investigate_deeper → keep in ready_queue with
+        original priority, re-dispatch with time budget ×1.5.
+      - USER_CHOICE: <free-text hint>  → treat as R1 proof-route hint
+        for the next dispatch of this sorry (inject via
+        `parse_proof_roadmap.py --inline "<hint>" --theorem <name>`).
+      - USER_ABORTED: <reason>         → mark sorry as stuck in backlog,
+        never re-dispatch this session.
+      - Tool not found / tool error    → fall back to CLI-default
+        (keep as pending with deprioritized priority, continue).
 
 elif result.status == "need_sub_lemma":
-  - Create sub-items in backlog with dependency edges
-  - Add new leaf sub-items to ready_queue
-  - Original sorry becomes blocked by sub-items
+  - Compute parent_metrics = { goal_pp_lines, estimated_lines, deps_count }
+    of the parent sorry's goal AT THE POINT it was attacked.
+  - Compute children_metrics = same shape, one per proposed sub-lemma.
+  - **Call process_sorry_result.py --status need_sub_lemma**
+    --parent-metrics '<JSON>' --children-decomposition '<JSON>'
+    The script invokes validate_decomposition.py internally:
+      · exit 0 → emits subtasks-split, you may add children to backlog
+      · exit 1 → emits decomposition-rejected (size-monotone failure,
+        "pushing the pea"), parent marked pending instead.
+        DO NOT add children in this case — the decomposition is invalid.
+  - Only when validate succeeds: create sub-items in backlog with
+    dependency edges; add new leaf sub-items to ready_queue;
+    original sorry becomes blocked by sub-items.
 ```
 
 ---
@@ -206,15 +315,37 @@ elif result.status == "need_sub_lemma":
 
 After the scheduling loop exits (all done, or time budget reached):
 
-1. **Sync backlog**: `python3 theme/scripts/sync_sorry_backlog.py`
-2. **Commit**: Any uncommitted proved work.
-3. **Update MEMORY.md**: New Mathlib patterns learned during this session.
-4. **proof_knowledge 入库（强制）**：把本轮发现的 L1/L2/L3 pattern（正面和 anti）
-   通过标准入库流程写入，不等用户确认：
-   - 收集所有 agent 返回的 `new_knowledge` YAML 块，合并写入 `/tmp/new_knowledge.yaml`
-   - 运行 `python3 scripts/ingest_knowledge.py --input /tmp/new_knowledge.yaml`
-   - 脚本自动验证、去重、追加到 `theme/proof_knowledge.yaml`
-5. **Report — 输出分流（强制）**:
+1. **Commit**: Any uncommitted proved work (incremental commits are
+   handled by `process_sorry_result.py` per result; this is just for
+   stragglers like Verified.lean updates).
+
+2. **Collect new_knowledge** YAML blocks from this cycle's sub-agents
+   into `/tmp/new_knowledge.yaml` (will be ingested by step 3 below).
+
+3. **Cycle finalize (MANDATORY, real bash)**:
+   ```bash
+   python3 theme/scripts/prove_deep_end.py \
+       --sandbox "$SANDBOX" \
+       --target "<TARGET>" \
+       --proved <K> --stuck <J> --remaining <R> \
+       --memory-summary "<NATURAL LANGUAGE — see below>" \
+       [--new-knowledge-file /tmp/new_knowledge.yaml]
+   ```
+   The script bundles: sync_sorry_backlog.py + MEMORY.md append +
+   ingest_knowledge.py + `memory-md-updated` + `dag-cycle-done`
+   milestones. **`--memory-summary` MUST be ≥ 20 chars after trim**;
+   the script exits 1 (cycle NOT finalized) on empty/placeholder values.
+   This makes "Update MEMORY.md" structural rather than aspirational —
+   you don't get to skip it by forgetting.
+
+   `--memory-summary` content guidelines: 1-3 sentences in natural
+   language. Cover any of: (a) what new Mathlib pattern was learned,
+   (b) which routes did NOT work and why (anti-patterns), (c) what
+   blockers persisted and what would be needed upstream. Format is
+   free; the script just appends under a dated header in MEMORY.md.
+
+4. **Screen output** — see "屏幕输出" block below for the canonical
+   compact-summary format.
 
 **屏幕输出**（紧凑摘要，≤5 行）：
 ```
@@ -329,3 +460,23 @@ This follows the original `/prove-deep` flow but with:
 - 知识入库 → "入库 N 条 pattern"（YAML 和脚本输出在 Bash 工具内）
 - 经验报告 → "经验报告已写入 reports/session_report.md"
 - 工具调用输出（Bash、Read、Grep 等）不计入此预算
+
+## Output Conventions (web UI contract)
+
+See `theme/conventions/ui-signals.md` for the event + Markdown-header
+protocol.
+
+`/prove-deep` runs as a subagent of `/pipeline` (Step 5 = "prove").
+The Step-number namespace on `events.jsonl` is owned by the outer
+pipeline — this skill MUST NOT emit `## Step N:` Markdown headers or
+`emit_event.py step` events for its internal DAG Phases. Doing so
+collides with pipeline's Step 5 and the UI renders confusing merged
+cards.
+
+DAG Phase narrative (Phase 0 route search → Phase 1 decomposition →
+Phase 2 parallel dispatch → Phase 3 reassembly) goes in normal prose,
+which lands in the Report stream where the user can follow along.
+
+**Artifact events** remain welcome (e.g. `sorry_list.json`,
+per-sub-agent result files). Those are namespaced by `kind_tag`,
+not by integer step id, and don't collide.

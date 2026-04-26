@@ -1,0 +1,537 @@
+-- Core
+import Statlean.Basic
+
+-- Gaussian infrastructure (verified)
+import Statlean.Gaussian.Basic
+import Statlean.Gaussian.Stein
+import Statlean.Gaussian.Hermite
+import Statlean.Gaussian.OrnsteinUhlenbeck
+import Statlean.Gaussian.HilbertSpace
+
+-- Variance (verified)
+import Statlean.Variance.ANOVA
+import Statlean.Variance.RaoBlackwell
+import Statlean.Variance.EfronStein
+
+-- Entropy definitions (verified)
+import Statlean.Entropy.Basic
+
+-- Characteristic function Taylor bounds (verified)
+import Statlean.CharFun.Taylor
+
+-- High-dimensional mediation: structural assumption (A1) — pure predicate, zero sorry
+import Statlean.HDMediation.Assumptions
+
+-- USLLN (fully verified — uniform SLLN + all infrastructure)
+import Statlean.LimitTheorems.USLLN
+
+-- Sufficiency (fully verified — Factorization + Basu + MinimalSufficiency)
+import Statlean.Sufficiency.Factorization
+import Statlean.Sufficiency.Basu
+import Statlean.Sufficiency.MinimalSufficiency
+
+-- Estimation (verified — MSE, MLE, UMVUE, Bayes, robust, asymptotic theory)
+import Statlean.Estimator.Basic
+import Statlean.Estimator.Asymptotic
+import Statlean.Estimator.UMVUE
+import Statlean.Estimator.Bayes
+import Statlean.Estimator.Robust
+import Statlean.ExpFamily.Basic
+
+-- Empirical process theory (verified)
+import Statlean.EmpiricalProcess.CoveringNumber
+import Statlean.EmpiricalProcess.Dudley
+
+-- Distributions (verified)
+import Statlean.Distribution.TDist
+
+-- Fisher information and Cramér-Rao (verified)
+import Statlean.Information.Basic
+import Statlean.Information.CramerRao
+
+-- Regression (verified)
+import Statlean.Regression.Basic
+import Statlean.Regression.Linear
+import Statlean.Regression.MasterBound
+import Statlean.Regression.GaussMarkov
+import Statlean.Regression.Estimability
+
+-- SPD matrices (verified)
+import Statlean.SPD.Determinant
+import Statlean.SPD.FrechetMean
+import Statlean.SPD.Geodesic
+
+-- Statistics foundations (verified)
+import Statlean.Statistic.Basic
+import Statlean.Statistic.Sample
+
+-- Hypothesis testing (verified)
+import Statlean.Testing.Basic
+
+-- Confidence sets (verified)
+import Statlean.Confidence.Basic
+
+-- Moments (verified)
+import Statlean.Moments.Basic
+import Statlean.Moments.Covariance
+
+-- Lehmann-Scheffé (verified)
+import Statlean.Sufficiency.LehmannScheffe
+
+-- Convergence modes and Slutsky's theorem (verified)
+import Statlean.LimitTheorems.Convergence
+import Statlean.LimitTheorems.Slutsky
+
+-- Lévy continuity theorem (verified — forward + tightness + reverse)
+import Statlean.LimitTheorems.Levy
+
+-- Delta Method (verified — CMT, tightness, delta method, √n corollary)
+import Statlean.LimitTheorems.DeltaMethod
+
+-- Scheffé's theorem (verified — L¹ density convergence)
+import Statlean.LimitTheorems.Scheffe
+
+-- Central Limit Theorem (verified — iid CLT via charfun + Lévy continuity)
+import Statlean.LimitTheorems.CLT
+
+-- Lindeberg-Feller CLT (verified — triangular array CLT for non-iid row-independent RVs)
+import Statlean.LimitTheorems.LindebergFeller
+
+-- Cramér-Wold device (verified — multivariate Lévy + projection ⟺ weak convergence)
+import Statlean.LimitTheorems.CramerWold
+import Statlean.Analysis.CauchySchwarzAbs
+import Statlean.Analysis.Norm.NormSubAddBound
+import Statlean.Causal.Basic
+import Statlean.Causal.OptimalTransport
+import Statlean.CoxChangePoint.Auto.exponential_moment_bound
+import Statlean.CoxChangePoint.Auto.uniform_convergence_of_empirical_processes
+import Statlean.CoxChangePoint.S3CauchySchwarzTail
+import Statlean.Decision.Invariance
+import Statlean.EmpiricalProcess.Donsker
+import Statlean.EmpiricalProcess.DonskerInfra
+import Statlean.EmpiricalProcess.Equicontinuity
+import Statlean.EmpiricalProcess.HoeffdingLemma
+import Statlean.EmpiricalProcess.RiemannSum
+import Statlean.EmpiricalProcess.StochasticOrder
+import Statlean.EmpiricalProcess.Symmetrization
+import Statlean.Fourier.CDFInversion
+import Statlean.Fourier.JacksonKernel
+import Statlean.MeasureTheory.MeasureInterLeMin
+import Statlean.Pipeline.Lecture9Handout
+import Statlean.Web.Statlean_CoxChangePoint_Auto_approximation_of_smoothed_empirical_processes_approximation_of_smoothed_empirical_processes.approximation_of_smoothed_empirical_processes
+import Statlean.Web.Statlean_CoxChangePoint_Auto_eigenfunction_estimation_L2_rate_eigenfunction_estimation_L2_rate.eigenfunction_estimation_L2_rate
+import Statlean.Web.Statlean_CoxChangePoint_Auto_exponential_moment_bound_exponential_moment_bound.exponential_moment_bound
+import Statlean.Web.Statlean_CoxChangePoint_Auto_uniform_bound_on_FPC_score_estimation_error_uniform_bound_on_FPC_score_estimation_error.uniform_bound_on_FPC_score_estimation_error
+import Statlean.Web.Statlean_CoxChangePoint_Auto_uniform_convergence_of_Gn_uniform_convergence_of_Gn.uniform_convergence_of_Gn
+import Statlean.Web.Statlean_CoxChangePoint_Auto_uniform_convergence_of_empirical_processes_uniform_convergence_of_empirical_processes.Main
+import Statlean.Web.ab_A_abs_le_sq_mo33nxo9.Main
+import Statlean.Web.ab_A_am_gm_squares_mo31foit.Main
+import Statlean.Web.ab_A_am_gm_squares_mo33qou6.Main
+import Statlean.Web.ab_A_covariance_self_mo34hzoa.Main
+import Statlean.Web.ab_A_covariance_self_mo3w77hs.Main
+import Statlean.Web.ab_A_covariance_self_mo3ytyu1.Main
+import Statlean.Web.ab_A_expectation_const_mo33wfdt.Main
+import Statlean.Web.ab_A_integral_nonneg_mo33y89y.Main
+import Statlean.Web.ab_A_integral_nonneg_mo3wmn2y.Main
+import Statlean.Web.ab_A_integral_nonneg_mo3zaq1p.Main
+import Statlean.Web.ab_A_markov_ineq_mo31o3rk.Main
+import Statlean.Web.ab_A_markov_ineq_mo34m3r3.Main
+import Statlean.Web.ab_A_markov_ineq_mo3wd7o6.Main
+import Statlean.Web.ab_A_markov_ineq_mo3yya46.Main
+import Statlean.Web.ab_A_memLp_sub_mo344sh6.Main
+import Statlean.Web.ab_A_memLp_sub_mo3wrhd1.Main
+import Statlean.Web.ab_A_memLp_sub_mo3zftub.Main
+import Statlean.Web.ab_A_sq_nonneg_integral_mo347b4o.Main
+import Statlean.Web.ab_A_variance_add_indep_mo31lclt.Main
+import Statlean.Web.ab_A_variance_add_indep_mo34d0uv.Main
+import Statlean.Web.ab_A_variance_add_indep_mo3w4baz.Main
+import Statlean.Web.ab_A_variance_add_indep_mo3yp4rc.Main
+import Statlean.Web.ab_A_variance_nonneg_mo348n6b.Main
+import Statlean.Web.ab_B_abs_le_sq_mo33pbvg.Main
+import Statlean.Web.ab_B_am_gm_squares_mo31imbp.Main
+import Statlean.Web.ab_B_am_gm_squares_mo33tgw2.Main
+import Statlean.Web.ab_B_covariance_self_mo34kmrl.Main
+import Statlean.Web.ab_B_covariance_self_mo3wb9h2.Main
+import Statlean.Web.ab_B_covariance_self_mo3yvy90.Main
+import Statlean.Web.ab_B_expectation_const_mo33xb1o.Main
+import Statlean.Web.ab_B_integral_nonneg_mo341d14.Main
+import Statlean.Web.ab_B_integral_nonneg_mo3wq5sd.Main
+import Statlean.Web.ab_B_integral_nonneg_mo3zek5i.Main
+import Statlean.Web.ab_B_markov_ineq_mo31t3as.Main
+import Statlean.Web.ab_B_markov_ineq_mo34orlo.Main
+import Statlean.Web.ab_B_markov_ineq_mo3whi98.Main
+import Statlean.Web.ab_B_markov_ineq_mo3z41sj.Main
+import Statlean.Web.ab_B_memLp_sub_mo3461gd.Main
+import Statlean.Web.ab_B_memLp_sub_mo3wspd8.Main
+import Statlean.Web.ab_B_memLp_sub_mo3zh6uz.Main
+import Statlean.Web.ab_B_sq_nonneg_integral_mo3480yr.Main
+import Statlean.Web.ab_B_variance_add_indep_mo31my5t.Main
+import Statlean.Web.ab_B_variance_add_indep_mo34gk0t.Main
+import Statlean.Web.ab_B_variance_add_indep_mo3w620l.Main
+import Statlean.Web.ab_B_variance_add_indep_mo3ysrp6.Main
+import Statlean.Web.ab_B_variance_nonneg_mo349o5q.Main
+import Statlean.Web.analysis_c_kimi.Main
+import Statlean.Web.analyze_dm_kimi.Main
+import Statlean.Web.analyze_ds.Main
+import Statlean.Web.analyze_mm.Main
+import Statlean.Web.analyze_qw.Main
+import Statlean.Web.analyze_scheffe_mm.Main
+import Statlean.Web.analyze_scheffe_qwen.Main
+import Statlean.Web.check_mm_c3.Main
+import Statlean.Web.conformance_mo173w2c.Main
+import Statlean.Web.conformance_mo187kya.Main
+import Statlean.Web.conformance_mo18n5c3.Main
+import Statlean.Web.conformance_mo1a6aqr.Main
+import Statlean.Web.evolve_cox_s3_cs.Main
+import Statlean.Web.evolve_rename_test.Main
+import Statlean.Web.evolve_smoke.Main
+import Statlean.Web.evolve_t4_var_add.Main
+import Statlean.Web.evolve_t5_norm_tri.Main
+import Statlean.Web.evolve_t6_chebyshev.Main
+import Statlean.Web.evolve_t7_coercion.Main
+import Statlean.Web.evolve_t8_measurable.Main
+import Statlean.Web.evolve_test_3.Main
+import Statlean.Web.headless_test_mnv0smhn.Main
+import Statlean.Web.headless_test_mnv0uj46.Main
+import Statlean.Web.jobartifacttest02.Main
+import Statlean.Web.jobbayesnro6t.Main
+import Statlean.Web.jobbayesoccv3.Main
+import Statlean.Web.jobmn9rf4srqk3w.Main
+import Statlean.Web.jobmnfrosueh4uz.Main
+import Statlean.Web.jobmnfw8wkky2jp.Main
+import Statlean.Web.jobmnlyif9nipv6.Main
+import Statlean.Web.jobmnnaq2t7x3b3.Main
+import Statlean.Web.jobmnu0pq3lwnoi.Main
+import Statlean.Web.jobmo48xoy4dnhv.Main
+import Statlean.Web.jobmo5qf1hmiz7u.Main
+import Statlean.Web.jobmobquqqakyyv.LemmaS3
+import Statlean.Web.prove_mcp_smoke_mnv0fagu.Main
+import Statlean.Web.prove_mcp_smoke_mnv0gyxy.Main
+import Statlean.Web.prove_mcp_smoke_mnv2zjhq.Main
+import Statlean.Web.smokemo5y8ygm.Main
+import Statlean.Web.smokemo5ztjp0.Main
+import Statlean.Web.test_prove_mnha2jqs.Main
+import Statlean.Web.test_unified_mnmwatj3.Main
+import Statlean.Web.test_unified_mnmwp03h.Main
+import Statlean.Web.test_unified_mnmwqits.Main
+import Statlean.Web.v2_am_gm_squares_deepseek_1775143070651.Main
+import Statlean.Web.v2_am_gm_squares_deepseek_1775837049548.Main
+import Statlean.Web.v2_am_gm_squares_kimi_1775143120379.Main
+import Statlean.Web.v2_am_gm_squares_kimi_1775836991756.Main
+import Statlean.Web.v2_am_gm_squares_minimax_1775143160643.Main
+import Statlean.Web.v2_am_gm_squares_minimax_1775836879160.Main
+import Statlean.Web.v2_am_gm_squares_minimax_1775879920650.Main
+import Statlean.Web.v2_am_gm_squares_minimax_1775899164554.Main
+import Statlean.Web.v2_am_gm_squares_minimax_1775917647959.Main
+import Statlean.Web.v2_am_gm_squares_minimax_1775958696299.Main
+import Statlean.Web.v2_am_gm_squares_qwen_1775143141954.Main
+import Statlean.Web.v2_am_gm_squares_qwen_1775836906712.Main
+import Statlean.Web.v2_bayes_test_deepseek_1775319295665.Main
+import Statlean.Web.v2_bayes_test_deepseek_1775369019773.Main
+import Statlean.Web.v2_bayes_test_deepseek_1775379493470.Main
+import Statlean.Web.v2_bayes_test_deepseek_1775837949117.Main
+import Statlean.Web.v2_bayes_test_kimi_1775319595472.Main
+import Statlean.Web.v2_bayes_test_kimi_1775837680077.Main
+import Statlean.Web.v2_bayes_test_minimax_1775320350870.Main
+import Statlean.Web.v2_bayes_test_minimax_1775837565678.Main
+import Statlean.Web.v2_bayes_test_qwen_1775370138473.Main
+import Statlean.Web.v2_bayes_test_qwen_1775380079818.Main
+import Statlean.Web.v2_bayes_test_qwen_1775837486411.Main
+import Statlean.Web.v2_bias_variance_decomp_deepseek_1775221981600.Main
+import Statlean.Web.v2_bias_variance_decomp_deepseek_1775836722117.Main
+import Statlean.Web.v2_bias_variance_decomp_deepseek_1775897257357.Main
+import Statlean.Web.v2_bias_variance_decomp_deepseek_1775955327621.Main
+import Statlean.Web.v2_bias_variance_decomp_kimi_1775142645868.Main
+import Statlean.Web.v2_bias_variance_decomp_kimi_1775222180288.Main
+import Statlean.Web.v2_bias_variance_decomp_kimi_1775878540501.Main
+import Statlean.Web.v2_bias_variance_decomp_kimi_1775897559736.Main
+import Statlean.Web.v2_bias_variance_decomp_kimi_1775915136379.Main
+import Statlean.Web.v2_bias_variance_decomp_minimax_1775142881665.Main
+import Statlean.Web.v2_bias_variance_decomp_minimax_1775222719778.Main
+import Statlean.Web.v2_bias_variance_decomp_minimax_1775836715764.Main
+import Statlean.Web.v2_bias_variance_decomp_minimax_1775897962320.Main
+import Statlean.Web.v2_bias_variance_decomp_minimax_1775956571024.Main
+import Statlean.Web.v2_bias_variance_decomp_qwen_1775222520718.Main
+import Statlean.Web.v2_bias_variance_decomp_qwen_1775836720880.Main
+import Statlean.Web.v2_bias_variance_decomp_qwen_1775878784861.Main
+import Statlean.Web.v2_bias_variance_decomp_qwen_1775897741121.Main
+import Statlean.Web.v2_bias_variance_decomp_qwen_1775915404747.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_deepseek_1775203713311.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_deepseek_1775204788092.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_deepseek_1775206024267.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_deepseek_1775230539381.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_deepseek_1775233559615.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_deepseek_1775236070313.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_deepseek_1775366396177.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_deepseek_1775378515504.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_deepseek_1775837442207.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_kimi_1775139957623.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_kimi_1775146487007.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_kimi_1775205151011.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_kimi_1775206320442.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_kimi_1775221086433.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_kimi_1775234231448.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_kimi_1775236119929.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_kimi_1775366441350.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_kimi_1775837369791.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775203305835.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775204068603.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775205552559.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775206784724.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775221484251.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775224118715.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775225590596.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775231463065.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775235709807.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775236260930.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775366545225.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775378711292.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_minimax_1775837351795.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_qwen_1775225226583.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_qwen_1775230955125.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_qwen_1775235300191.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_qwen_1775236189587.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_qwen_1775366504696.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_qwen_1775378678611.Main
+import Statlean.Web.v2_cauchy_schwarz_cov_qwen_1775837354513.Main
+import Statlean.Web.v2_charfun_iid_sum_deepseek_1775267924152.Main
+import Statlean.Web.v2_charfun_iid_sum_deepseek_1775370582787.Main
+import Statlean.Web.v2_charfun_iid_sum_deepseek_1775380645613.Main
+import Statlean.Web.v2_charfun_iid_sum_deepseek_1775838177663.Main
+import Statlean.Web.v2_charfun_iid_sum_kimi_1775837910501.Main
+import Statlean.Web.v2_charfun_iid_sum_minimax_1775268116440.Main
+import Statlean.Web.v2_charfun_iid_sum_minimax_1775371447810.Main
+import Statlean.Web.v2_charfun_iid_sum_minimax_1775380858533.Main
+import Statlean.Web.v2_charfun_iid_sum_minimax_1775837940600.Main
+import Statlean.Web.v2_charfun_iid_sum_qwen_1775268044008.Main
+import Statlean.Web.v2_charfun_iid_sum_qwen_1775371376357.Main
+import Statlean.Web.v2_charfun_iid_sum_qwen_1775380819290.Main
+import Statlean.Web.v2_charfun_iid_sum_qwen_1775837661517.Main
+import Statlean.Web.v2_chebyshev_ineq_deepseek_1775143703069.Main
+import Statlean.Web.v2_chebyshev_ineq_deepseek_1775877377950.Main
+import Statlean.Web.v2_chebyshev_ineq_deepseek_1775887940289.Main
+import Statlean.Web.v2_chebyshev_ineq_deepseek_1775888366365.Main
+import Statlean.Web.v2_chebyshev_ineq_kimi_1775145582461.Main
+import Statlean.Web.v2_chebyshev_ineq_kimi_1775879326530.Main
+import Statlean.Web.v2_chebyshev_ineq_kimi_1775898537342.Main
+import Statlean.Web.v2_chebyshev_ineq_minimax_1775145876949.Main
+import Statlean.Web.v2_chebyshev_ineq_minimax_1775879716705.Main
+import Statlean.Web.v2_chebyshev_ineq_minimax_1775914447504.Main
+import Statlean.Web.v2_chebyshev_ineq_minimax_1775917240173.Main
+import Statlean.Web.v2_chebyshev_ineq_qwen_1775145726493.Main
+import Statlean.Web.v2_chebyshev_ineq_qwen_1775837062454.Main
+import Statlean.Web.v2_chebyshev_ineq_qwen_1775879485778.Main
+import Statlean.Web.v2_chebyshev_ineq_qwen_1775917028736.Main
+import Statlean.Web.v2_chebyshev_ineq_qwen_1775958045576.Main
+import Statlean.Web.v2_complex_pow_approx_deepseek_1775319458303.Main
+import Statlean.Web.v2_complex_pow_approx_deepseek_1775371503087.Main
+import Statlean.Web.v2_complex_pow_approx_deepseek_1775380904422.Main
+import Statlean.Web.v2_complex_pow_approx_deepseek_1775838346312.Main
+import Statlean.Web.v2_complex_pow_approx_kimi_1775837957987.Main
+import Statlean.Web.v2_complex_pow_approx_minimax_1775321113635.Main
+import Statlean.Web.v2_complex_pow_approx_minimax_1775362049766.Main
+import Statlean.Web.v2_complex_pow_approx_minimax_1775372938656.Main
+import Statlean.Web.v2_complex_pow_approx_minimax_1775381196530.Main
+import Statlean.Web.v2_complex_pow_approx_minimax_1775837973932.Main
+import Statlean.Web.v2_complex_pow_approx_qwen_1775361985414.Main
+import Statlean.Web.v2_complex_pow_approx_qwen_1775372896014.Main
+import Statlean.Web.v2_complex_pow_approx_qwen_1775381159008.Main
+import Statlean.Web.v2_complex_pow_approx_qwen_1775837744333.Main
+import Statlean.Web.v2_consistency_of_RLEs_deepseek_1775530327365.Main
+import Statlean.Web.v2_consistency_of_RLEs_deepseek_1775838921329.Main
+import Statlean.Web.v2_consistency_of_RLEs_kimi_1775918568644.Main
+import Statlean.Web.v2_consistency_of_RLEs_kimi_1775959885058.Main
+import Statlean.Web.v2_consistency_of_RLEs_minimax_1775902701225.Main
+import Statlean.Web.v2_consistency_of_RLEs_qwen_1775549228569.Main
+import Statlean.Web.v2_cramer_rao_deepseek_1775263703602.Main
+import Statlean.Web.v2_cramer_rao_deepseek_1775264172957.Main
+import Statlean.Web.v2_cramer_rao_deepseek_1775366603424.Main
+import Statlean.Web.v2_cramer_rao_deepseek_1775378755016.Main
+import Statlean.Web.v2_cramer_rao_deepseek_1775384034741.Main
+import Statlean.Web.v2_cramer_rao_deepseek_1775837500110.Main
+import Statlean.Web.v2_cramer_rao_kimi_1775264223673.Main
+import Statlean.Web.v2_cramer_rao_kimi_1775366656179.Main
+import Statlean.Web.v2_cramer_rao_kimi_1775837456013.Main
+import Statlean.Web.v2_cramer_rao_minimax_1775264317380.Main
+import Statlean.Web.v2_cramer_rao_minimax_1775367829246.Main
+import Statlean.Web.v2_cramer_rao_minimax_1775378960269.Main
+import Statlean.Web.v2_cramer_rao_minimax_1775837400626.Main
+import Statlean.Web.v2_cramer_rao_qwen_1775264270455.Main
+import Statlean.Web.v2_cramer_rao_qwen_1775367788513.Main
+import Statlean.Web.v2_cramer_rao_qwen_1775378923442.Main
+import Statlean.Web.v2_cramer_rao_qwen_1775837403325.Main
+import Statlean.Web.v2_delta_method_deepseek_1775384314278.Main
+import Statlean.Web.v2_delta_method_deepseek_1775384323817.Main
+import Statlean.Web.v2_delta_method_deepseek_1775386640200.Main
+import Statlean.Web.v2_delta_method_deepseek_1775386661001.Main
+import Statlean.Web.v2_delta_method_deepseek_1775387978437.Main
+import Statlean.Web.v2_delta_method_deepseek_1775388001299.Main
+import Statlean.Web.v2_delta_method_deepseek_1775524205943.Main
+import Statlean.Web.v2_delta_method_deepseek_1775546192901.Main
+import Statlean.Web.v2_delta_method_deepseek_1775838394518.Main
+import Statlean.Web.v2_delta_method_kimi_1775385451298.Main
+import Statlean.Web.v2_delta_method_kimi_1775386762809.Main
+import Statlean.Web.v2_delta_method_kimi_1775388153474.Main
+import Statlean.Web.v2_delta_method_kimi_1775525879447.Main
+import Statlean.Web.v2_delta_method_kimi_1775546464625.Main
+import Statlean.Web.v2_delta_method_kimi_1775838023230.Main
+import Statlean.Web.v2_delta_method_minimax_1775386060194.Main
+import Statlean.Web.v2_delta_method_minimax_1775387325443.Main
+import Statlean.Web.v2_delta_method_minimax_1775389202199.Main
+import Statlean.Web.v2_delta_method_minimax_1775528653545.Main
+import Statlean.Web.v2_delta_method_minimax_1775547535564.Main
+import Statlean.Web.v2_delta_method_qwen_1775385581218.Main
+import Statlean.Web.v2_delta_method_qwen_1775386891971.Main
+import Statlean.Web.v2_delta_method_qwen_1775388283237.Main
+import Statlean.Web.v2_delta_method_qwen_1775526822010.Main
+import Statlean.Web.v2_delta_method_qwen_1775547212683.Main
+import Statlean.Web.v2_delta_method_qwen_1775837920858.Main
+import Statlean.Web.v2_exp_bound_simple_deepseek_1775144310403.Main
+import Statlean.Web.v2_exp_bound_simple_deepseek_1775837415415.Main
+import Statlean.Web.v2_exp_bound_simple_kimi_1775144362928.Main
+import Statlean.Web.v2_exp_bound_simple_kimi_1775837337985.Main
+import Statlean.Web.v2_exp_bound_simple_minimax_1775144401646.Main
+import Statlean.Web.v2_exp_bound_simple_minimax_1775837328511.Main
+import Statlean.Web.v2_exp_bound_simple_qwen_1775144384246.Main
+import Statlean.Web.v2_exp_bound_simple_qwen_1775837335456.Main
+import Statlean.Web.v2_markov_ineq_deepseek_1775139109219.Main
+import Statlean.Web.v2_markov_ineq_deepseek_1775142312034.Main
+import Statlean.Web.v2_markov_ineq_deepseek_1775836671932.Main
+import Statlean.Web.v2_markov_ineq_kimi_1775139217093.Main
+import Statlean.Web.v2_markov_ineq_kimi_1775142417687.Main
+import Statlean.Web.v2_markov_ineq_kimi_1775836676838.Main
+import Statlean.Web.v2_markov_ineq_minimax_1775139378668.Main
+import Statlean.Web.v2_markov_ineq_minimax_1775142468400.Main
+import Statlean.Web.v2_markov_ineq_minimax_1775836688620.Main
+import Statlean.Web.v2_markov_ineq_qwen_1775139237607.Main
+import Statlean.Web.v2_markov_ineq_qwen_1775142442490.Main
+import Statlean.Web.v2_markov_ineq_qwen_1775836684193.Main
+import Statlean.Web.v2_neyman_pearson_deepseek_1775266662884.Main
+import Statlean.Web.v2_neyman_pearson_deepseek_1775367853482.Main
+import Statlean.Web.v2_neyman_pearson_deepseek_1775379011473.Main
+import Statlean.Web.v2_neyman_pearson_deepseek_1775837682343.Main
+import Statlean.Web.v2_neyman_pearson_kimi_1775266720139.Main
+import Statlean.Web.v2_neyman_pearson_kimi_1775837508067.Main
+import Statlean.Web.v2_neyman_pearson_minimax_1775266843733.Main
+import Statlean.Web.v2_neyman_pearson_minimax_1775368887429.Main
+import Statlean.Web.v2_neyman_pearson_minimax_1775379444301.Main
+import Statlean.Web.v2_neyman_pearson_minimax_1775837437330.Main
+import Statlean.Web.v2_neyman_pearson_qwen_1775266792398.Main
+import Statlean.Web.v2_neyman_pearson_qwen_1775368669294.Main
+import Statlean.Web.v2_neyman_pearson_qwen_1775837448776.Main
+import Statlean.Web.v2_scheffe_deepseek_1775206630362.Main
+import Statlean.Web.v2_scheffe_deepseek_1775377585067.Main
+import Statlean.Web.v2_scheffe_deepseek_1775529010848.Main
+import Statlean.Web.v2_scheffe_deepseek_1775547536796.Main
+import Statlean.Web.v2_scheffe_deepseek_1775838870873.Main
+import Statlean.Web.v2_scheffe_kimi_1775147134072.Main
+import Statlean.Web.v2_scheffe_kimi_1775222000616.Main
+import Statlean.Web.v2_scheffe_kimi_1775323051717.Main
+import Statlean.Web.v2_scheffe_kimi_1775529348788.Main
+import Statlean.Web.v2_scheffe_kimi_1775547725428.Main
+import Statlean.Web.v2_scheffe_kimi_1775838346474.Main
+import Statlean.Web.v2_scheffe_minimax_1775147480076.Main
+import Statlean.Web.v2_scheffe_minimax_1775530190975.Main
+import Statlean.Web.v2_scheffe_minimax_1775548340040.Main
+import Statlean.Web.v2_scheffe_qwen_1775222743895.Main
+import Statlean.Web.v2_scheffe_qwen_1775323408056.Main
+import Statlean.Web.v2_scheffe_qwen_1775377787091.Main
+import Statlean.Web.v2_scheffe_qwen_1775529569207.Main
+import Statlean.Web.v2_scheffe_qwen_1775838676859.Main
+import Statlean.Web.v2_variance_add_indep_deepseek_1775139465736.Main
+import Statlean.Web.v2_variance_add_indep_deepseek_1775143233666.Main
+import Statlean.Web.v2_variance_add_indep_deepseek_1775837083154.Main
+import Statlean.Web.v2_variance_add_indep_kimi_1775139544719.Main
+import Statlean.Web.v2_variance_add_indep_kimi_1775143432007.Main
+import Statlean.Web.v2_variance_add_indep_kimi_1775879987775.Main
+import Statlean.Web.v2_variance_add_indep_kimi_1775899199112.Main
+import Statlean.Web.v2_variance_add_indep_kimi_1775917764651.Main
+import Statlean.Web.v2_variance_add_indep_kimi_1775958851078.Main
+import Statlean.Web.v2_variance_add_indep_minimax_1775143593599.Main
+import Statlean.Web.v2_variance_add_indep_minimax_1775837000511.Main
+import Statlean.Web.v2_variance_add_indep_qwen_1775139609716.Main
+import Statlean.Web.v2_variance_add_indep_qwen_1775143496962.Main
+import Statlean.Web.v2_variance_add_indep_qwen_1775836930978.Main
+import Statlean.Web.v2_variance_add_indep_qwen_1775880055347.Main
+import Statlean.Web.v2_variance_add_indep_qwen_1775899335574.Main
+import Statlean.Web.v2_variance_add_indep_qwen_1775917799557.Main
+import Statlean.Web.v_deepseek.Main
+import Statlean.Web.v_kimi.Main
+import Statlean.Web.v_minimax.Main
+import Statlean.Web.vc5_minimax.Main
+import Statlean.Web.vc6_minimax.Main
+import Statlean.Web.vc6_qwen.Main
+import Statlean.Web.vd_kimi.Main
+import Statlean.Web.vd_qwen.Main
+import Statlean.Web.verify_bv.Main
+import Statlean.Web.verify_cheb.Main
+import Statlean.Web.verify_crle_qwen.Main
+import Statlean.Web.verify_delta_method_qwen_c2.Main
+import Statlean.Web.verify_dm_ds2.Main
+import Statlean.Web.verify_scheffe_deepseek_c2.Main
+import Statlean.Web.vfinal_deepseek.Main
+import Statlean.Web.vfinal_minimax.Main
+import Statlean.Web.vfinal_qwen.Main
+
+/-! # Statlean Verified Library
+
+**Every declaration reachable from this import is fully proved (zero sorry).**
+
+This is the "clean" entry point for the StatLean library. It only imports
+modules that have been verified to contain no sorry — neither directly
+nor transitively through their dependency chains.
+
+To check: `lake build Statlean.Verified` should produce zero sorry warnings.
+
+## Contents
+
+- **Gaussian/Basic**: stdGaussian, stdGaussianPi, integrability infrastructure
+- **Gaussian/Stein**: Stein identity
+- **Gaussian/Hermite**: Hermite derivative, orthogonality, Parseval, density, IBP
+- **Variance/ANOVA**: Jensen squared, marginal L², ANOVA two-factor inequality
+- **Variance/RaoBlackwell**: Rao-Blackwell MSE theorem and variants
+- **Entropy/Basic**: Entropy definitions, LSI interfaces
+- **CharFun/Taylor**: Charfun chain, Taylor bounds, Lyapunov (Berry-Esseen chain)
+- **LimitTheorems/USLLN**: Uniform Strong Law of Large Numbers (full theorem + infrastructure)
+- **Sufficiency/Factorization**: Fisher-Neyman factorization (both directions)
+- **Sufficiency/Basu**: Basu's theorem
+- **Sufficiency/MinimalSufficiency**: Density ratio criterion (Thm C) + Subfamily extension (Thm A)
+- **Estimator/Basic**: MSE = Bias² + Var, unbiased MSE = Var, risk dominance, loss functions,
+  likelihood, IsMLE, MLE invariance, IsConsistent, IsAdmissible, IsMinimax, BayesRisk, IsEfficient
+- **Estimator/Asymptotic**: IsAsymptoticallyNormal, HasAsymptoticMSE, HasAsymptoticBias,
+  ARE, CLT→asymptotic normality bridge, scaled MSE decomposition, ARE inversion/comparison
+- **Estimator/UMVUE**: UMVUE a.e. uniqueness (parallelogram identity), efficient ⇒ UMVUE,
+  Rao-Blackwell UMVUE bridge, exponential family UMVUE, unestimability theorem
+- **ExpFamily/Basic**: MLE existence in natural exponential families
+- **Statistic/Sample**: sampleMean, sampleVariance, orderStatistic, sampleQuantile, sampleMedian
+- **Testing/Basic**: TestFunction, PowerFunction, TypeI/II errors, Size, HasLevel,
+  IsUMP, NeymanPearson, pValue, IsUnbiasedTest, IsSimilarTest, IsUMPU,
+  HasMonotoneLR, np_integrand_nonneg, np_integral_nonneg,
+  neyman_pearson_optimality, karlin_rubin
+- **Confidence/Basic**: CoverageProb, IsConfidenceSet, IsConfidenceInterval, IsPivot
+- **Moments/Basic**: moment, centralMoment, skewness, kurtosis, excessKurtosis,
+  absoluteMoment, truncatedMoment, covariance, correlation, cumulant,
+  variance_eq_moment_sub_sq, covariance_self_eq_variance, chebyshev_ineq
+- **Moments/Covariance**: variance_add_eq, sq_covariance_le_variance_mul (Cauchy-Schwarz),
+  corrCoeff, corrCoeff_abs_le_one, variance_sum_of_covariance_zero, variance_sum_independent
+- **LimitTheorems/Convergence**: AlmostSure, InProbability, InLp, CompleteConvergence,
+  MomentConvergence, TotalVariationConvergence
+- **LimitTheorems/Slutsky**: Slutsky's theorem (add, mul, div) + inv convergence in measure
+- **LimitTheorems/DeltaMethod**: Continuous mapping theorem, delta method (Shao Thm 1.12),
+  √n corollary (Shao Cor 1.1), tightness lemma (rescaled convergence ⟹ convergence in probability)
+- **LimitTheorems/Scheffe**: Scheffé's theorem (Shao Thm 1.5): density convergence a.e. + equal
+  integrals ⟹ L¹ convergence, via DCT on positive part
+- **Regression/GaussMarkov**: Gauss-Markov theorem (Shao Thm 3.9): OLS minimizes residual norm
+  (BLUE optimality via orthogonal projection)
+- **LimitTheorems/Levy**: Lévy continuity theorem (Shao Thm 1.9): forward (weak convergence
+  ⟹ charfun convergence) + reverse (charfun convergence + continuity at 0 ⟹ weak convergence)
+  via tightness + Prokhorov + charFun uniqueness
+- **LimitTheorems/CLT**: Central Limit Theorem (Shao Thm 1.4): iid mean-zero L³ random variables
+  with σ² > 0 ⟹ standardized sum converges weakly to N(0,1), via charfun Taylor bound + Lévy
+- **LimitTheorems/LindebergFeller**: Lindeberg-Feller CLT (Shao Thm 1.6): triangular array of
+  row-independent mean-zero L² random variables satisfying the Lindeberg condition ⟹ standardized
+  row sums converge weakly to N(0,1), via charfun factorization + telescope + Feller condition
+- **LimitTheorems/CramerWold**: Cramér-Wold device (Shao Thm 1.9(iii)): multivariate Lévy
+  continuity (charFun convergence → weak convergence in finite dimensions) + Cramér-Wold iff
+  (weak convergence ⟺ all 1D projections converge), via ONB tightness + Parseval pigeonhole
+-/

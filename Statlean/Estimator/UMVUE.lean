@@ -271,4 +271,104 @@ theorem unestimable_of_complete_no_function {α : Type*} [MeasurableSpace α]
     exact integral_congr_ae (h_inv.trans (ae_of_all _ (congr_fun hψ_eq))).symm
   exact hno_func h hh_meas h_int h_unb
 
+/-! ## Shao 3.2 — UMVUE characterization via orthogonality
+
+Shao, *Mathematical Statistics* (2nd ed.), Theorem 3.2, pp.166–167.
+
+`T` is a UMVUE for `g` iff `T` is uncorrelated with every unbiased estimator of `0`
+(with finite variance). Part (ii) restricts the test class to Borel functions of a
+sufficient statistic `T̃` when `T = h ∘ T̃`.
+
+This gives a way to *verify* UMVUE when no complete sufficient statistic is known
+(cf. Lehmann–Scheffé), and to *disprove* UMVUE by exhibiting a zero-unbiased witness
+with `E[T·U] ≠ 0`.
+-/
+
+section ShaoUMVUECharacterization
+
+variable {Θ : Type*}
+variable {Ω : Type*} [MeasurableSpace Ω]
+
+/-- `U` is an **unbiased estimator of 0** under the parametric family `P`:
+`E_θ[U] = 0` for every `θ`. -/
+def IsUnbiasedOfZero (P : ParametricFamily Θ Ω) (U : Ω → ℝ) : Prop :=
+  IsUnbiased P U (fun _ => 0)
+
+/-- **Shao Theorem 3.2(i) — UMVUE orthogonality characterization.**
+
+Let `T` be an unbiased estimator of `g(θ)` with finite variance under every `P_θ`.
+Then `T` is a UMVUE iff `T` is uncorrelated (`E[T·U] = 0`) with every unbiased
+estimator `U` of `0` that has finite variance.
+
+The side hypotheses (`h_mul_int`, `h_sq_of_umvue_competitor`) secure the integrability
+needed to state `∫ T·U` and to compare variances with alternative unbiased competitors;
+they are automatic under standard L²-regular setups (e.g. dominated families).
+
+Proof sketch (Shao, p.167):
+  (⇒) If `T` is UMVUE and `U ∈ 𝒰`, then for every `c ∈ ℝ`, `T + cU` is unbiased so
+      `Var(T + cU) ≥ Var(T)`, i.e. `c² Var(U) + 2c Cov(T,U) ≥ 0` for all `c`,
+      forcing `Cov(T,U) = E(TU) = 0`.
+  (⇐) If `E(TU) = 0` for all `U ∈ 𝒰` and `T₀` is any competing unbiased estimator
+      with `Var(T₀) < ∞`, then `T - T₀ ∈ 𝒰`, hence `E[T(T - T₀)] = 0`, giving
+      `Var(T) = Cov(T, T₀) ≤ √(Var T · Var T₀)` (Cauchy–Schwarz), so `Var(T) ≤ Var(T₀)`.
+
+-- blocker: requires L²-inner-product identities + Cauchy–Schwarz on `P.measure θ`
+-- estimated effort: ~120 lines -/
+theorem umvue_iff_orthogonal_to_unbiasedOfZero
+    (P : ParametricFamily Θ Ω) (T : Ω → ℝ) (g : Θ → ℝ)
+    (hT_unb : IsUnbiased P T g)
+    (hT_sq : ∀ θ, Integrable (fun ω => (T ω) ^ 2) (P.measure θ))
+    (h_mul_int : ∀ U : Ω → ℝ,
+      (∀ θ, Integrable (fun ω => (U ω) ^ 2) (P.measure θ)) →
+      ∀ θ, Integrable (fun ω => T ω * U ω) (P.measure θ))
+    (h_sq_of_umvue_competitor : ∀ δ' : Ω → ℝ, IsUnbiased P δ' g →
+      (∀ θ, Integrable (fun ω => (δ' ω - g θ) ^ 2) (P.measure θ)) →
+      ∀ θ, Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ))
+    (h_diff_sq : ∀ δ' : Ω → ℝ, IsUnbiased P δ' g →
+      (∀ θ, Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ)) →
+      ∀ θ, Integrable (fun ω => (T ω - δ' ω) ^ 2) (P.measure θ)) :
+    IsUMVUE P T g ↔
+      ∀ U : Ω → ℝ, IsUnbiasedOfZero P U →
+        (∀ θ, Integrable (fun ω => (U ω) ^ 2) (P.measure θ)) →
+        ∀ θ, ∫ ω, T ω * U ω ∂(P.measure θ) = 0 := by
+  sorry
+
+/-- **Shao Theorem 3.2(ii) — UMVUE characterization restricted to a sufficient
+statistic.**
+
+When `T = h ∘ S` factors through a sufficient statistic `S` (= `T̃` in Shao),
+it suffices to test orthogonality against zero-unbiased *functions of `S`* —
+a strictly smaller class than all zero-unbiased estimators.
+
+Proof sketch (Shao, p.167): Any zero-unbiased `U` gives `E(U | S)` which is
+(a) still zero-unbiased, (b) a Borel function of `S`. Then
+`E(TU) = E[E(TU | S)] = E[h(S) · E(U | S)]`, reducing part (i) to the restricted class.
+
+-- blocker: requires conditional expectation tower + sufficiency invariance
+-- estimated effort: ~80 lines (relying on Sufficiency/LehmannScheffe infrastructure) -/
+theorem umvue_iff_orthogonal_to_sufficient_unbiasedOfZero
+    {α : Type*} [MeasurableSpace α]
+    (P : ParametricFamily Θ Ω) (S : Ω → α) (h : α → ℝ) (g : Θ → ℝ)
+    (hS_suff : IsSufficient' P S)
+    (hh_meas : Measurable h)
+    (hh_unb : IsUnbiased P (h ∘ S) g)
+    (hh_sq : ∀ θ, Integrable (fun ω => ((h ∘ S) ω) ^ 2) (P.measure θ))
+    (h_mul_int : ∀ V : α → ℝ, Measurable V →
+      (∀ θ, Integrable (fun ω => ((V ∘ S) ω) ^ 2) (P.measure θ)) →
+      ∀ θ, Integrable (fun ω => (h ∘ S) ω * (V ∘ S) ω) (P.measure θ))
+    (h_sq_of_umvue_competitor : ∀ δ' : Ω → ℝ, IsUnbiased P δ' g →
+      (∀ θ, Integrable (fun ω => (δ' ω - g θ) ^ 2) (P.measure θ)) →
+      ∀ θ, Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ))
+    (h_diff_sq : ∀ δ' : Ω → ℝ, IsUnbiased P δ' g →
+      (∀ θ, Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ)) →
+      ∀ θ, Integrable (fun ω => ((h ∘ S) ω - δ' ω) ^ 2) (P.measure θ)) :
+    IsUMVUE P (h ∘ S) g ↔
+      ∀ V : α → ℝ, Measurable V →
+        IsUnbiasedOfZero P (V ∘ S) →
+        (∀ θ, Integrable (fun ω => ((V ∘ S) ω) ^ 2) (P.measure θ)) →
+        ∀ θ, ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂(P.measure θ) = 0 := by
+  sorry
+
+end ShaoUMVUECharacterization
+
 end Statlean.Estimator

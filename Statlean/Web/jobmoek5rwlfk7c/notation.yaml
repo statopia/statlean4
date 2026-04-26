@@ -1,0 +1,10 @@
+version: v1
+symbols:
+- latex: \\mathbb{E}[X]
+  meaning: expectation
+  lean_candidates:
+  - ∫ x, X x ∂μ
+- latex: \\mathrm{Var}(X)
+  meaning: variance
+  lean_candidates:
+  - Var[X; μ]

@@ -1,0 +1,57 @@
+version: v1
+theorem_set: input-tex-batch
+source_tag: input
+defaults:
+  lean_namespace: Statlean.UStatistic.Hoeffding
+  layer: formalization
+  allow_axiom: false
+theorems:
+- id: input.theorem.001.hoeffding_ustatistic_variance
+  title: Hoeffding's theorem (U-statistic variance decomposition)
+  kind: theorem
+  latex_statement: "\\label{thm:hoeffding-ustatistic-variance}\nLet $X_1,\\dots,X_n$\
+    \ be i.i.d.\\ random variables and let\n$h(x_1,\\dots,x_m)$ be a symmetric Borel\
+    \ kernel with\n$E\\bigl[h(X_1,\\dots,X_m)\\bigr]^2 < \\infty$. Define the U-statistic\n\
+    \\[\n  U_n \\;=\\; \\binom{n}{m}^{-1} \\sum_{c} h(X_{i_1},\\dots,X_{i_m}),\n\\\
+    ]\nwhere the sum $\\sum_c$ runs over all $\\binom{n}{m}$ subsets\n$\\{i_1<\\dots<i_m\\\
+    }$ of $\\{1,\\dots,n\\}$. For $k=1,\\dots,m$ let\n\\[\n  h_k(x_1,\\dots,x_k) \\\
+    ;=\\; E\\bigl[h(x_1,\\dots,x_k,X_{k+1},\\dots,X_m)\\bigr],\n\\]\nand\n\\[\n  \\\
+    zeta_k \\;=\\; \\Var\\bigl(h_k(X_1,\\dots,X_k)\\bigr).\n\\]\nThen\n\\[\n  \\Var(U_n)\
+    \ \\;=\\; \\binom{n}{m}^{-1} \\sum_{k=1}^{m} \\binom{m}{k}\\binom{n-m}{m-k}\\\
+    ,\\zeta_k.\n\\]"
+  latex_proof_hint: "Set $\\tilde h_k = h_k - E[h(X_1,\\dots,X_m)]$ and $\\tilde h\
+    \ = \\tilde h_m$,\nso that\n\\[\n  U_n - E(U_n) \\;=\\; \\binom{n}{m}^{-1} \\\
+    sum_{c} \\tilde h(X_{i_1},\\dots,X_{i_m}).\n\\]\nConsider two index subsets $\\\
+    {i_1,\\dots,i_m\\}$ and $\\{j_1,\\dots,j_m\\}$\nof distinct elements of $\\{1,\\\
+    dots,n\\}$ having exactly $k$ elements in\ncommon. The number of ordered pairs\
+    \ of such subsets is\n$\\binom{n}{m}\\binom{m}{k}\\binom{n-m}{m-k}$. By symmetry\
+    \ of $\\tilde h$\nand independence of $X_1,\\dots,X_n$,\n\\[\n  E\\bigl[\\tilde\
+    \ h(X_{i_1},\\dots,X_{i_m})\\,\\tilde h(X_{j_1},\\dots,X_{j_m})\\bigr] \\;=\\\
+    ; \\zeta_k\n\\]\nfor every such pair (this is left as an exercise in Shao). Hence\n\
+    \\[\n  \\Var(U_n) \\;=\\; \\binom{n}{m}^{-2} \\sum_{k=1}^{m} \\binom{n}{m}\\binom{m}{k}\\\
+    binom{n-m}{m-k}\\,\\zeta_k\n            \\;=\\; \\binom{n}{m}^{-1} \\sum_{k=1}^{m}\
+    \ \\binom{m}{k}\\binom{n-m}{m-k}\\,\\zeta_k.\n\\]"
+  proof_body: "Set $\\tilde h_k = h_k - E[h(X_1,\\dots,X_m)]$ and $\\tilde h = \\\
+    tilde h_m$,\nso that\n\\[\n  U_n - E(U_n) \\;=\\; \\binom{n}{m}^{-1} \\sum_{c}\
+    \ \\tilde h(X_{i_1},\\dots,X_{i_m}).\n\\]\nConsider two index subsets $\\{i_1,\\\
+    dots,i_m\\}$ and $\\{j_1,\\dots,j_m\\}$\nof distinct elements of $\\{1,\\dots,n\\\
+    }$ having exactly $k$ elements in\ncommon. The number of ordered pairs of such\
+    \ subsets is\n$\\binom{n}{m}\\binom{m}{k}\\binom{n-m}{m-k}$. By symmetry of $\\\
+    tilde h$\nand independence of $X_1,\\dots,X_n$,\n\\[\n  E\\bigl[\\tilde h(X_{i_1},\\\
+    dots,X_{i_m})\\,\\tilde h(X_{j_1},\\dots,X_{j_m})\\bigr] \\;=\\; \\zeta_k\n\\\
+    ]\nfor every such pair (this is left as an exercise in Shao). Hence\n\\[\n  \\\
+    Var(U_n) \\;=\\; \\binom{n}{m}^{-2} \\sum_{k=1}^{m} \\binom{n}{m}\\binom{m}{k}\\\
+    binom{n-m}{m-k}\\,\\zeta_k\n            \\;=\\; \\binom{n}{m}^{-1} \\sum_{k=1}^{m}\
+    \ \\binom{m}{k}\\binom{n-m}{m-k}\\,\\zeta_k.\n\\]"
+  lean_name: u_statistic_variance_decomposition
+  lean_namespace: Statlean.Variance.UStatistic
+  layer: formalization
+  priority: 3
+  dependencies: []
+  assumptions: []
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: ''
+  canonical_name: Hoeffding's Theorem (U-statistic variance)

@@ -1,0 +1,1472 @@
+{
+    "pdf_info": [
+        {
+            "para_blocks": [
+                {
+                    "bbox": [
+                        55,
+                        65,
+                        370,
+                        90
+                    ],
+                    "type": "text",
+                    "angle": 0,
+                    "index": 2,
+                    "lines": [
+                        {
+                            "bbox": [
+                                54,
+                                64,
+                                371,
+                                81
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        54,
+                                        64,
+                                        145,
+                                        81
+                                    ],
+                                    "type": "text",
+                                    "content": "Theorem 3.5. Let",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        146,
+                                        69,
+                                        158,
+                                        78
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "U _ { n }",
+                                    "score": 0.92
+                                },
+                                {
+                                    "bbox": [
+                                        158,
+                                        64,
+                                        265,
+                                        81
+                                    ],
+                                    "type": "text",
+                                    "content": "be given by (3.11) with",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        265,
+                                        68,
+                                        366,
+                                        79
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "E [ h ( X _ { 1 } , . . . , X _ { m } ) ] ^ { 2 } < \\infty",
+                                    "score": 0.92
+                                },
+                                {
+                                    "bbox": [
+                                        367,
+                                        64,
+                                        371,
+                                        81
+                                    ],
+                                    "type": "text",
+                                    "content": ".",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                55,
+                                78,
+                                136,
+                                91
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        55,
+                                        78,
+                                        80,
+                                        91
+                                    ],
+                                    "type": "text",
+                                    "content": "(i) If",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        80,
+                                        81,
+                                        108,
+                                        91
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 1 } > 0",
+                                    "score": 0.91
+                                },
+                                {
+                                    "bbox": [
+                                        108,
+                                        78,
+                                        136,
+                                        91
+                                    ],
+                                    "type": "text",
+                                    "content": ", then",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        146,
+                        95,
+                        291,
+                        110
+                    ],
+                    "type": "interline_equation",
+                    "angle": 0,
+                    "lines": [
+                        {
+                            "bbox": [
+                                146,
+                                95,
+                                291,
+                                110
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        146,
+                                        95,
+                                        291,
+                                        110
+                                    ],
+                                    "type": "interline_equation",
+                                    "content": "\\sqrt {n} \\left[ U _ {n} - E \\left(U _ {n}\\right)\\right]\\rightarrow_ {d} N \\left(0, m ^ {2} \\zeta_ {1}\\right).",
+                                    "image_path": "a515a89f5995df8ec1b77cd3316e46a7c8c779ee765e2202b9d158ffe340f839.jpg"
+                                }
+                            ]
+                        }
+                    ],
+                    "index": 3
+                },
+                {
+                    "bbox": [
+                        55,
+                        115,
+                        186,
+                        128
+                    ],
+                    "type": "text",
+                    "angle": 0,
+                    "index": 4,
+                    "lines": [
+                        {
+                            "bbox": [
+                                56,
+                                116,
+                                186,
+                                129
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        56,
+                                        116,
+                                        82,
+                                        129
+                                    ],
+                                    "type": "text",
+                                    "content": "(ii) If",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        83,
+                                        119,
+                                        111,
+                                        128
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 1 } = 0",
+                                    "score": 0.91
+                                },
+                                {
+                                    "bbox": [
+                                        111,
+                                        116,
+                                        131,
+                                        129
+                                    ],
+                                    "type": "text",
+                                    "content": "but",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        132,
+                                        119,
+                                        159,
+                                        128
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 2 } > 0",
+                                    "score": 0.92
+                                },
+                                {
+                                    "bbox": [
+                                        159,
+                                        116,
+                                        186,
+                                        129
+                                    ],
+                                    "type": "text",
+                                    "content": ", then",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        118,
+                        135,
+                        381,
+                        165
+                    ],
+                    "type": "interline_equation",
+                    "angle": 0,
+                    "lines": [
+                        {
+                            "bbox": [
+                                118,
+                                135,
+                                381,
+                                165
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        118,
+                                        135,
+                                        381,
+                                        165
+                                    ],
+                                    "type": "interline_equation",
+                                    "content": "n \\left[ U _ {n} - E \\left(U _ {n}\\right)\\right]\\rightarrow_ {d} \\frac {m (m - 1)}{2} \\sum_ {j = 1} ^ {\\infty} \\lambda_ {j} \\left(\\chi_ {1 j} ^ {2} - 1\\right), \\tag {3.21}",
+                                    "image_path": "2651bde42594042e017121e6e3562fc977adf448d9dccbe9ae50dec6c9c5c58b.jpg"
+                                }
+                            ]
+                        }
+                    ],
+                    "index": 5
+                },
+                {
+                    "bbox": [
+                        54,
+                        171,
+                        382,
+                        210
+                    ],
+                    "type": "text",
+                    "angle": 0,
+                    "index": 6,
+                    "lines": [
+                        {
+                            "bbox": [
+                                54,
+                                171,
+                                380,
+                                187
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        54,
+                                        171,
+                                        84,
+                                        187
+                                    ],
+                                    "type": "text",
+                                    "content": "where",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        85,
+                                        173,
+                                        99,
+                                        186
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\chi _ { 1 j } ^ { 2 }",
+                                    "score": 0.93
+                                },
+                                {
+                                    "bbox": [
+                                        100,
+                                        171,
+                                        369,
+                                        187
+                                    ],
+                                    "type": "text",
+                                    "content": "’s are i.i.d. random variables having the chi-square distribution",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        370,
+                                        174,
+                                        380,
+                                        185
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\chi _ { 1 } ^ { 2 }",
+                                    "score": 0.91
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                52,
+                                181,
+                                383,
+                                203
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        52,
+                                        181,
+                                        75,
+                                        203
+                                    ],
+                                    "type": "text",
+                                    "content": "and",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        75,
+                                        188,
+                                        85,
+                                        198
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\lambda _ { j }",
+                                    "score": 0.9
+                                },
+                                {
+                                    "bbox": [
+                                        86,
+                                        181,
+                                        275,
+                                        203
+                                    ],
+                                    "type": "text",
+                                    "content": "’s are some constants (which may depend on",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        276,
+                                        188,
+                                        284,
+                                        195
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "P",
+                                    "score": 0.88
+                                },
+                                {
+                                    "bbox": [
+                                        284,
+                                        181,
+                                        332,
+                                        203
+                                    ],
+                                    "type": "text",
+                                    "content": ") satisfying",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        333,
+                                        187,
+                                        383,
+                                        200
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\textstyle \\sum _ { j = 1 } ^ { \\infty } \\lambda _ { j } ^ { 2 } =",
+                                    "score": 0.93
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                57,
+                                197,
+                                88,
+                                211
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        57,
+                                        200,
+                                        66,
+                                        210
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 2 }",
+                                    "score": 0.91
+                                },
+                                {
+                                    "bbox": [
+                                        66,
+                                        197,
+                                        72,
+                                        211
+                                    ],
+                                    "type": "text",
+                                    "content": ".",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        81,
+                                        200,
+                                        88,
+                                        207
+                                    ],
+                                    "type": "text",
+                                    "content": "",
+                                    "score": 0.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        54,
+                        220,
+                        382,
+                        269
+                    ],
+                    "type": "text",
+                    "angle": 0,
+                    "index": 7,
+                    "lines": [
+                        {
+                            "bbox": [
+                                70,
+                                219,
+                                383,
+                                234
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        70,
+                                        219,
+                                        383,
+                                        234
+                                    ],
+                                    "type": "text",
+                                    "content": "We have actually proved Theorem 3.5(i). A proof for Theorem 3.5(ii) is",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                54,
+                                233,
+                                383,
+                                245
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        54,
+                                        233,
+                                        383,
+                                        245
+                                    ],
+                                    "type": "text",
+                                    "content": "given in Serfling (1980, 5.5.2). One may derive results for the cases where",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                57,
+                                245,
+                                383,
+                                258
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        57,
+                                        247,
+                                        84,
+                                        257
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 2 } = 0",
+                                    "score": 0.92
+                                },
+                                {
+                                    "bbox": [
+                                        85,
+                                        245,
+                                        187,
+                                        258
+                                    ],
+                                    "type": "text",
+                                    "content": ", but the case of either",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        187,
+                                        247,
+                                        215,
+                                        257
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 1 } > 0",
+                                    "score": 0.93
+                                },
+                                {
+                                    "bbox": [
+                                        215,
+                                        245,
+                                        230,
+                                        258
+                                    ],
+                                    "type": "text",
+                                    "content": "or",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        230,
+                                        247,
+                                        258,
+                                        257
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 2 } > 0",
+                                    "score": 0.93
+                                },
+                                {
+                                    "bbox": [
+                                        259,
+                                        245,
+                                        383,
+                                        258
+                                    ],
+                                    "type": "text",
+                                    "content": "is the most interesting case",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                54,
+                                257,
+                                125,
+                                270
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        54,
+                                        257,
+                                        125,
+                                        270
+                                    ],
+                                    "type": "text",
+                                    "content": "in applications.",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        55,
+                        271,
+                        382,
+                        308
+                    ],
+                    "type": "text",
+                    "angle": 0,
+                    "index": 8,
+                    "lines": [
+                        {
+                            "bbox": [
+                                70,
+                                271,
+                                383,
+                                284
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        70,
+                                        271,
+                                        82,
+                                        284
+                                    ],
+                                    "type": "text",
+                                    "content": "If",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        83,
+                                        274,
+                                        114,
+                                        283
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 1 } > 0",
+                                    "score": 0.92
+                                },
+                                {
+                                    "bbox": [
+                                        115,
+                                        271,
+                                        383,
+                                        284
+                                    ],
+                                    "type": "text",
+                                    "content": ", it follows from Theorem 3.5(i) and Corollary 3.2(iii) that",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                56,
+                                283,
+                                382,
+                                297
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        56,
+                                        285,
+                                        263,
+                                        296
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\mathrm { a m s e } _ { U _ { n } } ( P ) ~ = ~ m ^ { 2 } \\zeta _ { 1 } / n ~ = ~ \\mathrm { V a r } ( U _ { n } ) + { \\cal O } ( n ^ { - 2 } )",
+                                    "score": 0.9
+                                },
+                                {
+                                    "bbox": [
+                                        264,
+                                        283,
+                                        382,
+                                        297
+                                    ],
+                                    "type": "text",
+                                    "content": ". By Proposition 2.4(ii),",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                57,
+                                294,
+                                242,
+                                309
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        57,
+                                        297,
+                                        135,
+                                        308
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\{ n [ U _ { n } - E ( U _ { n } ) ] ^ { 2 } \\}",
+                                    "score": 0.92
+                                },
+                                {
+                                    "bbox": [
+                                        136,
+                                        294,
+                                        242,
+                                        309
+                                    ],
+                                    "type": "text",
+                                    "content": "is uniformly integrable.",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        55,
+                        310,
+                        383,
+                        346
+                    ],
+                    "type": "text",
+                    "angle": 0,
+                    "index": 9,
+                    "lines": [
+                        {
+                            "bbox": [
+                                69,
+                                309,
+                                383,
+                                323
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        69,
+                                        309,
+                                        81,
+                                        323
+                                    ],
+                                    "type": "text",
+                                    "content": "If",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        82,
+                                        313,
+                                        109,
+                                        323
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 1 } = 0",
+                                    "score": 0.92
+                                },
+                                {
+                                    "bbox": [
+                                        109,
+                                        309,
+                                        129,
+                                        323
+                                    ],
+                                    "type": "text",
+                                    "content": "but",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        130,
+                                        313,
+                                        158,
+                                        323
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\zeta _ { 2 } > 0",
+                                    "score": 0.93
+                                },
+                                {
+                                    "bbox": [
+                                        158,
+                                        309,
+                                        322,
+                                        323
+                                    ],
+                                    "type": "text",
+                                    "content": ", it follows from Theorem 3.5(ii) that",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        322,
+                                        312,
+                                        383,
+                                        323
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\mathrm { a m s e } _ { U _ { n } } ( P ) =",
+                                    "score": 0.91
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                57,
+                                321,
+                                384,
+                                335
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        57,
+                                        323,
+                                        93,
+                                        334
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "E Y ^ { 2 } / n ^ { 2 }",
+                                    "score": 0.93
+                                },
+                                {
+                                    "bbox": [
+                                        93,
+                                        321,
+                                        128,
+                                        335
+                                    ],
+                                    "type": "text",
+                                    "content": ", where",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        129,
+                                        325,
+                                        137,
+                                        332
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "Y",
+                                    "score": 0.9
+                                },
+                                {
+                                    "bbox": [
+                                        137,
+                                        321,
+                                        384,
+                                        335
+                                    ],
+                                    "type": "text",
+                                    "content": "denotes the random variable on the right-hand side of",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                55,
+                                333,
+                                298,
+                                346
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        55,
+                                        333,
+                                        273,
+                                        346
+                                    ],
+                                    "type": "text",
+                                    "content": "(3.21). The following result provides the value of",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        273,
+                                        336,
+                                        294,
+                                        344
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "E Y ^ { 2 }",
+                                    "score": 0.92
+                                },
+                                {
+                                    "bbox": [
+                                        294,
+                                        333,
+                                        298,
+                                        346
+                                    ],
+                                    "type": "text",
+                                    "content": ".",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        55,
+                        357,
+                        383,
+                        384
+                    ],
+                    "type": "text",
+                    "angle": 0,
+                    "index": 10,
+                    "lines": [
+                        {
+                            "bbox": [
+                                55,
+                                356,
+                                383,
+                                369
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        55,
+                                        356,
+                                        143,
+                                        369
+                                    ],
+                                    "type": "text",
+                                    "content": "Lemma 3.2. Let",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        144,
+                                        360,
+                                        153,
+                                        367
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "Y",
+                                    "score": 0.9
+                                },
+                                {
+                                    "bbox": [
+                                        153,
+                                        356,
+                                        383,
+                                        369
+                                    ],
+                                    "type": "text",
+                                    "content": "be the random variable on the right-hand side of",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                54,
+                                368,
+                                205,
+                                386
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        54,
+                                        368,
+                                        193,
+                                        383
+                                    ],
+                                    "type": "text",
+                                    "content": "(3.21). Then EY 2 = m2(m−1)2 ζ",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        115,
+                                        370,
+                                        199,
+                                        384
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\begin{array} { r } { E Y ^ { 2 } = \\frac { m ^ { 2 } ( m - 1 ) ^ { 2 } } { 2 } \\zeta _ { 2 } } \\end{array}",
+                                    "score": 0.94
+                                },
+                                {
+                                    "bbox": [
+                                        199,
+                                        370,
+                                        205,
+                                        386
+                                    ],
+                                    "type": "text",
+                                    "content": ".",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        55,
+                        384,
+                        121,
+                        394
+                    ],
+                    "type": "text",
+                    "angle": 0,
+                    "index": 11,
+                    "lines": [
+                        {
+                            "bbox": [
+                                54,
+                                382,
+                                122,
+                                396
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        54,
+                                        382,
+                                        122,
+                                        396
+                                    ],
+                                    "type": "text",
+                                    "content": "Proof. Define",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        117,
+                        398,
+                        319,
+                        433
+                    ],
+                    "type": "interline_equation",
+                    "angle": 0,
+                    "lines": [
+                        {
+                            "bbox": [
+                                117,
+                                398,
+                                319,
+                                433
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        117,
+                                        398,
+                                        319,
+                                        433
+                                    ],
+                                    "type": "interline_equation",
+                                    "content": "Y _ {k} = \\frac {m (m - 1)}{2} \\sum_ {j = 1} ^ {k} \\lambda_ {j} \\left(\\chi_ {1 j} ^ {2} - 1\\right), \\quad k = 1, 2, \\dots",
+                                    "image_path": "eb1410c19b5f725c4cb8da00ab58aa8bde703d3c541ad6e5961d052fdd6d8a2c.jpg"
+                                }
+                            ]
+                        }
+                    ],
+                    "index": 12
+                },
+                {
+                    "bbox": [
+                        54,
+                        438,
+                        382,
+                        488
+                    ],
+                    "type": "text",
+                    "angle": 0,
+                    "index": 13,
+                    "lines": [
+                        {
+                            "bbox": [
+                                54,
+                                438,
+                                380,
+                                452
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        54,
+                                        438,
+                                        189,
+                                        452
+                                    ],
+                                    "type": "text",
+                                    "content": "It can be shown (exercise) that",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        189,
+                                        440,
+                                        212,
+                                        452
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\{ Y _ { k } ^ { 2 } \\}",
+                                    "score": 0.92
+                                },
+                                {
+                                    "bbox": [
+                                        212,
+                                        438,
+                                        341,
+                                        452
+                                    ],
+                                    "type": "text",
+                                    "content": "is uniformly integrable. Since",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        341,
+                                        442,
+                                        380,
+                                        450
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "Y _ { k }  _ { d } Y",
+                                    "score": 0.9
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                52,
+                                446,
+                                385,
+                                467
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        52,
+                                        446,
+                                        70,
+                                        467
+                                    ],
+                                    "type": "text",
+                                    "content": "as",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        70,
+                                        454,
+                                        107,
+                                        461
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "k  \\infty",
+                                    "score": 0.9
+                                },
+                                {
+                                    "bbox": [
+                                        107,
+                                        446,
+                                        114,
+                                        467
+                                    ],
+                                    "type": "text",
+                                    "content": ",",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        114,
+                                        452,
+                                        211,
+                                        464
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\begin{array} { r } { \\operatorname* { l i m } _ { k \\to \\infty } E Y _ { k } ^ { 2 } = E Y ^ { 2 } } \\end{array}",
+                                    "score": 0.89
+                                },
+                                {
+                                    "bbox": [
+                                        212,
+                                        446,
+                                        340,
+                                        467
+                                    ],
+                                    "type": "text",
+                                    "content": "(Theorem 1.8(viii)). Since",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        341,
+                                        452,
+                                        355,
+                                        465
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\chi _ { 1 j } ^ { 2 }",
+                                    "score": 0.91
+                                },
+                                {
+                                    "bbox": [
+                                        356,
+                                        446,
+                                        385,
+                                        467
+                                    ],
+                                    "type": "text",
+                                    "content": "→ ’s are",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                54,
+                                463,
+                                382,
+                                478
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        54,
+                                        463,
+                                        259,
+                                        478
+                                    ],
+                                    "type": "text",
+                                    "content": "independent chi-square random variables with",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        259,
+                                        466,
+                                        300,
+                                        478
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "E \\chi _ { 1 j } ^ { 2 } = 1",
+                                    "score": 0.94
+                                },
+                                {
+                                    "bbox": [
+                                        300,
+                                        463,
+                                        321,
+                                        478
+                                    ],
+                                    "type": "text",
+                                    "content": "and",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        321,
+                                        466,
+                                        378,
+                                        478
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "\\mathrm { V a r } ( \\chi _ { 1 j } ^ { 2 } ) = 2",
+                                    "score": 0.9
+                                },
+                                {
+                                    "bbox": [
+                                        378,
+                                        463,
+                                        382,
+                                        478
+                                    ],
+                                    "type": "text",
+                                    "content": ",",
+                                    "score": 1.0
+                                }
+                            ]
+                        },
+                        {
+                            "bbox": [
+                                57,
+                                476,
+                                158,
+                                488
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        57,
+                                        479,
+                                        94,
+                                        488
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "E Y _ { k } = 0",
+                                    "score": 0.93
+                                },
+                                {
+                                    "bbox": [
+                                        94,
+                                        476,
+                                        130,
+                                        488
+                                    ],
+                                    "type": "text",
+                                    "content": "for any",
+                                    "score": 1.0
+                                },
+                                {
+                                    "bbox": [
+                                        131,
+                                        479,
+                                        136,
+                                        486
+                                    ],
+                                    "type": "inline_equation",
+                                    "content": "k",
+                                    "score": 0.89
+                                },
+                                {
+                                    "bbox": [
+                                        137,
+                                        476,
+                                        158,
+                                        488
+                                    ],
+                                    "type": "text",
+                                    "content": "and",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        140,
+                        495,
+                        296,
+                        593
+                    ],
+                    "type": "interline_equation",
+                    "angle": 0,
+                    "lines": [
+                        {
+                            "bbox": [
+                                140,
+                                495,
+                                296,
+                                593
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        140,
+                                        495,
+                                        296,
+                                        593
+                                    ],
+                                    "type": "interline_equation",
+                                    "content": "\\begin{array}{l} E Y _ {k} ^ {2} = \\frac {m ^ {2} (m - 1) ^ {2}}{4} \\sum_ {j = 1} ^ {k} \\lambda_ {j} ^ {2} \\operatorname {V a r} \\left(\\chi_ {1 j} ^ {2}\\right) \\\\ = \\frac {m ^ {2} (m - 1) ^ {2}}{4} \\left(2 \\sum_ {j = 1} ^ {k} \\lambda_ {j} ^ {2}\\right) \\\\ \\rightarrow \\frac {m ^ {2} (m - 1) ^ {2}}{2} \\zeta_ {2}. \\\\ \\end{array}",
+                                    "image_path": "90a23b43f8c4fc6e613f0982a592883a604ed6cfe474fe6a58f14fef08ca8cf8.jpg"
+                                }
+                            ]
+                        }
+                    ],
+                    "index": 14
+                }
+            ],
+            "discarded_blocks": [
+                {
+                    "bbox": [
+                        56,
+                        32,
+                        73,
+                        42
+                    ],
+                    "type": "page_number",
+                    "angle": 0,
+                    "index": 0,
+                    "lines": [
+                        {
+                            "bbox": [
+                                55,
+                                31,
+                                74,
+                                45
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        55,
+                                        31,
+                                        74,
+                                        45
+                                    ],
+                                    "type": "text",
+                                    "content": "180",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "bbox": [
+                        276,
+                        31,
+                        382,
+                        43
+                    ],
+                    "type": "header",
+                    "angle": 0,
+                    "index": 1,
+                    "lines": [
+                        {
+                            "bbox": [
+                                277,
+                                32,
+                                382,
+                                43
+                            ],
+                            "spans": [
+                                {
+                                    "bbox": [
+                                        277,
+                                        32,
+                                        382,
+                                        43
+                                    ],
+                                    "type": "text",
+                                    "content": "3. Unbiased Estimation",
+                                    "score": 1.0
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "page_size": [
+                439,
+                666
+            ],
+            "page_idx": 0
+        }
+    ],
+    "_backend": "hybrid",
+    "_ocr_enable": false,
+    "_vlm_ocr_enable": false,
+    "_version_name": "2.7.6"
+}

@@ -46,12 +46,11 @@ def entropyIntegral (T : Set α) (D : ℝ) : ℝ :=
 theorem coveringNumber_anti (T : Set α) {ε ε' : ℝ} (h : ε ≤ ε') :
     coveringNumber T ε' ≤ coveringNumber T ε := by
   refine le_iInf fun S => ?_
-  refine le_iInf fun hSε => ?_
+  refine le_iInf fun hS => ?_
   refine iInf_le_of_le S ?_
-  refine iInf_le_of_le (show IsENet (↑S) T ε' from ?_) le_rfl
-  intro x hx
-  rcases hSε x hx with ⟨s, hsS, hdist⟩
-  exact ⟨s, hsS, le_trans hdist h⟩
+  refine iInf_le_of_le (show IsENet (↑S) T ε' from fun x hx => by
+    obtain ⟨s, hs, hd⟩ := hS x hx
+    exact ⟨s, hs, hd.trans h⟩) le_rfl
 
 /-- Covering number of a subset is at most that of the superset. -/
 theorem coveringNumber_mono {S T : Set α} (h : S ⊆ T) (ε : ℝ) :

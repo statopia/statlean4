@@ -1,0 +1,81 @@
+% Hand-wrapped from mineru OCR of pages 199-200 (Theorem 3.6 + proof)
+% Source: Shao, Mathematical Statistics (linear regression chapter)
+% Correction kind: env_wrap (raw OCR uses "Theorem 3.6." plain-text header)
+\documentclass{article}
+\usepackage{amsmath,amssymb,amsthm}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+
+% --- Context (model 3.25) ---
+% Linear model: $X = Z \beta + \varepsilon$, where $Z$ is an $n \times p$ design
+% matrix of rank $r \le p$. There exists an $n \times r$ submatrix $Z_*$ of $Z$
+% of rank $r$ and a fixed $r \times p$ matrix $Q$ such that
+% \[ Z = Z_* Q. \tag{3.30} \]
+% An LSE of $\beta$ has the form $\hat{\beta} = (Z^\tau Z)^{-} Z^\tau X$, where
+% $(Z^\tau Z)^{-}$ is any generalized inverse of $Z^\tau Z$.
+%
+% Assumption A1: $\varepsilon \sim N_n(0, \sigma^2 I_n)$ with unknown $\sigma^2 > 0$.
+% Assumption A3: $E(\varepsilon) = 0$, $\mathrm{Var}(\varepsilon)$ is an unknown matrix.
+%
+% $\mathcal{R}(A)$ denotes the smallest linear subspace containing all rows of $A$.
+
+\begin{theorem}[Estimability of $l^\tau \beta$ in linear regression]
+\label{thm:3.6}
+Assume model (3.25) with assumption A3.
+\begin{enumerate}
+\item[(i)] A necessary and sufficient condition for $l \in \mathcal{R}^p$ being
+  $Q^\tau c$ for some $c \in \mathcal{R}^r$ is
+  $l \in \mathcal{R}(Z) = \mathcal{R}(Z^\tau Z)$,
+  where $Q$ is given by (3.30) and $\mathcal{R}(A)$ is the smallest linear
+  subspace containing all rows of $A$.
+\item[(ii)] If $l \in \mathcal{R}(Z)$, then the LSE $l^\tau \hat{\beta}$ is
+  unique and unbiased for $l^\tau \beta$.
+\item[(iii)] If $l \notin \mathcal{R}(Z)$ and assumption A1 holds, then
+  $l^\tau \beta$ is not estimable.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(i) Note that $a \in \mathcal{R}(A)$ iff $a = A^\tau b$ for some vector $b$.
+If $l = Q^\tau c$, then
+\[
+  l = Q^\tau c
+    = Q^\tau Z_*^\tau Z_* (Z_*^\tau Z_*)^{-1} c
+    = Z^\tau \bigl[ Z_* (Z_*^\tau Z_*)^{-1} c \bigr],
+\]
+hence $l \in \mathcal{R}(Z)$. Conversely, if $l \in \mathcal{R}(Z)$, then
+$l = Z^\tau \zeta$ for some $\zeta$ and
+\[
+  l = (Z_* Q)^\tau \zeta = Q^\tau c, \qquad \text{with } c = Z_*^\tau \zeta.
+\]
+
+(ii) If $l \in \mathcal{R}(Z) = \mathcal{R}(Z^\tau Z)$, then $l = Z^\tau Z \zeta$
+for some $\zeta$, and by (3.29),
+\[
+  E(l^\tau \hat{\beta})
+    = E\bigl[ l^\tau (Z^\tau Z)^{-} Z^\tau X \bigr]
+    = \zeta^\tau Z^\tau Z (Z^\tau Z)^{-} Z^\tau Z \beta
+    = \zeta^\tau Z^\tau Z \beta
+    = l^\tau \beta.
+\]
+If $\bar{\beta}$ is any other LSE of $\beta$, then by (3.27),
+\[
+  l^\tau \hat{\beta} - l^\tau \bar{\beta}
+    = \zeta^\tau (Z^\tau Z)(\hat{\beta} - \bar{\beta})
+    = \zeta^\tau (Z^\tau X - Z^\tau X) = 0.
+\]
+
+(iii) Under assumption A1, if $h(X,Z)$ is unbiased for $l^\tau \beta$, then
+\[
+  l^\tau \beta = \int_{\mathcal{R}^n} h(x,Z) (2\pi)^{-n/2} \sigma^{-n}
+    \exp\!\Bigl\{ -\tfrac{1}{2\sigma^2} \| x - Z\beta \|^2 \Bigr\} \, dx.
+\]
+Differentiating w.r.t.\ $\beta$ and applying Theorem 2.1 yields
+\[
+  l = Z^\tau \int_{\mathcal{R}^n} h(x,Z) (2\pi)^{-n/2} \sigma^{-n-2}
+    (x - Z\beta) \exp\!\Bigl\{ -\tfrac{1}{2\sigma^2} \| x - Z\beta \|^2 \Bigr\} \, dx,
+\]
+which implies $l \in \mathcal{R}(Z)$.
+\end{proof}
+
+\end{document}

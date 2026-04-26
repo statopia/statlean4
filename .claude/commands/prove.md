@@ -1,6 +1,6 @@
 ---
 description: Attack a specific sorry with full Mathlib search
-allowed-tools: Read, Edit, Grep, Glob, Bash(lake:*), Bash(grep:*), Task, WebSearch, WebFetch
+allowed-tools: Read, Edit, Grep, Glob, Bash(lake:*), Bash(grep:*), Task, WebSearch, WebFetch, mcp__statlean_web_ui__request_user_decision
 model: opus
 argument-hint: [file:line or theorem-name]
 ---
@@ -171,6 +171,21 @@ grep -n 'sorry' <file> | head -30
 ```
 For each sorry, spend 2 minutes checking if Mathlib has the needed API. If not → Honest. If yes → classify as Leaf/Intermediate/Blocked.
 
+**User-trust gate for Honest sorries** (web-UI only — silently skipped in CLI-standalone mode when the tool is unavailable):
+Immediately after classifying a sorry as Honest, call the MCP tool:
+```
+mcp__statlean_web_ui__request_user_decision({
+  question: "Sorry <theorem_name> at <file:line> seems blocked by missing Mathlib infrastructure (describe what's missing in one sentence). How should we proceed?",
+  options: ["trust_as_axiom", "investigate_deeper", "abort"]
+})
+```
+Act on the returned tool result:
+- `USER_CHOICE: trust_as_axiom` → leave the `sorry` in place with comment `-- TRUSTED (user-approved infra gap: <reason>)`, move to the next sorry. Do **not** spend further cycles on this one.
+- `USER_CHOICE: investigate_deeper` → treat it as a non-Honest sorry and proceed to Phase 1.
+- `USER_CHOICE: <free-text hint>` → the user gave a proof route; feed the hint into Phase 0.5 R1 (`parse_proof_roadmap.py --inline "<hint>" --theorem <name>`) and continue.
+- `USER_ABORTED: …` → stop working on this sorry, report it in the final summary.
+- Tool not found / tool error → fall back to CLI-default behavior (leave honest sorry with comment, do NOT spend cycles).
+
 ### Depth Budget
 
 Each proof branch gets a **depth budget** (default: 3 levels of sorry-replacement before escalation).
@@ -340,3 +355,27 @@ For proving bounds on `charFun (μ.map Y)`:
 - Phase 5 知识入库 → "入库 N 条 pattern"（YAML 和脚本输出在 Bash 工具内）
 - 工具调用输出（Bash、Read、Grep 等）不计入此预算
 - `/prove-out` 模式豁免此限制（演示模式需要详细输出）
+
+## Output Conventions (web UI contract)
+
+See `theme/conventions/ui-signals.md` for full specification of the
+event + Markdown-header protocol.
+
+**When invoked as a subagent by `/pipeline`** (the common web case):
+the OUTER pipeline owns the Step-number namespace and emits Step
+events on the shared `events.jsonl`. Do NOT emit your own `## Step N:`
+headers or `emit_event.py step` calls from inside prove — a second
+`Step 1` from the subagent would collide with pipeline's Step 1 and
+the UI would render confusing merged cards.
+
+Your Phase 0-4 prose still lands in the Report stream (right-column
+feed); the web UI reads it there. Use normal narrative — you don't
+need to fit into the Markdown header grammar.
+
+**When invoked CLI-standalone** (`claude /prove ...` directly by a
+human, no pipeline wrapper): no UI is listening, no conventions apply.
+Emit nothing.
+
+**Artifact events** are still welcome from prove (e.g. on writing
+`sorry_list.json`). Those don't collide with pipeline's step namespace
+because the kind_tag is the discriminator, not an integer id.

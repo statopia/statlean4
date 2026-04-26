@@ -298,6 +298,45 @@ lemma charFun_gaussianReal_standard (t : ℝ) :
 
 /-! ## Characteristic function of standardized sum -/
 
+/-- Characteristic function of sum of independent rvs equals product of char funs. -/
+private lemma charfun_sum_indep
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {n : ℕ}
+    {Y : Fin n → Ω → ℝ}
+    (hm : ∀ i, Measurable (Y i))
+    (hindep : iIndepFun (m := fun _ => inferInstance) Y μ)
+    (t : ℝ) :
+    charFun (μ.map (fun ω => ∑ i : Fin n, Y i ω)) t =
+      ∏ i : Fin n, charFun (μ.map (Y i)) t := by
+  induction n with
+  | zero =>
+    simp only [Finset.univ_eq_empty, Finset.sum_empty, Finset.prod_empty]
+    simp
+  | succ n ih =>
+    have sum_split : (fun ω => ∑ i : Fin (n + 1), Y i ω) =
+        (fun ω => ∑ i : Fin n, Y (Fin.castSucc i) ω) + Y (Fin.last n) := by
+      ext ω; simp [Fin.sum_univ_castSucc]
+    rw [sum_split]
+    have hindep' : iIndepFun (m := fun _ => inferInstance) (fun i => Y (Fin.castSucc i)) μ :=
+      hindep.precomp (Fin.castSucc_injective n)
+    have hm' : ∀ i : Fin n, Measurable (Y (Fin.castSucc i)) := fun i => hm _
+    have hmem : Fin.last n ∉ (Finset.univ : Finset (Fin n)).map Fin.castSuccEmb := by
+      simp [Finset.mem_map, Fin.castSuccEmb]
+      intro a; exact (Fin.castSucc_lt_last a).ne
+    have h_indep : IndepFun
+        (∑ j ∈ (Finset.univ : Finset (Fin n)).map Fin.castSuccEmb, Y j)
+        (Y (Fin.last n)) μ :=
+      hindep.indepFun_finset_sum_of_notMem hm hmem
+    have sum_eq : (∑ j ∈ (Finset.univ : Finset (Fin n)).map Fin.castSuccEmb, Y j) =
+        (fun ω => ∑ i : Fin n, Y (Fin.castSucc i) ω) := by
+      ext ω; rw [Finset.sum_apply, Finset.sum_map]; rfl
+    rw [sum_eq] at h_indep
+    have := congr_fun (h_indep.charFun_map_add_eq_mul
+      (Measurable.aemeasurable (Finset.measurable_sum _ (fun i _ => hm' i)))
+      (Measurable.aemeasurable (hm _))) t
+    rw [Pi.mul_apply] at this
+    rw [this, ih hm' hindep', Fin.prod_univ_castSucc]
+
 /-- **Charfun factorization for iid sum.**
 The characteristic function of the standardized sum `S = (∑ Yᵢ) / (σ√n)` equals
 the product `∏ᵢ φ_{Yᵢ}(t/(σ√n))` by independence + scaling. -/
@@ -312,104 +351,18 @@ lemma charfun_iid_sum_eq_prod
     charFun (μ.map S) t =
       ∏ i : Fin n, charFun (μ.map (Y i)) (t / (σ * Real.sqrt n)) := by
   intro S
-  set sn := σ * Real.sqrt ↑n with sn_def
-  have hsn_pos : 0 < sn := mul_pos hσ (Real.sqrt_pos.mpr (Nat.cast_pos.mpr hn))
-  have hsn_ne : sn ≠ 0 := ne_of_gt hsn_pos
-  have hS_eq : S = (fun x => sn⁻¹ * x) ∘ (fun ω => ∑ i : Fin n, Y i ω) := by
-    ext ω; simp only [S, Function.comp, sn_def]; field_simp
-  have hm_sum : Measurable (fun ω => ∑ i : Fin n, Y i ω) :=
-    Finset.measurable_sum Finset.univ (fun i _ => hm i)
-  have hm_scale : Measurable (fun x : ℝ => sn⁻¹ * x) := measurable_const_mul _
-  have scaling : charFun (μ.map S) t =
-      charFun (μ.map (fun ω => ∑ i : Fin n, Y i ω)) (t / sn) := by
-    rw [hS_eq, ← Measure.map_map hm_scale hm_sum, charFun_map_mul]
-    congr 1
-    rw [inv_mul_eq_div]
-  rw [scaling]
-  set s' := t / sn
-  suffices h : ∀ (s : Finset (Fin n)),
-      charFun (μ.map (fun ω => ∑ i ∈ s, Y i ω)) s' =
-        ∏ i ∈ s, charFun (μ.map (Y i)) s' by
-    convert h Finset.univ using 2
-  intro s
-  classical
-  induction s using Finset.induction_on with
-  | empty =>
-    simp only [Finset.sum_empty, Finset.prod_empty]
-    rw [Measure.map_const, measure_univ, one_smul, charFun_dirac]
-    simp
-  | @insert a fs ha ih =>
-    have sum_eq : (fun ω => ∑ i ∈ Finset.cons a fs ha, Y i ω) =
-        (fun ω => Y a ω + ∑ i ∈ fs, Y i ω) := by
-      ext ω; rw [Finset.sum_cons]
-    rw [show insert a fs = Finset.cons a fs ha from (Finset.cons_eq_insert a fs ha).symm]
-    rw [Finset.prod_cons]
-    rw [sum_eq]
-    have hindep_pair : IndepFun (Y a) (∑ i ∈ fs, Y i) μ :=
-      (hindep.indepFun_finset_sum_of_notMem (fun i => hm i) ha).symm
-    have haem_a : AEMeasurable (Y a) μ := (hm a).aemeasurable
-    have haem_sum : AEMeasurable (∑ i ∈ fs, Y i) μ :=
-      Finset.aemeasurable_sum fs (fun i _ => (hm i).aemeasurable)
-    have pi_sum_eq : (fun ω => ∑ i ∈ fs, Y i ω) = ∑ i ∈ fs, Y i := by
-      ext ω; simp [Finset.sum_apply]
-    have pi_add_eq : (fun ω => Y a ω + ∑ i ∈ fs, Y i ω) = Y a + ∑ i ∈ fs, Y i := by
-      ext ω; simp [Pi.add_apply, Finset.sum_apply]
-    rw [pi_add_eq,
-        congr_fun (ProbabilityTheory.IndepFun.charFun_map_add_eq_mul
-          haem_a haem_sum hindep_pair) s', Pi.mul_apply]
-    congr 1
-    rw [← pi_sum_eq]; exact ih
+  have hS : S = fun ω => (σ * Real.sqrt n)⁻¹ * (∑ i : Fin n, Y i ω) := by
+    ext ω; simp [S, div_eq_mul_inv, mul_comm]
+  rw [hS]
+  have hf : Measurable (fun ω => ∑ i : Fin n, Y i ω) :=
+    Finset.measurable_sum _ (fun i _ => hm i)
+  rw [show (fun ω => (σ * Real.sqrt ↑n)⁻¹ * ∑ i : Fin n, Y i ω) =
+      ((σ * Real.sqrt ↑n)⁻¹ * ·) ∘ (fun ω => ∑ i : Fin n, Y i ω) from rfl,
+    ← Measure.map_map (by fun_prop : Measurable ((σ * Real.sqrt ↑n)⁻¹ * ·)) hf,
+    charFun_map_mul, charfun_sum_indep hm hindep]
+  congr 1; ext i; ring
 
 /-! ## Complex power approximation -/
-
-/-- **Bound on `‖(1 - t²/(2n))^n - exp(-t²/2)‖` as a complex norm.** -/
-lemma complex_pow_approx_exp (n : ℕ) (hn : 0 < n) (t : ℝ)
-    (ht : t ^ 2 ≤ 2 * ↑n) :
-    ‖((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) ^ n -
-      Complex.exp (-((↑(t ^ 2) : ℂ) / 2))‖ ≤
-      t ^ 4 / (4 * (n : ℝ)) := by
-  have hn_pos : (0 : ℝ) < n := Nat.cast_pos.mpr hn
-  set u := t ^ 2 / (2 * (n : ℝ)) with hu_def
-  have hu_nn : 0 ≤ u := by positivity
-  have hu_le : u ≤ 1 := div_le_one_of_le₀ ht (by positivity)
-  have h1mu_nn : 0 ≤ 1 - u := by linarith
-  have h1mu_le : 1 - u ≤ 1 := by linarith
-  have base_eq : ((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) = (↑(1 - u) : ℂ) := by
-    simp only [hu_def, Complex.ofReal_sub, Complex.ofReal_one, Complex.ofReal_div,
-      Complex.ofReal_pow, Complex.ofReal_mul, Complex.ofReal_ofNat, Complex.ofReal_natCast]
-  rw [base_eq, ← Complex.ofReal_pow, show Complex.exp (-((↑(t ^ 2) : ℂ) / 2)) =
-      (↑(Real.exp (-(t ^ 2 / 2))) : ℂ) from by
-    rw [Complex.ofReal_exp]; congr 1; push_cast; ring,
-    ← Complex.ofReal_sub, Complex.norm_real, Real.norm_eq_abs]
-  have key_le : (1 - u) ^ n ≤ Real.exp (-(t ^ 2 / 2)) := by
-    have h := Real.one_sub_div_pow_le_exp_neg (n := n) (t := t ^ 2 / 2)
-      (by linarith : t ^ 2 / 2 ≤ ↑n)
-    convert h using 2; simp [hu_def]; field_simp
-  rw [abs_of_nonpos (by linarith : (1 - u) ^ n - Real.exp (-(t ^ 2 / 2)) ≤ 0)]
-  have exp_approx : |Real.exp (-u) - (1 - u)| ≤ u ^ 2 := by
-    have h1 := Real.abs_exp_sub_one_sub_id_le (x := -u)
-      (by rw [abs_neg, abs_of_nonneg hu_nn]; exact hu_le)
-    rw [show Real.exp (-u) - 1 - -u = Real.exp (-u) - (1 - u) by ring,
-        show (-u) ^ 2 = u ^ 2 by ring] at h1
-    exact h1
-  have exp_bound : |Real.exp (-u)| ≤ 1 := by
-    rw [abs_of_pos (Real.exp_pos _)]; exact Real.exp_le_one_iff.mpr (by linarith)
-  have sub_bound : |1 - u| ≤ 1 := by rw [abs_of_nonneg h1mu_nn]; exact h1mu_le
-  have exp_pow : Real.exp (-u) ^ n = Real.exp (-(t ^ 2 / 2)) := by
-    rw [← Real.exp_nat_mul]; congr 1; simp [hu_def]; field_simp
-  have nu2_eq : u ^ 2 * ↑n = t ^ 4 / (4 * ↑n) := by
-    simp [hu_def]; field_simp; ring
-  calc -(((1 - u) ^ n) - Real.exp (-(t ^ 2 / 2)))
-      = Real.exp (-(t ^ 2 / 2)) - (1 - u) ^ n := by ring
-    _ ≤ |Real.exp (-(t ^ 2 / 2)) - (1 - u) ^ n| := le_abs_self _
-    _ = |Real.exp (-u) ^ n - (1 - u) ^ n| := by rw [exp_pow]
-    _ ≤ |Real.exp (-u) - (1 - u)| * ↑n *
-          max |Real.exp (-u)| |1 - u| ^ (n - 1) := abs_pow_sub_pow_le ..
-    _ ≤ u ^ 2 * ↑n * 1 ^ (n - 1) := by
-        gcongr
-        exact max_le exp_bound sub_bound
-    _ = u ^ 2 * ↑n := by ring
-    _ = t ^ 4 / (4 * ↑n) := nu2_eq
 
 /-- **Bound on `‖(1 - t²/(2n))^n - exp(-t²/2)‖` with exponential factor.**
 Stronger version: includes `exp(-(n-1)t²/(2n))` factor from `abs_pow_sub_pow_le`
@@ -446,7 +399,6 @@ lemma complex_pow_approx_exp_decay (n : ℕ) (hn : 0 < n) (t : ℝ)
     rw [← Real.exp_nat_mul]; congr 1; simp [hu_def]; field_simp
   have nu2_eq : u ^ 2 * ↑n = t ^ 4 / (4 * ↑n) := by
     simp [hu_def]; field_simp; ring
-  -- Key: max(|e^{-u}|, |1-u|) = e^{-u} since e^{-x} ≥ 1-x
   have hmax_eq : max |Real.exp (-u)| |1 - u| = Real.exp (-u) := by
     rw [abs_of_pos (Real.exp_pos _), abs_of_nonneg h1mu_nn]
     exact max_eq_left (by linarith [Real.add_one_le_exp (-u)])
@@ -464,6 +416,22 @@ lemma complex_pow_approx_exp_decay (n : ℕ) (hn : 0 < n) (t : ℝ)
     _ = t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * u)) := by rw [nu2_eq]
     _ = t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n))) := by
         congr 1; congr 1; rw [hu_def]; ring
+
+/-- **Bound on `‖(1 - t²/(2n))^n - exp(-t²/2)‖` as a complex norm.** -/
+lemma complex_pow_approx_exp (n : ℕ) (hn : 0 < n) (t : ℝ)
+    (ht : t ^ 2 ≤ 2 * ↑n) :
+    ‖((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) ^ n -
+      Complex.exp (-((↑(t ^ 2) : ℂ) / 2))‖ ≤
+      t ^ 4 / (4 * (n : ℝ)) := by
+  calc ‖((1 : ℂ) - (↑(t ^ 2) : ℂ) / (2 * (↑n : ℂ))) ^ n -
+      Complex.exp (-((↑(t ^ 2) : ℂ) / 2))‖
+      ≤ t ^ 4 / (4 * ↑n) * Real.exp (-(↑(n - 1) * t ^ 2 / (2 * ↑n))) :=
+        complex_pow_approx_exp_decay n hn t ht
+    _ ≤ t ^ 4 / (4 * ↑n) * 1 := by
+        gcongr
+        rw [Real.exp_le_one_iff]
+        exact neg_nonpos.mpr (by positivity)
+    _ = t ^ 4 / (4 * ↑n) := mul_one _
 
 /-! ## Product vs power bound -/
 

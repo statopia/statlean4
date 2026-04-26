@@ -118,7 +118,6 @@ asymptotic_mse_eq_var_of_unbiased	Statlean/Estimator/Asymptotic.lean:123	theorem
 basu_theorem	Statlean/Sufficiency/Basu.lean:88	theorem
 bayesTestRisk	Statlean/Testing/Basic.lean:304	noncomputable def
 bayes_is_admissible	Statlean/Estimator/Bayes.lean:44	theorem
-bayes_test_optimality	Statlean/Testing/Basic.lean:316	theorem
 berry_esseen_smoothing	Statlean/LimitTheorems/BerryEsseen.lean:273	lemma
 berry_esseen_theorem	Statlean/LimitTheorems/BerryEsseen.lean:1254	theorem
 blue_is_umvue	Statlean/Regression/Estimability.lean:115	theorem
@@ -138,7 +137,6 @@ charfun_diff_exp_bound	Statlean/LimitTheorems/BerryEsseen.lean:850	private lemma
 charfun_diff_taylor_bound	Statlean/LimitTheorems/BerryEsseen.lean:450	private lemma
 charfun_error_le_j	Statlean/LimitTheorems/LindebergFeller.lean:124	private lemma
 charfun_final_arithmetic	Statlean/CharFun/Taylor.lean:561	private lemma
-charfun_iid_sum_eq_prod	Statlean/CharFun/Taylor.lean:304	lemma
 charfun_indep_sum_eq_prod	Statlean/LimitTheorems/LindebergFeller.lean:48	lemma
 charfun_integral_bound	Statlean/LimitTheorems/BerryEsseen.lean:1042	lemma
 charfun_integrand_bound	Statlean/LimitTheorems/BerryEsseen.lean:756	private lemma
@@ -147,7 +145,6 @@ charfun_normalized_sum_bound	Statlean/CharFun/Taylor.lean:663	lemma
 charfun_prod_exp_decay	Statlean/LimitTheorems/BerryEsseen.lean:377	lemma
 charfun_prod_vs_pow_bound	Statlean/CharFun/Taylor.lean:471	lemma
 charfun_taylor_third_moment	Statlean/CharFun/Taylor.lean:106	lemma
-chebyshev_ineq	Statlean/Moments/Basic.lean:131	theorem
 chiSquaredMeasure	Statlean/Distribution/TDist.lean:31	def
 chiSquaredPDFReal	Statlean/Distribution/TDist.lean:42	def
 clip	Statlean/Sufficiency/Basu.lean:60	private def
@@ -158,8 +155,6 @@ clt_isAsymptoticallyNormal	Statlean/Estimator/Asymptotic.lean:90	theorem
 compl_Icc_eq_abs_gt	Statlean/LimitTheorems/Levy.lean:65	private lemma
 complete_implies_as	Statlean/LimitTheorems/Convergence.lean:235	theorem
 complete_unbiased_ae_unique	Statlean/Sufficiency/LehmannScheffe.lean:23	theorem
-complex_pow_approx_exp	Statlean/CharFun/Taylor.lean:366	lemma
-complex_pow_approx_exp_decay	Statlean/CharFun/Taylor.lean:417	lemma
 condEntropyAt	Statlean/Entropy/Basic.lean:71	def
 condEntropyAt_eq	Statlean/Entropy/Basic.lean:132	lemma
 condEntropyAt_le_of_satisfiesLSI	Statlean/Entropy/LogSobolev.lean:724	private lemma
@@ -181,23 +176,18 @@ constant_risk_bayes_is_minimax	Statlean/Estimator/Bayes.lean:67	theorem
 continuous_charFun	Statlean/LimitTheorems/CramerWold.lean:53	lemma
 continuous_mapping	Statlean/LimitTheorems/DeltaMethod.lean:39	theorem
 corrCoeff	Statlean/Moments/Covariance.lean:96	noncomputable def
-corrCoeff_abs_le_one	Statlean/Moments/Covariance.lean:102	theorem
 correlation	Statlean/Moments/Basic.lean:85	noncomputable def
 covariance	Statlean/Moments/Basic.lean:80	noncomputable def
 covariance_self_eq_variance	Statlean/Moments/Basic.lean:124	theorem
 coveringNumber	Statlean/EmpiricalProcess/CoveringNumber.lean:31	def
-coveringNumber_anti	Statlean/EmpiricalProcess/CoveringNumber.lean:46	theorem
 coveringNumber_lt_top_of_isCompact	Statlean/EmpiricalProcess/CoveringNumber.lean:85	theorem
 coveringNumber_lt_top_of_totallyBounded	Statlean/EmpiricalProcess/CoveringNumber.lean:67	theorem
 coveringNumber_mono	Statlean/EmpiricalProcess/CoveringNumber.lean:57	theorem
-cramer_rao	Statlean/Information/CramerRao.lean:22	theorem
 cramer_wold_charFun	Statlean/LimitTheorems/CramerWold.lean:240	theorem
 cramer_wold_forward	Statlean/LimitTheorems/CramerWold.lean:80	theorem
 cramer_wold_iff	Statlean/LimitTheorems/CramerWold.lean:299	theorem
 cramer_wold_reverse	Statlean/LimitTheorems/CramerWold.lean:271	theorem
 cumulant	Statlean/Moments/Basic.lean:97	noncomputable def
-delta_method	Statlean/LimitTheorems/DeltaMethod.lean:139	theorem
-delta_method_sqrt_n	Statlean/LimitTheorems/DeltaMethod.lean:273	theorem
 densityRatio_satisfies_DRC	Statlean/Sufficiency/MinimalSufficiency.lean:196	theorem
 derivative_hermite	Statlean/Gaussian/Hermite.lean:24	theorem
 det_averaging_equality	Statlean/SPD/Determinant.lean:70	theorem
@@ -382,7 +372,6 @@ integral_sq_nonneg	Statlean/Entropy/LogSobolev.lean:173	lemma
 integral_sq_sub_condExp_le_integral_sq_sub	Statlean/Gaussian/Poincare.lean:528	private lemma
 integral_stdGaussianPi_one_eq	Statlean/Entropy/LogSobolev.lean:1036	private lemma
 integral_stdGaussian_eq_integral_mul_pdf	Statlean/Gaussian/Hermite.lean:349	private lemma
-integral_sub_const_sq_eq	Statlean/Variance/RaoBlackwell.lean:19	lemma
 integral_sub_sq_minimized_at_mean	Statlean/Estimator/Bayes.lean:24	theorem
 integrated_condEntropyAt_eq	Statlean/Entropy/LogSobolev.lean:873	private lemma
 is	Statlean/Regression/MasterBound.lean:664	theorem
@@ -486,7 +475,6 @@ mse_eq_variance_of_unbiased	Statlean/Estimator/Basic.lean:89	theorem
 mul_log_ge_sub_one	Statlean/Entropy/LogSobolev.lean:121	lemma
 multivariate_clt	Statlean/LimitTheorems/Convergence.lean:974	theorem
 neg_mul_log_le_one	Statlean/Entropy/LogSobolev.lean:278	lemma
-neyman_pearson_optimality	Statlean/Testing/Basic.lean:204	theorem
 no_optimal_of_two_admissible_not_equivalent	Statlean/Estimator/Basic.lean:292	theorem
 norm_cexp_sub_quadratic_le	Statlean/CharFun/Taylor.lean:42	lemma
 norm_cexp_sub_quadratic_le_sq	Statlean/LimitTheorems/LindebergFeller.lean:93	private lemma
@@ -557,7 +545,6 @@ satisfiesCriticalInequality	Statlean/Regression/MasterBound.lean:87	def
 satisfiesCriticalInequality_of_localGaussianComplexityProxyAssumptions	Statlean/Regression/MasterBound.lean:193	lemma
 satisfiesCriticalInequality_of_localGaussianComplexity_le	Statlean/Regression/MasterBound.lean:101	lemma
 satisfiesCriticalInequality_of_proxy_bound	Statlean/Regression/MasterBound.lean:110	lemma
-scheffe	Statlean/LimitTheorems/Scheffe.lean:36	theorem
 scoreFunction	Statlean/Information/Basic.lean:20	noncomputable def
 setIntegral_eq_integral_mul_meas_of_indep	Statlean/Variance/EfronStein.lean:361	private lemma
 shiftedClass	Statlean/Regression/MasterBound.lean:44	def
@@ -574,7 +561,6 @@ slutsky_div	Statlean/LimitTheorems/Slutsky.lean:95	theorem
 slutsky_mul	Statlean/LimitTheorems/Slutsky.lean:41	theorem
 smoothed_cdf_fourier_bound	Statlean/LimitTheorems/BerryEsseen.lean:219	lemma
 smoothing_kernel_exists	Statlean/LimitTheorems/BerryEsseen.lean:69	lemma
-sq_covariance_le_variance_mul	Statlean/Moments/Covariance.lean:44	theorem
 sq_div_sq_add_eps_le_one	Statlean/Entropy/LogSobolev.lean:381	lemma
 sq_integral_le_integral_sq	Statlean/Variance/ANOVA.lean:35	lemma
 sq_mul_log_sq_eq	Statlean/Entropy/LogSobolev.lean:102	lemma
@@ -611,8 +597,5 @@ update_eq_insertNth	Statlean/Gaussian/Poincare.lean:422	private lemma
 var_ratio_le_lindeberg	Statlean/LimitTheorems/LindebergFeller.lean:288	private lemma
 variance_add_eq	Statlean/Moments/Covariance.lean:28	theorem
 variance_eq_integral_sq_sub	Statlean/Entropy/LogSobolev.lean:108	lemma
-variance_eq_moment_sub_sq	Statlean/Moments/Basic.lean:107	theorem
 variance_marginals_le_variance_prod	Statlean/Variance/ANOVA.lean:112	theorem
 variance_pi_of_isEmpty	Statlean/Variance/ANOVA.lean:45	lemma
-variance_sum_independent	Statlean/Moments/Covariance.lean:139	theorem
-variance_sum_of_covariance_zero	Statlean/Moments/Covariance.lean:131	theorem

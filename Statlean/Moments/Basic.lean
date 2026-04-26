@@ -1,4 +1,5 @@
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.MeasureTheory.Measure.CharacteristicFunction
 import Statlean.Variance.RaoBlackwell
 import Mathlib.Analysis.Calculus.IteratedDeriv.Defs
 import Mathlib.Probability.Moments.Basic
@@ -107,18 +108,15 @@ variable {μ : Measure Ω}
 theorem variance_eq_moment_sub_sq [IsProbabilityMeasure μ]
     (X : Ω → ℝ) (hX : MemLp X 2 μ) :
     centralMoment μ X 2 = moment μ X 2 - (moment μ X 1) ^ 2 := by
-  simp only [centralMoment, moment]
-  have hXi : Integrable X μ := hX.integrable one_le_two
-  -- Use bias-variance decomposition with c = 0: ∫(X-0)² = Var[X] + (EX-0)²
-  have h := integral_sub_const_sq_eq X 0 hX
-  simp only [sub_zero] at h
-  -- h : ∫ X² = Var[X;μ] + (∫X)²
-  -- variance_eq_integral: Var[X;μ] = ∫(X-EX)²
-  rw [variance_eq_integral hX.aemeasurable] at h
-  have hpow1 : ∫ ω, (X ω) ^ (1 : ℕ) ∂μ = ∫ ω, X ω ∂μ := by
-    congr 1; ext ω; ring
-  rw [hpow1]
-  linarith
+  have h1 : centralMoment μ X 2 = ProbabilityTheory.centralMoment X 2 μ := by
+    simp [centralMoment, ProbabilityTheory.centralMoment]
+  have h2 : moment μ X 2 = ProbabilityTheory.moment X 2 μ := by
+    simp [moment, ProbabilityTheory.moment]
+  have h3 : moment μ X 1 = ProbabilityTheory.moment X 1 μ := by
+    simp [moment, ProbabilityTheory.moment]
+  rw [h1, h2, h3, ProbabilityTheory.centralMoment_two_eq_variance hX.aemeasurable,
+    ProbabilityTheory.variance_eq_sub hX]
+  simp [ProbabilityTheory.moment]
 
 /-- `Cov(X, X) = Var(X)` (= second central moment). -/
 theorem covariance_self_eq_variance (X : Ω → ℝ) :
@@ -132,31 +130,61 @@ theorem chebyshev_ineq [IsProbabilityMeasure μ]
     (X : Ω → ℝ) (hX : MemLp X 2 μ) (t : ℝ) (ht : 0 < t) :
     (μ {ω | t ≤ |X ω - ∫ ω', X ω' ∂μ|}).toReal ≤
       centralMoment μ X 2 / t ^ 2 := by
-  set EX := ∫ ω', X ω' ∂μ
-  set f := fun ω => (X ω - EX) ^ 2
-  have hf_nn : 0 ≤ᵐ[μ] f := ae_of_all _ (fun ω => sq_nonneg _)
-  have hf_int : Integrable f μ :=
-    (hX.sub (memLp_const EX)).integrable_sq
-  -- Markov: t² * μ.real {ω | t² ≤ f ω} ≤ ∫ f
-  have hMarkov := mul_meas_ge_le_integral_of_nonneg hf_nn hf_int (t ^ 2)
-  -- ∫ f = centralMoment μ X 2
-  have hf_eq : ∫ ω, f ω ∂μ = centralMoment μ X 2 := rfl
-  rw [hf_eq] at hMarkov
-  -- {ω | t² ≤ f ω} = {ω | t ≤ |X ω - EX|}
-  have hset : {ω | t ^ 2 ≤ f ω} = {ω | t ≤ |X ω - EX|} := by
-    ext ω; simp only [f, Set.mem_setOf_eq]; constructor
-    · intro h
-      nlinarith [sq_abs (X ω - EX), sq_nonneg (|X ω - EX| - t),
-        abs_nonneg (X ω - EX)]
-    · intro h
-      have := sq_le_sq' (by linarith [neg_abs_le (X ω - EX)]) h
-      linarith [sq_abs (X ω - EX)]
-  rw [hset] at hMarkov
-  -- From hMarkov: t² * μ.real {..} ≤ centralMoment, divide by t²
-  change μ.real {ω | t ≤ |X ω - EX|} ≤ centralMoment μ X 2 / t ^ 2
-  exact (le_div_iff₀ (sq_pos_of_pos ht)).mpr
-    (by linarith [mul_comm (t ^ 2) (μ.real {ω | t ≤ |X ω - EX|})])
+  have h1 : centralMoment μ X 2 = ProbabilityTheory.centralMoment X 2 μ := by
+    simp [centralMoment, ProbabilityTheory.centralMoment]
+  rw [h1, ProbabilityTheory.centralMoment_two_eq_variance hX.aemeasurable]
+  exact ENNReal.toReal_le_of_le_ofReal
+    (div_nonneg (ProbabilityTheory.variance_nonneg X μ) (sq_nonneg t))
+    (ProbabilityTheory.meas_ge_le_variance_div_sq hX ht)
 
 end Theorems
+
+/-! ## Multivariate m.g.f. and characteristic function (Shao Definition 1.5)
+
+Shao, *Mathematical Statistics*, Definition 1.5 introduces two maps associated
+with a random $k$-vector $X$ with distribution $P_X$:
+
+* $\psi_X(t) = \mathbb{E}\bigl[e^{t^\tau X}\bigr]$ — the **moment generating
+  function** (m.g.f.), for $t \in \mathbb{R}^k$;
+* $\varphi_X(t) = \mathbb{E}\bigl[e^{\sqrt{-1}\, t^\tau X}\bigr]
+  = \mathbb{E}[\cos(t^\tau X)] + \sqrt{-1}\,\mathbb{E}[\sin(t^\tau X)]$ — the
+  **characteristic function** (ch.f.).
+
+We formalize these for a general inner product space `E` so the signatures
+specialize to `EuclideanSpace ℝ (Fin k)` (Shao's setting) by taking the dot
+product, to `ℝ` (the scalar case, recovering `ProbabilityTheory.mgf`), and to
+arbitrary Hilbert-space-valued random elements used elsewhere in the library.
+Shao's `t^\tau X` is the real inner product `⟪t, X ω⟫`.
+-/
+
+section Definition_1_5
+
+variable {E : Type*}
+
+/-- **Shao Definition 1.5 (i)** — moment generating function of a random vector.
+
+For a random element `X : Ω → E` of an inner product space, the m.g.f. at
+`t : E` is `ψ_X(t) = 𝔼[exp ⟪t, X⟫]`. -/
+noncomputable def mgfVec [Inner ℝ E] (X : Ω → E) (t : E) : ℝ :=
+  ∫ ω, Real.exp (inner ℝ t (X ω)) ∂μ
+
+/-- **Shao Definition 1.5 (ii)** — characteristic function of a random vector.
+
+Defined as Mathlib's `MeasureTheory.charFun` applied to the pushforward
+`μ.map X`, so that `chfVec μ X t = ∫ exp (I · ⟪x, t⟫) d(μ.map X)`, which by
+`MeasureTheory.integral_map` equals `∫ exp (I · ⟪t, X ω⟫) dμ ω`. -/
+noncomputable def chfVec [MeasurableSpace E] [Inner ℝ E]
+    (X : Ω → E) (t : E) : ℂ :=
+  charFun (μ.map X) t
+
+/-- On the scalar case `E = ℝ` the multivariate m.g.f. reduces to
+`ProbabilityTheory.mgf`, matching the univariate special case of Shao
+Definition 1.5 (i). -/
+lemma mgfVec_real (X : Ω → ℝ) (t : ℝ) :
+    mgfVec μ X t = mgf X μ t := by
+  unfold mgfVec mgf
+  simp [mul_comm]
+
+end Definition_1_5
 
 end Statlean.Moments

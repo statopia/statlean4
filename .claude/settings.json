@@ -1,0 +1,43 @@
+{
+  "_comment": "Project-committed Claude Code settings. Per-user/host overrides go in .claude/settings.local.json (gitignored). Hooks here fire for ALL users who clone the repo; user-local hooks (e.g. check_stuck_before_agent.sh) remain in settings.local.json.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "_doc": "PR9-B: emit milestones from inside subagent contexts. Fires after every Bash, including Bash inside Agent+run_in_background:true subagents (verified by PR-V experiment 2026-04-27). Detects `lake build` → lake-build-{clean,fail}; otherwise no-op. Idempotent (skips if same milestone fired within 30s). Silent when SANDBOX env is unset (CLI standalone).",
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/gavin/statlean/theme/scripts/hook_post_tool.py",
+            "timeout": 10,
+            "statusMessage": "post-bash emit"
+          }
+        ]
+      },
+      {
+        "_doc": "PR9-B: detect Write to `Statlean/**/*.lean` → re-run extract_sorries.py + emit sorry-pool-snapshot with delta. Same idempotency / sandbox rules as the Bash matcher.",
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/gavin/statlean/theme/scripts/hook_post_tool.py",
+            "timeout": 10,
+            "statusMessage": "post-write emit"
+          }
+        ]
+      },
+      {
+        "_doc": "PR9-B: same as Write matcher — Edit modifies a .lean file in-place, equally needs sorry-pool-snapshot refresh.",
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/gavin/statlean/theme/scripts/hook_post_tool.py",
+            "timeout": 10,
+            "statusMessage": "post-edit emit"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,505 @@
+[
+    [
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.2.2 Variances of U-statistics "
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                123,
+                97,
+                539,
+                117
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "E [ h ( X _ { 1 } , . . . , X _ { m } ) ] ^ { 2 } < \\infty"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", then the variance of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "U _ { n }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "in (3.11) with kernel "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "h"
+                    },
+                    {
+                        "type": "text",
+                        "content": "has an explicit form. To derive "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\mathrm { V a r } } ( U _ { n } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", we need some notation. For "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "k = 1 , . . . , m"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", let "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                130,
+                872,
+                186
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array}{l} h _ {k} \\left(x _ {1}, \\dots , x _ {k}\\right) = E \\left[ h \\left(X _ {1}, \\dots , X _ {m}\\right) \\mid X _ {1} = x _ {1}, \\dots , X _ {k} = x _ {k} \\right] \\\\ = E [ h (x _ {1}, \\dots , x _ {k}, X _ {k + 1}, \\dots , X _ {m}) ]. \\\\ \\end{array}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/ed0aff5535adfb2b305b583bad7e660e3ea231acd59398cc5e3ed511f34b8986.jpg"
+                }
+            },
+            "bbox": [
+                225,
+                196,
+                769,
+                241
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Note that "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "h _ { m } = h"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". It can be shown that "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                253,
+                535,
+                270
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "h _ {k} \\left(x _ {1}, \\dots , x _ {k}\\right) = E \\left[ h _ {k + 1} \\left(x _ {1}, \\dots , x _ {k}, X _ {k + 1}\\right) \\right]. \\tag {3.14}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/08450743399563aa2c0318d826f1184ffc81efcff83f1aecdf2809b78dc9c837.jpg"
+                }
+            },
+            "bbox": [
+                289,
+                283,
+                867,
+                304
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Define "
+                    }
+                ]
+            },
+            "bbox": [
+                125,
+                315,
+                195,
+                331
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\tilde {h} _ {k} = h _ {k} - E [ h \\left(X _ {1}, \\dots , X _ {m}\\right) ], \\tag {3.15}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/6cf4ccaf8d8894e5c1638d60fec7cfbeab78fd12918a51daf50fdd354145d470.jpg"
+                }
+            },
+            "bbox": [
+                353,
+                331,
+                867,
+                352
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "equation_inline",
+                        "content": "k = 1 , . . . , m"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\ddot { h } = \\ddot { h } _ { m }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Then, for any "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "U _ { n }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "defined by (3.11), "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                357,
+                744,
+                378
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "U _ {n} - E \\left(U _ {n}\\right) = \\binom {n} {m} ^ {- 1} \\sum_ {c} \\tilde {h} \\left(X _ {i _ {1}}, \\dots , X _ {i _ {m}}\\right). \\tag {3.16}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/708fce672871627a4e311c6d236f2a02c9e7a8b99c7854b5994b118decac2d89.jpg"
+                }
+            },
+            "bbox": [
+                282,
+                388,
+                867,
+                435
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Theorem 3.4 (Hoeffding’s theorem). For a U-statistic "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "U _ { n }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "given by (3.11) with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "E [ h ( X _ { 1 } , . . . , X _ { m } ) ] ^ { 2 } < \\infty"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                463,
+                867,
+                501
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\operatorname {V a r} (U _ {n}) = \\binom {n} {m} ^ {- 1} \\sum_ {k = 1} ^ {m} \\binom {m} {k} \\binom {n - m} {m - k} \\zeta_ {k},",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/43c16748b5a0ce35f7307bc6c0144053f1a118bd42c213274d9f4b4ba5c335c8.jpg"
+                }
+            },
+            "bbox": [
+                291,
+                512,
+                703,
+                561
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    }
+                ]
+            },
+            "bbox": [
+                125,
+                570,
+                191,
+                585
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\zeta_ {k} = \\operatorname {V a r} \\left(h _ {k} \\left(X _ {1}, \\dots , X _ {k}\\right)\\right).",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/e3235695742f50cf69409a4c5590560c22007bb6f76f003ecf93ca0df7d24465.jpg"
+                }
+            },
+            "bbox": [
+                366,
+                588,
+                624,
+                608
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Proof. Consider two sets "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\{ i _ { 1 } , . . . , i _ { m } \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\{ j _ { 1 } , . . . , j _ { m } \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "m"
+                    },
+                    {
+                        "type": "text",
+                        "content": "distinct integers from "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\{ 1 , . . . , n \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "with exactly "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "k"
+                    },
+                    {
+                        "type": "text",
+                        "content": "integers in common. The number of distinct choices of two such sets is "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\binom { n } { m } \\left( { m \\atop k } \\right) \\left( { n { - } m \\atop m { - } k } \\right)"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". By the symmetry of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\ddot { h } _ { m }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and independence of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { 1 } , . . . , X _ { n }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                614,
+                872,
+                686
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "E \\left[ \\tilde {h} \\left(X _ {i _ {1}}, \\dots , X _ {i _ {m}}\\right) \\tilde {h} \\left(X _ {j _ {1}}, \\dots , X _ {j _ {m}}\\right) \\right] = \\zeta_ {k} \\tag {3.17}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/0b0703402ba59c235dd50c9eb5ad75983da85a8a6997a069fc9a5a06b22d4dc8.jpg"
+                }
+            },
+            "bbox": [
+                305,
+                696,
+                867,
+                720
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "for "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "k = 1 , . . . , m"
+                    },
+                    {
+                        "type": "text",
+                        "content": "(exercise). Then, by (3.16), "
+                    }
+                ]
+            },
+            "bbox": [
+                123,
+                729,
+                558,
+                749
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array}{l} \\operatorname {V a r} (U _ {n}) = \\binom {n} {m} ^ {- 2} \\sum_ {c} \\sum_ {c} E [ \\tilde {h} (X _ {i _ {1}}, \\dots , X _ {i _ {m}}) \\tilde {h} (X _ {j _ {1}}, \\dots , X _ {j _ {m}}) ] \\\\ = \\binom {n} {m} ^ {- 2} \\sum_ {k = 1} ^ {m} \\binom {n} {m} \\binom {m} {k} \\binom {n - m} {m - k} \\zeta_ {k}. \\\\ \\end{array}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/798bf7f1aeee44fbff875fae41ef0f72462e8db3f73219648c802f9264a4c756.jpg"
+                }
+            },
+            "bbox": [
+                195,
+                759,
+                794,
+                857
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "This proves the result. "
+                    }
+                ]
+            },
+            "bbox": [
+                125,
+                869,
+                355,
+                885
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                355,
+                870,
+                398,
+                885
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "176 "
+                    }
+                ]
+            },
+            "bbox": [
+                127,
+                48,
+                166,
+                64
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "3. Unbiased Estimation "
+                    }
+                ]
+            },
+            "bbox": [
+                628,
+                48,
+                872,
+                64
+            ]
+        }
+    ]
+]

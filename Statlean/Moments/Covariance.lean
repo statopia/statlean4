@@ -45,50 +45,18 @@ theorem sq_covariance_le_variance_mul [IsProbabilityMeasure μ]
     {X Y : Ω → ℝ} (hX : MemLp X 2 μ) (hY : MemLp Y 2 μ) :
     ProbabilityTheory.covariance X Y μ ^ 2 ≤
       ProbabilityTheory.variance X μ * ProbabilityTheory.variance Y μ := by
-  set c := ProbabilityTheory.covariance X Y μ
-  set vx := ProbabilityTheory.variance X μ
-  set vy := ProbabilityTheory.variance Y μ
-  by_cases hvy : vy = 0
-  · -- If Var(Y) = 0, then Y is a.e. constant, so Cov(X,Y) = 0
-    rw [hvy, mul_zero]
-    have hY_ae : Y =ᵐ[μ] fun _ => ∫ ω, Y ω ∂μ := by
-      have hvy' : ProbabilityTheory.variance Y μ = 0 := hvy
-      simp only [ProbabilityTheory.variance] at hvy'
-      rw [ENNReal.toReal_eq_zero_iff] at hvy'
-      cases hvy' with
-      | inl h => exact (ProbabilityTheory.evariance_eq_zero_iff hY.aemeasurable).mp h
-      | inr h => exact absurd h hY.evariance_ne_top
-    have hcov_zero : c = 0 := by
-      change ProbabilityTheory.covariance X Y μ = 0
-      simp only [ProbabilityTheory.covariance]
-      have : (fun ω => (X ω - ∫ x, X x ∂μ) * (Y ω - ∫ x, Y x ∂μ)) =ᵐ[μ]
-             fun _ => (0 : ℝ) := by
-        filter_upwards [hY_ae] with ω hω
-        simp [hω]
-      rw [integral_congr_ae this, integral_zero]
-    rw [hcov_zero]; simp
-  · -- Var(Y) > 0, use discriminant
-    have hvy_pos : 0 < vy :=
-      lt_of_le_of_ne (ProbabilityTheory.variance_nonneg Y μ) (Ne.symm hvy)
-    set t := -c / vy
+  -- Discriminant argument: ∀ t, 0 ≤ Var(Y)*t² + 2*Cov(X,Y)*t + Var(X)
+  have key : ∀ t : ℝ, 0 ≤ ProbabilityTheory.variance Y μ * (t * t) +
+      2 * ProbabilityTheory.covariance X Y μ * t + ProbabilityTheory.variance X μ := by
+    intro t
     have htY : MemLp (t • Y) 2 μ := hY.const_smul t
-    -- Var(X + t•Y) = Var(X) + 2t·Cov(X,Y) + t²·Var(Y) ≥ 0
-    have key := ProbabilityTheory.variance_nonneg (X + t • Y) μ
-    rw [ProbabilityTheory.variance_add hX htY,
-        ProbabilityTheory.variance_smul t Y μ,
-        ProbabilityTheory.covariance_smul_right t] at key
-    -- key : 0 ≤ vx + 2 * (t * c) + t ^ 2 * vy
-    -- With t = -c/vy, we get vx - c²/vy ≥ 0, i.e. vx*vy ≥ c²
-    have hvy_ne : vy ≠ 0 := ne_of_gt hvy_pos
-    have ht_eq : t = -c / vy := rfl
-    -- Multiply through: 0 ≤ (vx + 2*(t*c) + t^2*vy) * vy = vx*vy + 2*t*c*vy + t^2*vy^2
-    have hmul := mul_nonneg key hvy_pos.le
-    -- t*vy = -c
-    have ht_vy : t * vy = -c := by
-      change -c / vy * vy = -c
-      exact div_mul_cancel₀ (-c) hvy_ne
-    -- So t^2 * vy^2 = c^2, and 2*t*c*vy = -2*c^2
-    nlinarith [sq_nonneg (t * vy + c)]
+    have h := ProbabilityTheory.variance_nonneg (X + t • Y) μ
+    rw [ProbabilityTheory.variance_add hX htY] at h
+    rw [ProbabilityTheory.covariance_smul_right, ProbabilityTheory.variance_smul] at h
+    linarith
+  have hd := discrim_le_zero key
+  unfold discrim at hd
+  nlinarith
 
 /-- **Correlation coefficient** of X and Y (using Mathlib's covariance/variance).
 `ρ(X,Y) = Cov(X,Y) / (√Var(X) · √Var(Y))`.
@@ -140,8 +108,8 @@ theorem variance_sum_independent [IsProbabilityMeasure μ]
     {X Y : Ω → ℝ} (hX : MemLp X 2 μ) (hY : MemLp Y 2 μ)
     (h_ind : IndepFun X Y μ) :
     ProbabilityTheory.variance (X + Y) μ =
-      ProbabilityTheory.variance X μ + ProbabilityTheory.variance Y μ :=
-  variance_sum_of_covariance_zero hX hY (h_ind.covariance_eq_zero hX hY)
+      ProbabilityTheory.variance X μ + ProbabilityTheory.variance Y μ := by
+  exact h_ind.variance_add hX hY
 
 end Independent
 

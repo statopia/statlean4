@@ -11,6 +11,7 @@ import Statlean.Gaussian.HilbertSpace
 import Statlean.Variance.ANOVA
 import Statlean.Variance.RaoBlackwell
 import Statlean.Variance.EfronStein
+import Statlean.Variance.UStatistic
 
 -- Entropy and log-Sobolev
 import Statlean.Entropy.Basic
@@ -19,6 +20,9 @@ import Statlean.Entropy.LogSobolev
 -- Sub-Gaussian and Lipschitz concentration
 import Statlean.SubGaussian.Herbst
 import Statlean.SubGaussian.Lipschitz
+
+-- High-dimensional mediation analysis
+import Statlean.HDMediation.Assumptions
 
 -- Characteristic function Taylor bounds
 import Statlean.CharFun.Taylor
@@ -92,6 +96,7 @@ import Statlean.LimitTheorems.CLT
 import Statlean.LimitTheorems.LindebergFeller
 import Statlean.LimitTheorems.DeltaMethod
 import Statlean.LimitTheorems.CramerWold
+import Statlean.LimitTheorems.AsymptoticExpectation
 import Statlean.Pipeline.Lecture9Handout
 
 -- Causal inference (Lin, Kong, Wang 2022)
@@ -101,3 +106,46 @@ import Statlean.EmpiricalProcess.RiemannSum
 import Statlean.EmpiricalProcess.DonskerInfra
 import Statlean.EmpiricalProcess.HoeffdingLemma
 import Statlean.EmpiricalProcess.Equicontinuity
+import Statlean.EmpiricalProcess.DKW
+import Statlean.Analysis.CauchySchwarzAbs
+import Statlean.Analysis.Norm.NormSubAddBound
+import Statlean.Concentration.Talagrand
+import Statlean.CoxChangePoint.Auto.approximation_of_smoothed_empirical_processes
+import Statlean.CoxChangePoint.Auto.eigenfunction_estimation_L2_rate
+import Statlean.CoxChangePoint.Auto.exponential_moment_bound
+import Statlean.CoxChangePoint.Auto.smoothed_empirical_process_approximation
+import Statlean.CoxChangePoint.Auto.uniform_bound_on_FPC_score_estimation_error
+import Statlean.CoxChangePoint.Auto.uniform_convergence_of_Gn
+import Statlean.CoxChangePoint.Auto.uniform_convergence_of_empirical_processes
+import Statlean.CoxChangePoint.S3CauchySchwarzTail
+import Statlean.Decision.Invariance
+import Statlean.Gaussian.Gordon
+import Statlean.MeasureTheory.MeasureInterLeMin
+import Statlean.RandomMatrix.MarchenkoPastur
+
+-- Promoted from Statlean/Web/* sandboxes 2026-04-25:
+import Statlean.CoxChangePoint.RemainderTailOp
+import Statlean.CoxChangePoint.SupProductSquareIntegrable
+import Statlean.CoxChangePoint.UniformProcessOpRate
+import Statlean.ExpFamily.Regularity
+
+-- Statlean/Web/* sandboxes were swept 2026-04-25: 558 transient sandbox dirs deleted,
+-- 5 substantive results promoted to proper namespaces (the 4 imports above + B-section duplicates
+-- merged into existing modules). Backup tarball: /tmp/statlean_web_backup_2026-04-25.tar.gz.
+-- Three sandbox dirs remain under Statlean/Web/ pending review:
+--   - jobmodvzyf9s5r9
+--       (active prove job at sweep time)
+--   - jobmnfrosueh4uz
+--       (Decision/Risk infrastructure; markdown-wrapped,
+--        needs unwrap before promotion)
+--   - v2_consistency_of_RLEs_qwen_1775549228569
+--       (suspect Rule 3 trivialization: estimator hardcoded
+--        as constant θ_star)
+-- jobmnfrosueh4uz: markdown-wrapped, currently does not compile (Mathlib drift). Disabled.
+-- import Statlean.Web.jobmnfrosueh4uz.Main
+import Statlean.Web.jobmobquqqakyyv.Theorem1
+-- jobmoek5rwlfk7c: defines duplicate Statlean.Variance.UStatistic.uZeta clashing
+-- with the canonical Statlean.Variance.UStatistic. Disabled.
+-- import Statlean.Web.jobmoek5rwlfk7c.Main
+-- v2_consistency_of_RLEs_qwen_*: suspect Rule 3 trivialization + Mathlib drift. Disabled.
+-- import Statlean.Web.v2_consistency_of_RLEs_qwen_1775549228569.Main

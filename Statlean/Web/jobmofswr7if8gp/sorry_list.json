@@ -1,0 +1,52 @@
+[
+  {
+    "id": "jobmofswr7if8gp.cov_hSub_eq_uZeta.L265",
+    "jobId": "jobmofswr7if8gp",
+    "theorem": "cov_hSub_eq_uZeta",
+    "file": "Main.lean",
+    "startLine": 258,
+    "endLine": 265,
+    "context": "",
+    "dependencies": []
+  },
+  {
+    "id": "jobmofswr7if8gp.hajek_remainder_var_tendsto_zero.L955",
+    "jobId": "jobmofswr7if8gp",
+    "theorem": "hajek_remainder_var_tendsto_zero",
+    "file": "Main.lean",
+    "startLine": 942,
+    "endLine": 955,
+    "context": "",
+    "dependencies": []
+  },
+  {
+    "id": "jobmofswr7if8gp.ustatistic_clt_nondegenerate.L1129",
+    "jobId": "jobmofswr7if8gp",
+    "theorem": "ustatistic_clt_nondegenerate",
+    "file": "Main.lean",
+    "startLine": 1109,
+    "endLine": 1129,
+    "context": "",
+    "dependencies": []
+  },
+  {
+    "id": "jobmofswr7if8gp.ustatistic_clt_degenerate.L1172",
+    "jobId": "jobmofswr7if8gp",
+    "theorem": "ustatistic_clt_degenerate",
+    "file": "Main.lean",
+    "startLine": 1144,
+    "endLine": 1172,
+    "context": "",
+    "dependencies": []
+  },
+  {
+    "id": "jobmofswr7if8gp.ustatistic_degenerate_limit_second_moment.L1238",
+    "jobId": "jobmofswr7if8gp",
+    "theorem": "ustatistic_degenerate_limit_second_moment",
+    "file": "Main.lean",
+    "startLine": 1195,
+    "endLine": 1238,
+    "context": "",
+    "dependencies": []
+  }
+]

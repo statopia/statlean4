@@ -121,8 +121,10 @@ def scan_pages_for_theorem(pdf_path: Path, theorem_id: str) -> List[int]:
     keyword_alt = "|".join(all_keywords + ["thm", "lem", "cor", "prop", "def", "ex", "rem"])
     patterns = [
         re.compile(rf"(?:{keyword_alt})\.?\s*{re.escape(theorem_id)}", re.IGNORECASE),
-        # Also match just the bare number in case of different formatting
-        re.compile(rf"\b{re.escape(theorem_id)}\b"),
+        # Also match just the bare identifier in case of different formatting.
+        # Case-insensitive: user may type "lemma s3" while the PDF prints
+        # "Lemma S3" or vice-versa — old case-sensitive regex missed both.
+        re.compile(rf"\b{re.escape(theorem_id)}\b", re.IGNORECASE),
     ]
     for i in range(len(doc)):
         text = doc[i].get_text()
@@ -485,20 +487,207 @@ def check_mineru() -> bool:
     return shutil.which("mineru") is not None
 
 
-def run_mineru(pdf_path: Path, raw_output_dir: Path) -> Path:
-    raw_output_dir.mkdir(parents=True, exist_ok=True)
-    cmd = ["mineru", "-p", str(pdf_path), "-o", str(raw_output_dir), "-m", "auto"]
-    print(f"[pdf-extract] Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+def _has_gpu() -> bool:
+    """Detect whether a real NVIDIA GPU is available.
+
+    torch.cuda.is_available() is NOT reliable here — on CPU-only boxes
+    where torch was installed as the CUDA build (e.g. via `pip install
+    torch==X.Y.Z+cu124`), it returns True even with no actual device,
+    then `torchvision::nms` dispatches to a CUDA backend that has no
+    kernel and raises NotImplementedError inside MinerU hybrid, which
+    silently swallows it → exit 0 with empty output. See
+    docs/CLI_WEB_CONFORMANCE.md §12 (CPU-only VPS silent-fail case).
+
+    Two cheap, authoritative probes:
+      1. /dev/nvidia0 exists (kernel driver loaded)
+      2. nvidia-smi on PATH (userspace tooling installed)
+    Both true → real GPU. Either false → treat as CPU-only.
+    """
+    return Path("/dev/nvidia0").exists() and shutil.which("nvidia-smi") is not None
+
+
+def _mineru_attempt(
+    cmd: List[str],
+    raw_output_dir: Path,
+    label: str,
+    env: Optional[Dict[str, str]] = None,
+    timeout: Optional[float] = None,
+) -> Optional[Path]:
+    """Run one MinerU invocation and return the path to its main `.md`
+    output, or None if MinerU exited 0 but produced no usable markdown
+    (silent failure — empirically observed on long docs, e.g. 83-page PDFs
+    with -b hybrid-auto-engine; see docs/CLI_WEB_CONFORMANCE.md §12).
+
+    `env` lets the caller override subprocess env (used to set
+    `CUDA_VISIBLE_DEVICES=""` when hybrid runs on a CPU-only host with a
+    CUDA-build torch so torchvision's nms stays on the CPU backend).
+
+    `timeout` caps wall time for the attempt. Exceeded → log + return
+    None so the caller can fall back to the next backend instead of
+    hanging forever on a VLM inference that will never complete in a
+    user-acceptable window.
+    """
+    print(f"[pdf-extract] Running ({label}): {' '.join(cmd)}")
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, env=env, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print(
+            f"[pdf-extract] MinerU ({label}) timed out after {timeout}s — "
+            f"treating as attempt failure (caller will fall back).",
+            file=sys.stderr,
+        )
+        return None
     if result.returncode != 0:
-        print(f"[pdf-extract] MinerU stderr:\n{result.stderr[:2000]}", file=sys.stderr)
-        raise SystemExit(f"[pdf-extract] MinerU failed with rc={result.returncode}")
-    md_files = list(raw_output_dir.rglob("*.md"))
+        print(f"[pdf-extract] MinerU ({label}) stderr:\n{result.stderr[-2000:]}", file=sys.stderr)
+        return None
+    md_files = [p for p in raw_output_dir.rglob("*.md") if p.stat().st_size >= 100]
     if not md_files:
-        raise SystemExit("[pdf-extract] MinerU produced no markdown output")
+        print(
+            f"[pdf-extract] MinerU ({label}) exit 0 but produced no non-empty "
+            f"markdown under {raw_output_dir} — silent failure, treating as "
+            f"attempt failure.",
+            file=sys.stderr,
+        )
+        return None
     md_file = max(md_files, key=lambda p: p.stat().st_size)
-    print(f"[pdf-extract] MinerU output: {md_file} ({md_file.stat().st_size} bytes)")
+    print(f"[pdf-extract] MinerU ({label}) output: {md_file} ({md_file.stat().st_size} bytes)")
     return md_file
+
+
+def _page_range_flags(target_pages: Optional[List[int]]) -> List[str]:
+    """Convert an (optionally non-contiguous) list of 0-indexed page
+    numbers into MinerU `-s <start> -e <end>` flags.
+
+    MinerU CLI only supports a single contiguous range. For
+    non-contiguous requests like `[32, 40, 50]` we pass the superset
+    `-s 32 -e 50` — still a massive speedup vs processing the whole
+    PDF, and the downstream structure extractor filters blocks by
+    heading match anyway.
+    """
+    if not target_pages:
+        return []
+    lo = min(target_pages)
+    hi = max(target_pages)
+    flags = ["-s", str(lo), "-e", str(hi)]
+    if set(target_pages) != set(range(lo, hi + 1)):
+        print(
+            f"[pdf-extract] target_pages {sorted(target_pages)} is non-contiguous; "
+            f"passing MinerU the superset [{lo},{hi}] ({hi - lo + 1} pages).",
+            file=sys.stderr,
+        )
+    return flags
+
+
+# CPU-hybrid budget. Empirically hybrid-auto-engine VLM inference on a
+# 10-core CPU-only WSL box took ~74 s/page (MinerU 2.7 / 1.2B VLM model).
+# We'll try hybrid when pages <= HYBRID_MAX_PAGES_CPU and cap wall time at
+# HYBRID_TIMEOUT_CPU — if exceeded, fall back to pipeline which is ~3× faster
+# on CPU at the cost of noisier LaTeX (`V a r`, `\operatorname*{s u p}`).
+# On GPU hosts we skip both caps: hybrid is fast enough to run on the whole PDF.
+HYBRID_MAX_PAGES_CPU = 3
+HYBRID_TIMEOUT_CPU = 360  # seconds
+
+
+def run_mineru(
+    pdf_path: Path,
+    raw_output_dir: Path,
+    target_pages: Optional[List[int]] = None,
+) -> Path:
+    """Extract markdown from a PDF via MinerU with a retry cascade.
+
+    Attempt order:
+      1. `-b hybrid-auto-engine` — MinerU's VLM-based backend. Cleanest
+         LaTeX output per docs/CLI_WEB_CONFORMANCE.md §12. On GPU hosts:
+         always tried. On CPU hosts: tried only when target_pages is set
+         and small (≤ HYBRID_MAX_PAGES_CPU), with CUDA_VISIBLE_DEVICES=""
+         so torchvision::nms stays on the CPU backend (else
+         NotImplementedError → silent fail), and a hard wall-clock
+         timeout so the agent isn't blocked for 40+ min on 46 pages.
+      2. `-b pipeline -d cpu` fallback — slower per-page but reliably
+         completes on CPU at any page count. Takes over when attempt 1
+         was skipped, silent-failed, timed out, or errored.
+
+    When `target_pages` is supplied the same range is passed via MinerU's
+    `-s`/`-e` flags to both attempts — prevents the 83-pages-when-user-
+    asked-for-3 silent slowdown that made `jobmobv6mso5nfl` take minutes.
+
+    Raises SystemExit if both attempts fail (or pipeline fails when
+    hybrid was skipped) so the caller (agent) sees the failure and can
+    surface it via `request_user_decision` rather than proceeding with
+    empty input and hallucinating (Rule 3).
+    """
+    raw_output_dir.mkdir(parents=True, exist_ok=True)
+    page_flags = _page_range_flags(target_pages)
+
+    gpu = _has_gpu()
+    page_count = len(target_pages) if target_pages else None
+
+    # Decide whether to attempt hybrid. On CPU-only hosts a 46-page VLM
+    # inference is ≈ 57 minutes — not user-acceptable, so we only try
+    # hybrid for small page ranges where the quality gain is worth the
+    # few minutes of wall time.
+    if gpu:
+        attempt_hybrid = True
+        hybrid_env: Optional[Dict[str, str]] = None
+        hybrid_timeout: Optional[float] = None
+        reason = "GPU detected"
+    elif page_count is not None and page_count <= HYBRID_MAX_PAGES_CPU:
+        attempt_hybrid = True
+        hybrid_env = os.environ.copy()
+        # setdefault so a user who already set CUDA_VISIBLE_DEVICES keeps control.
+        hybrid_env.setdefault("CUDA_VISIBLE_DEVICES", "")
+        hybrid_timeout = HYBRID_TIMEOUT_CPU
+        reason = f"CPU-only, pages={page_count} ≤ {HYBRID_MAX_PAGES_CPU}"
+    else:
+        attempt_hybrid = False
+        hybrid_env = None
+        hybrid_timeout = None
+        reason = (
+            f"CPU-only, pages={page_count or 'all'} > {HYBRID_MAX_PAGES_CPU} "
+            f"(VLM on CPU is ~74s/page; skipping to avoid long wall time)"
+        )
+
+    if attempt_hybrid:
+        print(f"[pdf-extract] hybrid gate: attempting ({reason})")
+        hybrid_cmd = [
+            "mineru", "-p", str(pdf_path), "-o", str(raw_output_dir),
+            "-m", "auto", "-b", "hybrid-auto-engine",
+            *page_flags,
+        ]
+        md_file = _mineru_attempt(
+            hybrid_cmd, raw_output_dir, "hybrid-auto-engine",
+            env=hybrid_env, timeout=hybrid_timeout,
+        )
+        if md_file is not None:
+            return md_file
+        print(
+            "[pdf-extract] Attempt 1 (hybrid-auto-engine) failed; "
+            "retrying with `-b pipeline -d cpu`.",
+            file=sys.stderr,
+        )
+    else:
+        print(f"[pdf-extract] hybrid gate: skipped ({reason})")
+
+    # Pipeline backend — runs on CPU, ~25 s/page, noisier LaTeX but reliable.
+    pipeline_cmd = [
+        "mineru", "-p", str(pdf_path), "-o", str(raw_output_dir),
+        "-m", "auto", "-b", "pipeline", "-d", "cpu",
+        *page_flags,
+    ]
+    md_file = _mineru_attempt(pipeline_cmd, raw_output_dir, "pipeline -d cpu")
+    if md_file is not None:
+        return md_file
+
+    raise SystemExit(
+        "[pdf-extract] MinerU failed on "
+        + ("BOTH hybrid-auto-engine and pipeline backends" if attempt_hybrid else "pipeline backend (hybrid skipped)")
+        + " (exit 0 with empty output, non-zero exit, or timeout). "
+        "Do NOT hallucinate content — ask the user to paste the relevant "
+        "theorem text (via request_user_decision in pipeline.md Step 1) "
+        "or to provide a smaller page range."
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -696,32 +885,63 @@ def main() -> None:
 
     if args.theorem:
         target_pages = scan_pages_for_theorem(pdf_path, args.theorem)
-        if not target_pages:
-            print(f"[pdf-extract] Theorem {args.theorem} not found in text scan. Sending all pages.")
-        else:
+        if target_pages:
             print(f"[pdf-extract] Theorem {args.theorem} found on pages: {[p+1 for p in target_pages]}")
 
     elif args.query:
         target_pages = scan_pages_for_keyword(pdf_path, args.query)
-        if not target_pages:
-            print(f"[pdf-extract] Query '{args.query}' not found. Sending all pages.")
-            target_pages = None
-        else:
+        if target_pages:
             print(f"[pdf-extract] Query matches pages: {[p+1 for p in target_pages]}")
 
     elif args.pages:
         target_pages = parse_page_range(args.pages, total_pages)
         print(f"[pdf-extract] Using specified pages: {[p+1 for p in target_pages]}")
 
-    # If targeted search found nothing, fall back to all pages
+    # If a targeted search returned 0 hits on a large PDF, DO NOT silently
+    # fall back to full-PDF OCR — that's a multi-minute footgun. Instead
+    # fail closed so the agent either (a) retries with an explicit
+    # --pages range, or (b) surfaces to the user via request_user_decision
+    # (see pipeline.md Step 1). Empirical threshold: 15 pages — below
+    # that, full-PDF OCR is still ~3 min and acceptable.
+    LARGE_PDF_THRESHOLD = 15
     if target_pages is not None and len(target_pages) == 0:
-        print("[pdf-extract] No matching pages found, falling back to all pages")
+        if total_pages > LARGE_PDF_THRESHOLD:
+            raise SystemExit(
+                f"[pdf-extract] --{'theorem' if args.theorem else 'query'} "
+                f"{args.theorem or args.query!r} found no matching pages in "
+                f"this {total_pages}-page PDF. Full-PDF OCR would take "
+                f"~{total_pages * 15}s (= {total_pages * 15 // 60} min) of "
+                f"CPU — refusing to run it silently. Either supply "
+                f"--pages <range> explicitly, or ask the user to paste "
+                f"the target statement (via request_user_decision). "
+                f"Note: the fuzzy scan tries case-insensitive matching "
+                f"for bare identifiers AND keyword+identifier pairs; if "
+                f"it still missed, the PDF is likely OCR-scanned with "
+                f"broken text extraction."
+            )
+        # Small PDFs: fall back to all pages (the old behavior — cheap).
+        print("[pdf-extract] No matching pages found and PDF is short; falling back to all pages.")
         target_pages = None
 
-    # Determine backend — default to pymupdf (zero API cost).
-    # Use --backend claude-api only when explicit API usage is intended.
+    # Determine backend.
+    #
+    # Default policy:
+    #   - mineru if installed (local VLM OCR — preserves LaTeX formulas,
+    #     handles dense math), because math-heavy papers produce broken
+    #     tokens under pymupdf's raw-character-stream extraction.
+    #   - else pymupdf (zero-dep text extraction for clean, text-only PDFs).
+    #
+    # Override with --backend {pymupdf,mineru,claude-api,openai-api}. The
+    # claude-api / openai-api paths are only picked when the user explicitly
+    # asks, since they spend real tokens.
     is_targeted = target_pages is not None and len(target_pages) < total_pages
-    backend = args.backend or "pymupdf"
+    if args.backend:
+        backend = args.backend
+    else:
+        backend = "mineru" if check_mineru() else "pymupdf"
+    print(f"[pdf-extract] Using backend: {backend}"
+          f"{' (auto: mineru detected)' if not args.backend and backend == 'mineru' else ''}"
+          f"{' (auto: mineru not installed, falling back)' if not args.backend and backend == 'pymupdf' else ''}")
 
     if is_targeted:
         est_tokens = len(target_pages or []) * 1500  # ~1.5K tokens per page image
@@ -757,7 +977,7 @@ def main() -> None:
             print("[pdf-extract] ERROR: mineru not found. Install:", file=sys.stderr)
             print("  pip install 'mineru[full]' torch torchvision", file=sys.stderr)
             raise SystemExit(1)
-        md_file = run_mineru(pdf_path, raw_dir)
+        md_file = run_mineru(pdf_path, raw_dir, target_pages=target_pages)
     else:
         raise SystemExit(f"[pdf-extract] Unknown backend: {backend}")
 

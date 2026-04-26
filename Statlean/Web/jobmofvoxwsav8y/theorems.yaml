@@ -1,0 +1,84 @@
+version: v1
+theorem_set: input-tex-batch
+source_tag: input
+defaults:
+  lean_namespace: Statlean.Regression.Estimability
+  layer: formalization
+  allow_axiom: false
+theorems:
+- id: input.theorem.001.estimability_thm36
+  title: 'Shao Thm 3.6: Estimability of $l^\tau \beta$ in linear regression'
+  kind: theorem
+  latex_statement: "\\label{thm:3.6}\nAssume model (3.25) with assumption A3.\n\\\
+    begin{enumerate}\n\\item[(i)] A necessary and sufficient condition for $l \\in\
+    \ \\mathcal{R}^p$ being\n  $Q^\\tau c$ for some $c \\in \\mathcal{R}^r$ is\n \
+    \ $l \\in \\mathcal{R}(Z) = \\mathcal{R}(Z^\\tau Z)$,\n  where $Q$ is given by\
+    \ (3.30) and $\\mathcal{R}(A)$ is the smallest linear\n  subspace containing all\
+    \ rows of $A$.\n\\item[(ii)] If $l \\in \\mathcal{R}(Z)$, then the LSE $l^\\tau\
+    \ \\hat{\\beta}$ is\n  unique and unbiased for $l^\\tau \\beta$.\n\\item[(iii)]\
+    \ If $l \\notin \\mathcal{R}(Z)$ and assumption A1 holds, then\n  $l^\\tau \\\
+    beta$ is not estimable.\n\\end{enumerate}"
+  latex_proof_hint: "(i) Note that $a \\in \\mathcal{R}(A)$ iff $a = A^\\tau b$ for\
+    \ some vector $b$.\nIf $l = Q^\\tau c$, then\n\\[\n  l = Q^\\tau c\n    = Q^\\\
+    tau Z_*^\\tau Z_* (Z_*^\\tau Z_*)^{-1} c\n    = Z^\\tau \\bigl[ Z_* (Z_*^\\tau\
+    \ Z_*)^{-1} c \\bigr],\n\\]\nhence $l \\in \\mathcal{R}(Z)$. Conversely, if $l\
+    \ \\in \\mathcal{R}(Z)$, then\n$l = Z^\\tau \\zeta$ for some $\\zeta$ and\n\\\
+    [\n  l = (Z_* Q)^\\tau \\zeta = Q^\\tau c, \\qquad \\text{with } c = Z_*^\\tau\
+    \ \\zeta.\n\\]\n\n(ii) If $l \\in \\mathcal{R}(Z) = \\mathcal{R}(Z^\\tau Z)$,\
+    \ then $l = Z^\\tau Z \\zeta$\nfor some $\\zeta$, and by (3.29),\n\\[\n  E(l^\\\
+    tau \\hat{\\beta})\n    = E\\bigl[ l^\\tau (Z^\\tau Z)^{-} Z^\\tau X \\bigr]\n\
+    \    = \\zeta^\\tau Z^\\tau Z (Z^\\tau Z)^{-} Z^\\tau Z \\beta\n    = \\zeta^\\\
+    tau Z^\\tau Z \\beta\n    = l^\\tau \\beta.\n\\]\nIf $\\bar{\\beta}$ is any other\
+    \ LSE of $\\beta$, then by (3.27),\n\\[\n  l^\\tau \\hat{\\beta} - l^\\tau \\\
+    bar{\\beta}\n    = \\zeta^\\tau (Z^\\tau Z)(\\hat{\\beta} - \\bar{\\beta})\n \
+    \   = \\zeta^\\tau (Z^\\tau X - Z^\\tau X) = 0.\n\\]\n\n(iii) Under assumption\
+    \ A1, if $h(X,Z)$ is unbiased for $l^\\tau \\beta$, then\n\\[\n  l^\\tau \\beta\
+    \ = \\int_{\\mathcal{R}^n} h(x,Z) (2\\pi)^{-n/2} \\sigma^{-n}\n    \\exp\\!\\\
+    Bigl\\{ -\\tfrac{1}{2\\sigma^2} \\| x - Z\\beta \\|^2 \\Bigr\\} \\, dx.\n\\]\n\
+    Differentiating w.r.t.\\ $\\beta$ and applying Theorem 2.1 yields\n\\[\n  l =\
+    \ Z^\\tau \\int_{\\mathcal{R}^n} h(x,Z) (2\\pi)^{-n/2} \\sigma^{-n-2}\n    (x\
+    \ - Z\\beta) \\exp\\!\\Bigl\\{ -\\tfrac{1}{2\\sigma^2} \\| x - Z\\beta \\|^2 \\\
+    Bigr\\} \\, dx,\n\\]\nwhich implies $l \\in \\mathcal{R}(Z)$."
+  proof_body: "(i) Note that $a \\in \\mathcal{R}(A)$ iff $a = A^\\tau b$ for some\
+    \ vector $b$.\nIf $l = Q^\\tau c$, then\n\\[\n  l = Q^\\tau c\n    = Q^\\tau Z_*^\\\
+    tau Z_* (Z_*^\\tau Z_*)^{-1} c\n    = Z^\\tau \\bigl[ Z_* (Z_*^\\tau Z_*)^{-1}\
+    \ c \\bigr],\n\\]\nhence $l \\in \\mathcal{R}(Z)$. Conversely, if $l \\in \\mathcal{R}(Z)$,\
+    \ then\n$l = Z^\\tau \\zeta$ for some $\\zeta$ and\n\\[\n  l = (Z_* Q)^\\tau \\\
+    zeta = Q^\\tau c, \\qquad \\text{with } c = Z_*^\\tau \\zeta.\n\\]\n\n(ii) If\
+    \ $l \\in \\mathcal{R}(Z) = \\mathcal{R}(Z^\\tau Z)$, then $l = Z^\\tau Z \\zeta$\n\
+    for some $\\zeta$, and by (3.29),\n\\[\n  E(l^\\tau \\hat{\\beta})\n    = E\\\
+    bigl[ l^\\tau (Z^\\tau Z)^{-} Z^\\tau X \\bigr]\n    = \\zeta^\\tau Z^\\tau Z\
+    \ (Z^\\tau Z)^{-} Z^\\tau Z \\beta\n    = \\zeta^\\tau Z^\\tau Z \\beta\n    =\
+    \ l^\\tau \\beta.\n\\]\nIf $\\bar{\\beta}$ is any other LSE of $\\beta$, then\
+    \ by (3.27),\n\\[\n  l^\\tau \\hat{\\beta} - l^\\tau \\bar{\\beta}\n    = \\zeta^\\\
+    tau (Z^\\tau Z)(\\hat{\\beta} - \\bar{\\beta})\n    = \\zeta^\\tau (Z^\\tau X\
+    \ - Z^\\tau X) = 0.\n\\]\n\n(iii) Under assumption A1, if $h(X,Z)$ is unbiased\
+    \ for $l^\\tau \\beta$, then\n\\[\n  l^\\tau \\beta = \\int_{\\mathcal{R}^n} h(x,Z)\
+    \ (2\\pi)^{-n/2} \\sigma^{-n}\n    \\exp\\!\\Bigl\\{ -\\tfrac{1}{2\\sigma^2} \\\
+    | x - Z\\beta \\|^2 \\Bigr\\} \\, dx.\n\\]\nDifferentiating w.r.t.\\ $\\beta$\
+    \ and applying Theorem 2.1 yields\n\\[\n  l = Z^\\tau \\int_{\\mathcal{R}^n} h(x,Z)\
+    \ (2\\pi)^{-n/2} \\sigma^{-n-2}\n    (x - Z\\beta) \\exp\\!\\Bigl\\{ -\\tfrac{1}{2\\\
+    sigma^2} \\| x - Z\\beta \\|^2 \\Bigr\\} \\, dx,\n\\]\nwhich implies $l \\in \\\
+    mathcal{R}(Z)$."
+  lean_name: estimability_thm36
+  lean_namespace: Statlean.Regression.Estimability
+  layer: formalization
+  priority: 3
+  dependencies:
+  - Statlean.Regression.Estimability.IsEstimable
+  - Statlean.Regression.Estimability.linear_estimator_unbiased
+  - Statlean.Regression.Estimability.estimable_wellDefined
+  assumptions:
+  - Linear model X = Z β + ε
+  - Z : Matrix (Fin n) (Fin p) ℝ of rank r ≤ p
+  - Reparametrization Z = Z_* Q with Q : Matrix (Fin r) (Fin p) ℝ
+  acceptance:
+  - lake build passes
+  - theorem contains no sorry
+  - theorem contains no axiom
+  notes: |
+    Existing Estimability.lean already covers (ii) substantially via
+    `linear_estimator_unbiased` + `estimable_wellDefined`. New content needed:
+    - (i) the equivalence l ∈ R(Z) ↔ l ∈ R(Z^τ Z) (and the Q^τ c framing)
+    - (iii) the converse under Gaussian A1 (heavy: needs density + score eq)
+  canonical_name: estimability_thm36

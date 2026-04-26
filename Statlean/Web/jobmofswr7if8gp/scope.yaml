@@ -1,0 +1,15 @@
+version: v1
+project_name: imported-formalization
+output_policy:
+  require_zero_sorry: true
+  require_zero_axiom: true
+  statlib_first: true
+include:
+  theorem_ids:
+  - input.lemma.001.asymptotic_relative_efficiency
+exclude:
+  theorem_ids: []
+constraints:
+  max_new_files_per_batch: 50
+  forbid_direct_mathlib_import_in_formalization: false
+  allowed_axiom_paths: []
