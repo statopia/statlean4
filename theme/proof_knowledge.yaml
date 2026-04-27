@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 196
+entry_count: 197
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -884,4 +884,8 @@ L1_tactic_tips:
 
   - trigger: "noncomputable def funext proof simp fails"
     tip: "unfold noncomputable def before funext proof — simp only makes no progress on noncomputable defs"
+    frequency: 1
+
+  - trigger: "axiom in section with section variables"
+    tip: "Lean 4 axiom in section: allowed, section variables auto-inserted into axiom signature. Use single docstring immediately before axiom (no consecutive docstrings)."
     frequency: 1
