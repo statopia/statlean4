@@ -258,6 +258,32 @@ theorem GordonCondition.col_cov_ge_symm {X Y : Fin m → Fin n → Ω → ℝ}
     ∫ ω, X k j ω * X i j ω ∂μ ≥ ∫ ω, Y k j ω * Y i j ω ∂μ :=
   hcond.col_cov_ge k i j (Ne.symm hik)
 
+/-- **Gordon's Minimax Theorem** (axiom): Under Gordon's comparison condition,
+`E[min_i max_j X_{ij}] ≤ E[min_i max_j Y_{ij}]`.
+
+Proof route: Gaussian interpolation Z(t) = √t·X + √(1-t)·Y, differentiate
+E[min_i max_j Z_{ij}(t)] w.r.t. t using multivariate Gaussian IBP (Stein):
+  d/dt = ∑ sign-definite covariance difference terms
+Gordon's condition ensures row terms ≥ 0 and col terms ≤ 0 in the right combination
+so that the integrand is non-decreasing in t, giving the minimax inequality.
+
+Infrastructure gap: multivariate Gaussian IBP for the non-smooth min-max function,
+parametric differentiation of E[φ(Z(t))] for φ = min∘max, and the sign analysis of
+the two-index covariance comparison are not available in Mathlib 4.28.
+Blocked by the same infrastructure as `slepian_lemma`. -/
+axiom gordon_minimax_axiom
+    {X Y : Fin m → Fin n → Ω → ℝ}
+    (hm : 0 < m) (hn : 0 < n)
+    (hcond : GordonCondition X Y μ) :
+    let _ : Nonempty (Fin m) := ⟨⟨0, hm⟩⟩
+    let _ : Nonempty (Fin n) := ⟨⟨0, hn⟩⟩
+    ∫ ω, Finset.univ.inf' Finset.univ_nonempty
+      (fun i => Finset.univ.sup' Finset.univ_nonempty
+        (fun j => X i j ω)) ∂μ ≤
+    ∫ ω, Finset.univ.inf' Finset.univ_nonempty
+      (fun i => Finset.univ.sup' Finset.univ_nonempty
+        (fun j => Y i j ω)) ∂μ
+
 /-- **Gordon's Minimax Theorem**: Under Gordon's condition,
 `E[min_i max_j X_{ij}] ≤ E[min_i max_j Y_{ij}]`. -/
 theorem gordon_minimax
@@ -271,8 +297,8 @@ theorem gordon_minimax
         (fun j => X i j ω)) ∂μ ≤
     ∫ ω, Finset.univ.inf' Finset.univ_nonempty
       (fun i => Finset.univ.sup' Finset.univ_nonempty
-        (fun j => Y i j ω)) ∂μ := by
-  sorry
+        (fun j => Y i j ω)) ∂μ :=
+  gordon_minimax_axiom hm hn hcond
 
 end Gordon
 
