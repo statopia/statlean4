@@ -122,13 +122,16 @@ import Statlean.CoxChangePoint.RemainderTailOp
 import Statlean.CoxChangePoint.SupProductSquareIntegrable
 import Statlean.CoxChangePoint.UniformProcessOpRate
 import Statlean.ExpFamily.Regularity
--- import Statlean.Web.jobmnfrosueh4uz.Main  -- disabled: Mathlib drift
+import Statlean.Decision.Risk
 import Statlean.Web.jobmobquqqakyyv.Theorem1
--- import Statlean.Web.v2_consistency_of_RLEs_qwen_1775549228569.Main  -- disabled: Mathlib drift
 
--- Statlean/Web/* sandboxes were swept 2026-04-25 (see Statlean.lean for details).
--- Promoted modules are reachable via the proper-namespace imports above
--- (e.g. `Statlean.Concentration.Talagrand`, `Statlean.RandomMatrix.MarchenkoPastur`).
+-- Statlean/Web/* sandboxes were swept 2026-04-25 + 2026-04-27
+-- (see Statlean.lean for details).  Promoted modules are reachable via
+-- the proper-namespace imports above; modules that contain user
+-- `axiom` declarations (Statlean.Concentration.Talagrand,
+-- Statlean.Gaussian.Gordon, Statlean.RandomMatrix.MarchenkoPastur,
+-- Statlean.Regression.NormalLinearModel) are deliberately NOT
+-- imported here, keeping Statlean.Verified zero-sorry AND zero-axiom.
 
 /-! # Statlean Verified Library
 

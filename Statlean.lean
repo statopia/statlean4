@@ -120,6 +120,7 @@ import Statlean.CoxChangePoint.Auto.uniform_convergence_of_Gn
 import Statlean.CoxChangePoint.Auto.uniform_convergence_of_empirical_processes
 import Statlean.CoxChangePoint.S3CauchySchwarzTail
 import Statlean.Decision.Invariance
+import Statlean.Decision.Risk
 import Statlean.Gaussian.Gordon
 import Statlean.MeasureTheory.MeasureInterLeMin
 import Statlean.RandomMatrix.MarchenkoPastur
@@ -130,20 +131,17 @@ import Statlean.CoxChangePoint.SupProductSquareIntegrable
 import Statlean.CoxChangePoint.UniformProcessOpRate
 import Statlean.ExpFamily.Regularity
 
--- Statlean/Web/* sandboxes were swept 2026-04-25: 558 transient sandbox dirs deleted,
--- 5 substantive results promoted to proper namespaces (the 4 imports above + B-section duplicates
--- merged into existing modules). Backup tarball: /tmp/statlean_web_backup_2026-04-25.tar.gz.
--- Three sandbox dirs remain under Statlean/Web/ pending review:
---   - jobmodvzyf9s5r9
---       (active prove job at sweep time)
---   - jobmnfrosueh4uz
---       (Decision/Risk infrastructure; markdown-wrapped,
---        needs unwrap before promotion)
---   - v2_consistency_of_RLEs_qwen_1775549228569
---       (suspect Rule 3 trivialization: estimator hardcoded
---        as constant θ_star)
--- jobmnfrosueh4uz: markdown-wrapped, currently does not compile (Mathlib drift). Disabled.
--- import Statlean.Web.jobmnfrosueh4uz.Main
+-- Statlean/Web/* sandboxes were swept 2026-04-25 + 2026-04-27:
+--   * 558 transient sandbox dirs deleted in the original sweep.
+--   * Substantive results promoted to proper namespaces (the 4 imports
+--     above + B-section duplicates merged into existing modules).
+--   * 2026-04-27 follow-up: jobmnfrosueh4uz unwrapped from markdown +
+--     promoted to Statlean.Decision.Risk; jobmofvoxwsav8y deleted as
+--     byte-identical duplicate of Statlean.Regression.Estimability;
+--     jobmogms85u2gf6 promoted to Statlean.Regression.NormalLinearModel;
+--     v2_consistency_of_RLEs_qwen_* deleted (Rule 3 trivialization,
+--     anti-pattern documented in proof_knowledge.yaml); inert
+--     scaffolding sandboxes (jobmod*, jobmof7*, jobmofci*, jobmog2*)
+--     deleted. Backup tarball: /tmp/statlean_web_backup_2026-04-25.tar.gz.
+--   * Going forward: Statlean/Web/ is gitignored (commit 840a575).
 import Statlean.Web.jobmobquqqakyyv.Theorem1
--- v2_consistency_of_RLEs_qwen_*: suspect Rule 3 trivialization + Mathlib drift. Disabled.
--- import Statlean.Web.v2_consistency_of_RLEs_qwen_1775549228569.Main
