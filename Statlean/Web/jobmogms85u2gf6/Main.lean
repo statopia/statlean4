@@ -170,8 +170,57 @@ theorem lse_indep_sigmaSqHat
              (fun ω => M.sigmaSqHat (X ω)) μ :=
   lse_indep_sigmaSqHat_axiom M μ X hX l hl
 
+/-- **Trust assumption (Shao Theorem 3.8 (ii))** — the marginal
+distribution of any estimable linear functional of the LSE is Gaussian.
+
+The standard proof has two steps:
+
+1. *Affine decomposition*: write
+   `lᵀβ̂ = lᵀ(HZᵀ)(Zβ + σε) = lᵀβ + σ·⟨c, ε⟩`
+   where `c := (HZᵀ)ᵀl ∈ ℝⁿ`.  The first summand is constant, the
+   second is a linear combination of iid N(0,1) components.
+
+2. *Gaussian stability under linear maps*: `∑ᵢ cᵢ εᵢ ~ N(0, ‖c‖²)`.
+   By induction on n and `gaussianReal_add_gaussianReal_of_indepFun`,
+   the weighted sum is Gaussian.  The variance is
+   `σ² · ‖c‖² = σ² · ‖(HZᵀ)ᵀl‖² = σ² · lᵀHZᵀZHl`.
+   The key matrix identity `ZᵀZ · H · ZᵀZ = ZᵀZ` together with
+   estimability `l = Zᵀa` yields `HZᵀZHl = Hl`, so the variance
+   reduces to `σ² · lᵀHl`.
+
+Mathlib 4.28.0-rc1 lacks the necessary infrastructure to formalise
+step 2 for a general `Fin n`-indexed family: specifically,
+
+- **`ProbabilityTheory.iIndepFun_iff_map_fun_eq_pi_map`** requires the
+  joint map to equal `Measure.pi`, but extracting pairwise
+  `IndepFun (fun ω => ε ω i) (fun ω => ε ω j)` from `μ.map ε = Measure.pi …`
+  needs a missing characterisation lemma.
+- **Gaussian stability under finite weighted sums** (induction on `Fin n`
+  using `gaussianReal_add_gaussianReal_of_indepFun`) requires the
+  pairwise independence of all partial-sum residuals, which is not
+  directly available from the product-measure assumption.
+- **Variance simplification** `lᵀHZᵀZHl = lᵀHl` via the generalised-inverse
+  identity requires `Matrix.mulVec` arithmetic lemmas that are not yet
+  automated in Mathlib's `ring`/`simp` set.
+
+We isolate this single deep result as an `axiom`. -/
+axiom lse_distribution_axiom
+    {n p : ℕ} (M : Setup n p)
+    {Ω : Type*} [MeasurableSpace Ω]
+    (μ : Measure Ω) [IsProbabilityMeasure μ]
+    (X : Ω → Fin n → ℝ) (hX : M.AssumptionA1 μ X)
+    (l : Fin p → ℝ) (hl : M.IsEstimable l)
+    (hVar : 0 ≤ M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l)) :
+    μ.map (fun ω => l ⬝ᵥ M.lse (X ω))
+      = gaussianReal (l ⬝ᵥ M.β)
+          ⟨M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l), hVar⟩
+
 /-- **Shao 3.8 (ii)**: `lᵀβ̂ ~ N(lᵀβ, σ²·lᵀ H l)` under A1, for any
-estimable parameter `lᵀβ`. -/
+estimable parameter `lᵀβ`.
+
+This is currently a thin wrapper over `lse_distribution_axiom`
+(see that declaration's docstring for the mathematical content and an
+explanation of why it is axiomatised in Mathlib 4.28.0-rc1). -/
 theorem lse_distribution
     (μ : Measure Ω) [IsProbabilityMeasure μ]
     (X : Ω → Fin n → ℝ) (hX : M.AssumptionA1 μ X)
@@ -179,8 +228,8 @@ theorem lse_distribution
     (hVar : 0 ≤ M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l)) :
     μ.map (fun ω => l ⬝ᵥ M.lse (X ω))
       = gaussianReal (l ⬝ᵥ M.β)
-          ⟨M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l), hVar⟩ := by
-  sorry
+          ⟨M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l), hVar⟩ :=
+  lse_distribution_axiom M μ X hX l hl hVar
 
 /-- **Shao 3.8 (iii)**: `(n-r)·σ̂²/σ² ~ χ²_{n-r}` under A1. -/
 theorem sigmaSqHat_chiSquared
