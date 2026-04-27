@@ -254,11 +254,21 @@ private lemma hSub_memLp {n m : ℕ} (h : (Fin m → α) → ℝ)
 Proof via Fubini + iid + tower property: decompose `ν^n ≅ ν^{S∩T} × ν^{S\T} × ν^{T\S} × ν^{rest}`
 using `measurePreserving_piEquivPiSubtypeProd`; `h_S` depends only on `S∩T` and `S\T` coordinates,
 while `h_T` depends only on `S∩T` and `T\S`; the `S\T` and `T\S` coordinates are independent,
-so after integration `E[h_S h_T] = E[(h_{|S∩T|})^2]` and `E[h_S] = E[h_T] = E[h_{|S∩T|}]`. -/
+so after integration `E[h_S h_T] = E[(h_{|S∩T|})^2]` and `E[h_S] = E[h_T] = E[h_{|S∩T|}]`.
+
+Note: requires `h_symm` (kernel symmetry under permutations of `Fin m`).  Without
+symmetry the identity is false: `kernelProjection` integrates over the canonical
+last `m - k` slots, but the measure-preserving decomposition above produces
+marginal integrals over different (subset-dependent) coordinate splits; symmetry
+is what makes those marginal integrals equal `kernelProjection m k`.
+Counterexample without symmetry: take `α = {0,1}`, `ν` uniform, `m = 2`,
+`n = 3`, `h(a, b) = a`, `s = {0,1}`, `t = {1,2}`.  Then `cov[hSub h s, hSub h t] = 0`
+(by independence of `x₀` and `x₁`) but `uZeta 2 1 h ν = Var[id; ν] = 1/4`. -/
 private lemma cov_hSub_eq_uZeta {n m : ℕ}
     (h : (Fin m → α) → ℝ) (ν : Measure α) [IsProbabilityMeasure ν]
     (h_meas : Measurable h)
     (h_L2 : MemLp h 2 (Measure.pi (fun _ : Fin m => ν)))
+    (h_symm : ∀ (x : Fin m → α) (σ : Equiv.Perm (Fin m)), h (x ∘ σ) = h x)
     (s t : PSElem n m) :
     cov[hSub h s, hSub h t; Measure.pi (fun _ : Fin n => ν)] =
     uZeta m (s.val ∩ t.val).card h ν := by
@@ -372,13 +382,14 @@ and note the `k=0` term vanishes since `ζ_0 = Var[E[h]; ν^0] = 0`. -/
 private lemma sum_sum_cov_eq {n m : ℕ} (hmn : m ≤ n)
     (h : (Fin m → α) → ℝ) (ν : Measure α) [IsProbabilityMeasure ν]
     (h_meas : Measurable h)
-    (h_L2 : MemLp h 2 (Measure.pi (fun _ : Fin m => ν))) :
+    (h_L2 : MemLp h 2 (Measure.pi (fun _ : Fin m => ν)))
+    (h_symm : ∀ (x : Fin m → α) (σ : Equiv.Perm (Fin m)), h (x ∘ σ) = h x) :
     ∑ s : PSElem n m, ∑ t : PSElem n m,
         cov[hSub h s, hSub h t; Measure.pi (fun _ : Fin n => ν)] =
     (n.choose m : ℝ) * ∑ k ∈ Finset.Icc 1 m,
         ((m.choose k : ℝ) * ((n - m).choose (m - k) : ℝ)) * uZeta m k h ν := by
   -- Step 1: apply covariance identity
-  simp_rw [cov_hSub_eq_uZeta h ν h_meas h_L2]
+  simp_rw [cov_hSub_eq_uZeta h ν h_meas h_L2 h_symm]
   -- Step 2: apply inner sum fiber decomposition
   simp_rw [inner_sum_by_fiber _ (fun k => uZeta m k h ν)]
   -- LHS = ∑ s : PSElem n m, ∑ k ∈ range (m+1), C(m,k)*C(n-m,m-k) * uZeta m k h ν
@@ -439,7 +450,7 @@ theorem u_statistic_variance_decomposition
   rw [variance_const_mul]
   rw [variance_sum' (s := Finset.univ) (fun s _ => hSub_memLp h ν h_L2 h_meas s)]
   -- Step 2: apply the combinatorial grouping lemma (which uses cov identity internally)
-  rw [sum_sum_cov_eq hmn h ν h_meas h_L2]
+  rw [sum_sum_cov_eq hmn h ν h_meas h_L2 h_symm]
   -- Step 3: algebra  c^2 * (C(n,m) * Z) = c * Z  where c = C(n,m)⁻¹
   by_cases hn : (n.choose m : ℝ) = 0
   · -- degenerate case: m > n, so C(n,m) = 0
