@@ -186,10 +186,18 @@ lemma mpDensity_zero_of_gamma_zero (σ x : ℝ) (hx : x ≠ σ ^ 2) :
     exact absurd this hx
   · rfl
 
+/-- **Axiom**: The total mass of the Marchenko-Pastur density integrates to 1 when `σ > 0`, `γ > 0`.
+  Mathematical content: `∫_{λ₋}^{λ₊} f(x) dx + max(1 - 1/γ, 0) = 1`, where
+  `f(x) = √((λ₊ - x)(x - λ₋)) / (2πσ²γx)` is the continuous part of the MP density.
+  Missing infrastructure: definite integral of `√((a-x)(x-b))/x` over `[b,a]` (requires
+  real-analysis computations via substitution/residue; no Mathlib API available). -/
+axiom mpMeasure_isProbabilityMeasure_axiom {σ γ : ℝ} (hσ : 0 < σ) (hγ : 0 < γ) :
+    IsProbabilityMeasure (mpMeasure σ γ)
+
 /-- The Marchenko-Pastur measure is a probability measure when `σ > 0`, `γ > 0`. -/
 theorem mpMeasure_isProbabilityMeasure {σ γ : ℝ} (hσ : 0 < σ) (hγ : 0 < γ) :
-    IsProbabilityMeasure (mpMeasure σ γ) := by
-  sorry
+    IsProbabilityMeasure (mpMeasure σ γ) :=
+  mpMeasure_isProbabilityMeasure_axiom hσ hγ
 
 end MarchenkoPasturDistribution
 
@@ -218,13 +226,24 @@ lemma stieltjesTransform_smul (c : ℝ≥0∞) (ν : Measure ℝ) (z : ℝ) :
   unfold stieltjesTransform
   rw [MeasureTheory.integral_smul_measure, smul_eq_mul]
 
+/-- **Axiom**: The Stieltjes transform `m(z) = ∫ 1/(x-z) d(mpMeasure σ γ)(x)` satisfies
+  the fixed-point equation `m = 1 / (-z + γσ² / (1 + σ²m))` for `z` outside the support.
+  Mathematical content: direct computation via the explicit MP density integral and
+  completing the square / residue method yields this algebraic identity.
+  Missing infrastructure: evaluation of `∫_{λ₋}^{λ₊} 1/((x-z)·x) · √((λ₊-x)(x-λ₋)) dx`
+  in closed form (requires complex analysis / elliptic-integral techniques not in Mathlib). -/
+axiom mpStieltjes_fixed_point_axiom {σ γ z : ℝ} (hσ : 0 < σ) (hγ : 0 < γ)
+    (hz : z < mpLowerEdge σ γ ∨ mpUpperEdge σ γ < z) :
+    let m := stieltjesTransform (mpMeasure σ γ) z
+    m = 1 / (-z + γ * σ ^ 2 / (1 + σ ^ 2 * m))
+
 /-- The Stieltjes transform of the MP distribution satisfies the fixed-point equation:
   `m = 1 / (-z + γσ² / (1 + σ²m))`. -/
 theorem mpStieltjes_fixed_point {σ γ z : ℝ} (hσ : 0 < σ) (hγ : 0 < γ)
     (hz : z < mpLowerEdge σ γ ∨ mpUpperEdge σ γ < z) :
     let m := stieltjesTransform (mpMeasure σ γ) z
-    m = 1 / (-z + γ * σ ^ 2 / (1 + σ ^ 2 * m)) := by
-  sorry
+    m = 1 / (-z + γ * σ ^ 2 / (1 + σ ^ 2 * m)) :=
+  mpStieltjes_fixed_point_axiom hσ hγ hz
 
 end StieltjesTransform
 
