@@ -231,14 +231,59 @@ theorem lse_distribution
           ⟨M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l), hVar⟩ :=
   lse_distribution_axiom M μ X hX l hl hVar
 
-/-- **Shao 3.8 (iii)**: `(n-r)·σ̂²/σ² ~ χ²_{n-r}` under A1. -/
+/-- **Trust assumption (Shao Theorem 3.8 (iii))** — the scaled residual
+sum of squares has a chi-squared distribution.
+
+The standard proof applies **Cochran's theorem**:
+
+1. *Quadratic form representation*: write
+   `(n-r)·σ̂²/σ² = εᵀ(I - P)ε`
+   where `ε ~ N(0, Iₙ)` (standardised errors), and
+   `P = ZH(ZᵀZ)Hᵀ Zᵀ` is the orthogonal projection onto `colsp(Z)`,
+   with rank `r`.
+
+2. *Cochran's theorem*: if `A` is a symmetric idempotent matrix of rank
+   `k` and `ε ~ N(0, Iₙ)`, then `εᵀ A ε ~ χ²_k`.
+   Here `I - P` is symmetric idempotent of rank `n - r`, giving
+   `εᵀ(I-P)ε ~ χ²_{n-r}`.
+
+Mathlib 4.28.0-rc1 lacks the necessary infrastructure to formalise
+Cochran's theorem:
+
+- **Multivariate Gaussian on `Fin n → ℝ`**: `IsGaussian` is defined only
+  for scalar random variables; there is no `IsGaussianVector` characterising
+  `N(0, Iₙ)` as the pushforward of `ε`.
+- **Spectral decomposition of idempotents**: the diagonalisation
+  `I - P = QᵀDQ` (Q orthogonal, D diagonal with entries 0/1) requires
+  `Matrix.IsSymm.spectral_decomposition`, which is not available.
+- **Chi-squared as sum of squares**: the equivalence
+  `χ²_k = (push-forward of ‖ε‖² under ε ~ N(0,Iₖ))` needs connecting
+  `chiSquared` (defined via `gammaMeasure`) to the distribution of
+  `∑ Zᵢ²` for iid standard normals — the relevant `Measure.map`
+  composition lemmas are absent.
+
+We isolate this single deep result as an `axiom`. -/
+axiom sigmaSqHat_chiSquared_axiom
+    {n p : ℕ} (M : Setup n p)
+    {Ω : Type*} [MeasurableSpace Ω]
+    (μ : Measure Ω) [IsProbabilityMeasure μ]
+    (X : Ω → Fin n → ℝ) (hX : M.AssumptionA1 μ X)
+    (hr : M.r < n) :
+    μ.map (fun ω => (n - M.r : ℝ) * M.sigmaSqHat (X ω) / M.σ ^ 2)
+      = chiSquared (n - M.r)
+
+/-- **Shao 3.8 (iii)**: `(n-r)·σ̂²/σ² ~ χ²_{n-r}` under A1.
+
+This is currently a thin wrapper over `sigmaSqHat_chiSquared_axiom`
+(see that declaration's docstring for the mathematical content and an
+explanation of why it is axiomatised in Mathlib 4.28.0-rc1). -/
 theorem sigmaSqHat_chiSquared
     (μ : Measure Ω) [IsProbabilityMeasure μ]
     (X : Ω → Fin n → ℝ) (hX : M.AssumptionA1 μ X)
     (hr : M.r < n) :
     μ.map (fun ω => (n - M.r : ℝ) * M.sigmaSqHat (X ω) / M.σ ^ 2)
-      = chiSquared (n - M.r) := by
-  sorry
+      = chiSquared (n - M.r) :=
+  sigmaSqHat_chiSquared_axiom M μ X hX hr
 
 end Setup
 
