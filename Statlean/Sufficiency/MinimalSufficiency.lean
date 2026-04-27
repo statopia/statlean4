@@ -255,7 +255,18 @@ theorem mixtureRatio_satisfies_DRC
       (∃ φ : ℝ≥0∞, φ ≠ 0 ∧ φ ≠ ⊤ ∧
         ∀ i, P.density i x = P.density i y * φ) →
       P.mixtureRatio c x = P.mixtureRatio c y := by
-  sorry
+  intro x y ⟨φ, hφ_ne0, hφ_ne_top, hφ⟩
+  -- Unfold mixtureRatio and mixtureDensity to get f_i(x)/f_∞(x) = f_i(y)/f_∞(y)
+  unfold DominatedFamily.mixtureRatio DominatedFamily.mixtureDensity
+  -- Show f_∞(x) = f_∞(y) * φ
+  have hmix : ∑' i, c i * P.density i x = (∑' i, c i * P.density i y) * φ := by
+    simp_rw [hφ]
+    rw [← ENNReal.tsum_mul_right]
+    congr 1; ext i; ring
+  -- Now cancel φ from numerator and denominator
+  funext i
+  rw [hφ i, hmix]
+  exact ENNReal.mul_div_mul_right (P.density i y) (∑' j, c j * P.density j y) hφ_ne0 hφ_ne_top
 
 /-- **Theorem 2.3(ii)** (Shao). Minimal sufficiency of the mixture-ratio
 statistic for a countable dominated family.
