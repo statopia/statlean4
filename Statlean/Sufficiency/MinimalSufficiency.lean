@@ -288,7 +288,33 @@ theorem mixtureRatio_minimalSufficient
     ∀ (U : Ω → α), Measurable U → HasJointFactorization P U →
       ∃ ψ : α → (ℕ → ℝ≥0∞),
         ∀ θ, P.mixtureRatio c =ᵐ[P.measure θ] ψ ∘ U := by
-  sorry
+  -- Follow the proof of minimalSufficient_of_densityRatio, using
+  -- mixtureRatio_satisfies_DRC (with φ = 1) in place of DensityRatioCondition.
+  intro U _hU_meas ⟨g, _hg_meas, hg_ae⟩
+  -- G := {x | ∀ θ, density θ x = g θ (U x)} is P.base-conull.
+  set G : Set Ω := {x | ∀ θ, P.density θ x = g θ (U x)} with hG_def
+  have hG_ae : ∀ᵐ x ∂P.base, x ∈ G := hg_ae
+  -- Define ψ : α → (ℕ → ℝ≥0∞) by choosing a representative from G above each fiber.
+  classical
+  let ψ : α → (ℕ → ℝ≥0∞) := fun u =>
+    if h : ∃ x₀ ∈ G, U x₀ = u then P.mixtureRatio c (Classical.choose h)
+    else Classical.arbitrary _
+  refine ⟨ψ, fun θ => ?_⟩
+  -- P.measure θ ≪ P.base, so it suffices to show the equality P.base-a.e.
+  apply (P.absolutelyContinuous θ).ae_le
+  filter_upwards [hG_ae] with x hx
+  change P.mixtureRatio c x = ψ (U x)
+  have hex : ∃ x₀ ∈ G, U x₀ = U x := ⟨x, hx, rfl⟩
+  simp only [ψ]
+  rw [dif_pos hex]
+  set y := Classical.choose hex with hy_def
+  obtain ⟨hy_mem, hy_U⟩ := Classical.choose_spec hex
+  -- x ∈ G and y ∈ G with U x = U y, so densities agree pointwise.
+  have h_dens_eq : ∀ i, P.density i x = P.density i y := fun i => by
+    rw [hx i, hy_mem i, hy_U]
+  -- Apply mixtureRatio_satisfies_DRC with φ = 1.
+  exact mixtureRatio_satisfies_DRC P c hc_pos hc_sum x y
+    ⟨1, one_ne_zero, ENNReal.one_ne_top, fun i => by simp [h_dens_eq i]⟩
 
 end MixtureCriterion
 
