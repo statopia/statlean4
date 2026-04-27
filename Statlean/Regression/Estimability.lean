@@ -403,3 +403,85 @@ theorem not_estimable_under_gaussian {n p : ℕ}
   exact hval
 
 end Shao36
+
+/-! ## Theorem 3.9 (Shao, *Mathematical Statistics* §3.7) — Gauss-Markov
+
+Pipeline: `Statlean/Web/jobmoh8k6c7kdlc` (canonical_name `gauss_markov_thm_3_9`).
+
+Two-part theorem on the linear model `X = Z β + ε` with Assumption A2
+(`E[ε] = 0`, `Var(ε) = σ² I_n`):
+
+* **(i)** A linear estimator `c ⬝ᵥ X` is unbiased for `l ⬝ᵥ β` (for every `β`)
+  iff `l ∈ R(Z)`, i.e., `Zᵀ *ᵥ c = l`.
+* **(ii)** (Gauss-Markov.)  If `l ∈ R(Z) = R(ZᵀZ)`, the LSE `l ⬝ᵥ β̂` is
+  the best linear unbiased estimator (BLUE) of `l ⬝ᵥ β`: among all `c`
+  with `Zᵀ *ᵥ c = l`, the LSE coefficient `Z *ᵥ ζ` (where `(ZᵀZ) *ᵥ ζ = l`)
+  minimises `a ⬝ᵥ a` (= `Var(a ⬝ᵥ X) / σ²` under A2).
+
+The pure-algebra cores below already absorb Shao's full proof:
+
+* `linear_unbiased_iff_Ztrans_eq` packages Shao's "for all β" argument
+  via the standard-basis trick (and recovers the converse from
+  `linear_estimator_unbiased`).
+* `gauss_markov_thm_3_9` reduces to `blue_min_dotProduct_sq` with the
+  LSE witness `a₀ = Z *ᵥ ζ`.
+
+The full statistical statement (variance-form BLUE under Assumption A2)
+follows by multiplying the dot-product inequality by `σ²` and applying
+`Var(a ⬝ᵥ X) = σ² (a ⬝ᵥ a)`. -/
+
+section Shao39
+
+/-- **Shao Theorem 3.9 (i)** — Linear-unbiasedness characterization.
+
+In the linear model `X = Z β + ε`, a linear functional `c ⬝ᵥ X` is unbiased
+for `l ⬝ᵥ β` for every `β` (i.e., `c ⬝ᵥ (Z *ᵥ β) = l ⬝ᵥ β` for every `β`)
+iff `Zᵀ *ᵥ c = l` (equivalently, `l ∈ R(Z) = R(Zᵀ)`,
+equivalently, `IsEstimable Z l` is witnessed by `c`).
+
+The reverse direction is `linear_estimator_unbiased`; the forward
+direction extracts `Zᵀ *ᵥ c = l` from the equality of bilinear forms
+via the standard-basis trick. -/
+theorem linear_unbiased_iff_Ztrans_eq
+    (Z : Matrix (Fin n) (Fin p) ℝ) (c : Fin n → ℝ) (l : Fin p → ℝ) :
+    (∀ β : Fin p → ℝ, c ⬝ᵥ Z *ᵥ β = l ⬝ᵥ β) ↔ Zᵀ *ᵥ c = l := by
+  constructor
+  · intro h
+    ext j
+    have hj := h (Pi.single j 1)
+    rw [dotProduct_mulVec, ← mulVec_transpose] at hj
+    simp only [dotProduct_single, mul_one] at hj
+    exact hj
+  · intro h β
+    exact linear_estimator_unbiased Z c l β h
+
+/-- **Shao Theorem 3.9 (i)** — Existence form: a linear unbiased estimator of
+`l ⬝ᵥ β` exists iff `IsEstimable Z l`. -/
+theorem exists_linear_unbiased_iff_estimable
+    (Z : Matrix (Fin n) (Fin p) ℝ) (l : Fin p → ℝ) :
+    (∃ c : Fin n → ℝ, ∀ β : Fin p → ℝ, c ⬝ᵥ Z *ᵥ β = l ⬝ᵥ β) ↔
+      IsEstimable Z l := by
+  simp only [IsEstimable]
+  exact exists_congr fun c => linear_unbiased_iff_Ztrans_eq Z c l
+
+/-- **Shao Theorem 3.9 (ii)** — Gauss-Markov BLUE optimality (matrix form).
+
+Suppose `l ∈ R(Zᵀ Z)`, witnessed by `(Zᵀ * Z) *ᵥ ζ = l`. Then the LSE
+coefficient `a₀ := Z *ᵥ ζ` (which satisfies `Zᵀ *ᵥ a₀ = l` so that
+`a₀ ⬝ᵥ X` is unbiased for `l ⬝ᵥ β`) minimises the un-scaled variance
+proxy `a ⬝ᵥ a` among all linear unbiased estimators:
+`(Z *ᵥ ζ) ⬝ᵥ (Z *ᵥ ζ) ≤ c ⬝ᵥ c` for every `c` with `Zᵀ *ᵥ c = l`.
+
+Under Assumption A2 (`Var(ε) = σ² I_n`), `Var(a ⬝ᵥ X) = σ² (a ⬝ᵥ a)`,
+so this is exactly the BLUE statement of Shao Theorem 3.9 (ii). -/
+theorem gauss_markov_thm_3_9
+    (Z : Matrix (Fin n) (Fin p) ℝ) (l : Fin p → ℝ)
+    (ζ : Fin p → ℝ) (hζ : (Zᵀ * Z) *ᵥ ζ = l)
+    (c : Fin n → ℝ) (hc : Zᵀ *ᵥ c = l) :
+    (Z *ᵥ ζ) ⬝ᵥ (Z *ᵥ ζ) ≤ c ⬝ᵥ c := by
+  apply blue_min_dotProduct_sq Z l (Z *ᵥ ζ) c ζ
+  · rfl
+  · rw [mulVec_mulVec]; exact hζ
+  · exact hc
+
+end Shao39
