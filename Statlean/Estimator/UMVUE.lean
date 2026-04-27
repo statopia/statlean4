@@ -326,12 +326,202 @@ theorem umvue_iff_orthogonal_to_unbiasedOfZero
       ∀ θ, Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ))
     (h_diff_sq : ∀ δ' : Ω → ℝ, IsUnbiased P δ' g →
       (∀ θ, Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ)) →
-      ∀ θ, Integrable (fun ω => (T ω - δ' ω) ^ 2) (P.measure θ)) :
+      ∀ θ, Integrable (fun ω => (T ω - δ' ω) ^ 2) (P.measure θ))
+    (h_int_of_sq : ∀ V : Ω → ℝ,
+      (∀ θ, Integrable (fun ω => (V ω) ^ 2) (P.measure θ)) →
+      ∀ θ, Integrable V (P.measure θ))
+    (h_competitors_L2 : ∀ δ' : Ω → ℝ, IsUnbiased P δ' g →
+      ∀ θ, Integrable (fun ω => (δ' ω - g θ) ^ 2) (P.measure θ)) :
     IsUMVUE P T g ↔
       ∀ U : Ω → ℝ, IsUnbiasedOfZero P U →
         (∀ θ, Integrable (fun ω => (U ω) ^ 2) (P.measure θ)) →
         ∀ θ, ∫ ω, T ω * U ω ∂(P.measure θ) = 0 := by
-  sorry
+  simp only [IsUMVUE, IsUnbiasedOfZero, IsUnbiased]
+  -- Derive Integrable T from h_int_of_sq
+  have hT_int : ∀ θ, Integrable T (P.measure θ) := h_int_of_sq T hT_sq
+  constructor
+  · -- (⇒) UMVUE ⟹ orthogonal to zero-unbiased L² estimators
+    -- For any c, T + c·U is unbiased (since E[U] = 0), so MSE(T) ≤ MSE(T + c·U).
+    -- Expanding: 0 ≤ 2c·∫TU + c²·∫U² for all c ∈ ℝ.
+    -- This nonneg quadratic in c forces ∫TU = 0.
+    intro ⟨_, hT_min⟩ U hU_zero hU_sq θ
+    haveI : IsProbabilityMeasure (P.measure θ) := P.isProbability θ
+    -- Integrable U from h_int_of_sq
+    have hU_int : ∀ θ', Integrable U (P.measure θ') := h_int_of_sq U hU_sq
+    -- For each c : ℝ, T + c·U is unbiased (same mean as T, since E[U] = 0)
+    have hTcU_unb : ∀ c : ℝ, ∀ θ' : Θ, ∫ ω, (T ω + c * U ω) ∂P.measure θ' = g θ' := by
+      intro c θ'
+      haveI : IsProbabilityMeasure (P.measure θ') := P.isProbability θ'
+      rw [integral_add (hT_int θ') ((hU_int θ').const_mul _)]
+      simp [integral_const_mul, hU_zero θ', hT_unb θ']
+    -- MSE(T+cU) is integrable (for UMVUE comparison)
+    have hTcU_sq : ∀ c : ℝ, ∀ θ' : Θ,
+        Integrable (fun ω => (T ω + c * U ω - g θ') ^ 2) (P.measure θ') := by
+      intro c θ'
+      haveI : IsProbabilityMeasure (P.measure θ') := P.isProbability θ'
+      have hTg_sq : Integrable (fun ω => (T ω - g θ') ^ 2) (P.measure θ') := by
+        have heq : (fun ω => (T ω - g θ') ^ 2) =
+            fun ω => T ω ^ 2 - 2 * g θ' * T ω + g θ' ^ 2 := by ext ω; ring
+        rw [heq]; exact (hT_sq θ' |>.sub (hT_int θ' |>.const_mul _)).add (integrable_const _)
+      have heq : (fun ω => (T ω + c * U ω - g θ') ^ 2) =
+          fun ω => (T ω - g θ') ^ 2 + 2 * c * (T ω * U ω) + c ^ 2 * U ω ^ 2
+            - 2 * c * g θ' * U ω := by ext ω; ring
+      rw [heq]
+      exact (hTg_sq.add (h_mul_int U hU_sq θ' |>.const_mul _)).add
+        (hU_sq θ' |>.const_mul _) |>.sub ((hU_int θ').const_mul _)
+    -- MSE(T) ≤ MSE(T+cU) for all c (UMVUE property)
+    have hMSE_ineq : ∀ c : ℝ, MSE P T g θ ≤ MSE P (fun ω => T ω + c * U ω) g θ :=
+      fun c => hT_min (fun ω => T ω + c * U ω) (hTcU_unb c) θ
+    -- Expand MSE(T+cU) = MSE(T) + 2c∫TU + c²∫U²
+    have hMSE_expand : ∀ c : ℝ,
+        MSE P (fun ω => T ω + c * U ω) g θ =
+        MSE P T g θ + 2 * c * ∫ ω, T ω * U ω ∂P.measure θ +
+        c ^ 2 * ∫ ω, U ω ^ 2 ∂P.measure θ := by
+      intro c
+      simp only [MSE]
+      have hTg_sq : Integrable (fun ω => (T ω - g θ) ^ 2) (P.measure θ) := by
+        have heq : (fun ω => (T ω - g θ) ^ 2) =
+            fun ω => T ω ^ 2 - 2 * g θ * T ω + g θ ^ 2 := by ext ω; ring
+        rw [heq]; exact (hT_sq θ |>.sub (hT_int θ |>.const_mul _)).add (integrable_const _)
+      have hTg_TU : Integrable (fun ω => (T ω - g θ) ^ 2 + 2 * c * (T ω * U ω)) (P.measure θ) :=
+        hTg_sq.add (h_mul_int U hU_sq θ |>.const_mul _)
+      have key : ∫ ω, (T ω + c * U ω - g θ) ^ 2 ∂P.measure θ =
+          ∫ ω, (T ω - g θ) ^ 2 ∂P.measure θ + 2 * c * ∫ ω, T ω * U ω ∂P.measure θ +
+          c ^ 2 * ∫ ω, U ω ^ 2 ∂P.measure θ - 2 * c * g θ * ∫ ω, U ω ∂P.measure θ := by
+        have i1 : ∫ ω, (T ω - g θ) ^ 2 + 2 * c * (T ω * U ω) ∂P.measure θ =
+            ∫ ω, (T ω - g θ) ^ 2 ∂P.measure θ + 2 * c * ∫ ω, T ω * U ω ∂P.measure θ :=
+          integral_add hTg_sq (h_mul_int U hU_sq θ |>.const_mul _) |>.trans
+            (by rw [integral_const_mul])
+        have i2a : ∫ ω, ((T ω - g θ) ^ 2 + 2 * c * (T ω * U ω)) + c ^ 2 * U ω ^ 2 ∂P.measure θ =
+            ∫ ω, (T ω - g θ) ^ 2 + 2 * c * (T ω * U ω) ∂P.measure θ +
+            ∫ ω, c ^ 2 * U ω ^ 2 ∂P.measure θ :=
+          integral_add hTg_TU (hU_sq θ |>.const_mul _)
+        have i2b : ∫ ω, c ^ 2 * U ω ^ 2 ∂P.measure θ = c ^ 2 * ∫ ω, U ω ^ 2 ∂P.measure θ :=
+          integral_const_mul _ _
+        have i3 : ∫ ω, 2 * c * g θ * U ω ∂P.measure θ = 2 * c * g θ * ∫ ω, U ω ∂P.measure θ :=
+          integral_const_mul _ _
+        have i4 : ∫ ω, ((T ω - g θ) ^ 2 + 2 * c * (T ω * U ω)) + c ^ 2 * U ω ^ 2
+              - 2 * c * g θ * U ω ∂P.measure θ =
+            ∫ ω, ((T ω - g θ) ^ 2 + 2 * c * (T ω * U ω)) + c ^ 2 * U ω ^ 2 ∂P.measure θ -
+            ∫ ω, 2 * c * g θ * U ω ∂P.measure θ :=
+          integral_sub (hTg_TU.add (hU_sq θ |>.const_mul _)) ((hU_int θ).const_mul _)
+        have i5 : ∫ ω, (T ω + c * U ω - g θ) ^ 2 ∂P.measure θ =
+            ∫ ω, ((T ω - g θ) ^ 2 + 2 * c * (T ω * U ω)) + c ^ 2 * U ω ^ 2
+              - 2 * c * g θ * U ω ∂P.measure θ := by congr 1; ext ω; ring
+        linarith [i1, i2a, i2b, i3, i4, i5]
+      rw [key, hU_zero θ, mul_zero, sub_zero]
+    -- From 0 ≤ 2c·∫TU + c²·∫U² for all c, derive ∫TU = 0
+    have hquad : ∀ c : ℝ, 0 ≤ 2 * c * ∫ ω, T ω * U ω ∂P.measure θ +
+        c ^ 2 * ∫ ω, U ω ^ 2 ∂P.measure θ :=
+      fun c => by linarith [hMSE_ineq c, hMSE_expand c]
+    have hU_sq_nn : 0 ≤ ∫ ω, U ω ^ 2 ∂P.measure θ :=
+      integral_nonneg (fun ω => sq_nonneg _)
+    -- Quadratic nonnegativity forces linear coefficient to zero
+    set a := ∫ ω, T ω * U ω ∂P.measure θ
+    set b := ∫ ω, U ω ^ 2 ∂P.measure θ
+    suffices a = 0 by exact this
+    by_contra ha
+    rcases lt_or_gt_of_ne ha with ha' | ha'
+    · rcases eq_or_lt_of_le hU_sq_nn with hb0 | hb0
+      · have := hquad 1; simp [← hb0] at this; linarith
+      · have hkey := hquad (-a / b)
+        have heq : 2 * (-a / b) * a + (-a / b) ^ 2 * b = -(a ^ 2 / b) := by
+          rw [div_pow, div_mul_eq_mul_div]; field_simp; ring
+        linarith [heq ▸ hkey, div_pos (sq_pos_of_neg ha') hb0]
+    · rcases eq_or_lt_of_le hU_sq_nn with hb0 | hb0
+      · have := hquad (-1); simp [← hb0] at this; linarith
+      · have hkey := hquad (-a / b)
+        have heq : 2 * (-a / b) * a + (-a / b) ^ 2 * b = -(a ^ 2 / b) := by
+          rw [div_pow, div_mul_eq_mul_div]; field_simp; ring
+        linarith [heq ▸ hkey, div_pos (sq_pos_of_pos ha') hb0]
+  · -- (⇐) orthogonal to zero-unbiased ⟹ UMVUE
+    -- For any unbiased competitor δ', T - δ' is zero-unbiased and L².
+    -- Orthogonality gives ∫T(T-δ') = 0, i.e., ∫T² = ∫Tδ'.
+    -- Then 0 ≤ ∫(T-δ')² = ∫δ'² - ∫T². So MSE(T) = ∫T² - g² ≤ ∫δ'² - g² = MSE(δ').
+    intro h_orth
+    refine ⟨hT_unb, fun δ' hδ'_unb θ => ?_⟩
+    haveI : IsProbabilityMeasure (P.measure θ) := P.isProbability θ
+    -- Get Integrable δ' from h_int_of_sq via h_competitors_L2 and h_sq_of_umvue_competitor
+    have hδ'_mse_sq : ∀ θ', Integrable (fun ω => (δ' ω - g θ') ^ 2) (P.measure θ') :=
+      h_competitors_L2 δ' hδ'_unb
+    have hδ'_sq_int : ∀ θ', Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ') :=
+      h_sq_of_umvue_competitor δ' hδ'_unb hδ'_mse_sq
+    have hδ'_int : ∀ θ', Integrable δ' (P.measure θ') := h_int_of_sq δ' hδ'_sq_int
+    -- T - δ' is zero-unbiased
+    have hTδ'_zero : ∀ θ', ∫ ω, (T ω - δ' ω) ∂P.measure θ' = 0 := by
+      intro θ'
+      haveI : IsProbabilityMeasure (P.measure θ') := P.isProbability θ'
+      rw [integral_sub (hT_int θ') (hδ'_int θ'), hT_unb θ', hδ'_unb θ', sub_self]
+    -- T - δ' is L²
+    have hTδ'_sq : ∀ θ', Integrable (fun ω => (T ω - δ' ω) ^ 2) (P.measure θ') :=
+      h_diff_sq δ' hδ'_unb hδ'_sq_int
+    -- Apply orthogonality to U = T - δ'
+    have hTδ'_zero_unb : IsUnbiased P (fun ω => T ω - δ' ω) (fun _ => 0) := hTδ'_zero
+    have horth_applied : ∫ ω, T ω * (T ω - δ' ω) ∂P.measure θ = 0 :=
+      h_orth (fun ω => T ω - δ' ω) hTδ'_zero_unb hTδ'_sq θ
+    -- Derive Integrable (T * δ') directly from h_mul_int
+    have hTδ_int : Integrable (fun ω => T ω * δ' ω) (P.measure θ) :=
+      h_mul_int δ' hδ'_sq_int θ
+    have split_orth : ∫ ω, T ω ^ 2 ∂P.measure θ = ∫ ω, T ω * δ' ω ∂P.measure θ := by
+      have hTmul : ∫ ω, T ω * (T ω - δ' ω) ∂P.measure θ =
+          ∫ ω, T ω ^ 2 ∂P.measure θ - ∫ ω, T ω * δ' ω ∂P.measure θ := by
+        have heq : (fun ω => T ω * (T ω - δ' ω)) =
+            (fun ω => T ω ^ 2) - (fun ω => T ω * δ' ω) := by
+          ext ω; simp [Pi.sub_apply]; ring
+        rw [heq]; exact integral_sub (hT_sq θ) hTδ_int
+      linarith [horth_applied, hTmul]
+    -- 0 ≤ ∫(T-δ')² and expand: ∫(T-δ')² = ∫δ'² - ∫T²
+    have hnn : 0 ≤ ∫ ω, (T ω - δ' ω) ^ 2 ∂P.measure θ :=
+      integral_nonneg (fun ω => sq_nonneg _)
+    have hTδ'_sq_expand :
+        ∫ ω, (T ω - δ' ω) ^ 2 ∂P.measure θ =
+        ∫ ω, δ' ω ^ 2 ∂P.measure θ - ∫ ω, T ω ^ 2 ∂P.measure θ := by
+      have h1 : ∫ ω, T ω ^ 2 - 2 * (T ω * δ' ω) ∂P.measure θ =
+          ∫ ω, T ω ^ 2 ∂P.measure θ - 2 * ∫ ω, T ω * δ' ω ∂P.measure θ := by
+        have := integral_sub (hT_sq θ) (hTδ_int.const_mul 2)
+        rw [integral_const_mul] at this; linarith
+      have h2 : ∫ ω, T ω ^ 2 - 2 * (T ω * δ' ω) + δ' ω ^ 2 ∂P.measure θ =
+          ∫ ω, T ω ^ 2 - 2 * (T ω * δ' ω) ∂P.measure θ + ∫ ω, δ' ω ^ 2 ∂P.measure θ :=
+        integral_add ((hT_sq θ).sub (hTδ_int.const_mul _)) (hδ'_sq_int θ)
+      have h3 : ∫ ω, (T ω - δ' ω) ^ 2 ∂P.measure θ =
+          ∫ ω, T ω ^ 2 - 2 * (T ω * δ' ω) + δ' ω ^ 2 ∂P.measure θ := by
+        congr 1; ext ω; ring
+      linarith [h1, h2, h3, split_orth]
+    -- Compare MSE: MSE(T) = ∫T² - g² and MSE(δ') = ∫δ'² - g²
+    simp only [MSE]
+    have hT_unb' : ∫ ω, T ω ∂P.measure θ = g θ := hT_unb θ
+    have hδ'_unb' : ∫ ω, δ' ω ∂P.measure θ = g θ := hδ'_unb θ
+    -- MSE(T) expansion: ∫(T-g)^2 = ∫T^2 - g^2
+    have hMSE_T : ∫ ω, (T ω - g θ) ^ 2 ∂P.measure θ =
+        ∫ ω, T ω ^ 2 ∂P.measure θ - g θ ^ 2 := by
+      have h1 : ∫ ω, T ω ^ 2 - 2 * g θ * T ω ∂P.measure θ =
+          ∫ ω, T ω ^ 2 ∂P.measure θ - 2 * g θ * ∫ ω, T ω ∂P.measure θ :=
+        integral_sub (hT_sq θ) ((hT_int θ).const_mul _) |>.trans (by rw [integral_const_mul])
+      have h2 : ∫ ω, T ω ^ 2 - 2 * g θ * T ω + g θ ^ 2 ∂P.measure θ =
+          ∫ ω, T ω ^ 2 - 2 * g θ * T ω ∂P.measure θ + g θ ^ 2 :=
+        integral_add ((hT_sq θ).sub ((hT_int θ).const_mul _)) (integrable_const _) |>.trans
+          (by simp)
+      have h3 : ∫ ω, (T ω - g θ) ^ 2 ∂P.measure θ =
+          ∫ ω, T ω ^ 2 - 2 * g θ * T ω + g θ ^ 2 ∂P.measure θ := by
+        congr 1; ext ω; ring
+      rw [h3, h2, h1, hT_unb']; ring
+    -- MSE(δ') expansion: ∫(δ'-g)^2 = ∫δ'^2 - g^2
+    have hMSE_δ' : ∫ ω, (δ' ω - g θ) ^ 2 ∂P.measure θ =
+        ∫ ω, δ' ω ^ 2 ∂P.measure θ - g θ ^ 2 := by
+      have h1 : ∫ ω, δ' ω ^ 2 - 2 * g θ * δ' ω ∂P.measure θ =
+          ∫ ω, δ' ω ^ 2 ∂P.measure θ - 2 * g θ * ∫ ω, δ' ω ∂P.measure θ :=
+        integral_sub (hδ'_sq_int θ) ((hδ'_int θ).const_mul _) |>.trans
+          (by rw [integral_const_mul])
+      have h2 : ∫ ω, δ' ω ^ 2 - 2 * g θ * δ' ω + g θ ^ 2 ∂P.measure θ =
+          ∫ ω, δ' ω ^ 2 - 2 * g θ * δ' ω ∂P.measure θ + g θ ^ 2 :=
+        integral_add ((hδ'_sq_int θ).sub ((hδ'_int θ).const_mul _)) (integrable_const _) |>.trans
+          (by simp)
+      have h3 : ∫ ω, (δ' ω - g θ) ^ 2 ∂P.measure θ =
+          ∫ ω, δ' ω ^ 2 - 2 * g θ * δ' ω + g θ ^ 2 ∂P.measure θ := by
+        congr 1; ext ω; ring
+      rw [h3, h2, h1, hδ'_unb']; ring
+    -- Conclude: MSE(T) ≤ MSE(δ')
+    linarith [hMSE_T, hMSE_δ', hTδ'_sq_expand, hnn]
 
 /-- **Shao Theorem 3.2(ii) — UMVUE characterization restricted to a sufficient
 statistic.**
