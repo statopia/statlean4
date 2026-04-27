@@ -25,9 +25,15 @@ Stdin payload (provided by Claude Code):
 
 Side effects (all best-effort; never abort, exit 0):
   · Bash + `lake build`           → lake-build-{clean,fail} milestone
-  · Bash + `git commit`           → (future: parse for theorem name → sorry-proved)
+  · Write/Edit on $STATLEAN_ROOT/MEMORY.md → memory-md-updated (T1 inference;
+                                    catches direct writes that bypass
+                                    prove_deep_end.py)
   · Write/Edit on Statlean/*.lean → run extract_sorries; sorry-pool-snapshot
-                                    with delta vs previous snapshot
+                                    with delta vs previous snapshot. If
+                                    delta < 0, also emits sorry-proved
+                                    {inferred:true, lake_build_pending:true}
+                                    so consumers can confirm with the
+                                    subsequent lake-build-{clean,fail}.
 
 Idempotency: each emit consults events.jsonl tail; skip if same milestone
 name fired within last 30s (prevents flooding when agent does multi-line
@@ -162,6 +168,28 @@ def _handle_write_or_edit(payload: dict, sandbox: Path) -> None:
     path_str = ti.get("file_path") or ti.get("path") or ""
     if not path_str:
         return
+    agent_type = payload.get("agent_type", "main")
+
+    # MEMORY.md branch — fires before the .lean filter so a direct Write/Edit
+    # to statlean's MEMORY.md emits memory-md-updated even when the agent
+    # bypasses prove_deep_end.py (which already emits this milestone via
+    # emit_event.py from its own body — that path uses Python fs.write_text,
+    # not the Claude Code Write tool, so this hook does not double-fire).
+    # Path resolution is absolute to avoid false positives on
+    # ~/.claude/.../MEMORY.md (auto-memory) or any other MEMORY.md the agent
+    # might touch outside the statlean repo.
+    try:
+        memory_md = (STATLEAN_ROOT / "MEMORY.md").resolve()
+        if Path(path_str).resolve() == memory_md:
+            _emit(sandbox, "memory-md-updated", {
+                "observed_via": "hook",
+                "inferred": True,
+                "agent_type": agent_type,
+            })
+            return
+    except Exception:
+        pass
+
     if not path_str.endswith(".lean"):
         return
     if "/Statlean/" not in path_str:
@@ -194,13 +222,35 @@ def _handle_write_or_edit(payload: dict, sandbox: Path) -> None:
         except Exception:
             pass
 
+    delta = post_count - pre_count
+    rel_file = path_str.replace(str(STATLEAN_ROOT) + "/", "")
+
     _emit(sandbox, "sorry-pool-snapshot", {
         "count": post_count,
-        "delta": post_count - pre_count,
-        "file": path_str.replace(str(STATLEAN_ROOT) + "/", ""),
+        "delta": delta,
+        "file": rel_file,
         "observed_via": "hook",
-        "agent_type": payload.get("agent_type", "main"),
+        "agent_type": agent_type,
     })
+
+    # sorry-proved inference: a .lean Edit/Write that strictly reduces the
+    # sorry pool is evidence that at least one sorry was replaced. We mark
+    # `inferred: true` and `lake_build_pending: true` so downstream consumers
+    # know to confirm with the next lake-build-{clean,fail} milestone — this
+    # hook fires synchronously on the Edit, BEFORE the agent re-runs lake
+    # build, so the build outcome is not yet known. Only emits on a strict
+    # decrease (delta < 0) so additions and no-ops don't trigger; the
+    # 30-second `_recently_emitted` dedup blocks bursty re-emits when the
+    # agent edits the same file repeatedly.
+    if delta < 0:
+        _emit(sandbox, "sorry-proved", {
+            "inferred": True,
+            "delta": delta,
+            "file": rel_file,
+            "observed_via": "hook",
+            "agent_type": agent_type,
+            "lake_build_pending": True,
+        })
 
 
 def main() -> None:
