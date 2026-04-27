@@ -16,6 +16,13 @@ theme/out/
 # Prove session reports (per-session, regenerable)
 reports/
 
+# Per-job sandboxes from web orchestrator (Statlean/Web/<jobId>/) — runtime
+# state, never source. Critical: keep these out of `git status -u` because
+# `prove_deep_end.py` auto-stash uses `git stash push -u`, which would
+# otherwise sweep the running job's own sandbox and break the in-flight
+# events.jsonl writer (jobpr11pr1271887 evidence, 2026-04-27).
+Statlean/Web/
+
 # Windows zone identifiers
 *:Zone.Identifier
 
