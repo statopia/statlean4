@@ -39,6 +39,18 @@ The core proof reduces to:
 - (iii) Cochran's theorem (Shao Thm 1.5): `Xᵀ M X / σ² ~ χ²_{rk M}`
   when `M` is symmetric idempotent, applied to `M = I - Z(ZᵀZ)⁻Zᵀ`.
 
+## Status
+
+The three conclusions are currently stated as named axioms with
+structured comments documenting the Mathlib gap (vector-valued
+`IsGaussian`, Cochran's theorem, spectral decomposition of
+idempotents). This matches the precedent established by
+`Statlean.Concentration.Talagrand.mcdiarmid_mgf_bound`,
+`Statlean.Gaussian.Gordon.slepian_lemma`, and the
+`Statlean.RandomMatrix.MarchenkoPastur` axioms. Each axiom is tracked
+in `theme/input/sorry_backlog.yaml` and will be discharged once
+Mathlib gains the prerequisite multivariate Gaussian infrastructure.
+
 ## References
 
 - Jun Shao, *Mathematical Statistics*, 2nd ed., Theorem 3.8 (p. 204).
@@ -122,11 +134,10 @@ def AssumptionA1 (μ : Measure Ω) (X : Ω → Fin n → ℝ) : Prop :=
     (∀ ω i, X ω i = (M.Z.mulVec M.β) i + M.σ * ε ω i) ∧
     μ.map ε = Measure.pi (fun _ : Fin n => gaussianReal 0 1)
 
-/-- **Trust assumption (Shao Theorem 3.8 (i))** — the LSE of an
-estimable parameter and `σ̂²` are independent under assumption A1.
+/-- **Shao Thm 3.8 (i)** — the LSE of an estimable parameter and `σ̂²`
+are independent under assumption A1.
 
-This is the formal statement of Shao's *Mathematical Statistics*
-Theorem 3.8 (i). The standard proof has two ingredients:
+The standard proof has two ingredients:
 
 1. *Linear-algebraic fact*: the cross-covariance vanishes, i.e.
    `(I - Z H Zᵀ) · Z H l = 0`. This follows from the generalised-inverse
@@ -142,12 +153,13 @@ Theorem 3.8 (i). The standard proof has two ingredients:
    `MeasureTheory.charFunDual_eq_prod_iff` the joint measure is a
    product measure).
 
-Mathlib 4.28.0-rc1 lacks the multivariate-Gaussian-on-`Fin n → ℝ`
-infrastructure (vector-valued `IsGaussian`, joint-normal pushforward
-under linear maps, the characteristic-function factorisation argument
-specialised to the multivariate case) required to formalise step 2.
-We isolate this single deep result as an `axiom`. -/
-axiom lse_indep_sigmaSqHat_axiom
+**Status**: Accepted as an axiom. Blocked by: Mathlib 4.28.0-rc1 lacks
+the multivariate-Gaussian-on-`Fin n → ℝ` infrastructure (vector-valued
+`IsGaussian`, joint-normal pushforward under linear maps, the
+characteristic-function factorisation argument specialised to the
+multivariate case) required to formalise step 2. Tracked in
+`sorry_backlog.yaml`. -/
+axiom lse_indep_sigmaSqHat
     {n p : ℕ} (M : Setup n p)
     {Ω : Type*} [MeasurableSpace Ω]
     (μ : Measure Ω) [IsProbabilityMeasure μ]
@@ -156,22 +168,9 @@ axiom lse_indep_sigmaSqHat_axiom
     IndepFun (fun ω => l ⬝ᵥ M.lse (X ω))
              (fun ω => M.sigmaSqHat (X ω)) μ
 
-/-- **Shao 3.8 (i)**: `lᵀβ̂` and `σ̂²` are independent under A1, for
-any estimable parameter `lᵀβ`.
-
-This is currently a thin wrapper over `lse_indep_sigmaSqHat_axiom`
-(see that declaration's docstring for the mathematical content and an
-explanation of why it is axiomatised in Mathlib 4.28.0-rc1). -/
-theorem lse_indep_sigmaSqHat
-    (μ : Measure Ω) [IsProbabilityMeasure μ]
-    (X : Ω → Fin n → ℝ) (hX : M.AssumptionA1 μ X)
-    (l : Fin p → ℝ) (hl : M.IsEstimable l) :
-    IndepFun (fun ω => l ⬝ᵥ M.lse (X ω))
-             (fun ω => M.sigmaSqHat (X ω)) μ :=
-  lse_indep_sigmaSqHat_axiom M μ X hX l hl
-
-/-- **Trust assumption (Shao Theorem 3.8 (ii))** — the marginal
-distribution of any estimable linear functional of the LSE is Gaussian.
+/-- **Shao Thm 3.8 (ii)** — the marginal distribution of any estimable
+linear functional of the LSE is Gaussian:
+`lᵀβ̂ ~ N(lᵀβ, σ²·lᵀ H l)` under A1.
 
 The standard proof has two steps:
 
@@ -188,23 +187,13 @@ The standard proof has two steps:
    estimability `l = Zᵀa` yields `HZᵀZHl = Hl`, so the variance
    reduces to `σ² · lᵀHl`.
 
-Mathlib 4.28.0-rc1 lacks the necessary infrastructure to formalise
-step 2 for a general `Fin n`-indexed family: specifically,
-
-- **`ProbabilityTheory.iIndepFun_iff_map_fun_eq_pi_map`** requires the
-  joint map to equal `Measure.pi`, but extracting pairwise
-  `IndepFun (fun ω => ε ω i) (fun ω => ε ω j)` from `μ.map ε = Measure.pi …`
-  needs a missing characterisation lemma.
-- **Gaussian stability under finite weighted sums** (induction on `Fin n`
-  using `gaussianReal_add_gaussianReal_of_indepFun`) requires the
-  pairwise independence of all partial-sum residuals, which is not
-  directly available from the product-measure assumption.
-- **Variance simplification** `lᵀHZᵀZHl = lᵀHl` via the generalised-inverse
-  identity requires `Matrix.mulVec` arithmetic lemmas that are not yet
-  automated in Mathlib's `ring`/`simp` set.
-
-We isolate this single deep result as an `axiom`. -/
-axiom lse_distribution_axiom
+**Status**: Accepted as an axiom. Blocked by: Mathlib 4.28.0-rc1 lacks
+the necessary infrastructure to formalise step 2 for a general
+`Fin n`-indexed family — extracting pairwise `IndepFun` from
+`μ.map ε = Measure.pi …`, induction over `Fin n` for finite weighted
+Gaussian sums, and matrix-identity simplification
+`lᵀHZᵀZHl = lᵀHl`. Tracked in `sorry_backlog.yaml`. -/
+axiom lse_distribution
     {n p : ℕ} (M : Setup n p)
     {Ω : Type*} [MeasurableSpace Ω]
     (μ : Measure Ω) [IsProbabilityMeasure μ]
@@ -215,24 +204,8 @@ axiom lse_distribution_axiom
       = gaussianReal (l ⬝ᵥ M.β)
           ⟨M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l), hVar⟩
 
-/-- **Shao 3.8 (ii)**: `lᵀβ̂ ~ N(lᵀβ, σ²·lᵀ H l)` under A1, for any
-estimable parameter `lᵀβ`.
-
-This is currently a thin wrapper over `lse_distribution_axiom`
-(see that declaration's docstring for the mathematical content and an
-explanation of why it is axiomatised in Mathlib 4.28.0-rc1). -/
-theorem lse_distribution
-    (μ : Measure Ω) [IsProbabilityMeasure μ]
-    (X : Ω → Fin n → ℝ) (hX : M.AssumptionA1 μ X)
-    (l : Fin p → ℝ) (hl : M.IsEstimable l)
-    (hVar : 0 ≤ M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l)) :
-    μ.map (fun ω => l ⬝ᵥ M.lse (X ω))
-      = gaussianReal (l ⬝ᵥ M.β)
-          ⟨M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l), hVar⟩ :=
-  lse_distribution_axiom M μ X hX l hl hVar
-
-/-- **Trust assumption (Shao Theorem 3.8 (iii))** — the scaled residual
-sum of squares has a chi-squared distribution.
+/-- **Shao Thm 3.8 (iii)** — the scaled residual sum of squares has a
+chi-squared distribution: `(n-r)·σ̂²/σ² ~ χ²_{n-r}` under A1.
 
 The standard proof applies **Cochran's theorem**:
 
@@ -247,23 +220,14 @@ The standard proof applies **Cochran's theorem**:
    Here `I - P` is symmetric idempotent of rank `n - r`, giving
    `εᵀ(I-P)ε ~ χ²_{n-r}`.
 
-Mathlib 4.28.0-rc1 lacks the necessary infrastructure to formalise
-Cochran's theorem:
-
-- **Multivariate Gaussian on `Fin n → ℝ`**: `IsGaussian` is defined only
-  for scalar random variables; there is no `IsGaussianVector` characterising
-  `N(0, Iₙ)` as the pushforward of `ε`.
-- **Spectral decomposition of idempotents**: the diagonalisation
-  `I - P = QᵀDQ` (Q orthogonal, D diagonal with entries 0/1) requires
-  `Matrix.IsSymm.spectral_decomposition`, which is not available.
-- **Chi-squared as sum of squares**: the equivalence
-  `χ²_k = (push-forward of ‖ε‖² under ε ~ N(0,Iₖ))` needs connecting
-  `chiSquared` (defined via `gammaMeasure`) to the distribution of
-  `∑ Zᵢ²` for iid standard normals — the relevant `Measure.map`
-  composition lemmas are absent.
-
-We isolate this single deep result as an `axiom`. -/
-axiom sigmaSqHat_chiSquared_axiom
+**Status**: Accepted as an axiom. Blocked by: Mathlib 4.28.0-rc1 lacks
+Cochran's theorem and its prerequisites — multivariate Gaussian on
+`Fin n → ℝ` (no `IsGaussianVector`), spectral decomposition of
+symmetric idempotents (`Matrix.IsSymm.spectral_decomposition`), and
+the connection between `chiSquared` (defined via `gammaMeasure`) and
+the distribution of `∑ Zᵢ²` for iid standard normals. Tracked in
+`sorry_backlog.yaml`. -/
+axiom sigmaSqHat_chiSquared
     {n p : ℕ} (M : Setup n p)
     {Ω : Type*} [MeasurableSpace Ω]
     (μ : Measure Ω) [IsProbabilityMeasure μ]
@@ -271,19 +235,6 @@ axiom sigmaSqHat_chiSquared_axiom
     (hr : M.r < n) :
     μ.map (fun ω => (n - M.r : ℝ) * M.sigmaSqHat (X ω) / M.σ ^ 2)
       = chiSquared (n - M.r)
-
-/-- **Shao 3.8 (iii)**: `(n-r)·σ̂²/σ² ~ χ²_{n-r}` under A1.
-
-This is currently a thin wrapper over `sigmaSqHat_chiSquared_axiom`
-(see that declaration's docstring for the mathematical content and an
-explanation of why it is axiomatised in Mathlib 4.28.0-rc1). -/
-theorem sigmaSqHat_chiSquared
-    (μ : Measure Ω) [IsProbabilityMeasure μ]
-    (X : Ω → Fin n → ℝ) (hX : M.AssumptionA1 μ X)
-    (hr : M.r < n) :
-    μ.map (fun ω => (n - M.r : ℝ) * M.sigmaSqHat (X ω) / M.σ ^ 2)
-      = chiSquared (n - M.r) :=
-  sigmaSqHat_chiSquared_axiom M μ X hX hr
 
 end Setup
 
@@ -312,9 +263,9 @@ theorem lse_sigma_hat_distribution_under_a1
               ⟨M.σ ^ 2 * (l ⬝ᵥ M.H.mulVec l), hVar⟩
       ∧ μ.map (fun ω => (n - M.r : ℝ) * M.sigmaSqHat (X ω) / M.σ ^ 2)
           = chiSquared (n - M.r) :=
-  ⟨M.lse_indep_sigmaSqHat μ X hX l hl,
-   M.lse_distribution μ X hX l hl hVar,
-   M.sigmaSqHat_chiSquared μ X hX hr⟩
+  ⟨Setup.lse_indep_sigmaSqHat M μ X hX l hl,
+   Setup.lse_distribution M μ X hX l hl hVar,
+   Setup.sigmaSqHat_chiSquared M μ X hX hr⟩
 
 end Statlean.Regression.NormalLinearModel
 

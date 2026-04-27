@@ -52,6 +52,7 @@ import Statlean.Regression.MasterBound
 import Statlean.Regression.Linear
 import Statlean.Regression.GaussMarkov
 import Statlean.Regression.Estimability
+import Statlean.Regression.NormalLinearModel
 
 -- SPD matrices (Log-Cholesky Fréchet means)
 import Statlean.SPD.FrechetMean

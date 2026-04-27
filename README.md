@@ -7,8 +7,8 @@ A Lean 4 + Mathlib library formalizing core theorems of mathematical statistics,
 **Verification status** (machine-checked):
 - **Cox change-point infra** (`Statlean/CoxChangePoint`, ~9.2k lines, 43 files): end-to-end formalisation of Yu-Li-Lin 2026 — Theorems 1, 2, 3 wired up via hypothesis-form interfaces. **Zero sorry, zero user axiom**.
 - **Mathlib-PR-ready bridges** (`Statlean/Mathlib`, ~9.6k lines, 35 files): spectral theory + chaining + CLT + LAN pieces packaged for upstream contribution. **Zero sorry, zero user axiom**.
-- **Core library** (`Statlean/{Gaussian, Variance, Entropy, SubGaussian, CharFun, LimitTheorems, Sufficiency, Information, Estimator, Testing, Confidence, Moments, Statistic, EmpiricalProcess, Causal, Regression, Fourier, SPD}`, ~30k lines): everything reachable from `Statlean/Verified.lean` is **zero sorry**. 19 isolated sorries remain in active-development files (UStatistic, MarchenkoPastur, AsymptoticExpectation, Gordon, MinimalSufficiency, UMVUE, Talagrand, DKW), tracked in `theme/input/sorry_backlog.yaml`.
-- **Pipeline sandboxes** (`Statlean/Web/*`): zero sorries — superseded sandbox copies of the canonical UStatistic file have been removed; remaining sandboxes are imported normally.
+- **Core library** (`Statlean/{Gaussian, Variance, Entropy, SubGaussian, CharFun, LimitTheorems, Sufficiency, Information, Estimator, Testing, Confidence, Moments, Statistic, EmpiricalProcess, Causal, Regression, Fourier, SPD}`, ~30k lines): everything reachable from `Statlean/Verified.lean` is **zero sorry**. 11 isolated `sorry`s remain in active-development files (UStatistic ×5, AsymptoticExpectation ×3, MarchenkoPastur ×1, UMVUE ×1, DKW ×1), all tracked in `theme/input/sorry_backlog.yaml`. 8 named user `axiom`s document Mathlib infrastructure gaps with structured comments (Talagrand `mcdiarmid_mgf_bound`, Gordon `slepian_lemma`/`gordon_minimax_axiom`, MarchenkoPastur ×2, NormalLinearModel ×3 — Shao Thm 3.8 needs vector-valued `IsGaussian` + Cochran).
+- **Pipeline sandboxes** (`Statlean/Web/*`): zero sorries, zero axioms — promotable sandboxes have been moved into proper `Statlean/<MathArea>/<MathObject>.lean` paths; superseded duplicates removed.
 
 > **Want to contribute? See [INSTRUCTION.md](INSTRUCTION.md)**
 
@@ -210,7 +210,7 @@ Statlean/                          (~59,000 lines, 162 files)
 │   ├── MeasureTheory/L2Separable.lean
 │   ├── ProbabilityTheory/          # CentralLimitTheorem, LevyContinuity, ArgmaxCMT, Skorohod*, ...
 │   └── Statistics/                 # LAN, LeCamThirdLemma, LeCamInstance
-├── Regression/                    # Least squares, Gauss-Markov (5 files)
+├── Regression/                    # Least squares, Gauss-Markov, Shao Thm 3.8 normal linear model (6 files)
 ├── Fourier/                       # Fejér/Jackson kernels (3 files)
 ├── SPD/                           # Fréchet mean (3 files)
 ├── Pipeline/                      # Lecture handouts, course-style assemblies
@@ -222,15 +222,15 @@ Statlean/                          (~59,000 lines, 162 files)
 
 ## Sorry / Verification Status
 
-**Tracked**: 19 actual `sorry` proof slots across 8 files (out of 162); see `theme/input/sorry_backlog.yaml` for the live ledger.
+**Tracked**: 11 `sorry` proof slots across 5 files + 8 named user `axiom`s across 4 files (out of 162); see `theme/input/sorry_backlog.yaml` for the live ledger.
 
-| Layer | Sorry count | Notes |
-|------|--------------|------|
-| `Statlean/Verified.lean` reachable | **0** | Fully proved verified subset. `lake build Statlean.Verified` is the canonical zero-sorry entrypoint. |
-| Cox change-point infra (43 files) | **0** | All hypothesis-supplied bridges resolved without sorry/axiom; concrete Cox-specific computations (Taylor, LAN, etc.) are exposed as Prop hypotheses on the structure types. |
-| Mathlib-PR-ready bridges (35 files) | **0** | Mathlib gaps stated as named hypothesis structures; bridges and corollaries discharged. |
-| Pipeline sandboxes (`Statlean/Web/*`) | **0** | Superseded UStatistic sandbox copies removed; remaining sandboxes (Theorem1 etc.) are zero-sorry and live in mainline imports. |
-| Active core development | **19** | `Variance/UStatistic` (5), `RandomMatrix/MarchenkoPastur` (3), `LimitTheorems/AsymptoticExpectation` (3), `Gaussian/Gordon` (2), `Sufficiency/MinimalSufficiency` (2), `Estimator/UMVUE` (2), `Concentration/Talagrand` (1), `EmpiricalProcess/DKW` (1) — tracked in `sorry_backlog.yaml`. |
+| Layer | `sorry` count | `axiom` count | Notes |
+|------|---------------|---------------|------|
+| `Statlean/Verified.lean` reachable | **0** | **0** | Fully proved verified subset. `lake build Statlean.Verified` is the canonical zero-sorry entrypoint. |
+| Cox change-point infra (43 files) | **0** | **0** | All hypothesis-supplied bridges resolved; concrete Cox-specific computations (Taylor, LAN, etc.) are exposed as `Prop` fields on the structure types. |
+| Mathlib-PR-ready bridges (35 files) | **0** | **0** | Mathlib gaps stated as named hypothesis structures; bridges and corollaries discharged. |
+| Pipeline sandboxes (`Statlean/Web/*`) | **0** | **0** | Promotable sandboxes moved to proper `Statlean/<MathArea>/` paths; superseded duplicates removed. |
+| Active core development | **11** | **8** | `Variance/UStatistic` (5 sorry), `LimitTheorems/AsymptoticExpectation` (3 sorry), `RandomMatrix/MarchenkoPastur` (1 sorry + 2 axiom), `Estimator/UMVUE` (1 sorry), `EmpiricalProcess/DKW` (1 sorry), `Concentration/Talagrand` (1 axiom), `Gaussian/Gordon` (2 axiom), `Regression/NormalLinearModel` (3 axiom — Shao Thm 3.8). All tracked in `sorry_backlog.yaml`. |
 
 ```bash
 $ lake build                                   # full project — passes
