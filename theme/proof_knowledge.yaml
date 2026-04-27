@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 189
+entry_count: 196
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -259,6 +259,26 @@ L3_strategies:
   - trigger: "Gaussian unbiasedness converse: ¬IsEstimable → no unbiased estimator (Shao Thm 3.6 (iii))"
     strategy: ""
     confidence: 3
+
+  - trigger: "U-statistic covariance identity cov[h_S, h_T] = zeta_{|S cap T|} non-symmetric kernel"
+    strategy: "DO NOT prove cov[hSub h s, hSub h t] = uZeta m |s cap t| h nu without h_symm. The kernelProjection in uZeta uses canonical 'fix first k coords, integrate last m-k' orientation; without symmetry of h, the marginal integrals from the Fubini decomposition do not match this canonical form. Counterexample: alpha={0,1} uniform, m=2, n=3, h(a,b)=a, s={0,1}, t={1,2} → LHS=0 but RHS=1/4."
+    source: Statlean/Variance/UStatistic.lean cov_hSub_eq_uZeta
+    confidence: 5
+
+  - trigger: "joint Gaussian zero covariance implies independence vector-valued Fin n to R"
+    strategy: "Mathlib 4.28.0-rc1 lacks vector-valued IsGaussian on Fin n → ℝ. Route: charFunDual_eq_prod_iff + multivariate_gaussian_charFun_factorization (NOT IN MATHLIB as of 4.28). For Web sandbox / demo files where structural completeness > full formalization: axiomatize as a single named axiom with full docstring explaining missing infrastructure."
+    source: Statlean/Web/jobmogms85u2gf6/Main.lean lse_indep_sigmaSqHat
+    confidence: 4
+
+  - trigger: "TendstoInDistribution const bridge TendstoInMeasure"
+    strategy: "Mathlib lacks direct bridge. Use Lipschitz test fn F(x) = min(eps, |x - c|) (1-Lipschitz, bounded by eps), apply tendsto_iff_forall_lipschitz_integral_tendsto. Then eps * 1{|X-c|>=eps} <= F(X), Markov: mu{|X-c|>=eps} <= (1/eps) * integral F(X) -> 0. ~50-80 lines self-contained."
+    source: AsymptoticExpectation.lean shao_prop_2_3_case_both_const stuck analysis
+    confidence: 4
+
+  - trigger: "Shao Prop 2.3 case both const multi-step"
+    strategy: "4-case split on (p=0,q=0): case (a) trivial; case (d) p!=0,q!=0 requires sub-sequential argument using b_n*xi_n = (b_n/a_n)*(a_n*xi_n). Do NOT attempt single-agent attack — ~200-250 lines requiring 2-3 helper lemmas. Batch with case_ii (shares helpers)."
+    source: AsymptoticExpectation stuck round 1
+    confidence: 4
 
 # ═══════════════════════════════════════════
 # L2 — API 链路（Mathlib 引理串联方案）
@@ -563,6 +583,11 @@ L2_api_chains:
     source: UStatistic.lean hajek_clt proof exploration
     confidence: 4
 
+  - trigger: "Hoeffding U-statistic variance decomposition cov identity"
+    chain: "['add h_symm hypothesis', 'measurePreserving_piEquivPiSubtypeProd 4-way', 'kernelProjection via h_symm reorder', 'IndepFun.covariance_eq_zero for k=0 case']"
+    source: Statlean/Variance/UStatistic.lean cov_hSub_eq_uZeta
+    confidence: 4
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -851,4 +876,12 @@ L1_tactic_tips:
 
   - trigger: "Integrable mul constant function"
     tip: "Use hg.const_mul c. NOT (integrable_const c).mul hg — fails because integrable_const returns And, not Integrable."
+    frequency: 1
+
+  - trigger: "ENNReal div cancel phi numerator denominator"
+    tip: "ENNReal mul_div_mul_right: a * phi / (b * phi) = a / b when phi ne 0 and phi ne top"
+    frequency: 1
+
+  - trigger: "noncomputable def funext proof simp fails"
+    tip: "unfold noncomputable def before funext proof — simp only makes no progress on noncomputable defs"
     frequency: 1
