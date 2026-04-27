@@ -144,8 +144,5 @@ import Statlean.ExpFamily.Regularity
 -- jobmnfrosueh4uz: markdown-wrapped, currently does not compile (Mathlib drift). Disabled.
 -- import Statlean.Web.jobmnfrosueh4uz.Main
 import Statlean.Web.jobmobquqqakyyv.Theorem1
--- jobmoek5rwlfk7c: defines duplicate Statlean.Variance.UStatistic.uZeta clashing
--- with the canonical Statlean.Variance.UStatistic. Disabled.
--- import Statlean.Web.jobmoek5rwlfk7c.Main
 -- v2_consistency_of_RLEs_qwen_*: suspect Rule 3 trivialization + Mathlib drift. Disabled.
 -- import Statlean.Web.v2_consistency_of_RLEs_qwen_1775549228569.Main
