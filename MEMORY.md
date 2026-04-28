@@ -41,3 +41,11 @@ Proved 12 sorries (mostly via axiom for infra-blocked items: Gaussian IBP, Cochr
 **Summary**:
 
 Closed 2 sorries in AsymptoticExpectation.lean (Shao Prop 2.3 case iii + helper bridge): (1) tendstoInDistribution_const_to_measure — missing Mathlib bridge proving →d const ⇒ →ᵖ via 1-Lipschitz test fn F(x)=min(ε,|x-c|) + tendsto_iff_forall_lipschitz_integral_tendsto + Markov; (2) shao_prop_2_3_case_both_const — 4-case trichotomy on (∫ξ,∫η) using new aux_ratio_limit helper with 1/3+1/3<1 ENNReal union bound + algebraic decomposition v/u-q/p=(v-q)/u-q(u-p)/(p·u). Two new patterns ingested. Anti-patterns: abs_add doesn't exist (use abs_add_le); mul_lt_mul_left fails to synthesize on ℝ (use mul_lt_mul_of_pos_left). Remaining 2 sorries in file: case_both_nondeg (R6 Khinchin blocker) and case_ii (subseq+Slutsky on non-degenerate ξ, distinct from case iii).
+
+## 2026-04-28 18:07 — `next`
+
+**Stats**: proved=1  stuck=1  remaining=2
+
+**Summary**:
+
+Parallel cycle (2 agents). Closed UMVUE Thm 3.2(ii) umvue_iff_orthogonal_to_sufficient_unbiasedOfZero — Statlean/Estimator/UMVUE.lean now zero-sorry. Proof uses sufficiency invariance condExp_eq_of_sufficient + Doob-Dynkin Measurable.exists_eq_measurable_comp + tower integral_condExp + L² contraction MemLp.condExp + sigma-measurable pull-out condExp_mul_of_aestronglyMeasurable_left. Required adding 4 hypotheses to theorem signature: [Nonempty Θ], h_int_of_sq, h_competitors_L2, h_mul_int_general. case_ii (AsymptoticExpectation) agent restructured but did NOT reduce sorry — case-split on p done, bnξn →ᵖ q lifted, but the q=0 ∧ bn/an→0 conjunction remains. Needs Helly extraction + Slutsky div + dist-uniqueness for non-degenerate ξ subseq argument; ~100 lines remaining. Two L1 anti-patterns logged: rw fails on (V∘S)ω vs V(Sω) defeq; set abstracts pattern blocking later rw of original form.

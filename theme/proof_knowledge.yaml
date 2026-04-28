@@ -920,12 +920,12 @@ L1_tactic_tips:
 
   - trigger: "rw fails because (V ∘ S) ω vs V (S ω) — defeq but syntactic"
     tip: "State the have-lemma in the form you'll use it (∫ (V∘S) ω form) rather than relying on rfl/defeq later. Or use `change` to align."
-    frequency: 1
+    frequency: 2
 
   - trigger: "rw fails because fun ω => f ω * g ω vs f * g (Pi.mul) in condExp argument"
     tip: "Restate goal/lemma using Pi.mul form (h∘S * δ') and add explicit congr_ae step via filter_upwards rfl."
-    frequency: 1
+    frequency: 2
 
   - trigger: "set p := <expr>; rw [<expr-form>]"
     tip: "set already abstracts away the pattern; subsequent rw of original form fails. Apply rw before set, or use show after set."
-    frequency: 1
+    frequency: 2
