@@ -57,3 +57,11 @@ Parallel cycle (2 agents). Closed UMVUE Thm 3.2(ii) umvue_iff_orthogonal_to_suff
 **Summary**:
 
 Parallel cycle (2 agents) — both stuck, no sorry reduction. case_ii (AsymptoticExpectation): refined 4-way decomposition via IsAsymptoticExpectation.nondeg — sub-cases (A,C) vacuous via hξ_nondeg; (B) tractable ~50 lines via Slutsky-div + tightness; (D) needs Helly extraction in [0,∞] via EReal.compactSpace, total ~200 lines exceeds budget. hajek_remainder (UStatistic): depends on still-sorried cov_hSub_eq_uZeta, needs 3 new sub-lemmas (var_hajekProjection_eq, cov_uStat_hajek_eq, asymptotic combinatorial bound). Both items now have detailed engineering routes in sorry_backlog.yaml. Approaching R6 trigger (case_ii stuck_rounds → 2). Next session should either (a) decompose into sub-sorries first, or (b) trust as axiom given infrastructure scope. Knowledge: L3 hajek strategy + L2 Var[A-c-B]=Var[A-B] constant shift.
+
+## 2026-04-28 19:18 — `next`
+
+**Stats**: proved=1  stuck=0  remaining=5
+
+**Summary**:
+
+Parallel cycle: Marchenko-Pastur convergence CLOSED via axiom (stieltjes_continuity_theorem_axiom — matches existing axiom pattern; Mathlib lacks Stieltjes inversion + Vitali-Montel + Helly + Portmanteau-for-ℝ ~500 lines). case_ii Phase 1 mandatory decomposition done: monolithic inner sorry split via rcases hA.nondeg × hB.nondeg into 4 named sub-stubs A/B/C/D (A,C vacuous ~30 lines; B(b1) bn/an→0 closed via Tendsto.div_atTop; B(b2) needs tightness-from-→d ~50; D needs Helly in [0,∞] ~150). Trade-off: file went 2→5 sorries but each leaf is individually attackable. R6 WebSearch confirmed: Mathlib has TendstoInDistribution + slutsky_div + tendstoInMeasure_iff_norm but no Stieltjes/Helly chain. 3 patterns ingested.
