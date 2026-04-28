@@ -17,6 +17,56 @@ that need to be formalized in Lean 4.
 
 - A PDF file path
 - Optional: output directory (default: `theme/input/`)
+- Optional: `--theorem "<Kind id>"` (e.g. `"Theorem 3.9"`, `"Lemma S1"`,
+  `"Proposition 1"`, `"Assumption A1"`) to extract a single target plus
+  its proof + dependencies, instead of the whole paper
+- Optional: `--pages <range>` (e.g. `7,9-12`) for explicit page selection
+
+## Coarse page-locator (with `--theorem`)
+
+The wrapper `theme/scripts/pdf_extract.py` does targeted extraction by
+default when `--theorem` is given. The page set returned covers:
+
+1. **Declaration cluster + 1-page spill** — first cluster of strictly-
+   adjacent declaration hits (rejects same-id back-references in other
+   chapters via the cluster gap=1 boundary)
+2. **Proof span** — if a `Proof of <Kind> <id>.` named header exists
+   somewhere downstream, scan from that header up to the next
+   `Proof of` / `∎`/`□`/`QED` mark / 4-page cap. Catches Cox-style
+   papers that defer proofs to a supplementary appendix far from the
+   lemma statement. Returns empty when no named header exists (inline
+   `Proof.` form is covered by the spill above)
+3. **Dep expansion** — citation extraction across statement + proof-span
+   pages: matches inline cites (`by Lemma X.Y`, `under Assumptions
+   (A1)–(A10)`, `model (3.25)`, `根据定理 5.1`), then unions the pages
+   where each cited dep is declared. Range citations extract endpoint
+   pair only (assumption blocks are contiguous; endpoints' pages cover
+   between via natural set union, no enumeration explosion). Equation
+   citations require an anchor noun/verb to disambiguate from labels.
+
+Three declaration-form recognisers (tier-1 strict):
+- `<Kind> <id>.` / `<Kind> <id> (Name).` — sentence-end leading
+- `<heading>\n<Kind> <id>.` — section-heading-followed-by-decl
+- `(<id>) <body>` — bare-paren for Assumption / Condition / Hypothesis
+  kinds (Cox `(A1).`, hd `(A1) X1, ...`). Stage-2 line-walk rejects
+  pymupdf wrap continuations (`...Under Assumption\n(A1) guarantees...`)
+  by inspecting the last meaningful char before the match — must be
+  sentence-terminating punctuation `.!?:` or paragraph break, not alpha
+
+Tier-2 wide-net only fires for kindless queries; with `--theorem
+"<Kind> id>"` and a tier-1 miss the scanner returns empty, signalling
+the citation is external (e.g. `Theorem 4 in [18]` referencing a
+bibliographic entry, not in this paper).
+
+**Multi-cluster note**: when an id is declared in two non-adjacent
+locations, stdout prints `note: <Kind> <id> has N non-adjacent
+declaration clusters at pages [...]`. First cluster is returned;
+re-run with `--pages <range>` to inspect the alternative.
+
+Opt-out flags (skeleton-only / minimal queries):
+- `--no-proof-span` — declaration cluster only (skip proof body)
+- `--no-include-deps` — skip dep expansion (skip cited lemmas / assumptions)
+- Both together → fully minimal extraction
 
 ## Workflow
 

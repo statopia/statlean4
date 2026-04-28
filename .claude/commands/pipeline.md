@@ -17,11 +17,51 @@ Run the complete pipeline: PDF → LaTeX → YAML → Lean 4 → Prove → Gate
 
 ```bash
 # Default for math-heavy papers: mineru (local VLM OCR, preserves LaTeX)
-python3 theme/scripts/pdf_extract.py --pdf <pdf> --output-dir <dir> --backend mineru [--theorem <name>] [--pages <range>]
+python3 theme/scripts/pdf_extract.py --pdf <pdf> --output-dir <dir> --backend mineru [--theorem "<Kind id>"] [--pages <range>]
 
 # Fallback if mineru is unavailable or the paper is text-only:
 python3 theme/scripts/pdf_extract.py --pdf <pdf> --output-dir <dir> --backend pymupdf [...]
 ```
+
+**`--theorem` form (STRICT — pass kind, not bare id)**: write
+`--theorem "Theorem 3.9"` / `--theorem "Lemma S1"` /
+`--theorem "Proposition 1"` / `--theorem "Assumption A1"` rather than a
+bare id `--theorem "3.9"`. The kind hint disambiguates same-id collisions
+across declaration types (Shao p.186 has `Example 3.9`, p.205 has
+`Theorem 3.9` — bare `3.9` returns the EARLIEST kind, often wrong).
+Recognised kind aliases: Theorem/Thm, Lemma/Lem, Proposition/Prop,
+Corollary/Cor, Definition/Def, Assumption, Example/Ex, Remark/Rem.
+
+**Default coarse-screen behavior with `--theorem`** (no extra flags
+needed):
+
+- Declaration cluster + 1-page spill (statement)
+- `Proof of <Kind> <id>.` block if present (Cox-style supplementary
+  appendix proofs that sit far from the statement)
+- Citation expansion: parses `by Lemma X.Y`, `under Assumptions
+  (A1)–(A10)`, `model (3.25)`, `根据定理 5.1` etc. and unions the
+  pages where each cited dep is declared
+- Multi-cluster note: when the same id is declared in two non-adjacent
+  locations (e.g. main paper + supplementary re-statement), stdout
+  prints a `note: <Kind> <id> has N non-adjacent declaration clusters
+  at pages [...]` line and returns the first cluster only
+
+Opt-out flags (skeleton-only / minimal queries):
+
+- `--no-proof-span` — skip the deferred-proof scan, return statement
+  cluster only (useful when you want only the theorem signature for
+  skeleton generation)
+- `--no-include-deps` — skip dep expansion, return statement (+ proof
+  span unless `--no-proof-span`) only
+- Both together → fully minimal extraction (statement page + 1 spill)
+
+`--deps-max-pages N` (default 30) caps the post-expansion total page
+count. Dep extras are truncated to fit; target pages always preserved.
+
+`--pages <range>` (e.g. `7,9-12`) takes priority over `--theorem` when
+both are passed. With `--pages` alone, dep expansion is OFF by default
+(no theorem context to expand against); pass `--include-deps` to opt
+in if you still want citation tracing on the supplied page range.
 
 **Backend choice rule (STRICT — do NOT skip):**
 - Math-heavy papers (theorems with formulas, integrals, subscripts, matrix

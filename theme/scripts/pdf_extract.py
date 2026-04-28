@@ -1579,11 +1579,17 @@ def main() -> None:
     ap.add_argument("--skip-ocr", action="store_true",
                     help="Skip extraction, use existing markdown in output-dir/raw/")
     ap.add_argument("--include-deps", action="store_true",
-                    help="After resolving target pages (--theorem / --pages), scan them for "
-                         "inline citations (`by Lemma X.Y`, `由定理 X.Y`, ...) and also include the "
-                         "pages where those dependencies are declared. Useful when the target "
-                         "theorem cites lemmas / definitions / assumptions that live on earlier "
-                         "pages but the agent needs them in context. Depth fixed at 1.")
+                    help="Force dep expansion even without --theorem (e.g. with bare --pages). "
+                         "When --theorem is provided, dep expansion is ALREADY on by default — "
+                         "no need to pass this flag. Dep expansion scans target pages for "
+                         "inline citations (`by Lemma X.Y`, `由定理 X.Y`, ranges like "
+                         "`(A1)–(A10)`, equation refs `model (3.25)`) and unions the pages "
+                         "where those deps are declared. Depth fixed at 1.")
+    ap.add_argument("--no-include-deps", action="store_true",
+                    help="Opt out of dep expansion. Skeleton-only / statement-only queries "
+                         "where the agent doesn't need cited lemmas / assumptions / equations "
+                         "in context. Pairs naturally with --no-proof-span for fully minimal "
+                         "extraction (statement page only).")
     ap.add_argument("--deps-max-pages", type=int, default=30,
                     help="Cap on total pages after dep expansion. Truncates extras (target pages "
                          "always preserved). Default 30 — guards against pathological papers.")
@@ -1715,9 +1721,18 @@ def main() -> None:
         target_pages = None
 
     # Dep expansion: pull in pages where cited Lemmas / Definitions / Assumptions
-    # are declared. Only meaningful when target_pages is a strict subset (full-PDF
-    # extraction already includes everything).
-    if args.include_deps and target_pages:
+    # are declared. Default-on when --theorem is given (Rule 9 T1: defer to the
+    # script's default behavior rather than relying on the agent to remember
+    # `--include-deps` in narrative pipeline.md instructions). Explicit opt-out
+    # via --no-include-deps; `--include-deps` remains valid as an explicit
+    # opt-in for the rare `--pages` only invocations where the user still
+    # wants dep expansion against the supplied page range.
+    deps_active = (
+        not args.no_include_deps
+        and target_pages
+        and (args.theorem is not None or args.include_deps)
+    )
+    if deps_active:
         before = list(target_pages)
         # Use the parsed bare id ("S1") for self-reference exclusion, NOT
         # the raw `args.theorem` ("Lemma S1") — extract_citations compares
@@ -1733,13 +1748,13 @@ def main() -> None:
         )
         added = sorted(set(target_pages) - set(before))
         if citations:
-            print(f"[pdf-extract] --include-deps: found {len(citations)} citations "
+            print(f"[pdf-extract] dep expansion: found {len(citations)} citations "
                   f"({', '.join(f'{k} {i}' for k, i in citations[:8])}"
                   f"{'...' if len(citations) > 8 else ''})")
         if added:
-            print(f"[pdf-extract] --include-deps: added {len(added)} dep pages: {[p+1 for p in added]}")
+            print(f"[pdf-extract] dep expansion: added {len(added)} dep pages: {[p+1 for p in added]}")
         else:
-            print("[pdf-extract] --include-deps: no extra pages added (citations resolved within target).")
+            print("[pdf-extract] dep expansion: no extra pages added (citations resolved within target).")
 
     # Determine backend.
     #
