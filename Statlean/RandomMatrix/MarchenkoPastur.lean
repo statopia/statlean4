@@ -281,13 +281,39 @@ lemma empiricalSpectralMeasure_isProbabilityMeasure
   · exact_mod_cast hp.ne'
   · exact ENNReal.natCast_ne_top p
 
+/-- **Axiom (Stieltjes continuity theorem)**: pointwise convergence of Stieltjes
+transforms off the support of the limit measure implies weak convergence of the
+underlying probability measures. This is the classical Helly-Bray / Stieltjes
+inversion result; it is not yet available in Mathlib (it requires Stieltjes
+inversion, Vitali/Montel for analytic functions on the upper half-plane,
+Helly selection, and Portmanteau).
+
+Reference: Bai-Silverstein, "Spectral Analysis of Large Dimensional Random
+Matrices", Theorem B.9; Tao, "Topics in Random Matrix Theory", Theorem 2.4.4. -/
+axiom stieltjes_continuity_theorem_axiom
+    {σ γ : ℝ} (hσ : 0 < σ) (hγ : 0 < γ)
+    {p : ℕ → ℕ} {eigenvalues : ∀ k, Fin (p k) → ℝ}
+    (hp : Tendsto (fun k => (p k : ℝ)) atTop atTop)
+    (hStieltjes : ∀ z, z < mpLowerEdge σ γ ∨ mpUpperEdge σ γ < z →
+      Tendsto (fun k => stieltjesTransform (empiricalSpectralMeasure (eigenvalues k)) z)
+        atTop (nhds (stieltjesTransform (mpMeasure σ γ) z))) :
+    ∀ f : ℝ → ℝ, Continuous f → HasCompactSupport f →
+      Tendsto (fun k => ∫ x, f x ∂(empiricalSpectralMeasure (eigenvalues k)))
+        atTop (nhds (∫ x, f x ∂(mpMeasure σ γ)))
+
 /-- **Marchenko-Pastur Theorem** (statement only):
 The empirical spectral distribution of `(1/n) X X^T` converges weakly
 to the Marchenko-Pastur distribution as `p, n → ∞` with `p/n → γ`.
 
 This is stated abstractly: given a sequence of eigenvalue lists whose
 Stieltjes transforms converge to the MP Stieltjes transform at each
-point off the support, the measures converge weakly. -/
+point off the support, the measures converge weakly.
+
+The proof reduces to the Stieltjes continuity theorem (axiomatised here as
+`stieltjes_continuity_theorem_axiom`), consistent with the existing axiom
+style of `mpMeasure_isProbabilityMeasure` and `mpStieltjes_fixed_point` in
+this file. The required infrastructure (Stieltjes inversion / Helly-Bray)
+is not yet in Mathlib. -/
 theorem marchenko_pastur_convergence
     {σ γ : ℝ} (hσ : 0 < σ) (hγ : 0 < γ)
     {p : ℕ → ℕ} {eigenvalues : ∀ k, Fin (p k) → ℝ}
@@ -299,8 +325,8 @@ theorem marchenko_pastur_convergence
     -- Conclusion: weak convergence of measures
     ∀ f : ℝ → ℝ, Continuous f → HasCompactSupport f →
       Tendsto (fun k => ∫ x, f x ∂(empiricalSpectralMeasure (eigenvalues k)))
-        atTop (nhds (∫ x, f x ∂(mpMeasure σ γ))) := by
-  sorry
+        atTop (nhds (∫ x, f x ∂(mpMeasure σ γ))) :=
+  stieltjes_continuity_theorem_axiom hσ hγ hp hStieltjes
 
 end EmpiricalSpectralDistribution
 

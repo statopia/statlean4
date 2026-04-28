@@ -293,52 +293,48 @@ theorem shao_prop_2_3_case_ii
     tendstoInDistribution_const_to_measure hB_const
   -- Step 3: The structural conclusion: `q = 0 ∧ bn/an → 0`.
   --
-  -- **Refined route (4-way case-split on `(aₙ, bₙ)` divergence behavior)**:
-  --
-  -- From `IsAsymptoticExpectation.nondeg`, `aₙ → ∞ ∨ aₙ → a > 0` and similarly
-  -- for `bₙ`.  Sub-cases (A) and (C) below are **vacuous given `hξ_nondeg`**;
-  -- sub-cases (B) and (D) yield `q = 0 ∧ bₙ/aₙ → 0` by direct computation
-  -- (resp. by Helly sub-sequence extraction).
-  --
-  -- Sub-case (A) `aₙ → a > 0`, `bₙ → b > 0`: Slutsky-div on `bₙξₙ →ᵖ q` and
-  --   `bₙ → b > 0` gives `ξₙ →ᵖ q/b`.  Slutsky-mul with `aₙ → a > 0` gives
-  --   `aₙξₙ →ᵖ a·q/b`.  Combined with `aₙξₙ →d ξ`, distribution uniqueness
-  --   forces `ξ =ᵐ a·q/b` (a constant), contradicting `hξ_nondeg`.  VACUOUS.
-  --
-  -- Sub-case (B) `aₙ → ∞`, `bₙ → b > 0`: `bₙ/aₙ → 0` directly.  Slutsky-div
-  --   gives `ξₙ →ᵖ q/b`.  If `q ≠ 0`, then `|aₙξₙ| = aₙ·|ξₙ| ≈ aₙ·|q/b| → ∞`
-  --   in probability (since `aₙ → ∞`), contradicting tightness of the family
-  --   `{μ.map(aₙξₙ)}` (which holds because `aₙξₙ →d ξ`).  Hence `q = 0`.
-  --
-  -- Sub-case (C) `aₙ → a > 0`, `bₙ → ∞`: `bₙξₙ →ᵖ q` and `bₙ → ∞` ⇒ `ξₙ →ᵖ 0`
-  --   (since `|ξₙ| ≤ |bₙξₙ|/|bₙ|` and the RHS tends to `q/∞ = 0`).  Then
-  --   Slutsky-mul: `aₙξₙ →ᵖ a·0 = 0`, so `ξ =ᵐ 0`, contradicting `hξ_nondeg`.
-  --   VACUOUS.
-  --
-  -- Sub-case (D) `aₙ → ∞`, `bₙ → ∞`: as in (C), `ξₙ →ᵖ 0`.  Need to show
-  --   `bₙ/aₙ → 0`.  Suppose for contradiction some sub-sequence has
-  --   `bₙₖ/aₙₖ → c ∈ (0, ∞]`.  Along that sub-sequence,
-  --   `aₙₖξₙₖ = (aₙₖ/bₙₖ)·(bₙₖξₙₖ)`.  If `c < ∞`: `(aₙₖ/bₙₖ) → 1/c` finite
-  --   and `bₙₖξₙₖ →ᵖ q`, Slutsky-mul gives `aₙₖξₙₖ →ᵖ q/c`, so `ξ =ᵐ q/c`
-  --   (constant), contradicting nondeg unless `q = 0` and `q/c = 0`.  This
-  --   forces `q = 0`.  If `c = ∞`: `aₙₖξₙₖ →ᵖ ∞·q`: bounded only if `q = 0`,
-  --   else contradicts tightness.  Either way `q = 0`.  Then `aₙₖξₙₖ →ᵖ 0`,
-  --   so `ξ =ᵐ 0`, contradiction.  Hence no such sub-sequence exists,
-  --   ratio → 0.  Requires Helly extraction in `[0, ∞]`.
-  --
-  -- **Implementation status**: Sub-case (A) and (C) are clean applications
-  -- of `slutsky_div` / `slutsky_mul` plus distribution uniqueness (~30 lines
-  -- each).  Sub-case (B) requires `slutsky_div` + a tightness argument
-  -- (~50 lines).  Sub-case (D) requires Helly in `[0, ∞]` (`ℝ̄`-compactness)
-  -- (~80 lines).  Total ~200 lines.  The `[0, ∞]` Helly extraction for
-  -- deterministic real sequences is straightforward (use
-  -- `EReal.compactSpace`), so the genuine blocker is just engineering.
-  --
-  -- We isolate both sub-claims into a single `sorry`-bearing `have` to keep the
-  -- declared sorry count at one.  Future work: split into named lemmas
-  -- `case_ii_q_zero` and `case_ii_ratio_to_zero`, attacked sub-case-by-sub-case.
+  -- **Phase 1 decomposition (4-way rcases on `hA.nondeg` × `hB.nondeg`)**:
+  -- The monolithic sorry is split into 4 named sub-stubs.  Sub-case (B)'s
+  -- deterministic part `bₙ/aₙ → 0` is closed directly via `Tendsto.div_atTop`.
+  -- The remaining analytical content (q = 0 in B; vacuity of A, C; Helly in D)
+  -- lives in 4 small sorries below, ready for individual attack.
   have h_main : q = 0 ∧ Tendsto (fun n => bn n / an n) atTop (𝓝 0) := by
-    sorry
+    rcases hA.nondeg with hA_inf | ⟨a, ha_pos, ha_lim⟩
+    · -- aₙ → ∞.  Split on bₙ behavior.
+      rcases hB.nondeg with hB_inf | ⟨b, hb_pos, hb_lim⟩
+      · -- **Sub-case (D)** : aₙ → ∞ AND bₙ → ∞.
+        -- Hardest sub-case: requires Helly extraction in `[0, ∞]` to control
+        -- the ratio `bₙ/aₙ`.  `ξₙ →ᵖ 0` (from `bₙξₙ →ᵖ q` and `bₙ → ∞`).
+        -- Then either `bₙ/aₙ` has a sub-sequential limit `c < ∞` (giving
+        -- `aₙξₙ →ᵖ q/c` constant, ⨯ hξ_nondeg) or `c = ∞` (forcing `q = 0`
+        -- by tightness of `aₙξₙ`, then `aₙξₙ →ᵖ 0` ⨯ hξ_nondeg).
+        sorry
+      · -- **Sub-case (B)** : aₙ → ∞ AND bₙ → b > 0.
+        -- `bₙ/aₙ → 0` directly (deterministic; `b/∞ = 0`).
+        -- For `q = 0`: from `bₙξₙ →ᵖ q` and `bₙ → b > 0`, slutsky-div gives
+        -- `ξₙ →ᵖ q/b`.  If `q/b ≠ 0`, then `aₙξₙ` is non-tight (its values
+        -- diverge to ±∞ on a fixed-positive-probability set), contradicting
+        -- `aₙξₙ →d ξ` (which forces tightness).  Tightness-from-→d is the
+        -- genuine analytical step (~50 lines).
+        refine ⟨?_, ?_⟩
+        · -- (b2) q = 0
+          sorry
+        · -- (b1) bn/an → 0: deterministic, since aₙ → ∞ and bₙ → b finite.
+          exact hb_lim.div_atTop hA_inf
+    · -- aₙ → a > 0.  Both remaining sub-cases are vacuous via `hξ_nondeg`.
+      rcases hB.nondeg with hB_inf | ⟨b, hb_pos, hb_lim⟩
+      · -- **Sub-case (C)** : aₙ → a > 0 AND bₙ → ∞.
+        -- `bₙξₙ →ᵖ q` and `bₙ → ∞` give `ξₙ →ᵖ 0` (since `|ξₙ| ≤ |bₙξₙ|/bₙ`).
+        -- Slutsky-mul with `aₙ → a > 0` gives `aₙξₙ →ᵖ 0`, so by uniqueness
+        -- of distributional limits `ξ =ᵐ 0`, contradicting `hξ_nondeg`.
+        -- VACUOUS sub-case.
+        sorry
+      · -- **Sub-case (A)** : aₙ → a > 0 AND bₙ → b > 0.
+        -- Slutsky-div: `bₙξₙ →ᵖ q` ÷ `bₙ → b > 0` ⇒ `ξₙ →ᵖ q/b`.
+        -- Slutsky-mul: `aₙ → a > 0` × `ξₙ →ᵖ q/b` ⇒ `aₙξₙ →ᵖ a·q/b`.
+        -- Distribution uniqueness with `aₙξₙ →d ξ` forces `ξ =ᵐ a·q/b`,
+        -- contradicting `hξ_nondeg`.  VACUOUS sub-case.
+        sorry
   obtain ⟨h_q_zero, h_ratio⟩ := h_main
   subst h_q_zero
   -- Step 4: Case-split on `p = 0?`.
