@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 197
+entry_count: 198
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -279,6 +279,10 @@ L3_strategies:
     strategy: "4-case split on (p=0,q=0): case (a) trivial; case (d) p!=0,q!=0 requires sub-sequential argument using b_n*xi_n = (b_n/a_n)*(a_n*xi_n). Do NOT attempt single-agent attack — ~200-250 lines requiring 2-3 helper lemmas. Batch with case_ii (shares helpers)."
     source: AsymptoticExpectation stuck round 1
     confidence: 4
+
+  - trigger: "TendstoInDistribution to const → TendstoInMeasure"
+    strategy: "# REVIEW: similar to existing. "
+    confidence: 3
 
 # ═══════════════════════════════════════════
 # L2 — API 链路（Mathlib 引理串联方案）
