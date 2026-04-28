@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 208
+entry_count: 211
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -291,6 +291,14 @@ L3_strategies:
   - trigger: "n * Var[U_n - E[U_n] - hajekProjection] -> 0 via Hoeffding decomposition"
     strategy: ""
     confidence: 3
+
+  - trigger: "Stieltjes continuity theorem / pointwise Stieltjes → weak convergence"
+    strategy: "DO NOT attempt to prove Stieltjes continuity theorem in Lean without Mathlib infra. Required: Stieltjes inversion formula, Vitali/Montel for upper half-plane analytic functions, Helly selection, Portmanteau for ℝ-measures. Total ~500 lines. Use axiom + reduction pattern (matches mpStieltjes_fixed_point_axiom style in same file)."
+    confidence: 5
+
+  - trigger: "monolithic conjunction sorry blocking after stuck_rounds ≥ 2"
+    strategy: "Phase 1 mandatory: rcases the disjunctive hypotheses at the OUTER level into named sub-cases, prove deterministic parts inline. Converts 1 monolithic sorry → N attackable named sub-stubs. Trade-off: raw sorry count may rise temporarily."
+    confidence: 4
 
 # ═══════════════════════════════════════════
 # L2 — API 链路（Mathlib 引理串联方案）
@@ -607,6 +615,10 @@ L2_api_chains:
   - trigger: "UMVUE characterization restricted to functions of sufficient statistic / orthogonality on σ(S)"
     chain: "Doob-Dynkin (Measurable.exists_eq_measurable_comp) → ∃V s.t. ψ = V∘S; condExp_eq_of_sufficient (Statlean LehmannScheffe) θ-invariance; MemLp.condExp + filter_upwards transfers L² to V∘S; integral_condExp tower; condExp_mul_of_aestronglyMeasurable_left for σ(S)-measurable factor pull-out"
     confidence: 4
+
+  - trigger: "deterministic ratio bn/an → 0 when bn → b finite, an → ∞"
+    chain: "Filter.Tendsto.div_atTop hb_lim hA_inf — direct one-liner where hb_lim : Tendsto bn atTop (𝓝 b), hA_inf : Tendsto an atTop atTop"
+    confidence: 5
 
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
