@@ -1,9 +1,7 @@
-version: v192
-generated: 2026-04-27
+version: v193
+generated: 2026-04-28
 total_sorry: 11
-
 sorry_items:
-
 - id: empiricalprocess.dkw.dkw_inequality
   file: Statlean/EmpiricalProcess/DKW.lean
   line: 144
@@ -11,22 +9,23 @@ sorry_items:
   type: blocked
   depth: 3
   priority: 40
-  blocker: "DKW inequality with sharp Massart constant 2. Requires: (a) measurability of the supremum event sup_x |F_n - F|; (b) symmetrization argument or McDiarmid/Talagrand bounded-differences; (c) VC-chaining bound for the half-line class (VC dim 1) or equivalent. Mathlib currently lacks a sharp McDiarmid inequality at constant 2 and a VC chaining infrastructure. Partially unlocked once `Statlean.Concentration.Talagrand.mcdiarmid` is strengthened to the 2-constant Massart form. "
+  blocker: 'DKW inequality with sharp Massart constant 2. Requires: (a) measurability
+    of the supremum event sup_x |F_n - F|; (b) symmetrization argument or McDiarmid/Talagrand
+    bounded-differences; (c) VC-chaining bound for the half-line class (VC dim 1)
+    or equivalent. Mathlib currently lacks a sharp McDiarmid inequality at constant
+    2 and a VC chaining infrastructure. Partially unlocked once `Statlean.Concentration.Talagrand.mcdiarmid`
+    is strengthened to the 2-constant Massart form. '
   estimated_lines: 350
-  dependencies: [concentration.talagrand.mcdiarmid_mgf_bound]
+  dependencies:
+  - concentration.talagrand.mcdiarmid_mgf_bound
   unlocks: []
-  source: "jobmobkjimio5zx — DKW 不等式 input.png"
-  route_notes: |
-    R6 engineering route candidates:
-    1. Massart (1990) reflection / Gaussian-comparison approach — hardest but
-       sharp.
-    2. McDiarmid + Talagrand `mcdiarmid` (file:
-       Statlean/Concentration/Talagrand.lean) — needs sharp constant upgrade.
-    3. Symmetrization + VC-chaining on half-lines (Statlean/EmpiricalProcess/
-       {Symmetrization,Chaining,CoveringNumber}.lean). Requires VC-dimension
-       infrastructure (not yet in Statlean).
+  source: jobmobkjimio5zx — DKW 不等式 input.png
+  route_notes: "R6 engineering route candidates:\n1. Massart (1990) reflection / Gaussian-comparison\
+    \ approach — hardest but\n   sharp.\n2. McDiarmid + Talagrand `mcdiarmid` (file:\n\
+    \   Statlean/Concentration/Talagrand.lean) — needs sharp constant upgrade.\n3.\
+    \ Symmetrization + VC-chaining on half-lines (Statlean/EmpiricalProcess/\n   {Symmetrization,Chaining,CoveringNumber}.lean).\
+    \ Requires VC-dimension\n   infrastructure (not yet in Statlean).\n"
   stuck_rounds: 0
-
 - id: limittheorems.asympexp.prop_2_3_case_both_const
   file: Statlean/LimitTheorems/AsymptoticExpectation.lean
   line: 173
@@ -34,13 +33,15 @@ sorry_items:
   type: ready
   depth: 1
   priority: 55
-  blocker: "Both limits ξ,η a.s. constants. Need sub-sequential argument on b_n/a_n: any convergent subseq has limit c with c·p = q. Boundedness of b_n/a_n from a_n ξ_n →ᵖ p ≠ 0 ⟹ |ξ_n| ≥ |p|/(2 a_n) w.h.p. "
+  blocker: 'Both limits ξ,η a.s. constants. Need sub-sequential argument on b_n/a_n:
+    any convergent subseq has limit c with c·p = q. Boundedness of b_n/a_n from a_n
+    ξ_n →ᵖ p ≠ 0 ⟹ |ξ_n| ≥ |p|/(2 a_n) w.h.p. '
   estimated_lines: 120
-  dependencies: [tendstoInDistribution_const_to_measure]
+  dependencies:
+  - tendstoInDistribution_const_to_measure
   unlocks: []
   stuck_rounds: 0
-  status: "pending"
-
+  status: proved
 - id: limittheorems.asympexp.prop_2_3_case_ii
   file: Statlean/LimitTheorems/AsymptoticExpectation.lean
   line: 157
@@ -48,12 +49,15 @@ sorry_items:
   type: ready
   depth: 1
   priority: 60
-  blocker: "Requires (a) helper lemma converting TendstoInDistribution to a constant into TendstoInMeasure (not in Mathlib, derivable via bounded-Lipschitz test function min(ε,|x-c|)); (b) sub-sequential Slutsky argument on b_n/a_n exploiting non-degeneracy of ξ. "
+  blocker: 'Requires (a) helper lemma converting TendstoInDistribution to a constant
+    into TendstoInMeasure (not in Mathlib, derivable via bounded-Lipschitz test function
+    min(ε,|x-c|)); (b) sub-sequential Slutsky argument on b_n/a_n exploiting non-degeneracy
+    of ξ. '
   estimated_lines: 90
-  dependencies: [tendstoInDistribution_const_to_measure]
+  dependencies:
+  - tendstoInDistribution_const_to_measure
   unlocks: []
   stuck_rounds: 0
-
 - id: limittheorems.asympexp.prop_2_3_case_both_nondeg
   file: Statlean/LimitTheorems/AsymptoticExpectation.lean
   line: 139
@@ -61,12 +65,14 @@ sorry_items:
   type: infrastructure_blocked
   depth: 2
   priority: 65
-  blocker: "Reduces to Khinchin's convergence-of-types theorem (Shao Exercise 1.129 of §1.6). Not currently in Mathlib or Statlean. Route: tightness + Prokhorov + sub-sequential-limit uniqueness on non-degenerate c.d.f.s. "
+  blocker: 'Reduces to Khinchin''s convergence-of-types theorem (Shao Exercise 1.129
+    of §1.6). Not currently in Mathlib or Statlean. Route: tightness + Prokhorov +
+    sub-sequential-limit uniqueness on non-degenerate c.d.f.s. '
   estimated_lines: 220
-  dependencies: [khinchin_convergence_of_types]
+  dependencies:
+  - khinchin_convergence_of_types
   unlocks: []
   stuck_rounds: 0
-
 - id: estimator.umvue.umvue_iff_orthogonal_to_sufficient_unbiasedOfZero
   file: Statlean/Estimator/UMVUE.lean
   line: 560
@@ -77,7 +83,6 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-
 - id: randommatrix.marchenkopastur.marchenko_pastur_convergence
   file: Statlean/RandomMatrix/MarchenkoPastur.lean
   line: 303
@@ -88,7 +93,6 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-
 - id: variance.ustatistic.cov_hSub_eq_uZeta
   file: Statlean/Variance/UStatistic.lean
   line: 275
@@ -99,8 +103,7 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-  status: "pending"
-
+  status: pending
 - id: variance.ustatistic.hajek_remainder_var_tendsto_zero
   file: Statlean/Variance/UStatistic.lean
   line: 1034
@@ -111,7 +114,6 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-
 - id: variance.ustatistic.ustatistic_clt_degenerate
   file: Statlean/Variance/UStatistic.lean
   line: 1251
@@ -122,7 +124,6 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-
 - id: variance.ustatistic.ustatistic_clt_nondegenerate
   file: Statlean/Variance/UStatistic.lean
   line: 1208
@@ -133,7 +134,6 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-
 - id: variance.ustatistic.ustatistic_degenerate_limit_second_moment
   file: Statlean/Variance/UStatistic.lean
   line: 1317

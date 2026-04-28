@@ -273,13 +273,188 @@ theorem shao_prop_2_3_case_ii
     Prop23Conclusion an bn (∫ ω, ξ ω ∂μ) (∫ ω, η ω ∂μ) := by
   sorry
 
+/-- Lift `TendstoInDistribution` from `→d ξ` to `→d (const c)` when `ξ =ᵐ const c`.
+
+Used in the `case_both_const` proof: a.s. constant limits agree with their constant
+in distribution because `μ.map ξ = μ.map (fun _ => c)` by `Measure.map_congr`. -/
+private lemma td_to_const_of_ae_eq
+    {ξn : ℕ → Ω → ℝ} {ξ : Ω → ℝ} {c : ℝ}
+    (hcv : TendstoInDistribution ξn atTop ξ μ)
+    (hξ_eq : ξ =ᵐ[μ] (fun _ => c)) :
+    TendstoInDistribution ξn atTop (fun _ : Ω => c) μ := by
+  refine ⟨hcv.forall_aemeasurable, aemeasurable_const, ?_⟩
+  have hmap : μ.map ξ = μ.map (fun _ : Ω => c) :=
+    MeasureTheory.Measure.map_congr hξ_eq
+  have h1 := hcv.tendsto
+  convert h1 using 2
+  exact Subtype.ext hmap.symm
+
+/-- **Deterministic ratio limit lemma**: if `aₙ ξₙ →ᵖ p ≠ 0` and `bₙ ξₙ →ᵖ q`, then
+`bₙ / aₙ → q / p`.
+
+This is the technical core of Case (iii) of Shao Proposition 2.3. The proof uses a
+two-set indicator argument: pick thresholds `δ_A`, `δ_B` and `n` large enough that
+both `μ{|aₙξₙ - p| ≥ δ_A}` and `μ{|bₙξₙ - q| ≥ δ_B}` are `≤ 1/3`. The complement of
+the union has measure `> 1 - 2/3 = 1/3 > 0`, hence is non-empty. Pick a witness
+`ω₀` and use the deterministic estimates `|aₙξₙω₀| > |p|/2` and the algebraic
+decomposition `(bnξnω₀)/(anξnω₀) - q/p = (bnξnω₀ - q)/anξnω₀ - q(anξnω₀ - p)/(p·anξnω₀)`
+to bound `|bₙ/aₙ - q/p|` by `ε`. -/
+private lemma aux_ratio_limit
+    {ξn : ℕ → Ω → ℝ} {an bn : ℕ → ℝ} {p q : ℝ} (hp : p ≠ 0)
+    (hA : TendstoInMeasure μ (fun n ω => an n * ξn n ω) atTop (fun _ => p))
+    (hB : TendstoInMeasure μ (fun n ω => bn n * ξn n ω) atTop (fun _ => q)) :
+    Tendsto (fun n => bn n / an n) atTop (𝓝 (q / p)) := by
+  rw [Metric.tendsto_atTop]
+  intro ε hε
+  rw [MeasureTheory.tendstoInMeasure_iff_norm] at hA hB
+  have hp_pos : 0 < |p| := abs_pos.mpr hp
+  have hp_half_pos : 0 < |p| / 2 := by linarith
+  have hq_one_pos : 0 < |q| + 1 := by positivity
+  -- Threshold radii: δA controls `aₙξₙ → p`; δB controls `bₙξₙ → q`.
+  -- Tight enough that the algebraic decomposition gives `< ε/2 + ε/2`.
+  set δA : ℝ := min (|p|/2) (ε * |p|^2 / (4 * (|q|+1))) with hδA_def
+  set δB : ℝ := ε * |p| / 4 with hδB_def
+  have hδA_pos : 0 < δA := by
+    refine lt_min hp_half_pos ?_
+    have hp_sq_pos : 0 < |p|^2 := by positivity
+    positivity
+  have hδB_pos : 0 < δB := by positivity
+  have hAtmp : Tendsto (fun n => μ {x | δA ≤ ‖an n * ξn n x - p‖}) atTop (𝓝 0) :=
+    hA δA hδA_pos
+  have hBtmp : Tendsto (fun n => μ {x | δB ≤ ‖bn n * ξn n x - q‖}) atTop (𝓝 0) :=
+    hB δB hδB_pos
+  -- Both bad sets eventually have measure `≤ 1/3`, so the union is `< 1`.
+  have h13_pos : (0 : ENNReal) < 1 / 3 := by
+    rw [ENNReal.div_pos_iff]
+    exact ⟨one_ne_zero, ENNReal.natCast_ne_top 3⟩
+  obtain ⟨N₁, hN₁⟩ := (ENNReal.tendsto_atTop_zero.mp hAtmp) (1/3) h13_pos
+  obtain ⟨N₂, hN₂⟩ := (ENNReal.tendsto_atTop_zero.mp hBtmp) (1/3) h13_pos
+  refine ⟨max N₁ N₂, fun n hn => ?_⟩
+  have hnA : N₁ ≤ n := le_of_max_le_left hn
+  have hnB : N₂ ≤ n := le_of_max_le_right hn
+  have hbA := hN₁ n hnA
+  have hbB := hN₂ n hnB
+  set badA : Set Ω := {x | δA ≤ ‖an n * ξn n x - p‖} with hbadA_def
+  set badB : Set Ω := {x | δB ≤ ‖bn n * ξn n x - q‖} with hbadB_def
+  have hunion_lt : μ (badA ∪ badB) < 1 := by
+    have h1 : μ (badA ∪ badB) ≤ μ badA + μ badB := measure_union_le _ _
+    have h2 : μ badA + μ badB ≤ 1/3 + 1/3 := add_le_add hbA hbB
+    have h3 : (1 : ENNReal)/3 + 1/3 < 1 := by
+      have h1' : (2 : ENNReal)/3 < 1 := by
+        rw [ENNReal.div_lt_iff (Or.inl (by norm_num : (3 : ENNReal) ≠ 0))
+            (Or.inl (by norm_num : (3 : ENNReal) ≠ ⊤))]
+        rw [one_mul]; norm_num
+      have h2' : (1 : ENNReal)/3 + 1/3 = 2/3 := by
+        rw [ENNReal.div_add_div_same]; norm_num
+      rw [h2']; exact h1'
+    exact lt_of_le_of_lt (le_trans h1 h2) h3
+  -- Hence the complement has positive measure, in particular is non-empty.
+  have hgood_pos : 0 < μ (badA ∪ badB)ᶜ := by
+    have h_compl_ne_zero : μ (badA ∪ badB)ᶜ ≠ 0 := by
+      intro h
+      have h_total : μ (badA ∪ badB) + μ (badA ∪ badB)ᶜ ≥ μ Set.univ := by
+        rw [← Set.union_compl_self (badA ∪ badB)]
+        exact measure_union_le _ _
+      rw [measure_univ, h, add_zero] at h_total
+      exact absurd hunion_lt (not_lt.mpr h_total)
+    exact pos_iff_ne_zero.mpr h_compl_ne_zero
+  have hgood_nonempty : (badA ∪ badB)ᶜ.Nonempty := by
+    by_contra h'
+    rw [Set.not_nonempty_iff_eq_empty] at h'
+    rw [h'] at hgood_pos
+    simp at hgood_pos
+  obtain ⟨ω₀, hω₀⟩ := hgood_nonempty
+  rw [Set.mem_compl_iff, Set.mem_union] at hω₀
+  push_neg at hω₀
+  obtain ⟨hω₀A, hω₀B⟩ := hω₀
+  rw [hbadA_def, Set.mem_setOf_eq, not_le] at hω₀A
+  rw [hbadB_def, Set.mem_setOf_eq, not_le] at hω₀B
+  rw [Real.norm_eq_abs] at hω₀A hω₀B
+  -- Derive `|aₙ ξₙ ω₀| > |p|/2` from the triangle inequality.
+  have hδA_le_half : δA ≤ |p|/2 := min_le_left _ _
+  have hδA_le_quad : δA ≤ ε * |p|^2 / (4 * (|q|+1)) := min_le_right _ _
+  have h_aξ_close : |an n * ξn n ω₀ - p| < |p|/2 := lt_of_lt_of_le hω₀A hδA_le_half
+  have h_aξ_lower : |p| / 2 < |an n * ξn n ω₀| := by
+    have h1 : |p| ≤ |an n * ξn n ω₀| + |p - an n * ξn n ω₀| := by
+      have h := abs_add_le (an n * ξn n ω₀) (p - an n * ξn n ω₀)
+      have heq : an n * ξn n ω₀ + (p - an n * ξn n ω₀) = p := by ring
+      rw [heq] at h; exact h
+    have h2 : |p - an n * ξn n ω₀| = |an n * ξn n ω₀ - p| := abs_sub_comm _ _
+    linarith [h_aξ_close]
+  have h_aξ_ne : an n * ξn n ω₀ ≠ 0 := by
+    intro h; rw [h, abs_zero] at h_aξ_lower; linarith
+  have h_an_ne : an n ≠ 0 := fun h => h_aξ_ne (by rw [h, zero_mul])
+  have h_ξ_ne : ξn n ω₀ ≠ 0 := fun h => h_aξ_ne (by rw [h, mul_zero])
+  -- Algebraic identity: bₙ / aₙ = (bn ξn ω₀) / (an ξn ω₀)
+  set u : ℝ := an n * ξn n ω₀ with hu_def
+  set v : ℝ := bn n * ξn n ω₀ with hv_def
+  have hu_pos : 0 < |u| := lt_trans hp_half_pos h_aξ_lower
+  have hu_ne : u ≠ 0 := h_aξ_ne
+  have h_eq : bn n / an n = v / u := by
+    rw [hu_def, hv_def]
+    rw [show bn n * ξn n ω₀ / (an n * ξn n ω₀) = (bn n / an n) * (ξn n ω₀ / ξn n ω₀)
+        from by field_simp]
+    rw [div_self h_ξ_ne, mul_one]
+  rw [Real.dist_eq, h_eq]
+  -- Decompose: `v/u - q/p = (v - q)/u - q (u - p) / (p · u)`.
+  have h_decompose : v / u - q / p =
+      (v - q) / u - q * (u - p) / (p * u) := by
+    field_simp; ring
+  rw [h_decompose]
+  have h_tri := abs_sub ((v - q) / u) (q * (u - p) / (p * u))
+  -- Bound 1: `|(v - q)/u| < ε/2`.
+  -- `|v - q| < δB = ε|p|/4` and `|u| > |p|/2`, so `(ε/2)|u| > δB > |v - q|`.
+  have h_bound1 : |(v - q) / u| < ε / 2 := by
+    rw [abs_div]
+    rw [div_lt_iff₀ hu_pos]
+    have h1 : |v - q| < δB := hω₀B
+    have h2 : (ε/2) * |u| > (ε/2) * (|p|/2) :=
+      mul_lt_mul_of_pos_left h_aξ_lower (by linarith)
+    have h3 : (ε/2) * (|p|/2) = δB := by rw [hδB_def]; ring
+    linarith
+  -- Bound 2: `|q (u - p)/(p u)| < ε/2`.
+  -- Trivial when `q = 0`. When `q ≠ 0`, use `|u - p| < δA ≤ ε|p|²/(4(|q|+1))`,
+  -- combined with `|u| > |p|/2` so `|p|·|u| > |p|²/2`.
+  have h_bound2 : |q * (u - p) / (p * u)| < ε / 2 := by
+    rw [abs_div, abs_mul, abs_mul]
+    have hpu_pos : 0 < |p| * |u| := mul_pos hp_pos hu_pos
+    rw [div_lt_iff₀ hpu_pos]
+    by_cases hq0 : q = 0
+    · rw [hq0]; simp
+      have hε2_pos : 0 < ε / 2 := by linarith
+      positivity
+    · have hq_pos : 0 < |q| := abs_pos.mpr hq0
+      have h1 : |u - p| < ε * |p|^2 / (4 * (|q|+1)) := lt_of_lt_of_le hω₀A hδA_le_quad
+      have h2 : |q| * |u - p| < |q| * (ε * |p|^2 / (4 * (|q|+1))) :=
+        mul_lt_mul_of_pos_left h1 hq_pos
+      have h3 : |q| * (ε * |p|^2 / (4 * (|q|+1))) < ε * |p|^2 / 4 := by
+        rw [mul_div_assoc']
+        rw [div_lt_div_iff₀ (by linarith : (0:ℝ) < 4 * (|q|+1)) (by norm_num : (0:ℝ) < 4)]
+        ring_nf
+        have hpq_pos : 0 < ε * |p|^2 := by positivity
+        nlinarith
+      have h4 : ε * |p|^2 / 4 < (ε / 2) * (|p| * |u|) := by
+        have h_pu : |p| * (|p|/2) < |p| * |u| :=
+          mul_lt_mul_of_pos_left h_aξ_lower hp_pos
+        have heq : (ε/2) * (|p| * (|p|/2)) = ε * |p|^2 / 4 := by ring
+        have heq2 : ε * |p|^2 / 4 = (ε/2) * (|p| * (|p|/2)) := heq.symm
+        rw [heq2]
+        exact mul_lt_mul_of_pos_left h_pu (by linarith)
+      linarith
+  have hsum : |(v - q) / u| + |q * (u - p) / (p * u)| < ε := by linarith
+  exact lt_of_le_of_lt h_tri hsum
+
 /-- **Case (iii) — both limits a.s. constant.**
 
-If both `ξ = p` a.s. and `η = q` a.s., then the trichotomy follows from Slutsky
-division applied to the constant limits (no Khinchin needed).
+If both `ξ = p` a.s. and `η = q` a.s., then the trichotomy holds:
+* `(p, q) = (0, 0)` ⇒ disjunct (a);
+* exactly one of `p, q` is zero ⇒ the corresponding ratio of normalizers tends to `0`;
+* both nonzero ⇒ `(p/aₙ)/(q/bₙ) → 1`.
 
-**Blocker (partial)**: still requires a sub-sequential argument to show
-`bₙ/aₙ → q/p` when `p ≠ 0`. Not attempted in this session. -/
+The proof uses `td_to_const_of_ae_eq` to lift `aₙξₙ →d ξ` to `aₙξₙ →d (const p)`,
+then `tendstoInDistribution_const_to_measure` to convert `→d` to `→ᵖ`. The key
+deterministic step is `aux_ratio_limit`, which extracts `bₙ/aₙ → q/p` from the
+two convergences in measure via a positive-probability witness argument. -/
 theorem shao_prop_2_3_case_both_const
     {ξn : ℕ → Ω → ℝ} {an bn : ℕ → ℝ} {ξ η : Ω → ℝ}
     (hA : IsAsymptoticExpectation ξn μ an ξ)
@@ -287,7 +462,51 @@ theorem shao_prop_2_3_case_both_const
     (hξ_const : IsAlmostSurelyConstant μ ξ)
     (hη_const : IsAlmostSurelyConstant μ η) :
     Prop23Conclusion an bn (∫ ω, ξ ω ∂μ) (∫ ω, η ω ∂μ) := by
-  sorry
+  obtain ⟨p, hξ_eq⟩ := hξ_const
+  obtain ⟨q, hη_eq⟩ := hη_const
+  have hp_eq : ∫ ω, ξ ω ∂μ = p := by rw [integral_congr_ae hξ_eq]; simp
+  have hq_eq : ∫ ω, η ω ∂μ = q := by rw [integral_congr_ae hη_eq]; simp
+  rw [hp_eq, hq_eq]
+  -- Lift `→d ξ` to `→d (const p)`, then to `→ᵖ (const p)`.
+  have hA_const : TendstoInDistribution (fun n ω => an n * ξn n ω) atTop (fun _ : Ω => p) μ :=
+    td_to_const_of_ae_eq hA.convD hξ_eq
+  have hB_const : TendstoInDistribution (fun n ω => bn n * ξn n ω) atTop (fun _ : Ω => q) μ :=
+    td_to_const_of_ae_eq hB.convD hη_eq
+  have hA_meas : TendstoInMeasure μ (fun n ω => an n * ξn n ω) atTop (fun _ => p) :=
+    tendstoInDistribution_const_to_measure hA_const
+  have hB_meas : TendstoInMeasure μ (fun n ω => bn n * ξn n ω) atTop (fun _ => q) :=
+    tendstoInDistribution_const_to_measure hB_const
+  -- 4-case split on `(p = 0?, q = 0?)`.
+  by_cases hp : p = 0
+  · by_cases hq : q = 0
+    · exact Or.inl ⟨hp, hq⟩
+    · -- p = 0, q ≠ 0: aux_ratio_limit (with q nonzero, swapping roles) gives an/bn → p/q = 0.
+      refine Or.inr (Or.inr (Or.inl ⟨hp, hq, ?_⟩))
+      have h := aux_ratio_limit hq hB_meas hA_meas
+      simp [hp] at h
+      exact h
+  · by_cases hq : q = 0
+    · -- p ≠ 0, q = 0: aux_ratio_limit gives bn/an → q/p = 0.
+      refine Or.inr (Or.inl ⟨hp, hq, ?_⟩)
+      have h := aux_ratio_limit hp hA_meas hB_meas
+      simp [hq] at h
+      exact h
+    · -- p ≠ 0, q ≠ 0: bn/an → q/p, then (p/an)/(q/bn) = (p/q)·(bn/an) → (p/q)·(q/p) = 1.
+      refine Or.inr (Or.inr (Or.inr ⟨hp, hq, ?_⟩))
+      have h_ratio : Tendsto (fun n => bn n / an n) atTop (𝓝 (q/p)) :=
+        aux_ratio_limit hp hA_meas hB_meas
+      have h1 : Tendsto (fun n => (p/q) * (bn n / an n)) atTop (𝓝 ((p/q) * (q/p))) :=
+        h_ratio.const_mul (p/q)
+      have h2 : (p/q) * (q/p) = 1 := by field_simp
+      rw [h2] at h1
+      have h3 : (fun n => (p / an n) / (q / bn n)) = (fun n => (p/q) * (bn n / an n)) := by
+        funext n
+        by_cases han : an n = 0
+        · simp [han]
+        · by_cases hbn : bn n = 0
+          · simp [hbn]
+          · field_simp
+      rw [h3]; exact h1
 
 /-- **Proposition 2.3 (Shao, p.136) — uniqueness of asymptotic expectation.**
 
@@ -303,8 +522,10 @@ sequence `{ξₙ}`, one of the following three disjuncts must hold on the means
 The proof reduces to three sub-cases according to whether `ξ` and `η` are a.s.
 constants; these are isolated as
 `shao_prop_2_3_case_both_nondeg`, `shao_prop_2_3_case_ii`, and
-`shao_prop_2_3_case_both_const` and currently all contain `sorry`
-(see their individual docstrings for the blockers). -/
+`shao_prop_2_3_case_both_const`. The `both_const` case is fully proved (no
+external blocker); the other two still contain `sorry` (see their individual
+docstrings for the remaining blockers — Khinchin and the sub-sequential
+Slutsky argument). -/
 theorem shao_prop_2_3
     {ξn : ℕ → Ω → ℝ} {an bn : ℕ → ℝ} {ξ η : Ω → ℝ}
     (hA : IsAsymptoticExpectation ξn μ an ξ)
