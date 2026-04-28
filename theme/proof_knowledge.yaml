@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 207
+entry_count: 208
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -287,6 +287,10 @@ L3_strategies:
   - trigger: "Deterministic limit from two TendstoInMeasure: aₙξₙ →ᵖ p ≠ 0, bₙξₙ →ᵖ q ⇒ bₙ/aₙ → q/p"
     strategy: "Pick threshold radii δA = min(|p|/2, ε|p|²/(4(|q|+1))), δB = ε|p|/4. Use 1/3+1/3 < 1 (via ENNReal.div_lt_iff with Or.inl) so both bad-set measures ≤ 1/3 give union < 1. Complement nonempty by IsProbabilityMeasure. Pick witness ω₀, derive |aₙξₙω₀| > |p|/2 via triangle inequality. Algebraic decomposition v/u - q/p = (v-q)/u - q(u-p)/(p·u). Bound each piece strictly by ε/2."
     confidence: 4
+
+  - trigger: "n * Var[U_n - E[U_n] - hajekProjection] -> 0 via Hoeffding decomposition"
+    strategy: ""
+    confidence: 3
 
 # ═══════════════════════════════════════════
 # L2 — API 链路（Mathlib 引理串联方案）

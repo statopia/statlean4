@@ -293,21 +293,50 @@ theorem shao_prop_2_3_case_ii
     tendstoInDistribution_const_to_measure hB_const
   -- Step 3: The structural conclusion: `q = 0 ∧ bn/an → 0`.
   --
-  -- **Structural blocker (2-fold)**:
-  -- (a) `q = 0`: if `q ≠ 0`, slutsky_div applied to `aₙξₙ →d ξ` and
-  --     `bₙξₙ →ᵖ q ≠ 0` gives `(aₙξₙ)/(bₙξₙ) →d ξ/q`. On the event `{ξₙ ≠ 0}` (which
-  --     has high probability since `bₙξₙ →ᵖ q ≠ 0`), `(aₙξₙ)/(bₙξₙ) = aₙ/bₙ`, a
-  --     deterministic sequence. Its law is `δ_{aₙ/bₙ}`, converging weakly only to a
-  --     Dirac mass. By `tendstoInDistribution_unique`, the limit `ξ/q` must be a.s.
-  --     constant, hence `ξ` a.s. constant — contradicting `hξ_nondeg`.
-  -- (b) `bn/an → 0`: any sub-sequential limit `c = lim bn/an` along a subsequence
-  --     (extracted by compactness in `ℝ ∪ {±∞}`) satisfies `c · ξ =ᵈ 0` (constant
-  --     `q = 0`), via slutsky_mul applied to `aₙξₙ →d ξ` and `bn/an → c`. If `c ≠ 0`,
-  --     this forces `ξ =ᵐ 0`, contradicting `hξ_nondeg`. Hence every sub-sequential
-  --     limit is `0`, giving `bn/an → 0`. Requires Helly-type extraction + dist-uniqueness.
+  -- **Refined route (4-way case-split on `(aₙ, bₙ)` divergence behavior)**:
+  --
+  -- From `IsAsymptoticExpectation.nondeg`, `aₙ → ∞ ∨ aₙ → a > 0` and similarly
+  -- for `bₙ`.  Sub-cases (A) and (C) below are **vacuous given `hξ_nondeg`**;
+  -- sub-cases (B) and (D) yield `q = 0 ∧ bₙ/aₙ → 0` by direct computation
+  -- (resp. by Helly sub-sequence extraction).
+  --
+  -- Sub-case (A) `aₙ → a > 0`, `bₙ → b > 0`: Slutsky-div on `bₙξₙ →ᵖ q` and
+  --   `bₙ → b > 0` gives `ξₙ →ᵖ q/b`.  Slutsky-mul with `aₙ → a > 0` gives
+  --   `aₙξₙ →ᵖ a·q/b`.  Combined with `aₙξₙ →d ξ`, distribution uniqueness
+  --   forces `ξ =ᵐ a·q/b` (a constant), contradicting `hξ_nondeg`.  VACUOUS.
+  --
+  -- Sub-case (B) `aₙ → ∞`, `bₙ → b > 0`: `bₙ/aₙ → 0` directly.  Slutsky-div
+  --   gives `ξₙ →ᵖ q/b`.  If `q ≠ 0`, then `|aₙξₙ| = aₙ·|ξₙ| ≈ aₙ·|q/b| → ∞`
+  --   in probability (since `aₙ → ∞`), contradicting tightness of the family
+  --   `{μ.map(aₙξₙ)}` (which holds because `aₙξₙ →d ξ`).  Hence `q = 0`.
+  --
+  -- Sub-case (C) `aₙ → a > 0`, `bₙ → ∞`: `bₙξₙ →ᵖ q` and `bₙ → ∞` ⇒ `ξₙ →ᵖ 0`
+  --   (since `|ξₙ| ≤ |bₙξₙ|/|bₙ|` and the RHS tends to `q/∞ = 0`).  Then
+  --   Slutsky-mul: `aₙξₙ →ᵖ a·0 = 0`, so `ξ =ᵐ 0`, contradicting `hξ_nondeg`.
+  --   VACUOUS.
+  --
+  -- Sub-case (D) `aₙ → ∞`, `bₙ → ∞`: as in (C), `ξₙ →ᵖ 0`.  Need to show
+  --   `bₙ/aₙ → 0`.  Suppose for contradiction some sub-sequence has
+  --   `bₙₖ/aₙₖ → c ∈ (0, ∞]`.  Along that sub-sequence,
+  --   `aₙₖξₙₖ = (aₙₖ/bₙₖ)·(bₙₖξₙₖ)`.  If `c < ∞`: `(aₙₖ/bₙₖ) → 1/c` finite
+  --   and `bₙₖξₙₖ →ᵖ q`, Slutsky-mul gives `aₙₖξₙₖ →ᵖ q/c`, so `ξ =ᵐ q/c`
+  --   (constant), contradicting nondeg unless `q = 0` and `q/c = 0`.  This
+  --   forces `q = 0`.  If `c = ∞`: `aₙₖξₙₖ →ᵖ ∞·q`: bounded only if `q = 0`,
+  --   else contradicts tightness.  Either way `q = 0`.  Then `aₙₖξₙₖ →ᵖ 0`,
+  --   so `ξ =ᵐ 0`, contradiction.  Hence no such sub-sequence exists,
+  --   ratio → 0.  Requires Helly extraction in `[0, ∞]`.
+  --
+  -- **Implementation status**: Sub-case (A) and (C) are clean applications
+  -- of `slutsky_div` / `slutsky_mul` plus distribution uniqueness (~30 lines
+  -- each).  Sub-case (B) requires `slutsky_div` + a tightness argument
+  -- (~50 lines).  Sub-case (D) requires Helly in `[0, ∞]` (`ℝ̄`-compactness)
+  -- (~80 lines).  Total ~200 lines.  The `[0, ∞]` Helly extraction for
+  -- deterministic real sequences is straightforward (use
+  -- `EReal.compactSpace`), so the genuine blocker is just engineering.
   --
   -- We isolate both sub-claims into a single `sorry`-bearing `have` to keep the
-  -- declared sorry count at one.
+  -- declared sorry count at one.  Future work: split into named lemmas
+  -- `case_ii_q_zero` and `case_ii_ratio_to_zero`, attacked sub-case-by-sub-case.
   have h_main : q = 0 ∧ Tendsto (fun n => bn n / an n) atTop (𝓝 0) := by
     sorry
   obtain ⟨h_q_zero, h_ratio⟩ := h_main
