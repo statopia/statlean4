@@ -904,12 +904,12 @@ L1_tactic_tips:
 
   - trigger: "ENNReal mul_lt_mul_left fails to synthesize for ℝ"
     tip: "DO NOT use mul_lt_mul_left for ℝ (needs MulRightStrictMono). Use mul_lt_mul_of_pos_left instead."
-    frequency: 1
+    frequency: 2
 
   - trigger: "Need ENNReal a + b < 1 with a, b ≤ 1/3"
     tip: "Compute 1/3 + 1/3 = 2/3 via ENNReal.div_add_div_same + norm_num. Then 2/3 < 1 via ENNReal.div_lt_iff with Or.inl Or.inl. Avoid div_lt_div_iff (doesn't exist for ENNReal)."
-    frequency: 1
+    frequency: 2
 
   - trigger: "abs_add unknown identifier in Mathlib (Lean 4)"
     tip: "DO NOT use abs_add. Use abs_add_le instead (gives |a + b| ≤ |a| + |b|)."
-    frequency: 1
+    frequency: 2
