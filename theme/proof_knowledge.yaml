@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 211
+entry_count: 214
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -298,6 +298,10 @@ L3_strategies:
 
   - trigger: "monolithic conjunction sorry blocking after stuck_rounds ≥ 2"
     strategy: "Phase 1 mandatory: rcases the disjunctive hypotheses at the OUTER level into named sub-cases, prove deterministic parts inline. Converts 1 monolithic sorry → N attackable named sub-stubs. Trade-off: raw sorry count may rise temporarily."
+    confidence: 4
+
+  - trigger: "TendstoInDistribution congruence on eventually-equal sequences via map equality"
+    strategy: "refine ⟨_, _, ?_⟩ on structure; .tendsto.congr' on filter_upwards Subtype.ext (Measure.map_congr ae_of_all field_simp)"
     confidence: 4
 
 # ═══════════════════════════════════════════
@@ -619,6 +623,14 @@ L2_api_chains:
   - trigger: "deterministic ratio bn/an → 0 when bn → b finite, an → ∞"
     chain: "Filter.Tendsto.div_atTop hb_lim hA_inf — direct one-liner where hb_lim : Tendsto bn atTop (𝓝 b), hA_inf : Tendsto an atTop atTop"
     confidence: 5
+
+  - trigger: "deterministic seq a_n → c, lift to TendstoInMeasure (fun n _ => a n) → const c"
+    chain: "tendstoInMeasure_iff_norm → eventually empty bad set via Metric.tendsto_atTop + edist_dist + ofReal_lt_ofReal_iff_of_nonneg"
+    confidence: 4
+
+  - trigger: "μ.map ξ = Measure.dirac c → ξ =ᵐ[μ] const c"
+    chain: "ae_iff + preimage to ξ⁻¹{c}ᶜ; Measure.map_apply_of_aemeasurable; Measure.dirac_apply' on {c}ᶜ; simp"
+    confidence: 4
 
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）

@@ -236,6 +236,54 @@ lemma Prop23Conclusion.swap {an bn : ℕ → ℝ} {p q : ℝ}
       funext n; rw [inv_div]
     simpa [heq] using hinv
 
+omit [IsProbabilityMeasure μ] in
+/-- **Helper**: a deterministic sequence `a : ℕ → ℝ` converging to `c` lifts to
+convergence in measure of the constant random variables `(fun n _ => a n)` to
+`fun _ => c`. Used by `shao_prop_2_3_case_ii` sub-cases (A) and (C). -/
+private lemma tendstoInMeasure_const_of_tendsto
+    (a : ℕ → ℝ) (c : ℝ) (h : Tendsto a atTop (𝓝 c)) :
+    TendstoInMeasure μ (fun n (_ : Ω) => a n) atTop (fun _ => c) := by
+  apply tendstoInMeasure_of_ne_top
+  intro ε hε hε_top
+  obtain ⟨ε_r, hε_r_pos, hε_r_lt⟩ : ∃ r : ℝ, 0 < r ∧ (ENNReal.ofReal r) ≤ ε := by
+    refine ⟨ε.toReal / 2, ?_, ?_⟩
+    · have : 0 < ε.toReal := ENNReal.toReal_pos hε.ne' hε_top
+      linarith
+    · rw [ENNReal.ofReal_le_iff_le_toReal hε_top]
+      have : 0 ≤ ε.toReal := ENNReal.toReal_nonneg
+      linarith
+  rw [Metric.tendsto_atTop] at h
+  rcases h ε_r hε_r_pos with ⟨N, hN⟩
+  refine tendsto_atTop_of_eventually_const (i₀ := N) ?_
+  intro n hn
+  have hempty : {ω : Ω | ε ≤ edist (a n) c} = ∅ := by
+    ext ω
+    simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false]
+    intro habs
+    have hdist : dist (a n) c < ε_r := hN n hn
+    have h1 : edist (a n) c < ε := by
+      rw [edist_dist]
+      exact ((ENNReal.ofReal_lt_ofReal_iff_of_nonneg dist_nonneg).mpr hdist).trans_le hε_r_lt
+    exact absurd habs (not_le.mpr h1)
+  rw [hempty]; simp
+
+omit [IsProbabilityMeasure μ] in
+/-- **Helper**: if `μ.map ξ = δ_c` (with `ξ` a.e.-measurable), then `ξ` is
+a.s. equal to the constant `c`. Used by `shao_prop_2_3_case_ii` sub-cases (A)
+and (C) to extract the contradiction with `hξ_nondeg`. -/
+private lemma ae_eq_const_of_map_eq_dirac
+    {ξ : Ω → ℝ} (hf : AEMeasurable ξ μ) (c : ℝ)
+    (hmap : μ.map ξ = Measure.dirac c) : ξ =ᵐ[μ] (fun _ => c) := by
+  rw [Filter.EventuallyEq, ae_iff]
+  have hpre : {ω | ¬ ξ ω = (fun _ => c) ω} = ξ ⁻¹' ({c}ᶜ) := by
+    ext ω; simp
+  rw [hpre]
+  rw [← Measure.map_apply_of_aemeasurable hf
+      (MeasurableSet.compl (measurableSet_singleton c))]
+  rw [hmap]
+  rw [Measure.dirac_apply' _ (MeasurableSet.compl (measurableSet_singleton c))]
+  simp
+
 /-- **Case (i) — both limits non-degenerate.**
 
 Given two asymptotic-expectation witnesses for the same sequence, if both
@@ -323,18 +371,120 @@ theorem shao_prop_2_3_case_ii
           exact hb_lim.div_atTop hA_inf
     · -- aₙ → a > 0.  Both remaining sub-cases are vacuous via `hξ_nondeg`.
       rcases hB.nondeg with hB_inf | ⟨b, hb_pos, hb_lim⟩
-      · -- **Sub-case (C)** : aₙ → a > 0 AND bₙ → ∞.
-        -- `bₙξₙ →ᵖ q` and `bₙ → ∞` give `ξₙ →ᵖ 0` (since `|ξₙ| ≤ |bₙξₙ|/bₙ`).
-        -- Slutsky-mul with `aₙ → a > 0` gives `aₙξₙ →ᵖ 0`, so by uniqueness
-        -- of distributional limits `ξ =ᵐ 0`, contradicting `hξ_nondeg`.
-        -- VACUOUS sub-case.
-        sorry
-      · -- **Sub-case (A)** : aₙ → a > 0 AND bₙ → b > 0.
-        -- Slutsky-div: `bₙξₙ →ᵖ q` ÷ `bₙ → b > 0` ⇒ `ξₙ →ᵖ q/b`.
-        -- Slutsky-mul: `aₙ → a > 0` × `ξₙ →ᵖ q/b` ⇒ `aₙξₙ →ᵖ a·q/b`.
-        -- Distribution uniqueness with `aₙξₙ →d ξ` forces `ξ =ᵐ a·q/b`,
-        -- contradicting `hξ_nondeg`.  VACUOUS sub-case.
-        sorry
+      · -- **Sub-case (C)** : aₙ → a > 0 AND bₙ → ∞.  VACUOUS via `hξ_nondeg`.
+        -- `1/bₙ → 0` deterministic, so `(1/bₙ) · (bnξn) →d 0 · q = 0` by slutsky_mul.
+        -- Eventually `bn ≠ 0`, so this rewrites to `ξn →d 0`.
+        -- Then `aₙ · ξn →d a · 0 = 0`, and uniqueness with `aₙ ξₙ →d ξ` forces
+        -- `μ.map ξ = δ_0`, hence `ξ =ᵐ 0`, contradicting `hξ_nondeg`.
+        exfalso
+        have h_inv_bn : Tendsto (fun n => (bn n)⁻¹) atTop (𝓝 0) :=
+          Filter.Tendsto.inv_tendsto_atTop hB_inf
+        have h_inv_meas :
+            TendstoInMeasure μ (fun n (_ : Ω) => (bn n)⁻¹) atTop (fun _ => (0 : ℝ)) :=
+          tendstoInMeasure_const_of_tendsto (fun n => (bn n)⁻¹) 0 h_inv_bn
+        have h_inv_aemeas : ∀ i, AEMeasurable (fun (_ : Ω) => (bn i)⁻¹) μ :=
+          fun _ => aemeasurable_const
+        have hkey : TendstoInDistribution
+            (fun n ω => (bn n)⁻¹ * (bn n * ξn n ω)) atTop
+            (fun _ : Ω => (0 : ℝ) * q) μ :=
+          Statlean.LimitTheorems.slutsky_mul hB_const h_inv_meas h_inv_aemeas
+        have hbn_ne_eventually : ∀ᶠ n in atTop, bn n ≠ 0 := by
+          have := tendsto_atTop.mp hB_inf 1
+          filter_upwards [this] with n hn h0
+          rw [h0] at hn; linarith
+        have han_meas :
+            TendstoInMeasure μ (fun n (_ : Ω) => an n) atTop (fun _ => a) :=
+          tendstoInMeasure_const_of_tendsto an a ha_lim
+        have han_const_aemeas : ∀ i, AEMeasurable (fun (_ : Ω) => an i) μ :=
+          fun _ => aemeasurable_const
+        have hmul : TendstoInDistribution
+            (fun n ω => an n * ((bn n)⁻¹ * (bn n * ξn n ω))) atTop
+            (fun _ : Ω => a * ((0 : ℝ) * q)) μ :=
+          Statlean.LimitTheorems.slutsky_mul hkey han_meas han_const_aemeas
+        have hmul' : TendstoInDistribution (fun n ω => an n * ξn n ω) atTop
+            (fun _ : Ω => a * ((0 : ℝ) * q)) μ := by
+          refine ⟨hA.convD.forall_aemeasurable, aemeasurable_const, ?_⟩
+          have htendsto := hmul.tendsto
+          have hmap_eq : ∀ᶠ n in atTop,
+              μ.map (fun ω => an n * ((bn n)⁻¹ * (bn n * ξn n ω))) =
+              μ.map (fun ω => an n * ξn n ω) := by
+            filter_upwards [hbn_ne_eventually] with n hn
+            apply Measure.map_congr
+            apply ae_of_all
+            intro ω
+            field_simp
+          apply htendsto.congr'
+          filter_upwards [hmap_eq] with n hn
+          apply Subtype.ext
+          simp [hn]
+        have hunique := tendstoInDistribution_unique
+          (fun n ω => an n * ξn n ω) hA.convD hmul'
+        rw [Measure.map_const] at hunique
+        have h_univ : (μ Set.univ : ENNReal) = 1 := measure_univ
+        rw [h_univ, one_smul] at hunique
+        have hξ_aemeas : AEMeasurable ξ μ := hA.convD.aemeasurable_limit
+        have hξ_const : ξ =ᵐ[μ] (fun _ => a * ((0 : ℝ) * q)) :=
+          ae_eq_const_of_map_eq_dirac hξ_aemeas (a * ((0 : ℝ) * q)) hunique
+        exact hξ_nondeg ⟨a * ((0 : ℝ) * q), hξ_const⟩
+      · -- **Sub-case (A)** : aₙ → a > 0 AND bₙ → b > 0.  VACUOUS via `hξ_nondeg`.
+        -- Slutsky-div on `bₙξₙ →d const q` and `bn → b ≠ 0` gives
+        -- `(bnξn)/bn →d const (q/b)`.  Then slutsky-mul with `aₙ → a` gives
+        -- `aₙ · ((bnξn)/bn) →d const (a·q/b)`.  Eventually `bn ≠ 0`, so the
+        -- LHS rewrites to `aₙ ξn`, and uniqueness with `aₙ ξₙ →d ξ` forces
+        -- `μ.map ξ = δ_(a·q/b)`, hence `ξ =ᵐ a·q/b`, contradicting `hξ_nondeg`.
+        exfalso
+        have hbn_meas :
+            TendstoInMeasure μ (fun n (_ : Ω) => bn n) atTop (fun _ => b) :=
+          tendstoInMeasure_const_of_tendsto bn b hb_lim
+        have hbn_const_aemeas : ∀ i, AEMeasurable (fun (_ : Ω) => bn i) μ :=
+          fun _ => aemeasurable_const
+        have hb_ne : b ≠ 0 := ne_of_gt hb_pos
+        have hdiv : TendstoInDistribution
+            (fun n ω => (bn n * ξn n ω) / bn n) atTop
+            (fun _ : Ω => q / b) μ :=
+          Statlean.LimitTheorems.slutsky_div hb_ne hB_const hbn_meas hbn_const_aemeas
+        have han_meas :
+            TendstoInMeasure μ (fun n (_ : Ω) => an n) atTop (fun _ => a) :=
+          tendstoInMeasure_const_of_tendsto an a ha_lim
+        have han_const_aemeas : ∀ i, AEMeasurable (fun (_ : Ω) => an i) μ :=
+          fun _ => aemeasurable_const
+        have hmul : TendstoInDistribution
+            (fun n ω => an n * ((bn n * ξn n ω) / bn n)) atTop
+            (fun _ : Ω => a * (q / b)) μ :=
+          Statlean.LimitTheorems.slutsky_mul hdiv han_meas han_const_aemeas
+        have hbn_ne_eventually : ∀ᶠ n in atTop, bn n ≠ 0 := by
+          have hb_half_pos : 0 < b / 2 := by linarith
+          have h := (Metric.tendsto_atTop.mp hb_lim) (b / 2) hb_half_pos
+          rcases h with ⟨N, hN⟩
+          refine eventually_atTop.mpr ⟨N, fun n hn h0 => ?_⟩
+          have h1 := hN n hn
+          rw [h0, Real.dist_eq, zero_sub, abs_neg, abs_of_pos hb_pos] at h1
+          linarith
+        have hmul' : TendstoInDistribution (fun n ω => an n * ξn n ω) atTop
+            (fun _ : Ω => a * (q / b)) μ := by
+          refine ⟨hA.convD.forall_aemeasurable, aemeasurable_const, ?_⟩
+          have htendsto := hmul.tendsto
+          have hmap_eq : ∀ᶠ n in atTop,
+              μ.map (fun ω => an n * ((bn n * ξn n ω) / bn n)) =
+              μ.map (fun ω => an n * ξn n ω) := by
+            filter_upwards [hbn_ne_eventually] with n hn
+            apply Measure.map_congr
+            apply ae_of_all
+            intro ω
+            field_simp
+          apply htendsto.congr'
+          filter_upwards [hmap_eq] with n hn
+          apply Subtype.ext
+          simp [hn]
+        have hunique := tendstoInDistribution_unique
+          (fun n ω => an n * ξn n ω) hA.convD hmul'
+        rw [Measure.map_const] at hunique
+        have h_univ : (μ Set.univ : ENNReal) = 1 := measure_univ
+        rw [h_univ, one_smul] at hunique
+        have hξ_aemeas : AEMeasurable ξ μ := hA.convD.aemeasurable_limit
+        have hξ_const : ξ =ᵐ[μ] (fun _ => a * (q / b)) :=
+          ae_eq_const_of_map_eq_dirac hξ_aemeas (a * (q / b)) hunique
+        exact hξ_nondeg ⟨a * (q / b), hξ_const⟩
   obtain ⟨h_q_zero, h_ratio⟩ := h_main
   subst h_q_zero
   -- Step 4: Case-split on `p = 0?`.
