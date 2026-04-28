@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 203
+entry_count: 207
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -600,6 +600,10 @@ L2_api_chains:
     chain: "Measure.map_congr hξ_eq → μ.map ξ = μ.map (const c) → convert hA.convD.tendsto using 2 → Subtype.ext on ProbabilityMeasure pair"
     confidence: 5
 
+  - trigger: "UMVUE characterization restricted to functions of sufficient statistic / orthogonality on σ(S)"
+    chain: "Doob-Dynkin (Measurable.exists_eq_measurable_comp) → ∃V s.t. ψ = V∘S; condExp_eq_of_sufficient (Statlean LehmannScheffe) θ-invariance; MemLp.condExp + filter_upwards transfers L² to V∘S; integral_condExp tower; condExp_mul_of_aestronglyMeasurable_left for σ(S)-measurable factor pull-out"
+    confidence: 4
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -913,3 +917,15 @@ L1_tactic_tips:
   - trigger: "abs_add unknown identifier in Mathlib (Lean 4)"
     tip: "DO NOT use abs_add. Use abs_add_le instead (gives |a + b| ≤ |a| + |b|)."
     frequency: 2
+
+  - trigger: "rw fails because (V ∘ S) ω vs V (S ω) — defeq but syntactic"
+    tip: "State the have-lemma in the form you'll use it (∫ (V∘S) ω form) rather than relying on rfl/defeq later. Or use `change` to align."
+    frequency: 1
+
+  - trigger: "rw fails because fun ω => f ω * g ω vs f * g (Pi.mul) in condExp argument"
+    tip: "Restate goal/lemma using Pi.mul form (h∘S * δ') and add explicit congr_ae step via filter_upwards rfl."
+    frequency: 1
+
+  - trigger: "set p := <expr>; rw [<expr-form>]"
+    tip: "set already abstracts away the pattern; subsequent rw of original form fails. Apply rw before set, or use show after set."
+    frequency: 1
