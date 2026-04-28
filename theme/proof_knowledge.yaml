@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 198
+entry_count: 203
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -283,6 +283,10 @@ L3_strategies:
   - trigger: "TendstoInDistribution to const → TendstoInMeasure"
     strategy: "# REVIEW: similar to existing. "
     confidence: 3
+
+  - trigger: "Deterministic limit from two TendstoInMeasure: aₙξₙ →ᵖ p ≠ 0, bₙξₙ →ᵖ q ⇒ bₙ/aₙ → q/p"
+    strategy: "Pick threshold radii δA = min(|p|/2, ε|p|²/(4(|q|+1))), δB = ε|p|/4. Use 1/3+1/3 < 1 (via ENNReal.div_lt_iff with Or.inl) so both bad-set measures ≤ 1/3 give union < 1. Complement nonempty by IsProbabilityMeasure. Pick witness ω₀, derive |aₙξₙω₀| > |p|/2 via triangle inequality. Algebraic decomposition v/u - q/p = (v-q)/u - q(u-p)/(p·u). Bound each piece strictly by ε/2."
+    confidence: 4
 
 # ═══════════════════════════════════════════
 # L2 — API 链路（Mathlib 引理串联方案）
@@ -592,6 +596,10 @@ L2_api_chains:
     source: Statlean/Variance/UStatistic.lean cov_hSub_eq_uZeta
     confidence: 4
 
+  - trigger: "TendstoInDistribution to ξ where ξ =ᵐ const c, want TendstoInDistribution to const c"
+    chain: "Measure.map_congr hξ_eq → μ.map ξ = μ.map (const c) → convert hA.convD.tendsto using 2 → Subtype.ext on ProbabilityMeasure pair"
+    confidence: 5
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -892,4 +900,16 @@ L1_tactic_tips:
 
   - trigger: "axiom in section with section variables"
     tip: "Lean 4 axiom in section: allowed, section variables auto-inserted into axiom signature. Use single docstring immediately before axiom (no consecutive docstrings)."
+    frequency: 1
+
+  - trigger: "ENNReal mul_lt_mul_left fails to synthesize for ℝ"
+    tip: "DO NOT use mul_lt_mul_left for ℝ (needs MulRightStrictMono). Use mul_lt_mul_of_pos_left instead."
+    frequency: 1
+
+  - trigger: "Need ENNReal a + b < 1 with a, b ≤ 1/3"
+    tip: "Compute 1/3 + 1/3 = 2/3 via ENNReal.div_add_div_same + norm_num. Then 2/3 < 1 via ENNReal.div_lt_iff with Or.inl Or.inl. Avoid div_lt_div_iff (doesn't exist for ENNReal)."
+    frequency: 1
+
+  - trigger: "abs_add unknown identifier in Mathlib (Lean 4)"
+    tip: "DO NOT use abs_add. Use abs_add_le instead (gives |a + b| ≤ |a| + |b|)."
     frequency: 1
