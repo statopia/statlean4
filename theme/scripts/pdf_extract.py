@@ -111,30 +111,427 @@ def scan_pages_for_keyword(pdf_path: Path, keyword: str) -> List[int]:
     return matching_pages
 
 
-def scan_pages_for_theorem(pdf_path: Path, theorem_id: str) -> List[int]:
-    """Find pages containing a specific theorem (e.g., "4.1", "Theorem 4.1").
-    Returns the theorem page + next page (for proofs that span pages)."""
-    import pymupdf
-    doc = pymupdf.open(str(pdf_path))
-    matching = []
+def _strict_scan_hits(doc, theorem_id: str, kind: Optional[str]) -> List[int]:
+    """Internal: page indices matching tier-1 STRICT declaration patterns.
+
+    No clustering, no spill, no tier-2 fallback. Used by both
+    `scan_pages_for_theorem` (which then takes [first_cluster] + spill) and
+    `find_all_declaration_clusters` (which clusters and returns all). The
+    three regex arms (A: strict-leading, B: loose-leading + strict trailing,
+    C: bare-paren-with-period for assumption-like kinds) match the same
+    declaration shapes documented in `scan_pages_for_theorem`'s docstring.
+
+    `doc` is an already-opened pymupdf document; caller manages the
+    open/close lifecycle.
+    """
     all_keywords = THEOREM_KEYWORDS + ["example", "remark", "conjecture"]
-    keyword_alt = "|".join(all_keywords + ["thm", "lem", "cor", "prop", "def", "ex", "rem"])
-    patterns = [
-        re.compile(rf"(?:{keyword_alt})\.?\s*{re.escape(theorem_id)}", re.IGNORECASE),
-        # Also match just the bare identifier in case of different formatting.
-        # Case-insensitive: user may type "lemma s3" while the PDF prints
-        # "Lemma S3" or vice-versa — old case-sensitive regex missed both.
-        re.compile(rf"\b{re.escape(theorem_id)}\b", re.IGNORECASE),
-    ]
+    kind_alt_loose = "|".join(
+        all_keywords + ["thm", "lem", "cor", "prop", "def", "ex", "rem"]
+    )
+    kind_alt = re.escape(kind) if kind else kind_alt_loose
+
+    escaped = re.escape(theorem_id)
+    end_anchor = r"(?!\d|\.\d)"
+
+    strict_re = re.compile(
+        rf"(?:^|[\.\!?:]\s+)\b(?:{kind_alt})\s+{escaped}{end_anchor}\s*[\.\(:]",
+        re.IGNORECASE,
+    )
+    loose_decl_re = re.compile(
+        rf"\n\s*\b(?:{kind_alt})\s+{escaped}{end_anchor}\s*"
+        rf"(?:\([^\)]{{4,}}\)|\.\s+[A-Z]|:\s+[A-Z])",
+        re.IGNORECASE,
+    )
+    # Path C: bare-paren declaration form `(<id>) <body>` for
+    # Assumption / Condition / Hypothesis kinds. Two-stage detection:
+    #
+    #  Stage 1 (regex): line-anchored paren + same-line content.
+    #    `(?:^|\n)\s*\(<id>\)[ \t]*[\.:]?[ \t]+\S`
+    #    `[ \t]+\S` forbids the `(S1)\n` equation-label form (newline
+    #    immediately after paren = no same-line content).
+    #
+    #  Stage 2 (line-walk): wrap-continuation rejection. pymupdf wraps
+    #    long sentences at column boundaries, so a body sentence like
+    #    "...Under Assumption\n(A1) guarantees..." surfaces with `(A1)`
+    #    at line start — stage 1's regex would falsely accept it. We
+    #    inspect the last meaningful char before the match: real
+    #    declarations are preceded by sentence-terminating punctuation
+    #    (`.!?:`) or paragraph break (empty); wrap continuations are
+    #    preceded by alphanumeric content. Cross-page lookback is
+    #    required because the wrap may span the page boundary (hd p.8
+    #    ends with "Assumption", p.9 starts with "(A1) guarantees").
+    #
+    # Real-paper body variants observed:
+    #   - Cox `(A1). For any X1...` — period + space + body
+    #   - hd  `(A1) X1, ...`        — space + body (no period)
+    #   - hd  `(A2) max1≤i≤n ...`   — space + lowercase
+    #   - hd  `(B2) |σ̂^2 ...`       — space + math symbol
+    bare_paren_active = (
+        kind is not None and kind.lower() in ("assumption", "condition", "hypothesis")
+    )
+    bare_paren_re: Optional[re.Pattern[str]] = None
+    if bare_paren_active:
+        bare_paren_re = re.compile(
+            rf"(?:^|\n)\s*\(\s*{escaped}{end_anchor}\s*\)[ \t]*[\.:]?[ \t]+\S",
+            re.IGNORECASE,
+        )
+
+    hits: List[int] = []
+    prev_page_text: Optional[str] = None
     for i in range(len(doc)):
         text = doc[i].get_text()
-        if any(p.search(text) for p in patterns):
-            matching.append(i)
-            # Also include next page (proof might continue)
-            if i + 1 < len(doc):
-                matching.append(i + 1)
-    doc.close()
-    return sorted(set(matching))
+        page_hit = (
+            strict_re.search(text) is not None
+            or loose_decl_re.search(text) is not None
+        )
+        if not page_hit and bare_paren_active and bare_paren_re is not None:
+            page_hit = _has_bare_paren_decl(text, bare_paren_re, prev_page_text)
+        if page_hit:
+            hits.append(i)
+        prev_page_text = text
+    return hits
+
+
+def _last_content_char(text: str) -> Optional[str]:
+    """Last meaningful non-whitespace char of `text`, skipping a trailing
+    page-number footer (a final line containing only digits). Used by
+    path C to inspect the previous page's content tail when a match
+    falls at the top of the current page (no in-page predecessor).
+
+    Returns None when text has no content at all (entirely whitespace
+    or only a page-number footer).
+    """
+    lines = text.rstrip().split("\n")
+    while lines and lines[-1].strip().isdigit():
+        lines.pop()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if not lines:
+        return None
+    last = lines[-1].rstrip()
+    return last[-1] if last else None
+
+
+def _has_bare_paren_decl(
+    text: str,
+    pattern: re.Pattern[str],
+    prev_page_text: Optional[str],
+) -> bool:
+    """Path C wrap-continuation rejection: does at least one `pattern`
+    match in `text` correspond to a real declaration, not a wrap
+    continuation of an earlier sentence?
+
+    A match qualifies as a real declaration when the last meaningful
+    character before it is sentence-terminating punctuation (`.!?:`)
+    or there is no preceding content (paragraph break / doc start).
+    A match disqualifies (treated as wrap continuation) when the
+    preceding content's last char is alphanumeric — that means an
+    earlier sentence wrapped onto this paren-leading line.
+
+    `prev_page_text` provides cross-page lookback for matches at the
+    top of the page (where in-page predecessor is empty).
+    """
+    for m in pattern.finditer(text):
+        before = text[: m.start()]
+        # Walk back to last non-whitespace char in this page.
+        idx = len(before) - 1
+        while idx >= 0 and before[idx].isspace():
+            idx -= 1
+        if idx >= 0:
+            trail: Optional[str] = before[idx]
+        elif prev_page_text is not None:
+            trail = _last_content_char(prev_page_text)
+        else:
+            trail = None  # truly at doc start
+
+        if trail is None or trail in ".!?:":
+            return True
+        # else: alpha/digit/other — wrap continuation, try next match
+    return False
+
+
+def _cluster_strict_hits(strict_hits: List[int]) -> List[List[int]]:
+    """Group strictly-adjacent (gap ≤ 1) page indices into clusters.
+
+    Each declaration of a theorem typically spans 1-2 pages (statement
+    page + spill); a 1-page gap between hits is normal. A gap > 1 means
+    we've hit a different declaration of the same id elsewhere — a
+    re-declaration in another chapter (rare but real, e.g. Cox change-
+    point's `Lemma S1` is declared on p.14 in main paper AND on p.33 as
+    a re-statement citing Zhou et al. in the supplementary).
+    """
+    if not strict_hits:
+        return []
+    clusters: List[List[int]] = [[strict_hits[0]]]
+    for p in strict_hits[1:]:
+        if p - clusters[-1][-1] <= 1:
+            clusters[-1].append(p)
+        else:
+            clusters.append([p])
+    return clusters
+
+
+def find_all_declaration_clusters(
+    pdf_path: Path,
+    theorem_id: str,
+    kind: Optional[str] = None,
+) -> List[List[int]]:
+    """All tier-1 strict declaration clusters of `(kind, theorem_id)`.
+
+    Public companion to `scan_pages_for_theorem` for callers (notably the
+    CLI's main()) that need to know whether a query has more than one
+    declaration cluster and where they live. `scan_pages_for_theorem`
+    returns only the FIRST cluster (the canonical paper-intent declaration);
+    this returns ALL clusters so the caller can warn the user / agent
+    about possible re-declarations they may want to inspect with an
+    explicit `--pages <range>` follow-up.
+
+    Each cluster is a list of consecutive 0-indexed pages. Returns ``[]``
+    when no strict-declaration hit is found anywhere (caller may then
+    fall back to interpreting an empty result as "not declared in this
+    paper" or proceed to tier-2 / external-reference handling).
+    """
+    import pymupdf
+    doc = pymupdf.open(str(pdf_path))
+    try:
+        return _cluster_strict_hits(_strict_scan_hits(doc, theorem_id, kind))
+    finally:
+        doc.close()
+
+
+def scan_pages_for_theorem(
+    pdf_path: Path,
+    theorem_id: str,
+    *,
+    kind: Optional[str] = None,
+) -> List[int]:
+    r"""Find the page(s) where a specific theorem is **declared**.
+
+    Two-tier strategy, from first principles about how math PDFs render
+    declarations vs references:
+
+      Tier 1 — declaration form: ``<Kind> <id>[.(:]``
+        Real declarations end in a heading marker (period for sentence-form
+        ``Theorem 3.9.``, paren for named-form ``Theorem 3.9 (Name)``, colon
+        for block-form). Real references typically end with ``,`` / no punct
+        (``by Theorem 3.9, we have...``). When tier 1 hits, returns ONLY the
+        first contiguous cluster of strictly-adjacent hits, plus 1 page of
+        proof spill. Theorems are declared once; later isolated hits with
+        the same id are back-refs from other chapters.
+
+      Tier 2 — loose fallback: ``<Kind>.?\s*<id>`` plus bare-id ``\b<id>\b``
+        Used only when tier 1 finds nothing AND ``kind`` is None (kindless
+        best-effort). When kind is given, tier-1's three arms (A/B/C) cover
+        every reasonable declaration form on real papers; if they still fail,
+        the citation is overwhelmingly likely external (e.g.
+        ``Theorem 4 in [18]`` referencing a bibliographic ref) and tier-2
+        wide-net would return dozens of pages of garbage. So kind-given
+        tier-1 miss returns ``[]`` — caller distinguishes "not in this paper"
+        from "found here". Tier-2 is preserved for kindless queries because
+        the user/agent there asked for a best-effort scan.
+
+    ``kind`` (e.g. ``"Theorem"``, ``"Lemma"``) restricts both tiers to that
+    specific theorem kind. Without it, all theorem-like keywords are tried
+    in a single alternation — kindless query then returns the EARLIEST
+    declaration of any kind (in Shao that's Example 3.9 on p.186, not
+    Theorem 3.9 on p.205). Pass kind when you have it (citations include
+    it; main() parses it from the ``--theorem`` arg).
+
+    The end-anchor ``(?!\d|\.\d)`` rejects sub-numbered ids: when looking
+    for ``3.1``, the regex won't match ``3.1.2`` or ``3.15``.
+    """
+    import pymupdf
+    doc = pymupdf.open(str(pdf_path))
+    try:
+        strict_hits = _strict_scan_hits(doc, theorem_id, kind)
+
+        if strict_hits:
+            clusters = _cluster_strict_hits(strict_hits)
+            cluster = clusters[0]
+            result = list(cluster)
+            # 1-page proof spill after the last page of the cluster.
+            if cluster[-1] + 1 < len(doc):
+                result.append(cluster[-1] + 1)
+            return sorted(set(result))
+
+        # Kind-given strict miss: caller specified an exact target, tier-1
+        # covers all reasonable declaration shapes, and we still found
+        # nothing — the citation is almost certainly external. Fail-empty
+        # so the caller knows "not here" rather than receiving 30+ pages
+        # of bare-id back-references via tier-2 wide-net.
+        if kind:
+            return []
+
+        all_keywords = THEOREM_KEYWORDS + ["example", "remark", "conjecture"]
+        kind_alt_loose = "|".join(
+            all_keywords + ["thm", "lem", "cor", "prop", "def", "ex", "rem"]
+        )
+        kind_alt = re.escape(kind) if kind else kind_alt_loose
+        escaped = re.escape(theorem_id)
+        end_anchor = r"(?!\d|\.\d)"
+
+        # Tier 2: loose fallback when strict found nothing.
+        # Original wide-net behavior preserved — this is the OCR-failed-heading
+        # / unusual-format escape hatch. On big PDFs without a tier-1 hit, the
+        # user is already in trouble: main() will then fail closed for >15-page
+        # PDFs (see SystemExit in main()), so the noise here is bounded.
+        loose_re = re.compile(
+            rf"(?:{kind_alt})\.?\s*{escaped}{end_anchor}",
+            re.IGNORECASE,
+        )
+        bare_re = re.compile(rf"\b{escaped}{end_anchor}", re.IGNORECASE)
+        matching: List[int] = []
+        for i in range(len(doc)):
+            text = doc[i].get_text()
+            if loose_re.search(text) or bare_re.search(text):
+                matching.append(i)
+                if i + 1 < len(doc):
+                    matching.append(i + 1)
+        return sorted(set(matching))
+    finally:
+        doc.close()
+
+
+_KIND_ARG_CANON = {
+    "theorem": "Theorem", "thm": "Theorem",
+    "lemma": "Lemma", "lem": "Lemma",
+    "proposition": "Proposition", "prop": "Proposition",
+    "corollary": "Corollary", "cor": "Corollary",
+    "definition": "Definition", "def": "Definition",
+    "assumption": "Assumption",
+    "example": "Example", "ex": "Example",
+    "remark": "Remark", "rem": "Remark",
+    "conjecture": "Conjecture",
+}
+
+
+def parse_theorem_arg(arg: str) -> Tuple[Optional[str], str]:
+    """Parse `--theorem <arg>` into (kind, id).
+
+    Accepts:
+      "Theorem 3.9"   → ("Theorem", "3.9")
+      "lemma S5"      → ("Lemma", "S5")
+      "Thm 1.2"       → ("Theorem", "1.2")
+      "Prop. 4.1"     → ("Proposition", "4.1")
+      "4.1"           → (None, "4.1")          ← bare id, kindless
+      "Hauptsatz 2"   → (None, "Hauptsatz 2")  ← unrecognized, treat whole as id
+
+    Rationale: `scan_pages_for_theorem(pdf, id, kind=<X>)` restricts the scan
+    to that specific kind, so `Example 3.9` won't shadow `Theorem 3.9` (this
+    matters in textbooks where the same numeric id is used across kinds —
+    Shao has Example 3.9 on p.186 AND Theorem 3.9 on p.205).
+    """
+    pattern = "|".join(_KIND_ARG_CANON.keys())
+    m = re.match(rf"^\s*({pattern})\s*\.?\s*(\S+)\s*$", arg, re.IGNORECASE)
+    if m:
+        return _KIND_ARG_CANON[m.group(1).lower()], m.group(2)
+    return None, arg.strip()
+
+
+def scan_proof_span_for_theorem(
+    pdf_path: Path,
+    kind: Optional[str],
+    theorem_id: str,
+    *,
+    max_span_pages: int = 4,
+) -> List[int]:
+    r"""Find the page range of a ``Proof of <kind> <id>.`` block.
+
+    Distinct from ``scan_pages_for_theorem`` (which locates the *declaration*).
+    Statistical papers commonly defer proofs to a supplementary appendix far
+    from the lemma statement — Cox change-point paper has Lemma S1 declared
+    on p.14 but proved on p.47-49. The "first declaration cluster + 1 spill"
+    heuristic in scan_pages_for_theorem misses that proof entirely. This
+    function returns the proof-body span as a separate concept.
+
+    Anchor: ``(?:^|\n)\s*Proof\s+of\s+<kind>\s+<id>(?:\(...\))?\s*[.:]`` —
+    sentence-start leading + declarative trailing, optional parenthesised
+    name between id and terminator (``Proof of Theorem 5.1 (Continuity).``).
+
+    Span end signals (any of):
+      - Next ``Proof of`` header on a downstream page
+      - ``∎`` / ``□`` / ``QED`` / ``Q.E.D.`` mark on any subsequent page
+      - ``max_span_pages`` cap (default 4 — proofs rarely exceed without a
+        terminator surfacing; cap guards against runaway on malformed PDFs)
+
+    The terminator page is INCLUDED in the result. Rationale: when the next
+    ``Proof of`` header starts mid-page, the previous proof's last sentences
+    sit on the same page (Cox p.49 = end of Lemma S1 proof + start of
+    Proof of Theorem 1). Excluding it would drop those sentences.
+
+    Returns ``[]`` when no anchor is found. This is a legitimate signal —
+    the paper may state the lemma without proof (cited from another work);
+    callers must not treat empty as error.
+
+    ``kind=None`` falls back to scanning all theorem-like keywords. Pass an
+    explicit kind whenever known to avoid pathological cross-kind matches
+    (``Proof of Example 3.9`` shouldn't match a query for ``Theorem 3.9``).
+    """
+    import pymupdf
+
+    escaped_id = re.escape(theorem_id)
+    end_anchor = r"(?!\d|\.\d)"  # rejects 3.1.2 / 3.15 when looking for 3.1
+    if kind:
+        kind_alt = re.escape(kind)
+    else:
+        all_kw = THEOREM_KEYWORDS + ["example", "remark", "conjecture"]
+        kind_alt = "|".join(
+            all_kw + ["thm", "lem", "cor", "prop", "def", "ex", "rem"]
+        )
+
+    # Anchor: declarative leading + optional named-theorem parens + closer.
+    # `(?:\([^)]*\))?` permits "Proof of Theorem 5.1 (Continuity)." form.
+    proof_start_re = re.compile(
+        rf"(?:^|\n)\s*Proof\s+of\s+(?:{kind_alt})\s+{escaped_id}{end_anchor}"
+        rf"\s*(?:\([^)]*\))?\s*[\.:]",
+        re.IGNORECASE,
+    )
+    # Terminator: any subsequent "Proof of <something> <id>" header — kind
+    # is unconstrained because *any* next proof ends the current span.
+    # `\S+` for id captures "S1" / "1.5" / "3.4.1" / "A3" uniformly.
+    next_proof_re = re.compile(
+        r"(?:^|\n)\s*Proof\s+of\s+\w+\s+\S+\s*(?:\([^)]*\))?\s*[\.:]",
+        re.IGNORECASE,
+    )
+    qed_re = re.compile(r"[∎□]|\bQED\b|\bQ\.E\.D\.")
+
+    doc = pymupdf.open(str(pdf_path))
+    try:
+        # 1. Locate the start page + character offset of THIS proof.
+        start_page = -1
+        start_offset = -1
+        for i in range(len(doc)):
+            text = doc[i].get_text()
+            m = proof_start_re.search(text)
+            if m:
+                start_page = i
+                start_offset = m.end()
+                break
+        if start_page < 0:
+            return []
+
+        # 2. In-page terminator: same page contains the proof end (rare for
+        # appendix-style papers but possible for short proofs). Slice to the
+        # text AFTER this proof's start anchor so we don't self-terminate.
+        first_text = doc[start_page].get_text()
+        post_start = first_text[start_offset:]
+        if next_proof_re.search(post_start) or qed_re.search(post_start):
+            return [start_page]
+
+        # 3. Walk forward up to max_span_pages, accumulating pages until a
+        # terminator surfaces or the cap is hit. Terminator page included
+        # (see docstring rationale).
+        result = [start_page]
+        for i in range(
+            start_page + 1, min(start_page + max_span_pages + 1, len(doc))
+        ):
+            text = doc[i].get_text()
+            result.append(i)
+            if next_proof_re.search(text) or qed_re.search(text):
+                break
+        return result
+    finally:
+        doc.close()
 
 
 def parse_page_range(page_spec: str, total_pages: int) -> List[int]:
@@ -152,6 +549,320 @@ def parse_page_range(page_spec: str, total_pages: int) -> List[int]:
             if 1 <= p <= total_pages:
                 pages.add(p - 1)
     return sorted(pages)
+
+
+# ── Citation extraction (for --include-deps) ──────────────────────
+#
+# Anchors restricted to explicit math-citation phrases. We deliberately
+# skip bare equation refs `(2.6)` because those collide with theorem ids
+# and produce too many false positives. Likewise skip vague references
+# like "the previous lemma" / "above" — they require structural parsing
+# we don't have.
+
+_DEP_KIND_EN = (
+    r"Lemma|Theorem|Proposition|Corollary|Definition|Assumption|Hypothesis|Conjecture"
+)
+_DEP_KIND_ZH = r"引理|定理|命题|推论|定义|假设|猜想"
+_DEP_VERB_EN = r"by|via|from|using|applying|per|invoke|invokes|invoking|see"
+_DEP_VERB_ZH = r"由|根据|应用|利用|参见"
+# ID forms covered (from inspecting real papers):
+#   - chapter.theorem:   3.9, 3.4.1
+#   - appendix style:    A3, A.1, B.1, S5, S2.3 (S = supplementary; common
+#                        in stat papers; `A.1` and `B.1` use a dot between
+#                        letter and number)
+#   - assumption refs:   A1, A2, A3 (Shao Theorem 3.8/3.9/3.10 reference these)
+# Optional `[A-Z]\.?` prefix then digits, then 0-3 `.digit` segments. Won't
+# match Roman numerals (IV.2 — rare) or sub-letter suffixes (3.9a — the
+# bare-digit core matches and trailing letter is lost).
+_DEP_ID = r"(?:[A-Z]\.?)?\d+(?:\.\d+){0,3}"
+
+# Same id, optionally wrapped in ASCII parens. Used inside kind-anchored
+# citation captures where `Assumption (A3)` and `Assumption A3` should
+# parse identically. Kept distinct from `_DEP_ID` because the bare-paren
+# form must NOT be matched outside a kind anchor — `(2.6)` standing alone
+# is the equation declaration form, handled by `scan_pages_for_equation`.
+_DEP_ID_PARENS = rf"\(?{_DEP_ID}\)?"
+
+# Range / list separators between ids inside one citation:
+#   - `,` `and` `&` `or` — list form (existing behavior)
+#   - `–` (U+2013 EN DASH) — typographically correct for ranges, what real
+#     papers print (Cox change-point: `Assumptions (A1)–(A10)`)
+#   - `—` (U+2014 EM DASH) — alternative typesetting convention
+#   - `-` (ASCII hyphen) — what OCR sometimes emits when the en/em dash is
+#     mis-recognized; accepted because the kind anchor already bounds the
+#     match to citation context (no risk of matching unrelated `2-3`).
+# Range expansion convention: take ENDPOINTS only. Assumption / lemma
+# blocks declare contiguously in real papers, so the declaration pages of
+# A1 and A10 cover A2–A9 via the natural page-set union — cheaper and
+# avoids letter-sequence enumeration edge cases (A.1.2–A.1.7 etc.).
+# Order matters: regex alternation matches left-to-right, first-success.
+# `,\s*and` must be tried BEFORE bare `,` so `2.1, 2.3, and 2.5` parses as
+# four-id list (Oxford comma) rather than truncating at `2.3` because the
+# bare `,` matched but `and 2.5` doesn't begin with a valid id.
+_RANGE_OR_LIST_SEP_EN = r"(?:,\s*and|,|and|&|or|–|—|-)"
+_RANGE_OR_LIST_SEP_ZH = r"(?:,|，|和|与|及|至|到|–|—|-)"
+
+# English: `by Lemma 2.1`, `via Theorems 1.5 and 1.6`, `using Assumption A.1`,
+# bare `Definition 1.1` (when conjoined like "...Lemma 2.1 and Definition 1.1").
+# Verb anchor optional: dropping it lets the second clause of a conjoined
+# citation match (the leading verb only attaches to the first noun phrase).
+# False-positive risk is bounded by `exclude_id` for self-references and by
+# the scan_pages_for_theorem step that requires the cited id to exist as a
+# theorem-like declaration *somewhere* in the PDF.
+# Capturing groups: (1) kind, (2) ids-blob — we then extract every \d+(\.\d+)*
+# from the blob to handle both `Lemmas 2.3 and 2.4` (list) and
+# `Lemmas 2.3–2.5` (range, endpoints only via _ID_PICK_RE iteration).
+_CITATION_EN_RE = re.compile(
+    rf"\b(?:(?:{_DEP_VERB_EN})\s+)?(?P<kind>{_DEP_KIND_EN})s?\b\s*"
+    rf"(?P<ids>{_DEP_ID_PARENS}(?:\s*{_RANGE_OR_LIST_SEP_EN}\s*{_DEP_ID_PARENS})*)",
+    re.IGNORECASE,
+)
+# Chinese: `由引理 2.1`, `根据定理 5.1 和 5.2`. No leading verb required when the
+# pair appears as a noun phrase (e.g. "由引理2.1可知"). Ids may be CJK-attached.
+_CITATION_ZH_RE = re.compile(
+    rf"(?:{_DEP_VERB_ZH})?\s*(?P<kind>{_DEP_KIND_ZH})\s*(?P<ids>{_DEP_ID_PARENS}(?:\s*{_RANGE_OR_LIST_SEP_ZH}\s*{_DEP_ID_PARENS})*)",
+)
+_ID_PICK_RE = re.compile(_DEP_ID)
+
+# ── Equation citations (added 2026-04-28 after Shao p.198 miss) ─────
+#
+# Math papers reference numbered equations as `model (3.25)` / `from (3.25)`
+# / `by (3.25)`. Bare `(3.25)` standing alone is the declaration form, not
+# a citation — captured by `scan_pages_for_equation` instead. Citation
+# anchors restricted to a closed set of math-context nouns + math-context
+# verbs/preps, so generic "(2.6) into (2.7)" with no preceding word doesn't
+# trigger noise.
+
+_EQ_NOUN = (
+    r"model|equation|equations|formula|formulas|system|expression"
+    r"|identity|relation|relations|condition|conditions"
+    r"|inequality|inequalities|Eq|Eqs"
+)
+_EQ_VERB = (
+    r"from|by|see|via|using|applying|substituting|replacing"
+    r"|satisfies|satisfying|gives|implies|holds|applies|follows"
+    r"|in|into|of|to"
+)
+_CITATION_EQ_RE = re.compile(
+    rf"\b(?:{_EQ_NOUN}|{_EQ_VERB})\s+\(\s*({_DEP_ID})\s*\)",
+    re.IGNORECASE,
+)
+
+# Map prose kind word back to the canonical English form scan_pages_for_theorem
+# already understands. The downstream scan only uses the id (case-insensitive
+# regex over the full alt list) so this is mostly cosmetic — but it keeps the
+# returned tuples readable when a caller logs them.
+_KIND_CANON = {
+    "lemma": "Lemma", "lemmas": "Lemma", "引理": "Lemma",
+    "theorem": "Theorem", "theorems": "Theorem", "定理": "Theorem",
+    "proposition": "Proposition", "propositions": "Proposition", "命题": "Proposition",
+    "corollary": "Corollary", "corollaries": "Corollary", "推论": "Corollary",
+    "definition": "Definition", "definitions": "Definition", "定义": "Definition",
+    "assumption": "Assumption", "assumptions": "Assumption", "假设": "Assumption",
+    "hypothesis": "Assumption", "hypotheses": "Assumption",
+    "conjecture": "Conjecture", "conjectures": "Conjecture", "猜想": "Conjecture",
+}
+
+
+def extract_citations(text: str, exclude_id: Optional[str] = None) -> List[Tuple[str, str]]:
+    """Find inline citations like 'by Lemma 2.1' or '由定理 5.3 和 5.4'.
+
+    Returns a list of (kind, id) tuples in document order, deduplicated.
+    `exclude_id` (e.g. the target theorem's own id) is filtered out so a
+    theorem's own restated id doesn't trigger a self-reference dep.
+
+    Patterns matched:
+      - English: `(by|via|from|using|applying|per|invoke|see) (Lemma|Theorem|...)s? <id>[, and <id>]*`
+      - Chinese: `[由|根据|...]?(引理|定理|...) <id>[, 和 <id>]*`
+      - Plurals: `Lemmas 2.3 and 2.4` → two entries
+    Patterns NOT matched (deliberate): bare `(2.6)` equation refs, "the previous
+    lemma", "Lemma X above" — too noisy / require structural understanding.
+    """
+    seen: set[Tuple[str, str]] = set()
+    out: List[Tuple[str, str]] = []
+    for rx in (_CITATION_EN_RE, _CITATION_ZH_RE):
+        for m in rx.finditer(text):
+            kind_raw = m.group("kind").lower()
+            kind = _KIND_CANON.get(kind_raw, kind_raw.capitalize())
+            for id_match in _ID_PICK_RE.finditer(m.group("ids")):
+                cid = id_match.group(0)
+                if exclude_id and cid == exclude_id:
+                    continue
+                key = (kind, cid)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(key)
+    # Equation refs — separate regex because the format is `<noun> (<id>)`
+    # not `<verb> <kind> <id>` (no kind word, just parens).
+    for m in _CITATION_EQ_RE.finditer(text):
+        cid = m.group(1)
+        if exclude_id and cid == exclude_id:
+            continue
+        key = ("Equation", cid)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
+def _truncate_at_next_declaration(text: str, target_id: str) -> str:
+    """Cut ``text`` at the position of the first non-target declaration.
+
+    Spill pages (the page after a target theorem's last declaration line)
+    often contain the start of the *next* theorem-like block — Example,
+    Theorem, Lemma, Corollary etc. extract_citations would then pull in
+    that next block's body as if it were a citation by the target. The
+    fix: when scanning a page text for citations, truncate at the first
+    declaration of any kind+id where ``id != target_id``.
+
+    Implementation note: uses the same boundary-anchored declaration
+    pattern as scan_pages_for_theorem tier 1, so what counts as a
+    declaration here matches what counts there. The target's own
+    declaration is skipped (id == target_id); only OTHER theorems'
+    declarations cut the text.
+    """
+    all_kw = THEOREM_KEYWORDS + ["example", "remark", "conjecture"]
+    kind_alt = "|".join(all_kw + ["thm", "lem", "cor", "prop", "def", "ex", "rem"])
+    end_anchor = r"(?!\d|\.\d)"
+    # Three alternation arms — each represents a different way a non-target
+    # declarative block can start on a spill page. Captured id is in
+    # group(1)/(2)/(3) depending on which arm fired.
+    #   Arm A: strict-leading (`. ` / line-start) + lax trailing — covers the
+    #     usual `Theorem 5.1.` / `Lemma 2.3 (...)` shapes.
+    #   Arm B: loose-leading (`\n`) + strict declarative trailing — covers
+    #     section-heading-followed-by-decl where heading lacks terminal punct.
+    #   Arm C: `Proof of <kind> <id>` boundaries — added 2026-04-28 after Cox
+    #     Lemma S1 case where p.49 contained end-of-S1-proof + start-of-
+    #     `Proof of Theorem 1.` header. Without arm C the `Theorem 1` slipped
+    #     into citation extraction as a false positive dep.
+    decl_re = re.compile(
+        rf"(?:^|[\.\!?:]\s+)\b(?:{kind_alt})\s+({_DEP_ID}){end_anchor}\s*[\.\(:]"
+        rf"|"
+        rf"\n\s*\b(?:{kind_alt})\s+({_DEP_ID}){end_anchor}\s*"
+        rf"(?:\([^\)]{{4,}}\)|\.\s+[A-Z]|:\s+[A-Z])"
+        rf"|"
+        rf"(?:^|\n)\s*Proof\s+of\s+(?:{kind_alt})\s+({_DEP_ID}){end_anchor}"
+        rf"\s*(?:\([^\)]*\))?\s*[\.:]",
+        re.IGNORECASE,
+    )
+    for m in decl_re.finditer(text):
+        cited_id = m.group(1) or m.group(2) or m.group(3)
+        if cited_id and cited_id != target_id:
+            return text[: m.start()]
+    return text
+
+
+def scan_pages_for_equation(pdf_path: Path, eq_id: str) -> List[int]:
+    """Find the page where equation ``(eq_id)`` is **declared**.
+
+    Equation declaration form: ``(<id>)`` standing alone on its own line —
+    that's the LaTeX `\\label{eq:foo}` rendered as a right-aligned number
+    after a display equation. Citations like ``model (3.25)`` always have
+    grammatical context (noun/verb before the parens) and never appear
+    bare; the bare-paren-on-own-line form is therefore a reliable
+    declaration signal.
+
+    Returns the declaration page + 1-page spill. Equations don't have the
+    cross-reference proliferation problem theorems have (the declaration
+    only renders once with the right-aligned number); first-cluster
+    heuristic isn't needed.
+
+    Returns ``[]`` if no declaration found (the equation might have been
+    inline-numbered or the paper uses a different convention).
+    """
+    import pymupdf
+    doc = pymupdf.open(str(pdf_path))
+    try:
+        escaped = re.escape(eq_id)
+        # `(?:^|\n)` start-of-line, optional whitespace, `(<id>)`, optional
+        # whitespace, end-of-line. `re.MULTILINE` lets `^/$` match line
+        # boundaries too — belt-and-braces for both pymupdf flavors.
+        decl_re = re.compile(
+            rf"(?:^|\n)\s*\({escaped}\)\s*(?:\n|$)",
+            re.MULTILINE,
+        )
+        for i in range(len(doc)):
+            if decl_re.search(doc[i].get_text()):
+                return [i, i + 1] if i + 1 < len(doc) else [i]
+        return []
+    finally:
+        doc.close()
+
+
+def expand_with_dependencies(
+    pdf_path: Path,
+    target_pages: List[int],
+    *,
+    exclude_id: Optional[str] = None,
+    max_total_pages: int = 30,
+) -> Tuple[List[int], List[Tuple[str, str]]]:
+    """Augment target_pages with pages where dependencies (cited Lemma /
+    Theorem / Definition / Assumption / ...) are *declared*.
+
+    Reuses scan_pages_for_theorem to locate the dep declaration page. Depth is
+    fixed to 1 by design — recursive expansion explodes page count on densely-
+    cited papers. Bumps to depth=2 should be opt-in via a future flag once we
+    have evidence it pays off in real runs.
+
+    Caps total pages at `max_total_pages` so a pathological paper can't blow
+    out the OCR budget. Returns (expanded_pages, found_citations) so the caller
+    can log the dep-trace decision.
+    """
+    import pymupdf
+
+    if not target_pages:
+        return list(target_pages), []
+
+    doc = pymupdf.open(str(pdf_path))
+    try:
+        # Per-page truncation at first non-target declaration. Prevents the
+        # spill page from bleeding next-theorem content into citation
+        # extraction (Shao Thm 3.13 case: spill p.213 contains Example 3.19
+        # whose body was getting pulled as if it were a Thm 3.13 dep).
+        target_id_for_truncate = exclude_id or ""
+        per_page_text = []
+        for i in target_pages:
+            if i >= len(doc):
+                continue
+            page_text = doc[i].get_text()
+            if target_id_for_truncate:
+                page_text = _truncate_at_next_declaration(
+                    page_text, target_id_for_truncate
+                )
+            per_page_text.append(page_text)
+        target_text = "\n".join(per_page_text)
+    finally:
+        doc.close()
+
+    citations = extract_citations(target_text, exclude_id=exclude_id)
+    if not citations:
+        return list(target_pages), []
+
+    extra: set[int] = set()
+    for cited_kind, cid in citations:
+        # Dispatch on kind. Equations get a dedicated scanner (paren-on-own-line
+        # is the declaration signal); theorems/lemmas/etc go through
+        # scan_pages_for_theorem with kind passed so `Theorem 3.6` won't pull
+        # in `Lemma 3.6` declarations and vice versa.
+        if cited_kind == "Equation":
+            pages = scan_pages_for_equation(pdf_path, cid)
+        else:
+            pages = scan_pages_for_theorem(pdf_path, cid, kind=cited_kind)
+        for p in pages:
+            if p not in target_pages:
+                extra.add(p)
+
+    merged = sorted(set(target_pages) | extra)
+    if len(merged) > max_total_pages:
+        # Keep target pages intact; truncate extras to fit budget.
+        keep_extras = max_total_pages - len(target_pages)
+        if keep_extras <= 0:
+            return list(target_pages), citations
+        sorted_extras = sorted(extra)[:keep_extras]
+        merged = sorted(set(target_pages) | set(sorted_extras))
+    return merged, citations
 
 
 # ═══════════════════════════════════════════════════════════
@@ -867,6 +1578,21 @@ def main() -> None:
                     help="Extract theorems matching a keyword/phrase. Auto-finds relevant pages.")
     ap.add_argument("--skip-ocr", action="store_true",
                     help="Skip extraction, use existing markdown in output-dir/raw/")
+    ap.add_argument("--include-deps", action="store_true",
+                    help="After resolving target pages (--theorem / --pages), scan them for "
+                         "inline citations (`by Lemma X.Y`, `由定理 X.Y`, ...) and also include the "
+                         "pages where those dependencies are declared. Useful when the target "
+                         "theorem cites lemmas / definitions / assumptions that live on earlier "
+                         "pages but the agent needs them in context. Depth fixed at 1.")
+    ap.add_argument("--deps-max-pages", type=int, default=30,
+                    help="Cap on total pages after dep expansion. Truncates extras (target pages "
+                         "always preserved). Default 30 — guards against pathological papers.")
+    ap.add_argument("--no-proof-span", action="store_true",
+                    help="With --theorem, by default also scan for `Proof of <Kind> <id>.` and "
+                         "union those pages into the target (e.g. Cox-style papers defer proofs "
+                         "to a supplementary appendix far from the lemma statement). Pass this "
+                         "flag to skip the proof-span lookup — useful for skeleton-only queries "
+                         "where you want the statement only.")
     args = ap.parse_args()
 
     pdf_path = Path(args.pdf).resolve()
@@ -882,20 +1608,85 @@ def main() -> None:
     print(f"[pdf-extract] PDF: {pdf_path.name} ({total_pages} pages)")
 
     target_pages: Optional[List[int]] = None
+    # Track the parsed theorem id (kind-stripped) for downstream consumers
+    # (--include-deps `exclude_id`, log labels). None when the user didn't
+    # supply --theorem or --pages took priority.
+    parsed_kind: Optional[str] = None
+    parsed_id: Optional[str] = None
 
-    if args.theorem:
-        target_pages = scan_pages_for_theorem(pdf_path, args.theorem)
+    # Priority: explicit --pages > --theorem > --query.
+    # Reason: when the user supplies an exact page range they know where the
+    # target is — heuristic scanning would only ever degrade that. The agent
+    # is allowed to pass both --pages and --theorem (e.g. user typed both
+    # into the UI); we structurally enforce "pages wins" so behavior doesn't
+    # depend on the agent's discipline. Falls through to scan when --pages
+    # is absent or parses to zero indices.
+    if args.pages:
+        target_pages = parse_page_range(args.pages, total_pages)
         if target_pages:
-            print(f"[pdf-extract] Theorem {args.theorem} found on pages: {[p+1 for p in target_pages]}")
+            print(f"[pdf-extract] Using specified pages: {[p+1 for p in target_pages]}")
+        else:
+            # Spec parsed to nothing (typo / out-of-range). Fall through so
+            # the user isn't punished for an unparseable spec when they also
+            # gave a usable --theorem / --query.
+            print(f"[pdf-extract] --pages {args.pages!r} parsed to no valid pages; falling through.")
+            target_pages = None
 
-    elif args.query:
+    if target_pages is None and args.theorem:
+        # Parse `--theorem` arg: extract kind hint if user typed
+        # "Theorem 3.9" (vs bare "3.9"). Kind disambiguates same-id
+        # collisions across declaration types (e.g. Shao has both
+        # Example 3.9 and Theorem 3.9).
+        parsed_kind, parsed_id = parse_theorem_arg(args.theorem)
+        decl_pages = scan_pages_for_theorem(pdf_path, parsed_id, kind=parsed_kind)
+        kind_label = parsed_kind if parsed_kind else "Theorem"
+        if decl_pages:
+            print(
+                f"[pdf-extract] {kind_label} {parsed_id} found on pages: "
+                f"{[p+1 for p in decl_pages]}"
+            )
+        # Multi-cluster note: when the same id is declared in two non-
+        # adjacent locations (Cox `Lemma S1` on p.14 + p.33 supplementary
+        # re-declaration), surface a stdout note so the agent / user knows
+        # the alternative exists and can re-run with `--pages <range>` to
+        # see it. We only return the first cluster (canonical paper-intent
+        # declaration); the note is informational, not behavior-changing.
+        all_clusters = find_all_declaration_clusters(
+            pdf_path, parsed_id, kind=parsed_kind
+        )
+        if len(all_clusters) > 1:
+            cluster_starts = [c[0] + 1 for c in all_clusters]
+            print(
+                f"[pdf-extract] note: {kind_label} {parsed_id} has "
+                f"{len(all_clusters)} non-adjacent declaration clusters at "
+                f"pages {cluster_starts}. Returning first cluster only; "
+                f"re-run with --pages <range> to see the alternatives."
+            )
+        # Proof-span union: many stat papers defer proofs to a supplementary
+        # appendix far from the lemma statement (Cox change-point: Lemma S1
+        # declared p.14, proved p.47-49). The declaration-cluster heuristic
+        # alone misses the proof body. Default-on union with explicit kind
+        # so cross-kind matches don't false-positive (e.g. `Proof of
+        # Example 3.9` shouldn't match a `--theorem "Theorem 3.9"` query).
+        # Opt-out via --no-proof-span for skeleton-only queries.
+        proof_pages: List[int] = []
+        if not args.no_proof_span and parsed_kind:
+            proof_pages = scan_proof_span_for_theorem(
+                pdf_path, parsed_kind, parsed_id
+            )
+            if proof_pages:
+                print(
+                    f"[pdf-extract] Proof of {kind_label} {parsed_id} found on "
+                    f"pages: {[p+1 for p in proof_pages]}"
+                )
+        target_pages = sorted(set(decl_pages) | set(proof_pages))
+        if not target_pages:
+            target_pages = []
+
+    if target_pages is None and args.query:
         target_pages = scan_pages_for_keyword(pdf_path, args.query)
         if target_pages:
             print(f"[pdf-extract] Query matches pages: {[p+1 for p in target_pages]}")
-
-    elif args.pages:
-        target_pages = parse_page_range(args.pages, total_pages)
-        print(f"[pdf-extract] Using specified pages: {[p+1 for p in target_pages]}")
 
     # If a targeted search returned 0 hits on a large PDF, DO NOT silently
     # fall back to full-PDF OCR — that's a multi-minute footgun. Instead
@@ -922,6 +1713,33 @@ def main() -> None:
         # Small PDFs: fall back to all pages (the old behavior — cheap).
         print("[pdf-extract] No matching pages found and PDF is short; falling back to all pages.")
         target_pages = None
+
+    # Dep expansion: pull in pages where cited Lemmas / Definitions / Assumptions
+    # are declared. Only meaningful when target_pages is a strict subset (full-PDF
+    # extraction already includes everything).
+    if args.include_deps and target_pages:
+        before = list(target_pages)
+        # Use the parsed bare id ("S1") for self-reference exclusion, NOT
+        # the raw `args.theorem` ("Lemma S1") — extract_citations compares
+        # `cid == exclude_id` against bare ids only, so the kind-prefixed
+        # form would never match and the target's own id would slip through
+        # as a self-citation. Falls back to args.theorem for backward
+        # compatibility when --pages was used without --theorem.
+        exclude_id = parsed_id if parsed_id else args.theorem
+        target_pages, citations = expand_with_dependencies(
+            pdf_path, before,
+            exclude_id=exclude_id,
+            max_total_pages=args.deps_max_pages,
+        )
+        added = sorted(set(target_pages) - set(before))
+        if citations:
+            print(f"[pdf-extract] --include-deps: found {len(citations)} citations "
+                  f"({', '.join(f'{k} {i}' for k, i in citations[:8])}"
+                  f"{'...' if len(citations) > 8 else ''})")
+        if added:
+            print(f"[pdf-extract] --include-deps: added {len(added)} dep pages: {[p+1 for p in added]}")
+        else:
+            print("[pdf-extract] --include-deps: no extra pages added (citations resolved within target).")
 
     # Determine backend.
     #
