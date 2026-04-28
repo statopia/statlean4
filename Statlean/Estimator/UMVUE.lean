@@ -15,9 +15,8 @@ exponential family construction, and unestimability.
 * `expfamily_umvue` — unbiased function of complete sufficient T is UMVUE
 * `unestimable_of_complete_no_function` — completeness negative side
 
-### sorry inventory (2 sorry)
-- `umvue_ae_unique`: parallelogram identity for L² → ae equality (~30 lines)
-- `unestimable_of_complete_no_function`: Doob-Dynkin + sufficiency (~40 lines)
+### sorry inventory (0 sorry)
+All theorems in this file are proved.
 -/
 
 open MeasureTheory ProbabilityTheory Filter
@@ -534,10 +533,11 @@ Proof sketch (Shao, p.167): Any zero-unbiased `U` gives `E(U | S)` which is
 (a) still zero-unbiased, (b) a Borel function of `S`. Then
 `E(TU) = E[E(TU | S)] = E[h(S) · E(U | S)]`, reducing part (i) to the restricted class.
 
--- blocker: requires conditional expectation tower + sufficiency invariance
--- estimated effort: ~80 lines (relying on Sufficiency/LehmannScheffe infrastructure) -/
+Proved via Doob-Dynkin (`Measurable.exists_eq_measurable_comp`) + sufficiency invariance
+(`condExp_eq_of_sufficient`) + tower (`integral_condExp`) + condExp pull-out
+(`condExp_mul_of_aestronglyMeasurable_left`). -/
 theorem umvue_iff_orthogonal_to_sufficient_unbiasedOfZero
-    {α : Type*} [MeasurableSpace α]
+    {α : Type*} [MeasurableSpace α] [Nonempty Θ]
     (P : ParametricFamily Θ Ω) (S : Ω → α) (h : α → ℝ) (g : Θ → ℝ)
     (hS_suff : IsSufficient' P S)
     (hh_meas : Measurable h)
@@ -551,13 +551,328 @@ theorem umvue_iff_orthogonal_to_sufficient_unbiasedOfZero
       ∀ θ, Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ))
     (h_diff_sq : ∀ δ' : Ω → ℝ, IsUnbiased P δ' g →
       (∀ θ, Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ)) →
-      ∀ θ, Integrable (fun ω => ((h ∘ S) ω - δ' ω) ^ 2) (P.measure θ)) :
+      ∀ θ, Integrable (fun ω => ((h ∘ S) ω - δ' ω) ^ 2) (P.measure θ))
+    (h_int_of_sq : ∀ V : Ω → ℝ,
+      (∀ θ, Integrable (fun ω => (V ω) ^ 2) (P.measure θ)) →
+      ∀ θ, Integrable V (P.measure θ))
+    (h_competitors_L2 : ∀ δ' : Ω → ℝ, IsUnbiased P δ' g →
+      ∀ θ, Integrable (fun ω => (δ' ω - g θ) ^ 2) (P.measure θ))
+    (h_mul_int_general : ∀ U : Ω → ℝ,
+      (∀ θ, Integrable (fun ω => (U ω) ^ 2) (P.measure θ)) →
+      ∀ θ, Integrable (fun ω => (h ∘ S) ω * U ω) (P.measure θ)) :
     IsUMVUE P (h ∘ S) g ↔
       ∀ V : α → ℝ, Measurable V →
         IsUnbiasedOfZero P (V ∘ S) →
         (∀ θ, Integrable (fun ω => ((V ∘ S) ω) ^ 2) (P.measure θ)) →
         ∀ θ, ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂(P.measure θ) = 0 := by
-  sorry
+  have hS_meas : Measurable S := hS_suff.1
+  have hm_le : MeasurableSpace.comap S ‹MeasurableSpace α› ≤ ‹MeasurableSpace Ω› :=
+    hS_meas.comap_le
+  obtain ⟨θ₀⟩ := ‹Nonempty Θ›
+  -- Derive Integrable (h∘S) from h_int_of_sq
+  have hhS_int : ∀ θ, Integrable (h ∘ S) (P.measure θ) := h_int_of_sq (h ∘ S) hh_sq
+  refine ⟨?_, ?_⟩
+  · -- (⇒) UMVUE ⟹ orthogonal to V∘S for V zero-unbiased L²
+    -- Same quadratic-in-c argument as part (i), restricted to U = V∘S.
+    intro hUMVUE V hV_meas hV_zero hV_sq θ
+    obtain ⟨_, hT_min⟩ := hUMVUE
+    haveI : IsProbabilityMeasure (P.measure θ) := P.isProbability θ
+    have hVS_int : ∀ θ', Integrable (V ∘ S) (P.measure θ') := h_int_of_sq (V ∘ S) hV_sq
+    -- (h∘S) + c·(V∘S) is unbiased for any c (since E[V∘S]=0)
+    have hTcU_unb : ∀ c : ℝ, ∀ θ' : Θ,
+        ∫ ω, ((h ∘ S) ω + c * (V ∘ S) ω) ∂P.measure θ' = g θ' := by
+      intro c θ'
+      haveI : IsProbabilityMeasure (P.measure θ') := P.isProbability θ'
+      rw [integral_add (hhS_int θ') ((hVS_int θ').const_mul _),
+          integral_const_mul, hh_unb θ', hV_zero θ', mul_zero, add_zero]
+    -- MSE((h∘S)+c·(V∘S)) integrable
+    have hTcU_sq : ∀ c : ℝ, ∀ θ' : Θ,
+        Integrable (fun ω => ((h ∘ S) ω + c * (V ∘ S) ω - g θ') ^ 2) (P.measure θ') := by
+      intro c θ'
+      haveI : IsProbabilityMeasure (P.measure θ') := P.isProbability θ'
+      have hTg_sq : Integrable (fun ω => ((h ∘ S) ω - g θ') ^ 2) (P.measure θ') := by
+        have heq : (fun ω => ((h ∘ S) ω - g θ') ^ 2) =
+            fun ω => (h ∘ S) ω ^ 2 - 2 * g θ' * (h ∘ S) ω + g θ' ^ 2 := by ext ω; ring
+        rw [heq]
+        exact (hh_sq θ' |>.sub (hhS_int θ' |>.const_mul _)).add (integrable_const _)
+      have heq : (fun ω => ((h ∘ S) ω + c * (V ∘ S) ω - g θ') ^ 2) =
+          fun ω => ((h ∘ S) ω - g θ') ^ 2 + 2 * c * ((h ∘ S) ω * (V ∘ S) ω) +
+            c ^ 2 * (V ∘ S) ω ^ 2 - 2 * c * g θ' * (V ∘ S) ω := by ext ω; ring
+      rw [heq]
+      exact (hTg_sq.add (h_mul_int V hV_meas hV_sq θ' |>.const_mul _)).add
+        (hV_sq θ' |>.const_mul _) |>.sub ((hVS_int θ').const_mul _)
+    -- MSE(h∘S) ≤ MSE((h∘S)+c·(V∘S))
+    have hMSE_ineq : ∀ c : ℝ,
+        MSE P (h ∘ S) g θ ≤ MSE P (fun ω => (h ∘ S) ω + c * (V ∘ S) ω) g θ :=
+      fun c => hT_min (fun ω => (h ∘ S) ω + c * (V ∘ S) ω) (hTcU_unb c) θ
+    -- Expand MSE((h∘S)+c·(V∘S))
+    have hMSE_expand : ∀ c : ℝ,
+        MSE P (fun ω => (h ∘ S) ω + c * (V ∘ S) ω) g θ =
+        MSE P (h ∘ S) g θ + 2 * c * ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂P.measure θ +
+        c ^ 2 * ∫ ω, (V ∘ S) ω ^ 2 ∂P.measure θ := by
+      intro c
+      simp only [MSE]
+      have hTg_sq : Integrable (fun ω => ((h ∘ S) ω - g θ) ^ 2) (P.measure θ) := by
+        have heq : (fun ω => ((h ∘ S) ω - g θ) ^ 2) =
+            fun ω => (h ∘ S) ω ^ 2 - 2 * g θ * (h ∘ S) ω + g θ ^ 2 := by ext ω; ring
+        rw [heq]
+        exact (hh_sq θ |>.sub (hhS_int θ |>.const_mul _)).add (integrable_const _)
+      have hTg_TU :
+          Integrable (fun ω => ((h ∘ S) ω - g θ) ^ 2 + 2 * c * ((h ∘ S) ω * (V ∘ S) ω))
+            (P.measure θ) :=
+        hTg_sq.add (h_mul_int V hV_meas hV_sq θ |>.const_mul _)
+      have key : ∫ ω, ((h ∘ S) ω + c * (V ∘ S) ω - g θ) ^ 2 ∂P.measure θ =
+          ∫ ω, ((h ∘ S) ω - g θ) ^ 2 ∂P.measure θ +
+          2 * c * ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂P.measure θ +
+          c ^ 2 * ∫ ω, (V ∘ S) ω ^ 2 ∂P.measure θ -
+          2 * c * g θ * ∫ ω, (V ∘ S) ω ∂P.measure θ := by
+        have i1 : ∫ ω, ((h ∘ S) ω - g θ) ^ 2 + 2 * c * ((h ∘ S) ω * (V ∘ S) ω)
+            ∂P.measure θ =
+            ∫ ω, ((h ∘ S) ω - g θ) ^ 2 ∂P.measure θ +
+            2 * c * ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂P.measure θ :=
+          integral_add hTg_sq (h_mul_int V hV_meas hV_sq θ |>.const_mul _) |>.trans
+            (by rw [integral_const_mul])
+        have i2a : ∫ ω, (((h ∘ S) ω - g θ) ^ 2 + 2 * c * ((h ∘ S) ω * (V ∘ S) ω))
+              + c ^ 2 * (V ∘ S) ω ^ 2 ∂P.measure θ =
+            ∫ ω, ((h ∘ S) ω - g θ) ^ 2 + 2 * c * ((h ∘ S) ω * (V ∘ S) ω) ∂P.measure θ +
+            ∫ ω, c ^ 2 * (V ∘ S) ω ^ 2 ∂P.measure θ :=
+          integral_add hTg_TU (hV_sq θ |>.const_mul _)
+        have i2b : ∫ ω, c ^ 2 * (V ∘ S) ω ^ 2 ∂P.measure θ =
+            c ^ 2 * ∫ ω, (V ∘ S) ω ^ 2 ∂P.measure θ :=
+          integral_const_mul _ _
+        have i3 : ∫ ω, 2 * c * g θ * (V ∘ S) ω ∂P.measure θ =
+            2 * c * g θ * ∫ ω, (V ∘ S) ω ∂P.measure θ :=
+          integral_const_mul _ _
+        have i4 : ∫ ω, (((h ∘ S) ω - g θ) ^ 2 + 2 * c * ((h ∘ S) ω * (V ∘ S) ω))
+              + c ^ 2 * (V ∘ S) ω ^ 2 - 2 * c * g θ * (V ∘ S) ω ∂P.measure θ =
+            ∫ ω, (((h ∘ S) ω - g θ) ^ 2 + 2 * c * ((h ∘ S) ω * (V ∘ S) ω))
+              + c ^ 2 * (V ∘ S) ω ^ 2 ∂P.measure θ -
+            ∫ ω, 2 * c * g θ * (V ∘ S) ω ∂P.measure θ :=
+          integral_sub (hTg_TU.add (hV_sq θ |>.const_mul _)) ((hVS_int θ).const_mul _)
+        have i5 : ∫ ω, ((h ∘ S) ω + c * (V ∘ S) ω - g θ) ^ 2 ∂P.measure θ =
+            ∫ ω, (((h ∘ S) ω - g θ) ^ 2 + 2 * c * ((h ∘ S) ω * (V ∘ S) ω))
+              + c ^ 2 * (V ∘ S) ω ^ 2 - 2 * c * g θ * (V ∘ S) ω ∂P.measure θ := by
+          congr 1; ext ω; ring
+        linarith [i1, i2a, i2b, i3, i4, i5]
+      rw [key, hV_zero θ, mul_zero, sub_zero]
+    -- Quadratic-in-c nonnegativity ⟹ linear coefficient = 0
+    have hquad : ∀ c : ℝ, 0 ≤ 2 * c * ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂P.measure θ +
+        c ^ 2 * ∫ ω, (V ∘ S) ω ^ 2 ∂P.measure θ :=
+      fun c => by linarith [hMSE_ineq c, hMSE_expand c]
+    have hU_sq_nn : 0 ≤ ∫ ω, (V ∘ S) ω ^ 2 ∂P.measure θ :=
+      integral_nonneg (fun ω => sq_nonneg _)
+    set a := ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂P.measure θ
+    set b := ∫ ω, (V ∘ S) ω ^ 2 ∂P.measure θ
+    suffices a = 0 by exact this
+    by_contra ha
+    rcases lt_or_gt_of_ne ha with ha' | ha'
+    · rcases eq_or_lt_of_le hU_sq_nn with hb0 | hb0
+      · have := hquad 1; simp [← hb0] at this; linarith
+      · have hkey := hquad (-a / b)
+        have heq : 2 * (-a / b) * a + (-a / b) ^ 2 * b = -(a ^ 2 / b) := by
+          rw [div_pow, div_mul_eq_mul_div]; field_simp; ring
+        linarith [heq ▸ hkey, div_pos (sq_pos_of_neg ha') hb0]
+    · rcases eq_or_lt_of_le hU_sq_nn with hb0 | hb0
+      · have := hquad (-1); simp [← hb0] at this; linarith
+      · have hkey := hquad (-a / b)
+        have heq : 2 * (-a / b) * a + (-a / b) ^ 2 * b = -(a ^ 2 / b) := by
+          rw [div_pow, div_mul_eq_mul_div]; field_simp; ring
+        linarith [heq ▸ hkey, div_pos (sq_pos_of_pos ha') hb0]
+  · -- (⇐) Orthogonality on V∘S ⟹ UMVUE
+    -- For competitor δ' (unbiased), use sufficiency to obtain V∘S = E[δ'|σ(S)] (a.e.),
+    -- which is unbiased for g and L². Apply hypothesis to V∘S, then use tower property
+    -- ∫(h∘S)·δ' = ∫(h∘S)·E[δ'|σ(S)] = ∫(h∘S)·V∘S to derive ∫(h∘S)² = ∫(h∘S)·δ',
+    -- then ∫(h∘S - δ')² = ∫δ'² - ∫(h∘S)² ≥ 0 gives MSE comparison.
+    intro h_orth
+    refine ⟨hh_unb, fun δ' hδ'_unb θ => ?_⟩
+    haveI : IsProbabilityMeasure (P.measure θ) := P.isProbability θ
+    haveI : IsProbabilityMeasure (P.measure θ₀) := P.isProbability θ₀
+    haveI : IsFiniteMeasure (P.measure θ₀) := inferInstance
+    haveI : SigmaFinite ((P.measure θ₀).trim hm_le) := inferInstance
+    haveI : SigmaFinite ((P.measure θ).trim hm_le) := inferInstance
+    -- L² regularity for δ'
+    have hδ'_mse_sq : ∀ θ', Integrable (fun ω => (δ' ω - g θ') ^ 2) (P.measure θ') :=
+      h_competitors_L2 δ' hδ'_unb
+    have hδ'_sq_int : ∀ θ', Integrable (fun ω => (δ' ω) ^ 2) (P.measure θ') :=
+      h_sq_of_umvue_competitor δ' hδ'_unb hδ'_mse_sq
+    have hδ'_int : ∀ θ', Integrable δ' (P.measure θ') := h_int_of_sq δ' hδ'_sq_int
+    -- Doob-Dynkin: condExp σ(S) under θ₀ factors through S
+    set ψ := condExp (MeasurableSpace.comap S ‹MeasurableSpace α›) (P.measure θ₀) δ'
+      with hψ_def
+    have hψ_sm : StronglyMeasurable[MeasurableSpace.comap S ‹MeasurableSpace α›] ψ :=
+      stronglyMeasurable_condExp
+    obtain ⟨V, hV_meas, hψ_eq⟩ := hψ_sm.measurable.exists_eq_measurable_comp (f := S)
+    -- hψ_eq : ψ = V ∘ S
+    -- Sufficiency: condExp σ(S) at any θ' equals at θ₀ a.e. P_θ'
+    have h_inv : ∀ θ', condExp (MeasurableSpace.comap S ‹MeasurableSpace α›)
+        (P.measure θ') δ' =ᵐ[P.measure θ'] ψ := by
+      intro θ'
+      have := Statlean.Sufficiency.LehmannScheffe.condExp_eq_of_sufficient
+        P S hS_suff δ' θ' θ₀ (hδ'_int θ') (hδ'_int θ₀)
+      exact this
+    -- V∘S =ᵐ[P.measure θ'] condExp σ(S) (P.measure θ') δ' for any θ'
+    have hVS_eq_condExp : ∀ θ', (V ∘ S) =ᵐ[P.measure θ']
+        condExp (MeasurableSpace.comap S ‹MeasurableSpace α›) (P.measure θ') δ' := by
+      intro θ'
+      filter_upwards [h_inv θ'] with ω hω
+      simp only [Function.comp]
+      rw [hω]
+      exact (congr_fun hψ_eq ω).symm
+    -- V∘S is unbiased for g (tower + sufficiency)
+    have hVS_unb : ∀ θ', ∫ ω, (V ∘ S) ω ∂(P.measure θ') = g θ' := by
+      intro θ'
+      haveI : IsProbabilityMeasure (P.measure θ') := P.isProbability θ'
+      haveI : SigmaFinite ((P.measure θ').trim hm_le) := inferInstance
+      have h_tower : ∫ ω, condExp (MeasurableSpace.comap S ‹_›) (P.measure θ') δ' ω
+          ∂(P.measure θ') = g θ' := by
+        rw [integral_condExp hm_le]; exact hδ'_unb θ'
+      rw [← h_tower]
+      refine integral_congr_ae ?_
+      filter_upwards [hVS_eq_condExp θ'] with ω hω
+      exact hω
+    have hVS_unb' : IsUnbiased P (V ∘ S) g := hVS_unb
+    -- V∘S is L² (MSE reduction)
+    have hVS_sq : ∀ θ', Integrable (fun ω => ((V ∘ S) ω) ^ 2) (P.measure θ') := by
+      intro θ'
+      haveI : IsProbabilityMeasure (P.measure θ') := P.isProbability θ'
+      haveI : SigmaFinite ((P.measure θ').trim hm_le) := inferInstance
+      -- (V∘S)² has integral = ∫ (condExp δ')² ≤ ∫ δ'² (Jensen / L² contraction)
+      -- We use: condExp δ' is in L² when δ' is, and (V∘S) =ᵐ condExp δ'.
+      have hL2 : MemLp δ' 2 (P.measure θ') := by
+        rw [memLp_two_iff_integrable_sq (hδ'_int θ').aestronglyMeasurable]
+        exact hδ'_sq_int θ'
+      have h_condExp_L2 : MemLp (condExp (MeasurableSpace.comap S ‹MeasurableSpace α›)
+          (P.measure θ') δ') 2 (P.measure θ') := hL2.condExp
+      have h_VS_L2 : MemLp (V ∘ S) 2 (P.measure θ') :=
+        h_condExp_L2.ae_eq (hVS_eq_condExp θ').symm
+      have := h_VS_L2.integrable_sq
+      -- this : Integrable (fun ω => (V ∘ S) ω ^ 2) (P.measure θ')
+      exact this
+    -- V∘S - h∘S → wait, we want h∘S - V∘S to be the zero-unbiased witness
+    -- Actually: h∘S - V∘S has E = g - g = 0, so it IS zero-unbiased
+    -- but we need the witness in the form V'∘S where V' is α→ℝ.
+    -- Let V' := h - V. Then V'∘S = h∘S - V∘S.
+    have hV'_meas : Measurable (h - V) := hh_meas.sub hV_meas
+    have hV'_unb : IsUnbiasedOfZero P ((h - V) ∘ S) := by
+      intro θ'
+      haveI : IsProbabilityMeasure (P.measure θ') := P.isProbability θ'
+      have heq : ((h - V) ∘ S) = fun ω => (h ∘ S) ω - (V ∘ S) ω := by
+        ext ω; simp [Function.comp]
+      rw [heq, integral_sub (hhS_int θ') (h_int_of_sq (V ∘ S) hVS_sq θ'),
+          hh_unb θ', hVS_unb θ']
+      simp
+    have hV'_sq : ∀ θ', Integrable (fun ω => (((h - V) ∘ S) ω) ^ 2) (P.measure θ') := by
+      intro θ'
+      have heq : (fun ω => (((h - V) ∘ S) ω) ^ 2) =
+          fun ω => (h ∘ S) ω ^ 2 - 2 * ((h ∘ S) ω * (V ∘ S) ω) + (V ∘ S) ω ^ 2 := by
+        ext ω; simp [Function.comp]; ring
+      rw [heq]
+      exact ((hh_sq θ').sub
+        (h_mul_int V hV_meas hVS_sq θ' |>.const_mul _)).add (hVS_sq θ')
+    -- Apply hypothesis: ∫ (h∘S)·((h-V)∘S) = 0
+    have horth_applied : ∫ ω, (h ∘ S) ω * ((h - V) ∘ S) ω ∂P.measure θ = 0 :=
+      h_orth (h - V) hV'_meas hV'_unb hV'_sq θ
+    -- Expand: ∫(h∘S)² = ∫(h∘S)·(V∘S)
+    have hTV_int : Integrable (fun ω => (h ∘ S) ω * (V ∘ S) ω) (P.measure θ) :=
+      h_mul_int V hV_meas hVS_sq θ
+    have split_orth : ∫ ω, (h ∘ S) ω ^ 2 ∂P.measure θ =
+        ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂P.measure θ := by
+      have hmul_eq : (fun ω => (h ∘ S) ω * ((h - V) ∘ S) ω) =
+          (fun ω => (h ∘ S) ω ^ 2) - (fun ω => (h ∘ S) ω * (V ∘ S) ω) := by
+        ext ω; simp [Function.comp, Pi.sub_apply]; ring
+      have hTmul : ∫ ω, (h ∘ S) ω * ((h - V) ∘ S) ω ∂P.measure θ =
+          ∫ ω, (h ∘ S) ω ^ 2 ∂P.measure θ - ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂P.measure θ := by
+        rw [hmul_eq]; exact integral_sub (hh_sq θ) hTV_int
+      linarith [horth_applied, hTmul]
+    -- Tower property: ∫ (h∘S)·δ' = ∫ (h∘S)·(V∘S)
+    -- Since (V∘S) =ᵐ E[δ'|σ(S)] under P_θ, and (h∘S) is σ(S)-measurable
+    have htower : ∫ ω, (h ∘ S) ω * δ' ω ∂P.measure θ =
+        ∫ ω, (h ∘ S) ω * (V ∘ S) ω ∂P.measure θ := by
+      have hhS_ae_sm : AEStronglyMeasurable[MeasurableSpace.comap S ‹MeasurableSpace α›]
+          (h ∘ S) (P.measure θ) := by
+        refine StronglyMeasurable.aestronglyMeasurable ?_
+        refine (hh_meas.stronglyMeasurable.comp_measurable ?_)
+        exact Measurable.of_comap_le le_rfl
+      have hhS_δ_int : Integrable (fun ω => (h ∘ S) ω * δ' ω) (P.measure θ) :=
+        h_mul_int_general δ' hδ'_sq_int θ
+      have h_ce_mul := condExp_mul_of_aestronglyMeasurable_left
+        (m := MeasurableSpace.comap S ‹MeasurableSpace α›)
+        hhS_ae_sm hhS_δ_int (hδ'_int θ)
+      -- h_ce_mul : E[(h∘S)·δ'|σ(S)] =ᵐ (h∘S) · E[δ'|σ(S)]
+      -- Tower: ∫ (h∘S)·δ' = ∫ E[(h∘S)·δ'|σ(S)]
+      have h_tower' : ∫ ω, ((h ∘ S) * δ') ω ∂P.measure θ =
+          ∫ ω, condExp (MeasurableSpace.comap S ‹MeasurableSpace α›) (P.measure θ)
+            ((h ∘ S) * δ') ω ∂P.measure θ :=
+        (integral_condExp hm_le).symm
+      have heq_int : ∫ ω, (h ∘ S) ω * δ' ω ∂P.measure θ =
+          ∫ ω, ((h ∘ S) * δ') ω ∂P.measure θ := by
+        refine integral_congr_ae ?_
+        filter_upwards with ω
+        rfl
+      rw [heq_int, h_tower']
+      refine integral_congr_ae ?_
+      filter_upwards [h_ce_mul, hVS_eq_condExp θ] with ω hω hVω
+      -- hω : (P.measure θ)[h ∘ S * δ'|σ(S)] ω = (h ∘ S * (P.measure θ)[δ'|σ(S)]) ω
+      -- hVω : (V ∘ S) ω = (P.measure θ)[δ'|σ(S)] ω
+      -- goal : (P.measure θ)[h ∘ S * δ'|σ(S)] ω = (h ∘ S) ω * (V ∘ S) ω
+      rw [hω]
+      simp only [Pi.mul_apply]
+      rw [hVω]
+    have split_δ' : ∫ ω, (h ∘ S) ω ^ 2 ∂P.measure θ =
+        ∫ ω, (h ∘ S) ω * δ' ω ∂P.measure θ := by
+      rw [split_orth, htower]
+    -- 0 ≤ ∫(h∘S - δ')² and expand
+    have hhSδ'_sq : Integrable (fun ω => ((h ∘ S) ω - δ' ω) ^ 2) (P.measure θ) :=
+      h_diff_sq δ' hδ'_unb hδ'_sq_int θ
+    have hnn : 0 ≤ ∫ ω, ((h ∘ S) ω - δ' ω) ^ 2 ∂P.measure θ :=
+      integral_nonneg (fun ω => sq_nonneg _)
+    have hhSδ'_int : Integrable (fun ω => (h ∘ S) ω * δ' ω) (P.measure θ) :=
+      h_mul_int_general δ' hδ'_sq_int θ
+    have hexpand : ∫ ω, ((h ∘ S) ω - δ' ω) ^ 2 ∂P.measure θ =
+        ∫ ω, δ' ω ^ 2 ∂P.measure θ - ∫ ω, (h ∘ S) ω ^ 2 ∂P.measure θ := by
+      have h1 : ∫ ω, (h ∘ S) ω ^ 2 - 2 * ((h ∘ S) ω * δ' ω) ∂P.measure θ =
+          ∫ ω, (h ∘ S) ω ^ 2 ∂P.measure θ - 2 * ∫ ω, (h ∘ S) ω * δ' ω ∂P.measure θ := by
+        have := integral_sub (hh_sq θ) (hhSδ'_int.const_mul 2)
+        rw [integral_const_mul] at this; linarith
+      have h2 : ∫ ω, (h ∘ S) ω ^ 2 - 2 * ((h ∘ S) ω * δ' ω) + δ' ω ^ 2 ∂P.measure θ =
+          ∫ ω, (h ∘ S) ω ^ 2 - 2 * ((h ∘ S) ω * δ' ω) ∂P.measure θ +
+          ∫ ω, δ' ω ^ 2 ∂P.measure θ :=
+        integral_add ((hh_sq θ).sub (hhSδ'_int.const_mul _)) (hδ'_sq_int θ)
+      have h3 : ∫ ω, ((h ∘ S) ω - δ' ω) ^ 2 ∂P.measure θ =
+          ∫ ω, (h ∘ S) ω ^ 2 - 2 * ((h ∘ S) ω * δ' ω) + δ' ω ^ 2 ∂P.measure θ := by
+        congr 1; ext ω; ring
+      linarith [h1, h2, h3, split_δ']
+    -- MSE comparison
+    simp only [MSE]
+    have hMSE_T : ∫ ω, ((h ∘ S) ω - g θ) ^ 2 ∂P.measure θ =
+        ∫ ω, (h ∘ S) ω ^ 2 ∂P.measure θ - g θ ^ 2 := by
+      have h1 : ∫ ω, (h ∘ S) ω ^ 2 - 2 * g θ * (h ∘ S) ω ∂P.measure θ =
+          ∫ ω, (h ∘ S) ω ^ 2 ∂P.measure θ - 2 * g θ * ∫ ω, (h ∘ S) ω ∂P.measure θ :=
+        integral_sub (hh_sq θ) ((hhS_int θ).const_mul _) |>.trans
+          (by rw [integral_const_mul])
+      have h2 : ∫ ω, (h ∘ S) ω ^ 2 - 2 * g θ * (h ∘ S) ω + g θ ^ 2 ∂P.measure θ =
+          ∫ ω, (h ∘ S) ω ^ 2 - 2 * g θ * (h ∘ S) ω ∂P.measure θ + g θ ^ 2 :=
+        integral_add ((hh_sq θ).sub ((hhS_int θ).const_mul _)) (integrable_const _)
+          |>.trans (by simp)
+      have h3 : ∫ ω, ((h ∘ S) ω - g θ) ^ 2 ∂P.measure θ =
+          ∫ ω, (h ∘ S) ω ^ 2 - 2 * g θ * (h ∘ S) ω + g θ ^ 2 ∂P.measure θ := by
+        congr 1; ext ω; ring
+      rw [h3, h2, h1, hh_unb θ]; ring
+    have hMSE_δ' : ∫ ω, (δ' ω - g θ) ^ 2 ∂P.measure θ =
+        ∫ ω, δ' ω ^ 2 ∂P.measure θ - g θ ^ 2 := by
+      have h1 : ∫ ω, δ' ω ^ 2 - 2 * g θ * δ' ω ∂P.measure θ =
+          ∫ ω, δ' ω ^ 2 ∂P.measure θ - 2 * g θ * ∫ ω, δ' ω ∂P.measure θ :=
+        integral_sub (hδ'_sq_int θ) ((hδ'_int θ).const_mul _) |>.trans
+          (by rw [integral_const_mul])
+      have h2 : ∫ ω, δ' ω ^ 2 - 2 * g θ * δ' ω + g θ ^ 2 ∂P.measure θ =
+          ∫ ω, δ' ω ^ 2 - 2 * g θ * δ' ω ∂P.measure θ + g θ ^ 2 :=
+        integral_add ((hδ'_sq_int θ).sub ((hδ'_int θ).const_mul _)) (integrable_const _)
+          |>.trans (by simp)
+      have h3 : ∫ ω, (δ' ω - g θ) ^ 2 ∂P.measure θ =
+          ∫ ω, δ' ω ^ 2 - 2 * g θ * δ' ω + g θ ^ 2 ∂P.measure θ := by
+        congr 1; ext ω; ring
+      rw [h3, h2, h1, hδ'_unb θ]; ring
+    linarith [hMSE_T, hMSE_δ', hexpand, hnn]
 
 end ShaoUMVUECharacterization
 

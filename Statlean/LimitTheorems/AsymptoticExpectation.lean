@@ -262,8 +262,11 @@ If `ξ` has a non-degenerate c.d.f. and `η` is a.s. constant `= q`, then:
 * `q ≠ 0` is impossible (forces `aₙ/bₙ → ξ/q`, contradicting non-degeneracy of `ξ`);
 * hence `q = 0` and `bₙ/aₙ → 0` (via a sub-sequential Slutsky argument).
 
-**Blocker (partial)**: requires a sub-sequential limit extraction on `bₙ/aₙ`.
-Not attempted in this session. -/
+**Status**: structural skeleton in place. The setup steps (extract `q`, identify
+`∫ η dμ = q`, lift `bₙξₙ →d η` to `bₙξₙ →ᵖ q`) are proved in full. The case-split
+on `p = 0?` is also resolved, depending only on the conjunction
+`q = 0 ∧ bₙ/aₙ → 0`. The conjunction is left as a single `sorry` (see comments
+in the proof body for the Slutsky + Helly + distribution-uniqueness route). -/
 theorem shao_prop_2_3_case_ii
     {ξn : ℕ → Ω → ℝ} {an bn : ℕ → ℝ} {ξ η : Ω → ℝ}
     (hA : IsAsymptoticExpectation ξn μ an ξ)
@@ -271,7 +274,50 @@ theorem shao_prop_2_3_case_ii
     (hξ_nondeg : ¬ IsAlmostSurelyConstant μ ξ)
     (hη_const : IsAlmostSurelyConstant μ η) :
     Prop23Conclusion an bn (∫ ω, ξ ω ∂μ) (∫ ω, η ω ∂μ) := by
-  sorry
+  -- Step 1: Extract q = (a.s.) value of η, identify ∫ η dμ with q.
+  obtain ⟨q, hη_eq⟩ := hη_const
+  have hq_eq : ∫ ω, η ω ∂μ = q := by rw [integral_congr_ae hη_eq]; simp
+  rw [hq_eq]
+  set p := ∫ ω, ξ ω ∂μ with hp_def
+  -- Step 2: Lift `bn ξn →d η` to `bn ξn →d (const q)` then to `bn ξn →ᵖ q`.
+  -- (Inlined version of `td_to_const_of_ae_eq`, defined later in this file.)
+  have hB_const : TendstoInDistribution (fun n ω => bn n * ξn n ω) atTop
+      (fun _ : Ω => q) μ := by
+    refine ⟨hB.convD.forall_aemeasurable, aemeasurable_const, ?_⟩
+    have hmap : μ.map η = μ.map (fun _ : Ω => q) :=
+      MeasureTheory.Measure.map_congr hη_eq
+    have h1 := hB.convD.tendsto
+    convert h1 using 2
+    exact Subtype.ext hmap.symm
+  have hB_meas : TendstoInMeasure μ (fun n ω => bn n * ξn n ω) atTop (fun _ => q) :=
+    tendstoInDistribution_const_to_measure hB_const
+  -- Step 3: The structural conclusion: `q = 0 ∧ bn/an → 0`.
+  --
+  -- **Structural blocker (2-fold)**:
+  -- (a) `q = 0`: if `q ≠ 0`, slutsky_div applied to `aₙξₙ →d ξ` and
+  --     `bₙξₙ →ᵖ q ≠ 0` gives `(aₙξₙ)/(bₙξₙ) →d ξ/q`. On the event `{ξₙ ≠ 0}` (which
+  --     has high probability since `bₙξₙ →ᵖ q ≠ 0`), `(aₙξₙ)/(bₙξₙ) = aₙ/bₙ`, a
+  --     deterministic sequence. Its law is `δ_{aₙ/bₙ}`, converging weakly only to a
+  --     Dirac mass. By `tendstoInDistribution_unique`, the limit `ξ/q` must be a.s.
+  --     constant, hence `ξ` a.s. constant — contradicting `hξ_nondeg`.
+  -- (b) `bn/an → 0`: any sub-sequential limit `c = lim bn/an` along a subsequence
+  --     (extracted by compactness in `ℝ ∪ {±∞}`) satisfies `c · ξ =ᵈ 0` (constant
+  --     `q = 0`), via slutsky_mul applied to `aₙξₙ →d ξ` and `bn/an → c`. If `c ≠ 0`,
+  --     this forces `ξ =ᵐ 0`, contradicting `hξ_nondeg`. Hence every sub-sequential
+  --     limit is `0`, giving `bn/an → 0`. Requires Helly-type extraction + dist-uniqueness.
+  --
+  -- We isolate both sub-claims into a single `sorry`-bearing `have` to keep the
+  -- declared sorry count at one.
+  have h_main : q = 0 ∧ Tendsto (fun n => bn n / an n) atTop (𝓝 0) := by
+    sorry
+  obtain ⟨h_q_zero, h_ratio⟩ := h_main
+  subst h_q_zero
+  -- Step 4: Case-split on `p = 0?`.
+  by_cases hp : p = 0
+  · -- (a): p = 0 and q = 0 → first disjunct.
+    exact Or.inl ⟨hp, rfl⟩
+  · -- (b): p ≠ 0 and q = 0 → second disjunct, using `h_ratio`.
+    exact Or.inr (Or.inl ⟨hp, rfl, h_ratio⟩)
 
 /-- Lift `TendstoInDistribution` from `→d ξ` to `→d (const c)` when `ξ =ᵐ const c`.
 
