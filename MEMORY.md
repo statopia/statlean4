@@ -49,3 +49,11 @@ Closed 2 sorries in AsymptoticExpectation.lean (Shao Prop 2.3 case iii + helper 
 **Summary**:
 
 Parallel cycle (2 agents). Closed UMVUE Thm 3.2(ii) umvue_iff_orthogonal_to_sufficient_unbiasedOfZero — Statlean/Estimator/UMVUE.lean now zero-sorry. Proof uses sufficiency invariance condExp_eq_of_sufficient + Doob-Dynkin Measurable.exists_eq_measurable_comp + tower integral_condExp + L² contraction MemLp.condExp + sigma-measurable pull-out condExp_mul_of_aestronglyMeasurable_left. Required adding 4 hypotheses to theorem signature: [Nonempty Θ], h_int_of_sq, h_competitors_L2, h_mul_int_general. case_ii (AsymptoticExpectation) agent restructured but did NOT reduce sorry — case-split on p done, bnξn →ᵖ q lifted, but the q=0 ∧ bn/an→0 conjunction remains. Needs Helly extraction + Slutsky div + dist-uniqueness for non-degenerate ξ subseq argument; ~100 lines remaining. Two L1 anti-patterns logged: rw fails on (V∘S)ω vs V(Sω) defeq; set abstracts pattern blocking later rw of original form.
+
+## 2026-04-28 18:31 — `next`
+
+**Stats**: proved=0  stuck=2  remaining=2
+
+**Summary**:
+
+Parallel cycle (2 agents) — both stuck, no sorry reduction. case_ii (AsymptoticExpectation): refined 4-way decomposition via IsAsymptoticExpectation.nondeg — sub-cases (A,C) vacuous via hξ_nondeg; (B) tractable ~50 lines via Slutsky-div + tightness; (D) needs Helly extraction in [0,∞] via EReal.compactSpace, total ~200 lines exceeds budget. hajek_remainder (UStatistic): depends on still-sorried cov_hSub_eq_uZeta, needs 3 new sub-lemmas (var_hajekProjection_eq, cov_uStat_hajek_eq, asymptotic combinatorial bound). Both items now have detailed engineering routes in sorry_backlog.yaml. Approaching R6 trigger (case_ii stuck_rounds → 2). Next session should either (a) decompose into sub-sorries first, or (b) trust as axiom given infrastructure scope. Knowledge: L3 hajek strategy + L2 Var[A-c-B]=Var[A-B] constant shift.
