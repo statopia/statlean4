@@ -7,7 +7,7 @@ A Lean 4 + Mathlib library formalizing core theorems of mathematical statistics,
 **Verification status** (machine-checked):
 - **Cox change-point infra** (`Statlean/CoxChangePoint`, ~9.2k lines, 43 files): end-to-end formalisation of Yu-Li-Lin 2026 — Theorems 1, 2, 3 wired up via hypothesis-form interfaces. **Zero sorry, zero user axiom**.
 - **Mathlib-PR-ready bridges** (`Statlean/Mathlib`, ~9.6k lines, 35 files): spectral theory + chaining + CLT + LAN pieces packaged for upstream contribution. **Zero sorry, zero user axiom**.
-- **Core library** (`Statlean/{Gaussian, Variance, Entropy, SubGaussian, CharFun, LimitTheorems, Sufficiency, Information, Estimator, Testing, Confidence, Moments, Statistic, EmpiricalProcess, Causal, Regression, Fourier, SPD}`, ~30k lines): everything reachable from `Statlean/Verified.lean` is **zero sorry**. 11 isolated `sorry`s remain in active-development files (UStatistic ×5, AsymptoticExpectation ×3, MarchenkoPastur ×1, UMVUE ×1, DKW ×1), all tracked in `theme/input/sorry_backlog.yaml`. 8 named user `axiom`s document Mathlib infrastructure gaps with structured comments (Talagrand `mcdiarmid_mgf_bound`, Gordon `slepian_lemma`/`gordon_minimax_axiom`, MarchenkoPastur ×2, NormalLinearModel ×3 — Shao Thm 3.8 needs vector-valued `IsGaussian` + Cochran).
+- **Core library** (`Statlean/{Gaussian, Variance, Entropy, SubGaussian, CharFun, LimitTheorems, Sufficiency, Information, Estimator, Testing, Confidence, Moments, Statistic, EmpiricalProcess, Causal, Regression, Fourier, SPD}`, ~30k lines): everything reachable from `Statlean/Verified.lean` is **zero sorry**. 9 isolated `sorry`s remain in active-development files (UStatistic ×5, AsymptoticExpectation ×3, DKW ×1), all tracked in `theme/input/sorry_backlog.yaml`. 9 named user `axiom`s document Mathlib infrastructure gaps with structured comments (Talagrand `mcdiarmid_mgf_bound`, Gordon `slepian_lemma`/`gordon_minimax_axiom`, MarchenkoPastur ×3 — Stieltjes inversion + MP fixed point + MP probability measure, NormalLinearModel ×3 — Shao Thm 3.8 needs vector-valued `IsGaussian` + Cochran).
 - **Pipeline sandboxes** (`Statlean/Web/*`): zero sorries, zero axioms — promotable sandboxes have been moved into proper `Statlean/<MathArea>/<MathObject>.lean` paths; superseded duplicates removed.
 
 > **Want to contribute? See [INSTRUCTION.md](INSTRUCTION.md)**
@@ -106,6 +106,8 @@ Complete proof chain: Gaussian LSI (Bakry-Emery / OU semigroup, ~5,650 lines) �
 | Scheffé's Theorem | `LimitTheorems/Scheffe.lean` | Shao Thm 1.5 |
 | Uniform SLLN | `LimitTheorems/USLLN.lean` | |
 | Borel-Cantelli, Helly, Portmanteau, Pólya, Glivenko-Cantelli | `LimitTheorems/Convergence.lean` | |
+| Asymptotic expectation uniqueness — case (iii) both-constant + case (ii) sub-cases (A,C) | `LimitTheorems/AsymptoticExpectation.lean` | Shao Prop 2.3 (partial) |
+| `tendstoInDistribution_const_to_measure` (→d const ⇒ →ᵖ bridge, missing in Mathlib) | `LimitTheorems/AsymptoticExpectation.lean` | |
 
 ### Empirical Processes + Dudley Chaining
 
@@ -150,16 +152,18 @@ Complete proof chain: Gaussian LSI (Bakry-Emery / OU semigroup, ~5,650 lines) �
 
 ### Estimation, Sufficiency, Testing, Regression
 
-| Theorem | File |
-|---------|------|
-| Rao-Blackwell, Lehmann-Scheffé, UMVUE | `Variance/` + `Sufficiency/` + `Estimator/` |
-| Fisher-Neyman Factorization + Basu's Theorem | `Sufficiency/` |
-| Cramér-Rao Information Inequality | `Information/CramerRao.lean` |
-| Gauss-Markov Theorem + Estimability | `Regression/GaussMarkov.lean` + `Regression/Estimability.lean` |
-| Neyman-Pearson Lemma + Karlin-Rubin | `Testing/Basic.lean` |
-| Chebyshev + Cauchy-Schwarz (covariance) | `Moments/` |
-| Hoeffding U-statistic CLT (Hájek projection) | `Variance/UStatistic.lean` |
-| Shao Thm 2.6 (scalar amse delta method) | `Estimator/Asymptotic.lean` |
+| Theorem | File | Reference |
+|---------|------|-----------|
+| Rao-Blackwell, Lehmann-Scheffé, UMVUE | `Variance/` + `Sufficiency/` + `Estimator/` | |
+| Fisher-Neyman Factorization + Basu's Theorem | `Sufficiency/` | |
+| Cramér-Rao Information Inequality | `Information/CramerRao.lean` | |
+| Gauss-Markov Theorem + Estimability | `Regression/GaussMarkov.lean` + `Regression/Estimability.lean` | |
+| Neyman-Pearson Lemma + Karlin-Rubin | `Testing/Basic.lean` | |
+| Chebyshev + Cauchy-Schwarz (covariance) | `Moments/` | |
+| Hoeffding U-statistic CLT (Hájek projection) | `Variance/UStatistic.lean` | |
+| Shao Thm 2.6 (scalar amse delta method) | `Estimator/Asymptotic.lean` | |
+| **UMVUE characterization on sufficient statistic** (`umvue_iff_orthogonal_to_sufficient_unbiasedOfZero`) | `Estimator/UMVUE.lean` | Shao Thm 3.2(ii) |
+| UMVUE characterization (full orthogonality) (`umvue_iff_orthogonal_to_unbiasedOfZero`) | `Estimator/UMVUE.lean` | Shao Thm 3.2(i) |
 
 ---
 
@@ -222,7 +226,7 @@ Statlean/                          (~59,000 lines, 162 files)
 
 ## Sorry / Verification Status
 
-**Tracked**: 11 `sorry` proof slots across 5 files + 8 named user `axiom`s across 4 files (out of 162); see `theme/input/sorry_backlog.yaml` for the live ledger.
+**Tracked**: 9 `sorry` proof slots across 3 files + 9 named user `axiom`s across 4 files (out of 162); see `theme/input/sorry_backlog.yaml` for the live ledger.
 
 | Layer | `sorry` count | `axiom` count | Notes |
 |------|---------------|---------------|------|
@@ -230,7 +234,14 @@ Statlean/                          (~59,000 lines, 162 files)
 | Cox change-point infra (43 files) | **0** | **0** | All hypothesis-supplied bridges resolved; concrete Cox-specific computations (Taylor, LAN, etc.) are exposed as `Prop` fields on the structure types. |
 | Mathlib-PR-ready bridges (35 files) | **0** | **0** | Mathlib gaps stated as named hypothesis structures; bridges and corollaries discharged. |
 | Pipeline sandboxes (`Statlean/Web/*`) | **0** | **0** | Promotable sandboxes moved to proper `Statlean/<MathArea>/` paths; superseded duplicates removed. |
-| Active core development | **11** | **8** | `Variance/UStatistic` (5 sorry), `LimitTheorems/AsymptoticExpectation` (3 sorry), `RandomMatrix/MarchenkoPastur` (1 sorry + 2 axiom), `Estimator/UMVUE` (1 sorry), `EmpiricalProcess/DKW` (1 sorry), `Concentration/Talagrand` (1 axiom), `Gaussian/Gordon` (2 axiom), `Regression/NormalLinearModel` (3 axiom — Shao Thm 3.8). All tracked in `sorry_backlog.yaml`. |
+| Active core development | **9** | **9** | `Variance/UStatistic` (5 sorry — `cov_hSub_eq_uZeta` is the root of a Hoeffding-decomposition chain blocking 4 dependents), `LimitTheorems/AsymptoticExpectation` (3 sorry — Shao Prop 2.3 case (i) Khinchin-blocked + case (ii) sub-cases B(b2) tightness-from-→d & D Helly-extraction), `EmpiricalProcess/DKW` (1 sorry), `RandomMatrix/MarchenkoPastur` (3 axiom — Stieltjes inversion + MP fixed point + MP probability measure), `Concentration/Talagrand` (1 axiom — McDiarmid MGF bound), `Gaussian/Gordon` (2 axiom — Slepian + Gordon minimax), `Regression/NormalLinearModel` (3 axiom — Shao Thm 3.8 vector-valued `IsGaussian` + Cochran). All tracked in `sorry_backlog.yaml`. |
+
+**Recent progress** (April 2026):
+- Shao Prop 2.3 case (iii) `shao_prop_2_3_case_both_const` — **fully proved** via 4-case trichotomy + new `aux_ratio_limit` helper (1/3+1/3<1 union bound + algebraic decomposition).
+- Shao Prop 2.3 case (ii) sub-cases (A) and (C) — **proved** as vacuous via `hξ_nondeg` (slutsky-div/mul + distribution uniqueness + Mathlib `ae_eq_dirac'`).
+- `tendstoInDistribution_const_to_measure` — bridge `→d const ⇒ →ᵖ` (missing in Mathlib) proved via Lipschitz test fn `min(ε, |x−c|)` + `tendsto_iff_forall_lipschitz_integral_tendsto`.
+- Shao Thm 3.2(ii) `umvue_iff_orthogonal_to_sufficient_unbiasedOfZero` — **fully proved** via Doob-Dynkin factorization + sufficiency invariance of conditional expectation + `MemLp.condExp` + tower property. UMVUE.lean now zero-sorry.
+- Marchenko-Pastur convergence — closed via documented axiom `stieltjes_continuity_theorem_axiom` (Mathlib lacks Stieltjes inversion + Vitali-Montel + Helly + Portmanteau-for-ℝ chain, ~500 lines new infra needed).
 
 ```bash
 $ lake build                                   # full project — passes
