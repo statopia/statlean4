@@ -364,6 +364,55 @@ def test_retreat_iteration_increments(tmp_path: Path) -> None:
     assert parent["history_log"][1]["retreat_reason"] == "r2"
 
 
+def test_retreat_consumes_pending_decision_reason_from_parent(tmp_path: Path) -> None:
+    """§8 P0 fix: when --decision-reason is omitted, record_retreat
+    falls back to parent's `_pending_decision_reason` (stashed by
+    decompose_node). After successful retreat the field is consumed
+    (popped) so subsequent decompositions don't see stale data."""
+    backlog = _make_yaml_with_tree(tmp_path)
+    # Stash a decision_reason on the parent (simulating decompose_node)
+    data = _read(backlog)
+    for it in data["sorry_items"]:
+        if it["id"] == "parent":
+            it["_pending_decision_reason"] = "induction on n (from decompose)"
+    backlog.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    # Retreat WITHOUT explicitly passing decision_reason
+    apply_retreat(
+        backlog_path=backlog,
+        parent_id="parent",
+        retreat_reason="r",
+        results=[],
+        decision_reason=None,
+    )
+    parent = _by_id(backlog, "parent")
+    # The history entry should carry the stashed reason
+    assert parent["history_log"][0]["decision_reason"] == "induction on n (from decompose)"
+    # The stash should be consumed (popped) after successful retreat
+    assert "_pending_decision_reason" not in parent
+
+
+def test_retreat_explicit_arg_overrides_pending_stash(tmp_path: Path) -> None:
+    """If both stash AND --decision-reason are provided, the explicit
+    arg wins (caller intent overrides ambient default)."""
+    backlog = _make_yaml_with_tree(tmp_path)
+    data = _read(backlog)
+    for it in data["sorry_items"]:
+        if it["id"] == "parent":
+            it["_pending_decision_reason"] = "stashed default"
+    backlog.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    apply_retreat(
+        backlog_path=backlog,
+        parent_id="parent",
+        retreat_reason="r",
+        results=[],
+        decision_reason="explicit override",
+    )
+    parent = _by_id(backlog, "parent")
+    assert parent["history_log"][0]["decision_reason"] == "explicit override"
+
+
 def test_retreat_preserves_unrelated_siblings(tmp_path: Path) -> None:
     backlog = _make_yaml_with_tree(tmp_path)
     sibling_before = _by_id(backlog, "sibling")

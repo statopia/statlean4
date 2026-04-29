@@ -102,7 +102,15 @@ def apply_propagation(
             return []
 
         cursor: Optional[str] = node.get("parent_id")
+        # Cycle guard (§8 P0): a pathological parent_id loop (A→B→A,
+        # whether from a buggy decomposition or a hand-edited yaml)
+        # would otherwise infinite-loop the walk. We track every id we
+        # visit and bail if we revisit one.
+        visited: set = set()
         while cursor is not None:
+            if cursor in visited:
+                break
+            visited.add(cursor)
             parent = by_id.get(cursor)
             if parent is None:
                 # Orphan parent_id — stop, no propagation possible.
@@ -118,6 +126,11 @@ def apply_propagation(
                 for cid in children_ids
             ):
                 parent["state"] = "DONE"
+                # czy newloop done_reason taxonomy (proofState.ts:81):
+                # cascade-DONE is "done_by_dependency". Set explicitly so
+                # downstream judges (Layer 4 / evolve harness) can
+                # distinguish leaf-proved-DONE from cascade-DONE.
+                parent["done_reason"] = "done_by_dependency"
                 transitioned.append(parent["id"])
                 cursor = parent.get("parent_id")
             else:

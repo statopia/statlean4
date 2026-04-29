@@ -238,6 +238,17 @@ def apply_retreat(
                     f"parent {parent_id} has no children to retreat from"
                 )
 
+            # Slice 3.A wires decompose_node to stash decision_reason on
+            # the parent as `_pending_decision_reason` (transient runtime
+            # field, not v2-canonical). If the caller didn't pass
+            # --decision-reason explicitly, pull it from parent. This
+            # makes the agent flow ergonomic: decompose with reasoning →
+            # if children fail → retreat without re-passing the reason.
+            if not decision_reason:
+                stashed = parent.get("_pending_decision_reason")
+                if stashed:
+                    decision_reason = stashed
+
             # Capture current decomposition (the round we're retreating from)
             decomposition = list(current_children)
             iteration = len(parent.get("history_log") or []) + 1
@@ -270,6 +281,10 @@ def apply_retreat(
                     history_log = list(it.get("history_log") or [])
                     history_log.append(entry)
                     it["history_log"] = history_log
+                    # Consume the transient stash — decision_reason is
+                    # now in history_log[N], no longer needed on the
+                    # parent. Avoids stale data on subsequent retreats.
+                    it.pop("_pending_decision_reason", None)
                     break
 
             _atomic_write_yaml(backlog_path, data)

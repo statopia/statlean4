@@ -168,6 +168,19 @@ def test_full_cascade_to_root(tmp_path: Path) -> None:
     assert _by_id(backlog, "g.p1")["state"] == "DONE"
 
 
+def test_cascade_sets_done_by_dependency_reason(tmp_path: Path) -> None:
+    """czy newloop done_reason taxonomy (proofState.ts:81): cascade-
+    DONE parents are 'done_by_dependency' (NOT 'proved' / 'library_
+    verified' / 'reference_axiom'). §8 P1 fix: propagate_done now sets
+    this field so downstream judges can distinguish leaf vs cascade."""
+    backlog = _make_full_done_tree(tmp_path)
+    apply_propagation(backlog, "g.p1.l1")
+    g_p1 = _by_id(backlog, "g.p1")
+    g = _by_id(backlog, "g")
+    assert g_p1["done_reason"] == "done_by_dependency"
+    assert g["done_reason"] == "done_by_dependency"
+
+
 # ── Idempotency ──────────────────────────────────────────────────────
 
 
@@ -201,6 +214,31 @@ def test_no_op_when_node_missing(tmp_path: Path) -> None:
     backlog = _make_tree(tmp_path)
     transitioned = apply_propagation(backlog, "ghost")
     assert transitioned == []
+
+
+def test_cycle_in_parent_chain_does_not_hang(tmp_path: Path) -> None:
+    """Pathological cycle A.parent_id=B, B.parent_id=A.
+
+    Without the §8 P0 cycle guard at propagate_done.py, this would
+    infinite-loop. With the guard: walk visits each ancestor at most
+    once and stops. No state mutation expected since neither parent's
+    children are all-DONE (each contains the cycling sibling whose
+    state isn't relevant to all-children-DONE check via the cycle).
+    """
+    backlog = tmp_path / "b.yaml"
+    backlog.write_text(yaml.safe_dump({
+        "schema_version": 2,
+        "sorry_items": [
+            {"id": "a", "state": "DONE", "children": ["b"],
+             "parent_id": "b", "history_log": []},
+            {"id": "b", "state": "DONE", "children": ["a"],
+             "parent_id": "a", "history_log": []},
+        ],
+    }))
+    # Should return without hanging. transitioned may be ["a"] or
+    # ["a","b"] depending on iteration order, but MUST terminate.
+    transitioned = apply_propagation(backlog, "a")
+    assert isinstance(transitioned, list)
 
 
 def test_no_op_when_orphan_parent_id(tmp_path: Path) -> None:
