@@ -279,3 +279,177 @@ def test_sync_mixed_flat_and_tree(empty_statlean: Path, tmp_path: Path) -> None:
     assert "tree.parent" in ids
     assert "tree.parent.s1" in ids
     assert stats["removed"] == 1  # only the flat orphan
+
+
+# ── §8 fixup regression: S2.1 + S2.2 ─────────────────────────────────
+
+
+def _write_lean_with_sorry(d: Path, rel: str, theorem: str, sorry_line_target: int) -> None:
+    """Write a tiny .lean file with a single `sorry` at a known line.
+    `rel` is relative to d's parent (matches sync's rel_path scheme)."""
+    target = d / rel.split("/", 1)[1] if "/" in rel else d / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # Build a body that puts `sorry` on a specific line
+    lines = [
+        "import Mathlib",
+        "",
+        f"theorem {theorem} : True := by",
+        "  sorry",
+    ]
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # The sorry will be on whichever line index it lands at; tests
+    # below assert on the final value, not a hardcoded match.
+
+
+@pytest.fixture
+def statlean_with_one_sorry(tmp_path: Path) -> tuple[Path, str, str, int]:
+    """Statlean dir with exactly one .lean file containing one sorry.
+    Returns (statlean_dir, file_rel, theorem_name, sorry_line)."""
+    d = tmp_path / "Statlean"
+    d.mkdir()
+    rel = "Statlean/Leaf.lean"
+    theorem = "leaf_thm"
+    _write_lean_with_sorry(d, rel, theorem, sorry_line_target=4)
+    # find_sorry_sites uses the relative path from statlean_dir.parent,
+    # so rel will be "Statlean/Leaf.lean". Sorry is on line 4.
+    return d, rel, theorem, 4
+
+
+def test_sync_tree_item_with_source_backing_no_duplicate(
+    statlean_with_one_sorry: tuple[Path, str, str, int],
+    tmp_path: Path,
+) -> None:
+    """§8 S2.1 regression: when a tree-structural item shares its
+    (file, theorem) key with an actual source sorry, sync must update
+    its line in place — NOT emit a duplicate auto-id row alongside it.
+
+    Before the fix: existing_by_key skipped the tree item, the
+    source-match loop fell through to else-branch and synthesized a
+    new auto-id row, leaving the original tree item to be re-added by
+    the preservation pass → 2 rows for one source location."""
+    statlean_dir, rel, theorem, _initial_line = statlean_with_one_sorry
+    backlog = tmp_path / "b.yaml"
+    _write_backlog(backlog, [{
+        # Tree-structural leaf at the SAME (file, theorem) as the
+        # source sorry, but with a stale `line` value
+        "id": "tree.leaf", "file": rel, "line": 999,
+        "theorem": theorem, "type": "ready", "depth": 2, "priority": 50,
+        "estimated_lines": 30, "dependencies": [], "unlocks": [],
+        "state": "INITIALIZED", "children": [],
+        "parent_id": "tree.root",  # makes it tree-structural
+        "history_log": [], "stuck_rounds": 0,
+    }, {
+        "id": "tree.root", "file": "Other.lean", "line": 1,
+        "theorem": "other", "type": "blocked", "depth": 0, "priority": 50,
+        "estimated_lines": 100, "dependencies": [], "unlocks": [],
+        "state": "INACTIVE_WAIT", "children": ["tree.leaf"],
+        "parent_id": None, "history_log": [], "stuck_rounds": 0,
+    }])
+    stats = sync_backlog(backlog, statlean_dir, dry_run=False)
+    final = yaml.safe_load(backlog.read_text())
+    items = final.get("sorry_items") or []
+
+    # Match all rows pointing at the source-backed (file, theorem)
+    matches = [it for it in items if it.get("file") == rel and it.get("theorem") == theorem]
+    assert len(matches) == 1, (
+        f"expected exactly one row for {rel}::{theorem}, got {len(matches)}: "
+        f"{[m.get('id') for m in matches]}"
+    )
+
+    only = matches[0]
+    # The leaf's identity is preserved (still 'tree.leaf', not an
+    # auto-id like 'statlean.leaf.leaf_thm')
+    assert only["id"] == "tree.leaf", (
+        f"tree-structural identity lost; sync emitted auto-id {only['id']}"
+    )
+    # Line was updated from the stale 999 to the real source line
+    assert only["line"] != 999, "stale line was not refreshed from source"
+    # State-machine fields preserved
+    assert only["parent_id"] == "tree.root"
+    assert only["state"] == "INITIALIZED"
+    # The update path counted, not the add path
+    assert stats["added"] == 0, (
+        f"add count should be 0 (tree item updated in place), got {stats['added']}"
+    )
+
+
+def test_sync_tree_item_type_preserved_with_unresolved_deps(
+    empty_statlean: Path, tmp_path: Path,
+) -> None:
+    """§8 S2.2 regression: dependency-rebuild loop must NOT rewrite
+    type=main_theorem → type=blocked for tree-structural items. Their
+    type field is curated by the state machine (decompose_node /
+    record_retreat / propagate_done), not by sync's flat-sorry
+    heuristic."""
+    backlog = tmp_path / "b.yaml"
+    _write_backlog(backlog, [{
+        # Tree-structural parent with a curated type and an unresolved
+        # dependency on its child
+        "id": "tree.parent", "file": "X.lean", "line": 1,
+        "theorem": "parent_thm", "type": "main_theorem",  # ← curated
+        "depth": 0, "priority": 50,
+        "estimated_lines": 50,
+        "dependencies": ["tree.parent.child"],  # unresolved (child still in backlog)
+        "unlocks": [],
+        "state": "INACTIVE_WAIT", "children": ["tree.parent.child"],
+        "parent_id": None, "history_log": [], "stuck_rounds": 0,
+    }, {
+        "id": "tree.parent.child", "file": "X.lean", "line": 5,
+        "theorem": "child_thm", "type": "lemma",  # ← curated
+        "depth": 1, "priority": 50,
+        "estimated_lines": 30, "dependencies": [], "unlocks": [],
+        "state": "INITIALIZED", "children": [],
+        "parent_id": "tree.parent", "history_log": [], "stuck_rounds": 0,
+    }])
+    sync_backlog(backlog, empty_statlean, dry_run=False)
+    final = yaml.safe_load(backlog.read_text())
+    by_id = {it["id"]: it for it in final["sorry_items"]}
+    assert by_id["tree.parent"]["type"] == "main_theorem", (
+        "tree.parent.type was clobbered to 'blocked' by dep-rebuild loop"
+    )
+    assert by_id["tree.parent.child"]["type"] == "lemma", (
+        "tree.parent.child.type was clobbered"
+    )
+
+
+def test_sync_flat_item_type_still_blocked_with_unresolved_deps(
+    tmp_path: Path,
+) -> None:
+    """Counter-check: the flat-item type=blocked override is still
+    applied for non-tree items (legacy behavior preserved). Without
+    this we'd have over-corrected S2.2."""
+    backlog = tmp_path / "b.yaml"
+    # Two flat items with one depending on the other; both must stay
+    # in the backlog post-sync, so they need source backing.
+    statlean_dir = tmp_path / "Statlean"
+    statlean_dir.mkdir()
+    flat_lean = statlean_dir / "Flat.lean"
+    flat_lean.write_text(
+        "import Mathlib\n\n"
+        "theorem flat_a : True := by sorry\n\n"
+        "theorem flat_b : True := by sorry\n",
+        encoding="utf-8",
+    )
+    _write_backlog(backlog, [{
+        "id": "flat.a", "file": "Statlean/Flat.lean", "line": 3,
+        "theorem": "flat_a", "type": "ready",  # ← will be flipped to blocked
+        "depth": 0, "priority": 50,
+        "estimated_lines": 30,
+        "dependencies": ["flat.b"],  # unresolved
+        "unlocks": [],
+        "state": "INITIALIZED", "children": [], "parent_id": None,
+        "history_log": [], "stuck_rounds": 0,
+    }, {
+        "id": "flat.b", "file": "Statlean/Flat.lean", "line": 5,
+        "theorem": "flat_b", "type": "ready",
+        "depth": 0, "priority": 50,
+        "estimated_lines": 30, "dependencies": [], "unlocks": [],
+        "state": "INITIALIZED", "children": [], "parent_id": None,
+        "history_log": [], "stuck_rounds": 0,
+    }])
+    sync_backlog(backlog, statlean_dir, dry_run=False)
+    final = yaml.safe_load(backlog.read_text())
+    by_id = {it["id"]: it for it in final["sorry_items"]}
+    assert by_id["flat.a"]["type"] == "blocked", (
+        "flat item with unresolved deps should still be flipped to blocked"
+    )

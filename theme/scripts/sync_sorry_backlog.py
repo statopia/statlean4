@@ -197,7 +197,17 @@ def sync_backlog(
     statlean_dir: Path,
     dry_run: bool = False,
 ) -> Dict[str, Any]:
-    """Synchronize backlog YAML with actual sorry sites. Returns stats."""
+    """Synchronize backlog YAML with actual sorry sites. Returns stats.
+
+    Stats keys:
+      - added/updated/removed/unchanged — original v1 counts (flat sorries)
+      - preserved_tree (slice 4 C) — tree-structural items kept across
+        the sync despite no source-sorry match (parent_id set, INACTIVE_WAIT,
+        DONE, or non-empty children)
+      - tree_warnings (slice 4 C, present iff > 0) — count of orphan
+        parent_id refs or cyclic chains detected by integrity scan;
+        warnings themselves are printed to stderr at sync time
+    """
     # Load existing backlog
     if backlog_path.exists():
         data = yaml.safe_load(backlog_path.read_text(encoding="utf-8")) or {}
@@ -213,15 +223,26 @@ def sync_backlog(
     # Index existing items by file::theorem AND by id.
     # Slice 4 C: tree-structural items (parent_id set, INACTIVE_WAIT,
     # children non-empty, etc.) DON'T participate in file::theorem
-    # source-match dedup — multiple tree levels can share the same
-    # source key (root + mid + leaf all referencing one file/theorem).
+    # source-match dedup as primary owner — multiple tree levels can
+    # share the same source key (root + mid + leaf all referencing one
+    # file/theorem).
+    #
+    # Slice 4 C §8 fix (S2.1): tree items DO need a fallback source-key
+    # lookup so a leaf with both parent_id set AND real source backing
+    # can be updated-in-place, not duplicated by the auto-id synthesis
+    # branch below. tree_by_key is the secondary lookup; preference
+    # rule: pick the leaf-most (no children) tree item if multiple
+    # share the key.
     existing_by_key: Dict[str, Dict[str, Any]] = {}
     existing_by_id: Dict[str, Dict[str, Any]] = {}
+    tree_by_key: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for item in existing_items:
         if "id" in item:
             existing_by_id[item["id"]] = item
         if _is_tree_structural(item):
-            continue  # tree items don't claim a source-match key
+            key = make_site_key(item.get("file", ""), item.get("theorem", ""))
+            tree_by_key[key].append(item)
+            continue  # tree items don't claim a source-match key as primary
         key = make_site_key(item.get("file", ""), item.get("theorem", ""))
         existing_by_key[key] = item
 
@@ -248,6 +269,33 @@ def sync_backlog(
         if key in existing_by_key:
             # Update existing entry
             item = dict(existing_by_key[key])
+            old_line = item.get("line")
+            item["line"] = sorry_lines[0]
+            if len(sorry_lines) > 1:
+                item["sorry_lines"] = sorry_lines
+            elif "sorry_lines" in item:
+                del item["sorry_lines"]
+
+            if old_line != sorry_lines[0]:
+                stats["updated"] += 1
+            else:
+                stats["unchanged"] += 1
+            new_items.append(item)
+        elif key in tree_by_key:
+            # Slice 4 C §8 fix (S2.1): a tree-structural item is also
+            # source-backed (e.g. a leaf with parent_id set whose .lean
+            # body still has `:= sorry`). Update its line in place
+            # instead of falling through to auto-id synthesis, which
+            # would emit a duplicate row pointing at the same source.
+            #
+            # Leaf-most preference: prefer the item with no children;
+            # if multiple qualify, take the first deterministically.
+            candidates = tree_by_key[key]
+            leaf_first = sorted(
+                candidates,
+                key=lambda x: (1 if x.get("children") else 0, x.get("id", "")),
+            )
+            item = dict(leaf_first[0])
             old_line = item.get("line")
             item["line"] = sorry_lines[0]
             if len(sorry_lines) > 1:
@@ -325,9 +373,19 @@ def sync_backlog(
     for item in new_items:
         item["unlocks"] = sorted(dep_map.get(item.get("id", ""), []))
 
-    # Update type=blocked for items with unresolved dependencies
+    # Update type=blocked for items with unresolved dependencies.
+    #
+    # Slice 4 C §8 fix (S2.2): skip tree-structural items here. Their
+    # type is curated by the state machine (decompose_node sets type
+    # based on the parent's role; record_retreat preserves on retreat;
+    # propagate_done doesn't touch type). The legacy "force blocked
+    # when deps unresolved" rule was a heuristic for flat sorry trackers
+    # — applying it to tree items would silently rewrite e.g.
+    # type=main_theorem → type=blocked on every sync.
     proved_ids: set = set()  # IDs not in the sorry list anymore
     for item in new_items:
+        if _is_tree_structural(item):
+            continue
         deps = item.get("dependencies", [])
         unresolved = [d for d in deps if d in id_set]
         if unresolved and item.get("type") not in ("blocked",):
@@ -446,12 +504,20 @@ def main() -> None:
     stats = sync_backlog(backlog_path, statlean_dir, dry_run=args.dry_run)
 
     mode = "DRY RUN" if args.dry_run else "UPDATED"
-    print(f"[sync] {mode}: +{stats['added']} added, ~{stats['updated']} updated, "
-          f"-{stats['removed']} removed, ={stats['unchanged']} unchanged")
+    summary = (
+        f"[sync] {mode}: +{stats['added']} added, ~{stats['updated']} updated, "
+        f"-{stats['removed']} removed, ={stats['unchanged']} unchanged"
+    )
+    preserved = stats.get("preserved_tree", 0)
+    if preserved:
+        summary += f", *{preserved} tree-preserved"
+    print(summary)
     if stats["added"] > 0:
         print(f"[sync] new sorry sites found — review priorities in {backlog_path.name}")
     if stats["removed"] > 0:
         print(f"[sync] {stats['removed']} sorry eliminated — removed from backlog")
+    if stats.get("tree_warnings"):
+        print(f"[sync] {stats['tree_warnings']} tree-integrity warnings (see stderr)")
 
 
 if __name__ == "__main__":
