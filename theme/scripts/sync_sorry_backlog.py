@@ -29,6 +29,98 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _history_log_types import migrate_yaml_v1_to_v2  # noqa: E402
 
 
+# ── Slice 4 C — sync tree-awareness ───────────────────────────────────
+#
+# czy newloop port introduces yaml entries that exist for state-machine
+# reasons rather than direct source backing (decomposed-but-unproved
+# parents, INACTIVE_WAIT internal nodes, retreated-with-history-log
+# nodes). The original sync_sorry_backlog dropped any yaml entry not
+# matching a source sorry — that broke the prefab-tree fixture approach
+# for L3 multi-level-cascade evidence (see SLICE_3C_LLM_SMOKE.md run-3).
+#
+# Slice 4 C adds:
+#   - `_is_tree_structural(item)` — predicate identifying tree state
+#   - `_validate_tree_integrity(items)` — orphan / cycle warnings
+#   - Sync now PRESERVES tree-structural items even when source has
+#     no matching sorry. Flat orphans (no parent_id, no children, plain
+#     INITIALIZED state) are STILL removed — backwards-compat preserved.
+
+_TREE_PRESERVING_STATES = {"INACTIVE_WAIT", "DONE"}
+
+
+def _is_tree_structural(item: Dict[str, Any]) -> bool:
+    """Return True iff this item should survive sync regardless of source
+    backing. A tree-structural item carries state-machine state that
+    sync_sorry_backlog wasn't designed to scrub.
+
+    Cases that qualify (any one is sufficient):
+      - parent_id is set (non-empty / non-null) — child of a decomposed
+        parent; not directly source-backed
+      - children list is non-empty — internal tree node above a leaf
+      - state is INACTIVE_WAIT (parent waiting on children) or DONE
+        (already proved or done-by-dependency; preserves audit trail)
+
+    Cases that do NOT qualify (preserve original sync semantics):
+      - top-level INITIALIZED entry — flat sorry tracker, sync decides
+        by source match
+      - top-level ACTIVE_PROVING entry — sub-agent is in-flight on a
+        source-backed sorry; sync still source-keys it
+    """
+    parent_id = item.get("parent_id")
+    if parent_id is not None and parent_id != "" and parent_id != "None":
+        return True
+    if item.get("children"):
+        return True
+    if item.get("state") in _TREE_PRESERVING_STATES:
+        return True
+    return False
+
+
+def _validate_tree_integrity(items: List[Dict[str, Any]]) -> List[str]:
+    """Sanity-check the parent_id chain over a list of items.
+
+    Returns a list of human-readable warnings (empty if clean):
+      - "orphan parent_id: <id> → <missing-parent>" — child references
+        a parent that's not in the backlog
+      - "cyclic parent chain at <id>: re-visited <id>" — A→B→A loop
+        detected during walk-up
+
+    Cycle detection is bounded by visited-set; never hangs. Warnings
+    are non-fatal — sync still completes; the caller decides whether to
+    print / log them. A future slice may upgrade these to errors with a
+    --strict flag.
+    """
+    warnings: List[str] = []
+    by_id: Dict[str, Dict[str, Any]] = {
+        it["id"]: it for it in items if "id" in it
+    }
+    for it in items:
+        pid = it.get("parent_id")
+        if pid in (None, "", "None"):
+            continue
+        if pid not in by_id:
+            warnings.append(
+                f"orphan parent_id: {it.get('id', '?')} → {pid} (not in backlog)"
+            )
+    # Cycle detection — separate pass so each item gets its own visited set
+    for it in items:
+        cursor: Optional[str] = it.get("parent_id") if it.get("parent_id") not in (None, "", "None") else None
+        visited: set = {it.get("id")} if it.get("id") else set()
+        while cursor is not None:
+            if cursor in visited:
+                warnings.append(
+                    f"cyclic parent chain at {it.get('id', '?')}: re-visited {cursor}"
+                )
+                break
+            visited.add(cursor)
+            parent = by_id.get(cursor)
+            if parent is None:
+                break  # orphan, already warned above
+            next_pid = parent.get("parent_id")
+            cursor = next_pid if next_pid not in (None, "", "None") else None
+    return warnings
+
+
 def find_sorry_sites(statlean_dir: Path) -> List[Dict[str, Any]]:
     """Scan .lean files for sorry occurrences with surrounding context."""
     sites: List[Dict[str, Any]] = []
@@ -118,14 +210,20 @@ def sync_backlog(
 
     existing_items: List[Dict[str, Any]] = list(data.get("sorry_items", []) or [])
 
-    # Index existing items by file::theorem
+    # Index existing items by file::theorem AND by id.
+    # Slice 4 C: tree-structural items (parent_id set, INACTIVE_WAIT,
+    # children non-empty, etc.) DON'T participate in file::theorem
+    # source-match dedup — multiple tree levels can share the same
+    # source key (root + mid + leaf all referencing one file/theorem).
     existing_by_key: Dict[str, Dict[str, Any]] = {}
     existing_by_id: Dict[str, Dict[str, Any]] = {}
     for item in existing_items:
-        key = make_site_key(item.get("file", ""), item.get("theorem", ""))
-        existing_by_key[key] = item
         if "id" in item:
             existing_by_id[item["id"]] = item
+        if _is_tree_structural(item):
+            continue  # tree items don't claim a source-match key
+        key = make_site_key(item.get("file", ""), item.get("theorem", ""))
+        existing_by_key[key] = item
 
     # Scan code
     sites = find_sorry_sites(statlean_dir)
@@ -187,10 +285,33 @@ def sync_backlog(
             new_items.append(item)
             stats["added"] += 1
 
-    # Count removed (in backlog but not in code)
-    for key, item in existing_by_key.items():
-        if key not in seen_keys:
+    # Slice 4 C: preserve tree-structural entries that don't match a
+    # source sorry. Iterate by ID (unique) — tree levels sharing the
+    # same source key would have collapsed under existing_by_key dedup.
+    # Flat orphans (non-tree, no source backing) are still removed
+    # (backwards-compat).
+    stats["preserved_tree"] = 0
+    new_ids = {ni.get("id") for ni in new_items if "id" in ni}
+    for item in existing_items:
+        item_id = item.get("id")
+        if item_id in new_ids:
+            continue  # already in new_items via source-match
+        if _is_tree_structural(item):
+            new_items.append(item)
+            new_ids.add(item_id)
+            stats["preserved_tree"] += 1
+        else:
+            # Was a flat entry without source backing → drop
             stats["removed"] += 1
+
+    # Slice 4 C: tree integrity — warnings on orphan refs / cycles.
+    # Non-fatal; printed to stderr so the caller (prove-deep narrative
+    # or human) sees them but sync still completes.
+    integrity_warnings = _validate_tree_integrity(new_items)
+    if integrity_warnings:
+        for w in integrity_warnings:
+            print(f"[sync] tree-integrity warning: {w}", file=sys.stderr)
+        stats["tree_warnings"] = len(integrity_warnings)
 
     # Rebuild unlocks from dependencies
     id_set = {item["id"] for item in new_items if "id" in item}
@@ -272,6 +393,28 @@ def sync_backlog(
                                 f.write(f"    {ln}\n")
                         elif isinstance(v, str):
                             f.write(f'  {k}: "{v}"\n')
+                        elif v is None:
+                            # Slice 4 C: explicit null vs the prior bug
+                            # where Python None was str()-formatted as
+                            # "None" and re-parsed as the string "None"
+                            # by yaml.safe_load. Now round-trips clean.
+                            f.write(f"  {k}: null\n")
+                        elif isinstance(v, (list, dict)):
+                            # Slice 4 C: lists / dicts (children,
+                            # history_log entries, etc.) need real yaml
+                            # serialization — Python repr produced flow
+                            # style with single-quoted strings that
+                            # yaml accepted but looked wrong.
+                            dumped = yaml.safe_dump(
+                                v, default_flow_style=None,
+                                allow_unicode=True, sort_keys=False,
+                            ).rstrip("\n")
+                            if "\n" in dumped:
+                                f.write(f"  {k}:\n")
+                                for ln in dumped.splitlines():
+                                    f.write(f"    {ln}\n")
+                            else:
+                                f.write(f"  {k}: {dumped}\n")
                         else:
                             f.write(f"  {k}: {v}\n")
 
