@@ -40,6 +40,10 @@ EXTRACT_SORRIES = SCRIPTS_DIR / "extract_sorries.py"
 VALIDATE_DECOMP = SCRIPTS_DIR / "validate_decomposition.py"
 BACKLOG_PATH = SCRIPTS_DIR.parent / "input" / "sorry_backlog.yaml"
 
+# czy newloop merge: schema_version=2 fields. Idempotent migration on load.
+sys.path.insert(0, str(SCRIPTS_DIR))
+from _history_log_types import migrate_yaml_v1_to_v2  # noqa: E402
+
 
 def _emit(sandbox: Path, name: str, details: dict) -> None:
     """Best-effort emit; logs but doesn't abort on emit_event failure."""
@@ -89,6 +93,8 @@ def _update_backlog_status(sorry_id: str, mutations: dict) -> None:
     except yaml.YAMLError as e:
         print(f"[process_sorry_result] backlog parse failed: {e}", file=sys.stderr)
         return
+    # czy newloop merge: idempotent v1→v2 migration on load.
+    migrate_yaml_v1_to_v2(data)
     items = data.get("sorry_items") or []
     for item in items:
         if item.get("id") == sorry_id:

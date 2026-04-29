@@ -22,6 +22,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
+# czy newloop merge: schema_version=2 fields (state/children/parent_id/
+# history_log) — migration is idempotent, runs on every load so the live
+# yaml gets the v2 fields on first sync after slice 1 ships.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _history_log_types import migrate_yaml_v1_to_v2  # noqa: E402
+
 
 def find_sorry_sites(statlean_dir: Path) -> List[Dict[str, Any]]:
     """Scan .lean files for sorry occurrences with surrounding context."""
@@ -105,6 +111,10 @@ def sync_backlog(
         data = yaml.safe_load(backlog_path.read_text(encoding="utf-8")) or {}
     else:
         data = {}
+
+    # czy newloop merge: ensure v2 schema fields are present on every
+    # load. Idempotent — v2 input passes through unchanged.
+    migrate_yaml_v1_to_v2(data)
 
     existing_items: List[Dict[str, Any]] = list(data.get("sorry_items", []) or [])
 
