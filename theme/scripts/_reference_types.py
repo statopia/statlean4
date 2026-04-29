@@ -110,6 +110,15 @@ def coalesce_coverage(raw: Any) -> str:
     `cited_by_library` is NOT a valid output here — that path runs
     BEFORE helper-reference (R1-R5 Mathlib search). If it somehow
     leaks in, treat as `no_coverage` so the sorry stays attackable.
+
+    Deliberate deviation from czy: this implementation lowercases the
+    input before the membership check, so `"CITED_BY_REFERENCE"` and
+    `"Cited_By_Reference"` both normalize. czy `:443-445` is
+    case-sensitive (`validCoverages.includes(s)`). The looser policy
+    is intentional — LLMs occasionally upcase or title-case enum
+    strings, and treating those as `no_coverage` would silently lose
+    valid signal. If byte-faithful czy parity is ever required, drop
+    the `.lower()` call.
     """
     if not isinstance(raw, str):
         return "no_coverage"

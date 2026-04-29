@@ -236,7 +236,7 @@ def test_l1_4_signature_invariant_preserved(backlog: Path) -> None:
     post = yaml.safe_load(backlog.read_text())
     p_post = next(it for it in post["sorry_items"] if it["id"] == "parent.one")
 
-    PROTECTED = ("file", "line", "theorem", "state", "parent_id",
+    PROTECTED = ("id", "file", "line", "theorem", "state", "parent_id",
                  "children", "history_log", "type", "depth", "priority",
                  "estimated_lines", "dependencies", "unlocks", "stuck_rounds")
     for k in PROTECTED:
