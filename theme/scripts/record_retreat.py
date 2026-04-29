@@ -176,6 +176,23 @@ def _build_history_entry(
     per-node count delivers exactly. The wire format ("Iteration N: …")
     is byte-identical to czy; only the meaning of N differs. Documented
     here + in MERGE_PLAN.md §3.2.1.
+
+    SEMANTIC NOTE on counter taxonomy: czy splits two counters at
+    `controlAgent.ts:604-612` — `attempts` triggers retreat (this
+    function's call site), `stuckCount` triggers a separate
+    "restrategize" path (clear subtree, reset to INITIALIZED,
+    attempts++; no history_log entry). The SDK-bridge port collapses
+    both into a single `stuck_rounds` field bumped per stuck result.
+    Rationale: (a) the read_history_log mechanism subsumes restrategize's
+    "look at past attempts and choose differently" function — once
+    history_log carries the retreat record, the next decompose attempt
+    naturally avoids prior strategies, so the soft-restrategize path
+    adds little value beyond the retreat path; (b) one counter is
+    simpler to reason about under flock/atomic write contention.
+    Consequence: SDK-bridge retreats marginally earlier than czy
+    (after 3 stucks rather than 3 attempts-via-multiple-paths). If real
+    traces show this is too aggressive, port `attempts` as a second
+    counter in slice 4+.
     """
     entry: Dict[str, Any] = {
         "iteration": iteration,

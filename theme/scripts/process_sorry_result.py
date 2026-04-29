@@ -223,11 +223,31 @@ def main() -> None:
         # record_retreat.py when reached. The bump itself is determinist;
         # the threshold logic is T3 narrative because the agent decides
         # WHICH retreat reason to record.
-        new_stuck = _read_stuck_rounds(args.sorry_id) + 1
-        _update_backlog_status(args.sorry_id, {
-            "status": "pending",
-            "stuck_rounds": new_stuck,
-        })
+        # §8 review fix (P1): use locked_backlog for atomic
+        # read+modify+write so concurrent stuck submissions on the same
+        # sorry can't lose a bump.
+        from _yaml_io import atomic_write_yaml as _aw, locked_backlog as _lb
+        try:
+            with _lb(BACKLOG_PATH) as data:
+                items = data.get("sorry_items") or []
+                for it in items:
+                    if it.get("id") == args.sorry_id:
+                        prev = int(it.get("stuck_rounds", 0))
+                        it["stuck_rounds"] = prev + 1
+                        it["status"] = "pending"
+                        break
+                _aw(BACKLOG_PATH, data)
+        except Exception as e:
+            # Fallback to non-locked path so we still emit the milestone
+            # — pre-existing process_sorry_result writes weren't locked
+            # either; this is best-effort hardening for the new bump.
+            print(f"[process_sorry_result] flock-bump failed, fallback: {e}",
+                  file=sys.stderr)
+            new_stuck = _read_stuck_rounds(args.sorry_id) + 1
+            _update_backlog_status(args.sorry_id, {
+                "status": "pending",
+                "stuck_rounds": new_stuck,
+            })
 
     elif args.status == "need_sub_lemma":
         if not args.parent_metrics or not args.children_decomposition:

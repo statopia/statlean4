@@ -172,7 +172,13 @@ has prior-attempt history** (czy newloop port — `informalAgent.ts:741-763`):
 HISTORY=$(python3 theme/scripts/read_history_log.py \
               --node-id "<sorry.id>" \
               --backlog-path theme/input/sorry_backlog.yaml)
-# HISTORY is empty string if no history — that case yields no prepend.
+# HISTORY is empty string if no history. Only prepend when non-empty
+# (else we'd waste prompt tokens on a blank line):
+if [ -n "$HISTORY" ]; then
+    PROMPT_PREFIX="${HISTORY}\n\n"
+else
+    PROMPT_PREFIX=""
+fi
 ```
 
 The output (when non-empty) follows czy's exact format:
@@ -252,12 +258,18 @@ Phase 0 工具链 (强制):
 ### `process_result(sorry_id, result)` — Result Handler
 
 ```
-All branches MUST end with a single call to `process_sorry_result.py`
-(real bash, MANDATORY). The script bundles: backlog status update +
-sorry_list.json refresh (via extract_sorries.py) + per-status milestone
-emit + sorry-pool-snapshot telemetry. Skipping any individual step
-breaks downstream consumers — bundling makes that structurally
-impossible.
+Each terminal branch ends with `process_sorry_result.py` (real bash,
+MANDATORY for proved/stuck/lake_build_fail). The need_sub_lemma branch
+DOES NOT use process_sorry_result anymore — it calls validate_decomposition
++ decompose_node directly (decompose_node carries the sorry_list-refresh
++ sorry-pool-snapshot emit responsibility internally so the telemetry
+invariant is preserved across this fork).
+
+process_sorry_result.py bundles for proved/stuck/lake_build_fail:
+backlog status update + sorry_list.json refresh + per-status milestone +
+sorry-pool-snapshot telemetry + (proved branch only) cascade DONE
+propagation upward via propagate_done.py. Skipping any individual step
+breaks downstream consumers — bundling makes that structurally impossible.
 
 ```bash
 python3 theme/scripts/process_sorry_result.py \

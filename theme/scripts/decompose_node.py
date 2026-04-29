@@ -68,6 +68,7 @@ import yaml
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 EMIT_EVENT = SCRIPTS_DIR / "emit_event.py"
+EXTRACT_SORRIES = SCRIPTS_DIR / "extract_sorries.py"
 BACKLOG_DEFAULT = SCRIPTS_DIR.parent / "input" / "sorry_backlog.yaml"
 
 sys.path.insert(0, str(SCRIPTS_DIR))
@@ -266,6 +267,40 @@ def main() -> int:
             "count": len(new_ids),
         },
     )
+
+    # § 8 review fix (slice 3.B P0): preserve telemetry invariants that
+    # the previous "process_sorry_result.py at end of every branch"
+    # contract guaranteed. After decomposition mutates the backlog, the
+    # web UI's sorry_list.json must be refreshed and a sorry-pool-snapshot
+    # emitted so depth_histogram + count delta consumers don't go stale.
+    sorry_list = sandbox / "sorry_list.json"
+    try:
+        subprocess.run(
+            ["python3", str(EXTRACT_SORRIES),
+             "--sandbox", str(sandbox),
+             "--output", str(sorry_list)],
+            check=False,
+        )
+    except FileNotFoundError as e:
+        print(f"[decompose_node] extract_sorries unavailable: {e}",
+              file=sys.stderr)
+    if sorry_list.exists():
+        try:
+            count = len(json.loads(sorry_list.read_text()))
+            _emit(
+                sandbox,
+                "sorry-pool-snapshot",
+                {
+                    "count": count,
+                    "trigger": "decompose_node",
+                    "parent_id": args.parent_id,
+                    "added_children": len(new_ids),
+                },
+            )
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"[decompose_node] sorry-pool-snapshot skipped: {e}",
+                  file=sys.stderr)
+
     print(f"decomposed {args.parent_id} → {new_ids}")
     return 0
 
