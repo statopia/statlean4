@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 214
+entry_count: 215
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -302,6 +302,11 @@ L3_strategies:
 
   - trigger: "TendstoInDistribution congruence on eventually-equal sequences via map equality"
     strategy: "refine ⟨_, _, ?_⟩ on structure; .tendsto.congr' on filter_upwards Subtype.ext (Measure.map_congr ae_of_all field_simp)"
+    confidence: 4
+
+  - trigger: "cov[h_S, h_T; pi nu n] = uZeta m k where k = card(S cap T), symmetric kernel"
+    strategy: "covariance_eq_sub + variance_eq_sub reduces to 3 integral identities; the bottleneck is 4-way ν^n ≅ ν^{S∩T}·ν^{S\T}·ν^{T\S}·ν^{(S∪T)ᶜ} decomposition with h_symm reorder. Mathlib has piEquivPiSubtypeProd for 2-way only; 4-way requires iterated split + permutation reconciliation (~200-400 lines infrastructure)."
+    source: Statlean/Variance/UStatistic.lean cov_hSub_eq_uZeta
     confidence: 4
 
 # ═══════════════════════════════════════════

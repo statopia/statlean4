@@ -272,6 +272,32 @@ private lemma cov_hSub_eq_uZeta {n m : ℕ}
     (s t : PSElem n m) :
     cov[hSub h s, hSub h t; Measure.pi (fun _ : Fin n => ν)] =
     uZeta m (s.val ∩ t.val).card h ν := by
+  -- ROADMAP (for next attacker, structural skeleton, NOT executed):
+  -- Let k = #(s ∩ t). We have k ≤ m since s ∩ t ⊆ s and #s = m.
+  -- Step A: cov[h_S, h_T; ν^n] = ∫ h_S·h_T ∂ν^n − (∫ h_S)(∫ h_T)
+  --         via `covariance_eq_sub h_S_L2 h_T_L2` (h_S/h_T in L² by `hSub_memLp`).
+  -- Step B: uZeta m k h ν = Var[kernelProjection m k h ν; ν^k]
+  --         = ∫ (kP)² ∂ν^k − (∫ kP ∂ν^k)²  via `variance_eq_sub`,
+  --         provided `MemLp (kernelProjection m k _ h ν) 2 (ν^k)` (sub-lemma A).
+  -- Step C: three integral identities (need 4-way decomposition):
+  --   Decompose ν^n ≅ ν^A × ν^B × ν^C × ν^D where
+  --     A = s ∩ t,  B = s \ t,  C = t \ s,  D = (s ∪ t)ᶜ.
+  --   (1) ∫ h_S ∂ν^n = ∫_{ν^A} ∫_{ν^B} h_S = ∫_{ν^A} kernelProjection m k h ν
+  --       (uses h_symm to permute h's input so its last m−k slots are exactly ν^B).
+  --   (2) ∫ h_T ∂ν^n = ∫_{ν^A} kernelProjection m k h ν   (similarly via h_symm).
+  --   (3) ∫ h_S·h_T ∂ν^n = ∫_{ν^A} (kernelProjection m k h ν)²
+  --       (B-integral and C-integral are independent in the product;
+  --        h_S depends on A, B; h_T depends on A, C; product splits.)
+  -- Combine: cov = (∫ kP²) − (∫ kP)² = Var[kP; ν^k] = uZeta m k h ν.  ∎
+  --
+  -- Key Mathlib API: `covariance_eq_sub`, `variance_eq_sub`,
+  --   `measurePreserving_piEquivPiSubtypeProd` (twice for 4-way),
+  --   `measurePreserving_piCongrLeft` (relabelling),
+  --   `MeasureTheory.integral_prod` / `integral_prod_symm` (Fubini),
+  --   `MemLp.comp_measurePreserving`.
+  -- Failure mode WITHOUT h_symm: kernelProjection integrates over the canonical
+  -- *last* m−k slots; the measure-preserving decomposition produces marginals over
+  -- subset-dependent slots; permutation symmetry is what reconciles them.
   sorry
 
 -- Helper: convert PSElem sum to powersetCard sum
