@@ -1,9 +1,7 @@
-version: v207
+version: v206
 generated: 2026-04-30
-total_sorry: 9
-
+total_sorry: 10
 sorry_items:
-
 - id: empiricalprocess.dkw.dkw_inequality
   file: Statlean/EmpiricalProcess/DKW.lean
   line: 144
@@ -11,46 +9,61 @@ sorry_items:
   type: blocked
   depth: 3
   priority: 40
-  blocker: "DKW inequality with sharp Massart constant 2. Requires: (a) measurability of the supremum event sup_x |F_n - F|; (b) symmetrization argument or McDiarmid/Talagrand bounded-differences; (c) VC-chaining bound for the half-line class (VC dim 1) or equivalent. Mathlib currently lacks a sharp McDiarmid inequality at constant 2 and a VC chaining infrastructure. Partially unlocked once `Statlean.Concentration.Talagrand.mcdiarmid` is strengthened to the 2-constant Massart form. "
+  blocker: 'DKW inequality with sharp Massart constant 2. Requires: (a) measurability
+    of the supremum event sup_x |F_n - F|; (b) symmetrization argument or McDiarmid/Talagrand
+    bounded-differences; (c) VC-chaining bound for the half-line class (VC dim 1)
+    or equivalent. Mathlib currently lacks a sharp McDiarmid inequality at constant
+    2 and a VC chaining infrastructure. Partially unlocked once `Statlean.Concentration.Talagrand.mcdiarmid`
+    is strengthened to the 2-constant Massart form. '
   estimated_lines: 350
-  dependencies: [concentration.talagrand.mcdiarmid_mgf_bound]
+  dependencies:
+  - concentration.talagrand.mcdiarmid_mgf_bound
   unlocks: []
-  source: "jobmobkjimio5zx — DKW 不等式 input.png"
-  route_notes: |
-    R6 engineering route candidates:
-    1. Massart (1990) reflection / Gaussian-comparison approach — hardest but
-       sharp.
-    2. McDiarmid + Talagrand `mcdiarmid` (file:
-       Statlean/Concentration/Talagrand.lean) — needs sharp constant upgrade.
-    3. Symmetrization + VC-chaining on half-lines (Statlean/EmpiricalProcess/
-       {Symmetrization,Chaining,CoveringNumber}.lean). Requires VC-dimension
-       infrastructure (not yet in Statlean).
+  source: jobmobkjimio5zx — DKW 不等式 input.png
+  route_notes: "R6 engineering route candidates:\n1. Massart (1990) reflection / Gaussian-comparison\
+    \ approach — hardest but\n   sharp.\n2. McDiarmid + Talagrand `mcdiarmid` (file:\n\
+    \   Statlean/Concentration/Talagrand.lean) — needs sharp constant upgrade.\n3.\
+    \ Symmetrization + VC-chaining on half-lines (Statlean/EmpiricalProcess/\n   {Symmetrization,Chaining,CoveringNumber}.lean).\
+    \ Requires VC-dimension\n   infrastructure (not yet in Statlean).\n"
   stuck_rounds: 0
-  state: "INITIALIZED"
+  state: INITIALIZED
   children: []
-  parent_id: "None"
+  parent_id: None
   history_log: []
-
 - id: limittheorems.asympexp.prop_2_3_case_ii
   file: Statlean/LimitTheorems/AsymptoticExpectation.lean
   line: 359
-  sorry_lines: [359, 369]
+  sorry_lines:
+  - 359
+  - 369
   theorem: shao_prop_2_3_case_ii
   type: ready
   depth: 1
   priority: 60
-  blocker: "4-way case-split on (aₙ,bₙ) divergence behavior from IsAsymptoticExpectation.nondeg. Sub-cases (A) aₙ→a, bₙ→b: vacuous given hξ_nondeg via Slutsky+Slutsky. Sub-case (B) aₙ→∞, bₙ→b: tightness contradiction forces q=0. Sub-case (C) aₙ→a, bₙ→∞: vacuous via ξₙ→ᵖ0+Slutsky. Sub-case (D) aₙ→∞, bₙ→∞: requires Helly extraction in [0,∞] (EReal compactness) for sub-sequential argument on bₙ/aₙ. (a) tendstoInDistribution_const_to_measure already provides ξ→d const → ξ→ᵖ const. Estimated: ~200 lines, 4 sub-case lemmas."
+  blocker: '4-way case-split on (aₙ,bₙ) divergence behavior from IsAsymptoticExpectation.nondeg.
+    Sub-cases (A) aₙ→a, bₙ→b: vacuous given hξ_nondeg via Slutsky+Slutsky. Sub-case
+    (B) aₙ→∞, bₙ→b: tightness contradiction forces q=0. Sub-case (C) aₙ→a, bₙ→∞: vacuous
+    via ξₙ→ᵖ0+Slutsky. Sub-case (D) aₙ→∞, bₙ→∞: requires Helly extraction in [0,∞]
+    (EReal compactness) for sub-sequential argument on bₙ/aₙ. (a) tendstoInDistribution_const_to_measure
+    already provides ξ→d const → ξ→ᵖ const. Estimated: ~200 lines, 4 sub-case lemmas.'
   estimated_lines: 200
-  dependencies: [tendstoInDistribution_const_to_measure, slutsky_div, slutsky_mul, EReal.compactSpace]
+  dependencies:
+  - tendstoInDistribution_const_to_measure
+  - slutsky_div
+  - slutsky_mul
+  - EReal.compactSpace
   unlocks: []
   stuck_rounds: 1
-  status: "pending"
-  route_notes: "Comment block in source (L294-L344) records 4-way case-split structure. Sub-cases A and C are vacuous given hξ_nondeg; B and D give the actual conclusion. Sub-case B is the most tractable starting point (~50 lines): use slutsky_div to get ξₙ→ᵖq/b, then tightness of {μ.map(aₙξₙ)} (from →d ξ) contradicts |aₙξₙ|→ᵖ∞ unless q=0. Then bₙ/aₙ→0/∞=0 directly."
-  state: "INITIALIZED"
+  status: pending
+  route_notes: 'Comment block in source (L294-L344) records 4-way case-split structure.
+    Sub-cases A and C are vacuous given hξ_nondeg; B and D give the actual conclusion.
+    Sub-case B is the most tractable starting point (~50 lines): use slutsky_div to
+    get ξₙ→ᵖq/b, then tightness of {μ.map(aₙξₙ)} (from →d ξ) contradicts |aₙξₙ|→ᵖ∞
+    unless q=0. Then bₙ/aₙ→0/∞=0 directly.'
+  state: INITIALIZED
   children: []
-  parent_id: "None"
+  parent_id: None
   history_log: []
-
 - id: limittheorems.asympexp.prop_2_3_case_both_nondeg
   file: Statlean/LimitTheorems/AsymptoticExpectation.lean
   line: 304
@@ -58,16 +71,37 @@ sorry_items:
   type: infrastructure_blocked
   depth: 2
   priority: 65
-  blocker: "Reduces to Khinchin's convergence-of-types theorem (Shao Exercise 1.129 of §1.6). Not currently in Mathlib or Statlean. Route: tightness + Prokhorov + sub-sequential-limit uniqueness on non-degenerate c.d.f.s. "
+  blocker: 'Reduces to Khinchin''s convergence-of-types theorem (Shao Exercise 1.129
+    of §1.6). Not currently in Mathlib or Statlean. Route: tightness + Prokhorov +
+    sub-sequential-limit uniqueness on non-degenerate c.d.f.s. '
   estimated_lines: 220
-  dependencies: [khinchin_convergence_of_types]
+  dependencies:
+  - khinchin_convergence_of_types
   unlocks: []
   stuck_rounds: 0
-  state: "INITIALIZED"
+  state: INITIALIZED
   children: []
-  parent_id: "None"
+  parent_id: None
   history_log: []
-
+- id: cascade_demo.leaf
+  file: Statlean/Smoke/CascadeFixture.lean
+  line: 27
+  theorem: cascade_leaf_thm
+  type: ready
+  depth: 2
+  priority: 99
+  blocker: smoke fixture — leaf (trivial single-tactic)
+  estimated_lines: 30
+  dependencies: []
+  unlocks: []
+  source: slice 3.C Gap 2
+  stuck_rounds: 0
+  state: DONE
+  children: []
+  parent_id: cascade_demo.mid
+  history_log: []
+  status: proved
+  done_reason: proved
 - id: variance.ustatistic.cov_hSub_eq_uZeta
   file: Statlean/Variance/UStatistic.lean
   line: 301
@@ -77,14 +111,14 @@ sorry_items:
   priority: 99
   estimated_lines: 50
   dependencies: []
-  unlocks: [variance.ustatistic.hajek_remainder_var_tendsto_zero]
-  status: "pending"
-  state: "INITIALIZED"
+  unlocks:
+  - variance.ustatistic.hajek_remainder_var_tendsto_zero
+  status: pending
+  state: INITIALIZED
   children: []
-  parent_id: "None"
+  parent_id: None
   history_log: []
   stuck_rounds: 1
-
 - id: variance.ustatistic.hajek_remainder_var_tendsto_zero
   file: Statlean/Variance/UStatistic.lean
   line: 1060
@@ -93,27 +127,26 @@ sorry_items:
   depth: 3
   priority: 99
   estimated_lines: 200
-  dependencies: [variance.ustatistic.cov_hSub_eq_uZeta]
+  dependencies:
+  - variance.ustatistic.cov_hSub_eq_uZeta
   unlocks: []
-  status: "pending"
+  status: pending
   stuck_rounds: 1
-  notes: |
-    Requires ~200 lines of variance/covariance algebra:
-    (1) Var[T_n] = m^2/n * zeta_1 (independence sum, needs sub-lemma var_hajekProjection_eq)
-    (2) Cov[U_n, T_n] = m^2/n * zeta_1 (Hoeffding decomp, needs sub-lemma cov_uStat_hajek_eq)
-    (3) Var[U_n - EU - T_n] = Var[U_n] + Var[T_n] - 2*Cov[U_n, T_n]
-    (4) Hoeffding decomp: Var[U_n] = c_{n,m,1}*zeta_1 + sum_{k>=2} c_{n,m,k}*zeta_k
-        (uses u_statistic_variance_decomposition, transitively depends on cov_hSub_eq_uZeta sorry)
-    (5) Leading k=1 cancels: c_{n,m,1} = m^2 * C(n-1,m-1)/(n*C(n,m)) algebra
-    (6) For k>=2: n * c_{n,m,k} <= C/n -> 0 (Nat.choose asymptotics)
-    No existing sub-lemmas in file (no var_hajekProjection, no cov_uStatistic_hajek).
-    Recommend /prove-deep with budget for new sub-lemma scaffolding,
-    OR mark as TRUSTED (similar to neighboring ustatistic_clt_degenerate L1251).
-  state: "INITIALIZED"
+  notes: "Requires ~200 lines of variance/covariance algebra:\n(1) Var[T_n] = m^2/n\
+    \ * zeta_1 (independence sum, needs sub-lemma var_hajekProjection_eq)\n(2) Cov[U_n,\
+    \ T_n] = m^2/n * zeta_1 (Hoeffding decomp, needs sub-lemma cov_uStat_hajek_eq)\n\
+    (3) Var[U_n - EU - T_n] = Var[U_n] + Var[T_n] - 2*Cov[U_n, T_n]\n(4) Hoeffding\
+    \ decomp: Var[U_n] = c_{n,m,1}*zeta_1 + sum_{k>=2} c_{n,m,k}*zeta_k\n    (uses\
+    \ u_statistic_variance_decomposition, transitively depends on cov_hSub_eq_uZeta\
+    \ sorry)\n(5) Leading k=1 cancels: c_{n,m,1} = m^2 * C(n-1,m-1)/(n*C(n,m)) algebra\n\
+    (6) For k>=2: n * c_{n,m,k} <= C/n -> 0 (Nat.choose asymptotics)\nNo existing\
+    \ sub-lemmas in file (no var_hajekProjection, no cov_uStatistic_hajek).\nRecommend\
+    \ /prove-deep with budget for new sub-lemma scaffolding,\nOR mark as TRUSTED (similar\
+    \ to neighboring ustatistic_clt_degenerate L1251).\n"
+  state: INITIALIZED
   children: []
-  parent_id: "None"
+  parent_id: None
   history_log: []
-
 - id: variance.ustatistic.ustatistic_clt_degenerate
   file: Statlean/Variance/UStatistic.lean
   line: 1277
@@ -124,11 +157,10 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-  state: "INITIALIZED"
+  state: INITIALIZED
   children: []
-  parent_id: "None"
+  parent_id: None
   history_log: []
-
 - id: variance.ustatistic.ustatistic_clt_nondegenerate
   file: Statlean/Variance/UStatistic.lean
   line: 1234
@@ -139,11 +171,10 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-  state: "INITIALIZED"
+  state: INITIALIZED
   children: []
-  parent_id: "None"
+  parent_id: None
   history_log: []
-
 - id: variance.ustatistic.ustatistic_degenerate_limit_second_moment
   file: Statlean/Variance/UStatistic.lean
   line: 1343
@@ -154,7 +185,8 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-  state: "INITIALIZED"
+  state: INITIALIZED
   children: []
-  parent_id: "None"
+  parent_id: None
   history_log: []
+schema_version: 2

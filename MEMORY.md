@@ -81,11 +81,3 @@ cov_hSub_eq_uZeta (U-statistic covariance identity) confirmed as R6: requires 4-
 **Summary**:
 
 Slice 3.C smoke fixture closed: 3-way conjunction decomposed into Nat.add_zero / Nat.zero_add / Nat.mul_one sub-lemmas. Verified end-to-end path decompose_node.py → 3 parallel haiku agents → process_sorry_result --status proved (×3) → propagate_done cascades parent DONE. No new Mathlib patterns; this exercise validates the tree-walker scheduling protocol on a trivial fixture rather than discovering proof techniques.
-
-## 2026-04-30 01:27 — `cascade_demo.leaf`
-
-**Stats**: proved=1  stuck=0  remaining=9
-
-**Summary**:
-
-Closed smoke fixture cascade_demo.leaf (trivial Nat.add_zero). Propagate_done found no eligible ancestor because cascade_demo.mid/root were absent from sorry_backlog.yaml — fixture pre-build is incomplete in this branch. The cascade-DONE multi-level propagation path remains untested by this run; bringing the parents into the backlog is required before the smoke fixture's stated invariant (ancestors_promoted=[mid, root]) can fire.
