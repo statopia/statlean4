@@ -30,6 +30,7 @@ Migration is idempotent — calling on a v2 input is a no-op.
 """
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
 
@@ -139,9 +140,22 @@ def migrate_yaml_v1_to_v2(yaml_data: Dict[str, Any]) -> Dict[str, Any]:
 
     Idempotent: a v2 yaml passes through unchanged (modulo dict key order,
     which `yaml.safe_dump(sort_keys=False)` will preserve).
+
+    Defensive against `sorry_items: None` (which yaml.safe_load can produce
+    when the key exists with empty value); treated as empty list.
     """
+    # Single stderr breadcrumb when the live yaml is first promoted v1 → v2.
+    # Slice 2 telemetry can use this to confirm the migration ran.
+    was_v1 = detect_schema_version(yaml_data) == 1
     if yaml_data.get("schema_version") != SCHEMA_VERSION_V2:
         yaml_data["schema_version"] = SCHEMA_VERSION_V2
-    for item in yaml_data.get("sorry_items", []):
+    if was_v1:
+        item_count = len(yaml_data.get("sorry_items") or [])
+        print(
+            f"[migrate] sorry_backlog.yaml v1→v2 ({item_count} items)",
+            file=sys.stderr,
+        )
+    # `sorry_items: None` (empty key in yaml) → iterate empty list, not crash.
+    for item in (yaml_data.get("sorry_items") or []):
         migrate_item_v1_to_v2(item)
     return yaml_data

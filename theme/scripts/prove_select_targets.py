@@ -17,6 +17,10 @@ from typing import Any
 
 import yaml
 
+# czy newloop merge: schema_version=2 fields. Idempotent migration on load.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _history_log_types import migrate_yaml_v1_to_v2  # noqa: E402
+
 
 def select_targets(
     backlog_path: Path,
@@ -30,6 +34,7 @@ def select_targets(
         return []
 
     data = yaml.safe_load(backlog_path.read_text()) or {}
+    migrate_yaml_v1_to_v2(data)
     items: list[dict] = list(data.get("sorry_items") or [])
 
     # Filter by manifest if provided

@@ -247,18 +247,28 @@ def test_migrate_yaml_idempotent() -> None:
 
 
 def test_migrate_yaml_empty_or_missing_sorry_items() -> None:
-    """Edge cases: empty dict, missing sorry_items, sorry_items=None."""
+    """Edge cases: empty dict, missing sorry_items, sorry_items=None.
+
+    `yaml.safe_load("sorry_items:\\n")` produces `{'sorry_items': None}`.
+    The migration must defend against None and treat it as empty.
+    """
     for data in [{}, {"sorry_items": []}, {"sorry_items": None, "version": "v200"}]:
-        # None in sorry_items → migrate should treat as empty (yaml_data.get
-        # returns None, the iteration over None would fail). Verify or document.
-        if data.get("sorry_items") is None and "sorry_items" in data:
-            # `for item in None` would TypeError. The migrate function uses
-            # yaml_data.get("sorry_items", []) which returns None when key
-            # exists but value is None. Skip this case — caller's job to
-            # ensure sorry_items is at least []. Document this.
-            continue
         migrate_yaml_v1_to_v2(data)
         assert data["schema_version"] == SCHEMA_VERSION_V2
+
+
+def test_migrate_yaml_sorry_items_none_via_yaml_load() -> None:
+    """Smoke test: yaml.safe_load of an empty `sorry_items:` key produces
+    None — verify migrate doesn't crash on this real-world shape."""
+    import yaml  # local import to keep test imports minimal at module top
+
+    yaml_text = "version: v200\nsorry_items:\n"
+    data = yaml.safe_load(yaml_text)
+    assert data["sorry_items"] is None  # confirm yaml's behavior
+    migrate_yaml_v1_to_v2(data)
+    assert data["schema_version"] == SCHEMA_VERSION_V2
+    # sorry_items remains None (we don't normalize to []), but migration
+    # didn't TypeError on the for-loop.
 
 
 # ── Differentiation evidence: tests must not run on baseline ─────────

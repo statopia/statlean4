@@ -29,6 +29,10 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 EMIT_EVENT = SCRIPTS_DIR / "emit_event.py"
 BACKLOG_DEFAULT = SCRIPTS_DIR.parent / "input" / "sorry_backlog.yaml"
 
+# czy newloop merge: schema_version=2 fields. Idempotent migration on load.
+sys.path.insert(0, str(SCRIPTS_DIR))
+from _history_log_types import migrate_yaml_v1_to_v2  # noqa: E402
+
 
 def _emit_milestone(sandbox: Path, name: str, details: dict) -> None:
     subprocess.run(
@@ -53,6 +57,7 @@ def _compute_ready_queue(backlog_path: Path, target: str, mode: str) -> list[dic
     if not backlog_path.exists():
         return []
     data = yaml.safe_load(backlog_path.read_text()) or {}
+    migrate_yaml_v1_to_v2(data)
     items = data.get("sorry_items") or []
 
     def is_ready(item: dict) -> bool:
