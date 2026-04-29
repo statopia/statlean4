@@ -139,6 +139,11 @@ def migrate_item_v1_to_v2(item: Dict[str, Any]) -> Dict[str, Any]:
     if "coverage_state" not in item:
         item["coverage_state"] = "needs_proof"
     # `coverage_citation` is intentionally NOT defaulted — absent ≠ ""
+    # A1 restrategize counter (per docs/A1_RESTRATEGIZE_SPEC.md §5).
+    # Bumped only by restrategize_node.py (NOT per prover-result, unlike
+    # czy proofLoop.ts:436-437 — see §2.3 D-1 deviation).
+    if "attempts" not in item:
+        item["attempts"] = 0
     return item
 
 

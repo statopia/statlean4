@@ -348,37 +348,66 @@ elif result.status == "stuck":
   - Call process_sorry_result.py --status stuck --sorry-id ... --blocker ...
     (czy newloop port: process_sorry_result internally bumps stuck_rounds
      by 1; this is the field record_retreat thresholds against.)
-  - **Retreat trigger** (czy newloop port — `controlAgent.ts:609`):
-    Re-read sorry's `stuck_rounds` from the backlog. If `stuck_rounds >= 3`
-    AND the sorry has a `parent_id`, the parent's children sub-tree has
-    failed enough rounds — call retreat:
+  - **Two-counter stuck gate** (czy newloop port + A1 — see
+    `controlAgent.ts:604-614` and `docs/A1_RESTRATEGIZE_SPEC.md` §7):
+    Re-read the parent (parent_id of the failed sorry) from the backlog
+    and apply this discrimination on `parent.attempts` and
+    `parent.stuck_rounds`:
 
-    ```bash
-    python3 theme/scripts/record_retreat.py \
-        --parent-id "<parent_id>" \
-        --retreat-reason "stuck_rounds reached 3 on <sorry_id>" \
-        --results-json '[{"sub_problem_id":"<sorry_id>","status":"stuck",
-                          "fail_reason":"<blocker, sliced 200 char>"}]' \
-        --sandbox "$SANDBOX"
-    ```
+    1. **If `attempts >= 3` → call `record_retreat.py`** (decomposition
+       itself wrong; full reset, attempts→0):
 
-    The script (T2 atomic):
-      - Removes ALL descendants of the parent from sorry_items[]
-        (mirrors czy clearSubtree)
-      - Resets parent: state→INITIALIZED, stuck_rounds→0, children→[]
-        (locked theorem signature on parent UNTOUCHED — Rule 3 Layer 1)
-      - Appends a HistoryLogEntry to parent.history_log[] with
-        iteration auto-computed (per-node retreat count, see record_retreat
-        docstring re czy global-iteration semantic divergence)
-      - Pulls decision_reason from parent.`_pending_decision_reason`
-        if set (decompose_node stashes it there for this consumption)
-      - Emits `retreat-triggered` milestone
+       ```bash
+       python3 theme/scripts/record_retreat.py \
+           --parent-id "<parent_id>" \
+           --retreat-reason "attempts reached 3; decomposition exhausted" \
+           --results-json '[{"sub_problem_id":"<sorry_id>","status":"stuck",
+                             "fail_reason":"<blocker, sliced 200 char>"}]' \
+           --sandbox "$SANDBOX"
+       ```
 
-    The parent now re-enters INITIALIZED with full history; the next
-    iteration's ready_queue picks it up. When that next prove agent
-    is dispatched, `read_history_log.py` (called by launch_background_agent
-    above) will surface the prior attempts in the prompt with the
-    "ACTION: Choose a DIFFERENT decomposition strategy" trailer.
+       Bundles: removes ALL descendants, resets parent state→INITIALIZED,
+       stuck_rounds→0, **attempts→0**, children→[], appends HistoryLogEntry
+       with full retreat context, emits `retreat-triggered`.
+
+    2. **Else if `stuck_rounds >= 3` → call `restrategize_node.py`**
+       (proof STRATEGY wrong; preserve decomposition strategy via
+       attempts++ bookkeeping):
+
+       ```bash
+       python3 theme/scripts/restrategize_node.py \
+           --parent-id "<parent_id>" \
+           --sandbox "$SANDBOX"
+       ```
+
+       Bundles: removes ALL descendants (parent stays — D-2 deviation
+       per A1 spec §2.3), resets parent state→INITIALIZED,
+       stuck_rounds→0, children→[], **bumps parent.attempts**, appends
+       HistoryLogEntry with structured `retreat_reason: "restrategize:
+       cleared N children, M proved"`, emits `restrategize-triggered`.
+
+       The script enforces the gate at script level too: refuses if
+       attempts >= 3 (caller should retreat instead). One less footgun.
+
+    3. **Else** (attempts < 3 AND stuck_rounds < 3): continue the prover
+       loop. Higher stuck_rounds will accumulate from process_sorry_result
+       on subsequent stucks; eventually crosses one of the thresholds.
+
+    Locked theorem signature on the parent is UNTOUCHED in either path
+    (Rule 3 Layer 1).
+
+    After EITHER script runs, the parent re-enters INITIALIZED with
+    full history; the next iteration's ready_queue picks it up. When
+    the next prove agent is dispatched, `read_history_log.py` (called
+    by launch_background_agent above) will surface the prior attempts
+    in the prompt with the "ACTION: Choose a DIFFERENT decomposition
+    strategy" trailer (for retreat) or context that 3 prior strategy
+    rounds failed (for restrategize).
+
+    **Determinism tier (Rule 9 §3)**: T2. The agent reads two yaml
+    fields and dispatches one named script — no LLM judgment in the
+    gate itself. Skipping a script is detectable by absence of the
+    matching milestone (`retreat-triggered` or `restrategize-triggered`).
   - **User-trust gate** (web-UI only — silently skipped in CLI-standalone
     mode when the tool is unavailable):
     If the blocker description mentions missing Mathlib infrastructure

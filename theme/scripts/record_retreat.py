@@ -295,6 +295,14 @@ def apply_retreat(
                     it["state"] = "INITIALIZED"
                     it["stuck_rounds"] = 0
                     it["children"] = []
+                    # A1 (per docs/A1_RESTRATEGIZE_SPEC.md §6): retreat
+                    # = "the decomposition itself was wrong; restart from
+                    # scratch." Reset the per-restrategize counter so
+                    # the new decomposition starts clean. czy doesn't do
+                    # this explicitly because TS state has fresh
+                    # ProblemNode per re-decompose; in our yaml-persisted
+                    # world we make it explicit.
+                    it["attempts"] = 0
                     history_log = list(it.get("history_log") or [])
                     history_log.append(entry)
                     it["history_log"] = history_log

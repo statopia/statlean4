@@ -106,6 +106,7 @@ MILESTONE_NAMES = (
     "state-drift-detected",     # P2-6: orchestrator-side reconcile noticed events.jsonl ↔ sandbox file disagreement
     "retreat-triggered",        # czy newloop port: sub-tree retreat — children removed, parent reset to INITIALIZED with history_log entry
     "reference-extracted",      # E4 helper-reference: extract_references.py finalized one parent's reference assessments → wrote references[]/coverage_state to backlog
+    "restrategize-triggered",   # A1: stuck_rounds=3 → clear children + bump attempts; preserves decomposition strategy across rounds (see docs/A1_RESTRATEGIZE_SPEC.md)
     "other",
 )
 

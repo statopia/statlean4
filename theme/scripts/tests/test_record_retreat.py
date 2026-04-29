@@ -607,6 +607,38 @@ def test_retreat_emits_kebab_case_milestone(tmp_path: Path, monkeypatch) -> None
     assert '"parent_id":"parent"' in content
 
 
+# ── A1 coupling: retreat resets attempts ─────────────────────────────
+
+
+def test_retreat_resets_attempts_after_restrategize(tmp_path: Path) -> None:
+    """A1 spec §6 + L2-extra: retreat = "decomposition was wrong;
+    restart from scratch". When retreat fires after one or more
+    restrategize rounds, the per-restrategize counter (attempts) MUST
+    reset to 0 — the new decomposition starts clean.
+
+    This catches the slice-2 modification (the one-line patch in
+    record_retreat.py:295 after A1 lands)."""
+    backlog = _make_yaml_with_tree(tmp_path)
+    # Seed parent with a non-zero attempts (simulates 2 prior
+    # restrategize rounds)
+    data = yaml.safe_load(backlog.read_text())
+    parent = next(it for it in data["sorry_items"] if it["id"] == "parent")
+    parent["attempts"] = 2
+    backlog.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
+    assert _by_id(backlog, "parent")["attempts"] == 2
+
+    apply_retreat(
+        backlog_path=backlog,
+        parent_id="parent",
+        retreat_reason="3 attempts exhausted; decomposition wrong",
+        results=[],
+    )
+
+    assert _by_id(backlog, "parent")["attempts"] == 0, (
+        "retreat must reset attempts (slice-2 + A1 coupling)"
+    )
+
+
 # ── Differentiation evidence ─────────────────────────────────────────
 
 
