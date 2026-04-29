@@ -48,6 +48,43 @@ When one sorry is proved → incremental commit → unlock downstream → dispat
    - **`all-leaves`**: Attack ALL ready sorries via the DAG scheduler below.
 4. **Priority queue**: Sort ready items by `priority` (lower = first).
 5. **Parse time budget**: If `--time-budget 3h` specified, set deadline.
+6. **R6 — helper-reference dispatch (E4 slice port).** For each
+   parent sorry_item where ALL of these hold:
+
+   - `state == INACTIVE_WAIT` (already decomposed; has children)
+   - `coverage_state` is currently `needs_proof` (R1-R5 / library
+     search did NOT already mark it `cited_by_library`)
+   - `pdfProofBody` is available in the sandbox (extracted by the
+     latex-ingest / pdf-extract phase) AND its length ≥ 10 chars
+
+   …dispatch the `helper-reference` Task subagent
+   (`theme/skills/helper-reference/SKILL.md`) once per parent. The
+   subagent emits a JSON array to its stdout; capture it to
+   `$SANDBOX/_helper_reference_$PARENT_ID.json` and pipe through:
+
+   ```bash
+   python3 theme/scripts/extract_references.py \
+       --parent-id "$PARENT_ID" \
+       --subagent-json-file "$SANDBOX/_helper_reference_$PARENT_ID.json" \
+       --pdf-proof-body-len $LEN \
+       --sandbox "$SANDBOX"
+   ```
+
+   The script writes `references[]` / `coverage_state` /
+   `coverage_citation` ONLY (Rule 3 Layer 1: signature/state/
+   parent_id/children/history_log untouched). One
+   `reference-extracted` milestone fires per parent_id.
+
+   **Phase 2 control flow is UNCHANGED**: a parent receiving
+   `coverage_state: cited_by_reference` is still attacked by the
+   prover loop. R6 is annotation-only; promotion to `done` requires
+   E11 `citationVerify` (separate slice). Per
+   `docs/E4_REFERENCE_SUBAGENT_SPEC.md` §10 Q4, this is the
+   conservative path — short-circuiting on an LLM-assessed citation
+   would be a Rule 3 statement-integrity failure mode.
+
+   Multi-parent dispatch IS parallel-safe (extract_references uses
+   flock + atomic write); fan out via Task subagent concurrency.
 
 ---
 

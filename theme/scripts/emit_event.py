@@ -105,6 +105,7 @@ MILESTONE_NAMES = (
     "working-tree-stashed",     # PR4: prove_deep_end / cancel auto-stashed residual WIP
     "state-drift-detected",     # P2-6: orchestrator-side reconcile noticed events.jsonl ↔ sandbox file disagreement
     "retreat-triggered",        # czy newloop port: sub-tree retreat — children removed, parent reset to INITIALIZED with history_log entry
+    "reference-extracted",      # E4 helper-reference: extract_references.py finalized one parent's reference assessments → wrote references[]/coverage_state to backlog
     "other",
 )
 

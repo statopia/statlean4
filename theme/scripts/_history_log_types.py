@@ -118,6 +118,12 @@ def migrate_item_v1_to_v2(item: Dict[str, Any]) -> Dict[str, Any]:
     Idempotent: if the item already has the v2 fields, untouched fields are
     preserved. If only some fields exist (partial migration), the missing
     ones get defaults.
+
+    E4 (helper-reference port, per `docs/E4_REFERENCE_SUBAGENT_SPEC.md`
+    §5) adds three additive fields. Schema version stays 2 — additive
+    within v2, not a v3 bump. `coverage_citation` stays absent until
+    written (readers tolerate the missing key; that's the "yaml-clean"
+    pattern from slice 1).
     """
     if "state" not in item:
         item["state"] = DEFAULT_STATE
@@ -127,6 +133,12 @@ def migrate_item_v1_to_v2(item: Dict[str, Any]) -> Dict[str, Any]:
         item["parent_id"] = None
     if "history_log" not in item:
         item["history_log"] = []
+    # E4 helper-reference fields
+    if "references" not in item:
+        item["references"] = []
+    if "coverage_state" not in item:
+        item["coverage_state"] = "needs_proof"
+    # `coverage_citation` is intentionally NOT defaulted — absent ≠ ""
     return item
 
 

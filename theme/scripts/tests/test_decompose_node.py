@@ -287,7 +287,18 @@ def test_decompose_does_not_touch_unrelated_siblings(tmp_path: Path) -> None:
         sub_problems=[{"id": "foo.s1"}],
     )
     bar_after = _by_id(backlog, "bar")
-    assert bar_after == bar_before
+    # Compare the fields that DEFINE the sibling. E4's idempotent
+    # migration may add references=[]/coverage_state="needs_proof" on
+    # the read path; that's a harmless additive default, not a
+    # perturbation of the sibling's meaning.
+    DEFINING = ("id", "file", "line", "theorem", "type", "depth",
+                "priority", "estimated_lines", "dependencies", "unlocks",
+                "state", "children", "parent_id", "history_log",
+                "stuck_rounds")
+    for k in DEFINING:
+        assert bar_after.get(k) == bar_before.get(k), (
+            f"sibling field {k} was perturbed by decompose"
+        )
 
 
 def test_decompose_preserves_file_mode(tmp_path: Path) -> None:
