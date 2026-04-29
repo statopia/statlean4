@@ -25,7 +25,10 @@ Idempotence + integrity:
   L1.14  re-run on already-DONE sorry → exit 2 ("already DONE")
   L1.15  ineligible coverage_state → exit 2
 
-Total 17 L1 tests (matches czy citationVerify.test.ts count).
+All 17 L1 cases from spec §7.1 are present (matches czy
+citationVerify.test.ts count). Subdivisions (L1.5×2, L1.11×3,
+L1.12×2, L1.15×2) plus 5 helper-coverage units bring the file
+total to 28 functions; the underlying spec-mandated cases are 17.
 """
 from __future__ import annotations
 
@@ -174,11 +177,14 @@ def statlean_root(tmp_path: Path) -> Path:
 
 def test_build_tactics_returns_4_in_correct_order() -> None:
     t = _build_tactics("Foo.bar")
+    # Byte-faithful to czy citationVerify.ts:89-94 — including the
+    # trailing "(by assumption)" on tactics 3-4 (load-bearing for
+    # iff-form lemmas with hypothesis side-conditions)
     assert t == [
         "exact Foo.bar",
         "apply Foo.bar <;> assumption",
-        "exact Foo.bar.mp",
-        "exact Foo.bar.mpr",
+        "exact Foo.bar.mp (by assumption)",
+        "exact Foo.bar.mpr (by assumption)",
     ]
 
 
@@ -268,7 +274,8 @@ def test_l1_4_locked_signature_invariant(
     PROTECTED = ("id", "file", "line", "theorem", "type", "depth",
                  "priority", "estimated_lines", "dependencies", "unlocks",
                  "parent_id", "children", "history_log", "stuck_rounds",
-                 "attempts", "coverage_state", "references")
+                 "attempts", "coverage_state", "coverage_citation",
+                 "references")
     for k in PROTECTED:
         assert post.get(k) == pre.get(k), (
             f"protected field {k} changed: {pre.get(k)!r} → {post.get(k)!r}"
@@ -382,7 +389,7 @@ def test_l1_8a_tactic_3_mp_succeeds_individually(
         try_tactic_fn=mock,
     )
     assert payload["verdict"] == "pass"
-    assert payload["tactic_used"] == "exact Foo.iff_form.mp"
+    assert payload["tactic_used"] == "exact Foo.iff_form.mp (by assumption)"
     assert len(mock.calls) == 3
 
 
@@ -397,7 +404,7 @@ def test_l1_8b_tactic_4_mpr_succeeds_individually(
         try_tactic_fn=mock,
     )
     assert payload["verdict"] == "pass"
-    assert payload["tactic_used"] == "exact Foo.iff_form.mpr"
+    assert payload["tactic_used"] == "exact Foo.iff_form.mpr (by assumption)"
     assert len(mock.calls) == 4
 
 
@@ -423,6 +430,25 @@ def test_l1_9_llm_verified_true_marks_done(ref_backlog: Path) -> None:
     assert item["state"] == "DONE"
     assert item["done_reason"] == "reference_axiom"
     assert item["citation_verified"] is True
+
+
+def test_l1_9_coverage_citation_without_prefix_falls_through(
+    tmp_path: Path,
+) -> None:
+    """If `coverage_citation` was set without the `-- cited from
+    reference: ` prefix (e.g. user manually edited yaml), the milestone
+    payload uses the raw value — no error."""
+    p = tmp_path / "b.yaml"
+    _write_backlog(p, _v2_backlog_with_sorry(
+        "cited_by_reference",
+        extras={"coverage_citation": "Lemma X.Y (no prefix)"},
+    ))
+    payload = apply_reference_verification(
+        backlog_path=p, sorry_id="p.s1",
+        subagent_text=json.dumps({"verified": True, "reasoning": "ok"}),
+    )
+    assert payload["verdict"] == "pass"
+    assert payload["cited_lemma"] == "Lemma X.Y (no prefix)"  # raw passthrough
 
 
 # ── L1.10 LLM verified=false ──────────────────────────────────────────
@@ -550,6 +576,42 @@ def test_l1_14_rerun_on_already_done_raises(
             try_tactic_fn=mock,
         )
     assert mock.calls == [], "no tactic attempted on idempotence reject"
+
+
+def test_l1_14_rerun_after_fail_is_allowed(
+    lib_backlog: Path, statlean_root: Path,
+) -> None:
+    """A FAIL'd sorry has state=INITIALIZED + citation_verified=False.
+    Re-running is ALLOWED (a previous flake from network / lake-build
+    transients shouldn't permanently brick the sorry). This test
+    confirms the second attempt overwrites citation_verified_at and
+    can succeed if the underlying tactic now passes."""
+    # Round 1: all 4 tactics fail
+    mock1 = TacticMock([(False, "f1"), (False, "f2"), (False, "f3"), (False, "f4")])
+    p1 = apply_library_verification(
+        backlog_path=lib_backlog, sorry_id="p.s1",
+        cited_lemma="Foo.bar", statlean_root=statlean_root,
+        try_tactic_fn=mock1,
+    )
+    assert p1["verdict"] == "fail"
+    item_after_fail = _by_id(lib_backlog, "p.s1")
+    assert item_after_fail["state"] == "INITIALIZED"
+    assert item_after_fail["citation_verified"] is False
+    first_at = item_after_fail["citation_verified_at"]
+
+    # Round 2: same sorry, exact succeeds first try (e.g. lake cache rebuilt)
+    mock2 = TacticMock([(True, "ok")])
+    p2 = apply_library_verification(
+        backlog_path=lib_backlog, sorry_id="p.s1",
+        cited_lemma="Foo.bar", statlean_root=statlean_root,
+        try_tactic_fn=mock2,
+    )
+    assert p2["verdict"] == "pass"
+    item_after_pass = _by_id(lib_backlog, "p.s1")
+    assert item_after_pass["state"] == "DONE"
+    assert item_after_pass["citation_verified"] is True
+    # Timestamp advanced (or at least not regressed)
+    assert item_after_pass["citation_verified_at"] >= first_at
 
 
 # ── L1.15 ineligible coverage_state ──────────────────────────────────

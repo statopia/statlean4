@@ -13,10 +13,14 @@ runs separately; this skill is the **reference path** — the LLM
 (`~/website-czy/src/lib/orchestrator/citationVerify.ts:218-292`).
 
 This is a **port** of czy's `REFERENCE_VERIFY_SYSTEM` prompt
-(`citationVerify.ts:177-204`). The system prompt below is verbatim
-per `docs/E11_CITATION_VERIFY_SPEC.md` §3 mapping table; calibration
-failure-modes preserved byte-for-byte. Do not edit the prompt body
-without §8 review.
+(`citationVerify.ts:177-204`). The substantive content of the
+system prompt below is preserved byte-for-byte (the three checks
+A/B/C, the four "Common failure modes" calibration bullets, the
+output JSON schema). Markdown rendering differs intentionally —
+A/B/C labels are bolded for readability and the failure-modes list
+is under a `### Common failure modes` header rather than inline —
+but the LLM-relevant prose is faithful. Do not edit the prompt
+body without §8 review.
 
 ## Inputs
 

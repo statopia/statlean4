@@ -82,14 +82,17 @@ from _yaml_io import atomic_write_yaml, locked_backlog  # noqa: E402
 def _build_tactics(cited_lemma: str) -> List[str]:
     """Return czy's 4-tactic ladder in order. First PASS short-circuits.
 
-    czy `:89-94` uses `\\u2009` (thin space) inside `<;>` for visual
-    parity; we use plain `<;>`. The Lean parser treats both equivalently;
-    the agent's `replace_sorry` consumer normalizes."""
+    Byte-faithful to czy `:89-94`. The trailing `(by assumption)` on
+    tactics 3-4 is load-bearing: iff-form lemmas typically carry
+    hypothesis side-conditions on their `.mp` / `.mpr` projections,
+    and `by assumption` discharges them from the local context.
+    Without it, tactics 3-4 only fire when the iff projection has
+    zero subgoals — a strictly weaker verifier than czy."""
     return [
         f"exact {cited_lemma}",
         f"apply {cited_lemma} <;> assumption",
-        f"exact {cited_lemma}.mp",
-        f"exact {cited_lemma}.mpr",
+        f"exact {cited_lemma}.mp (by assumption)",
+        f"exact {cited_lemma}.mpr (by assumption)",
     ]
 
 
@@ -267,6 +270,13 @@ def apply_library_verification(
     started_ms = int(time.time() * 1000)
     tactics = _build_tactics(cited_lemma.strip())
 
+    # Note: the tactic ladder (which includes subprocess `lake build`
+    # calls inside `_try_tactic`) runs UNDER the backlog flock. With a
+    # 60s lake-build timeout × 4 tactics, a single library verification
+    # can hold the lock for up to ~240s. Concurrent verifies on
+    # DIFFERENT sorries serialize too because they share one backlog
+    # file. Per spec §6.1 R7 dispatches sorries serially anyway, so
+    # this is acceptable — but document for future debuggers.
     with locked_backlog(backlog_path) as data:
         items: List[Dict[str, Any]] = data.get("sorry_items") or []
         item = next((it for it in items if it.get("id") == sorry_id), None)
