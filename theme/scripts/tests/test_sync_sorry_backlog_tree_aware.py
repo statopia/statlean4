@@ -412,6 +412,68 @@ def test_sync_tree_item_type_preserved_with_unresolved_deps(
     )
 
 
+def test_sync_tree_item_leaf_most_preference_when_multiple_share_key(
+    statlean_with_one_sorry: tuple[Path, str, str, int],
+    tmp_path: Path,
+) -> None:
+    """§8 closure follow-up: when two+ tree-structural items share the
+    same (file, theorem) key, the line update must land on the leaf
+    (no children) rather than the internal node (has children).
+
+    Without this preference, internal nodes — whose `line` is a
+    structural placeholder, not a real source position — would have
+    their line overwritten on every sync. The leaf is the one item
+    whose `line` actually corresponds to a `:= sorry` in source.
+
+    This test exercises the tiebreaker at sync_sorry_backlog.py:294-297
+    (`sorted(candidates, key=lambda x: (1 if children else 0, id))`).
+    The single-tree-item test above doesn't reach this branch — both
+    tests are needed to cover the lookup."""
+    statlean_dir, rel, theorem, _initial_line = statlean_with_one_sorry
+    backlog = tmp_path / "b.yaml"
+    _write_backlog(backlog, [{
+        # Internal node — same (file, theorem) as leaf, but has
+        # children. Stale line=999 is structural, not real-source.
+        "id": "tree.mid", "file": rel, "line": 999,
+        "theorem": theorem, "type": "blocked", "depth": 1, "priority": 50,
+        "estimated_lines": 50, "dependencies": [], "unlocks": [],
+        "state": "INACTIVE_WAIT", "children": ["tree.leaf"],
+        "parent_id": "tree.root", "history_log": [], "stuck_rounds": 0,
+    }, {
+        # Leaf — same (file, theorem) as mid, no children. THIS is the
+        # one that should pick up the source line update.
+        "id": "tree.leaf", "file": rel, "line": 998,
+        "theorem": theorem, "type": "ready", "depth": 2, "priority": 50,
+        "estimated_lines": 30, "dependencies": [], "unlocks": [],
+        "state": "INITIALIZED", "children": [],
+        "parent_id": "tree.mid", "history_log": [], "stuck_rounds": 0,
+    }, {
+        # Root — different file, just there so tree.mid's parent_id
+        # isn't an orphan ref (avoids tree-integrity warnings noise).
+        "id": "tree.root", "file": "Other.lean", "line": 1,
+        "theorem": "other", "type": "blocked", "depth": 0, "priority": 50,
+        "estimated_lines": 100, "dependencies": [], "unlocks": [],
+        "state": "INACTIVE_WAIT", "children": ["tree.mid"],
+        "parent_id": None, "history_log": [], "stuck_rounds": 0,
+    }])
+    sync_backlog(backlog, statlean_dir, dry_run=False)
+    final = yaml.safe_load(backlog.read_text())
+    by_id = {it["id"]: it for it in final["sorry_items"]}
+
+    # Leaf's line was refreshed from source — proof it won the tiebreak
+    assert by_id["tree.leaf"]["line"] != 998, (
+        "tree.leaf was not updated; source-match never reached the leaf"
+    )
+    # Mid's line is UNCHANGED — proof the internal node didn't grab the
+    # update slot. (The preservation pass re-adds it untouched.)
+    assert by_id["tree.mid"]["line"] == 999, (
+        f"tree.mid line was clobbered to {by_id['tree.mid']['line']}; "
+        "internal node won the tiebreak when it shouldn't have"
+    )
+    # Both still present — neither was dropped
+    assert "tree.leaf" in by_id and "tree.mid" in by_id and "tree.root" in by_id
+
+
 def test_sync_flat_item_type_still_blocked_with_unresolved_deps(
     tmp_path: Path,
 ) -> None:
