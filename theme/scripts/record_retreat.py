@@ -14,7 +14,7 @@ reset parent state, emit event" chain. One script call atomically:
   - Appends new HistoryLogEntry to parent.history_log[]
     (iteration auto-computed from len(history_log) + 1)
   - Writes back via tempfile + os.replace (atomic)
-  - Emits `retreat_triggered` milestone via emit_event.py
+  - Emits `retreat-triggered` milestone via emit_event.py
 
 Per CLAUDE.md Rule 9 §3 (T-tier): T2 single-script bundling. Agent
 invokes once; script enforces all sub-steps atomically.
