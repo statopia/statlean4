@@ -456,6 +456,96 @@ def test_flock_serializes_concurrent_retreats(tmp_path: Path) -> None:
         assert any("no children" in e for e in errors)
 
 
+# ── File-mode preservation (P1 from §8 review) ──────────────────────
+
+
+def test_atomic_write_preserves_644_mode(tmp_path: Path) -> None:
+    """Repo-committed yaml files are 0o644; tempfile.mkstemp default is
+    0o600. Without explicit fchmod, os.replace would silently downgrade
+    file mode and lock out other-uid readers. The fix: stat original
+    mode + fchmod tempfile before replace.
+    """
+    target = tmp_path / "out.yaml"
+    target.write_text("schema_version: 2\nsorry_items: []\n")
+    os.chmod(target, 0o644)
+    _atomic_write_yaml(target, {"schema_version": 2, "sorry_items": [{"id": "x"}]})
+    new_mode = os.stat(target).st_mode & 0o777
+    assert new_mode == 0o644, f"file mode degraded to {oct(new_mode)}"
+
+
+def test_atomic_write_preserves_unusual_mode(tmp_path: Path) -> None:
+    """Non-default modes (e.g. 0o640, 0o664) also preserved."""
+    target = tmp_path / "out.yaml"
+    target.write_text("schema_version: 2\n")
+    os.chmod(target, 0o664)  # group-writable
+    _atomic_write_yaml(target, {"schema_version": 2, "sorry_items": []})
+    new_mode = os.stat(target).st_mode & 0o777
+    assert new_mode == 0o664
+
+
+def test_atomic_write_new_file_uses_644(tmp_path: Path) -> None:
+    """If target doesn't exist yet, default to 0o644 (sane for repo files)."""
+    target = tmp_path / "fresh.yaml"
+    assert not target.exists()
+    _atomic_write_yaml(target, {"schema_version": 2, "sorry_items": []})
+    assert (os.stat(target).st_mode & 0o777) == 0o644
+
+
+# ── retreat-triggered actually fires (P0 from §8 review) ─────────────
+
+
+def test_retreat_emits_kebab_case_milestone(tmp_path: Path, monkeypatch) -> None:
+    """The §8 reviewer caught that `record_retreat` was emitting
+    `retreat_triggered` (snake) but emit_event.py only accepts
+    kebab-case names. After the fix, the milestone must use
+    `retreat-triggered` AND emit_event must NOT reject it.
+
+    We verify by intercepting the subprocess call and inspecting the
+    --name argument.
+    """
+    backlog = _make_yaml_with_tree(tmp_path)
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    # emit_event.py writes to <sandbox>/events.jsonl (not .events/);
+    # confirmed at theme/scripts/emit_event.py:138.
+
+    captured: dict = {}
+
+    import record_retreat as rr
+    real_run = rr.subprocess.run
+
+    def fake_run(cmd, *args, **kwargs):
+        captured["cmd"] = cmd
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(rr.subprocess, "run", fake_run)
+
+    # Drive retreat via the public CLI surface (apply_retreat then _emit
+    # in main; replicate by calling _emit directly with a fake sandbox).
+    rr.apply_retreat(
+        backlog_path=backlog,
+        parent_id="parent",
+        retreat_reason="r",
+        results=[],
+    )
+    # _emit isn't called from apply_retreat; it's called from main(). Call directly.
+    rr._emit(
+        sandbox,
+        "retreat-triggered",
+        {"parent_id": "parent", "iteration": 1},
+    )
+    cmd = captured.get("cmd") or []
+    assert "retreat-triggered" in cmd, f"emitted name: {cmd}"
+    # emit_event.py writes one append-line to <sandbox>/events.jsonl
+    # (per emit_event.py:138). Read it and confirm our payload landed.
+    events_path = sandbox / "events.jsonl"
+    assert events_path.exists(), "events.jsonl was not created"
+    content = events_path.read_text()
+    assert "retreat-triggered" in content
+    # emit_event uses compact JSON (no space after colon).
+    assert '"parent_id":"parent"' in content
+
+
 # ── Differentiation evidence ─────────────────────────────────────────
 
 

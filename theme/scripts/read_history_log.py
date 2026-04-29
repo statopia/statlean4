@@ -18,6 +18,12 @@ non-empty. Empty history_log → empty output. Slicing matches czy exactly:
 500 chars on decision_reason, 300 on each child description, 200 on
 fail_reason.
 
+SEMANTIC NOTE on `iteration` (the N in "- Iteration N: …"): this is the
+**per-node retreat count** as written by `record_retreat.py`. czy's TS
+source uses a global proof-loop counter; the SDK-bridge port uses
+per-node. Wire format byte-identical, semantic narrower. Documented in
+record_retreat.py:_build_history_entry and MERGE_PLAN.md §3.2.1.
+
 Per CLAUDE.md Rule 9 §3 (T-tier): T2 read-only formatter; deterministic
 given identical yaml input. Agent calls once when re-entering a parent
 node post-retreat; output prepended to decompose subagent prompt.

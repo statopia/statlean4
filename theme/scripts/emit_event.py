@@ -104,6 +104,7 @@ MILESTONE_NAMES = (
     "sorry-pool-snapshot",      # after each process_result: count, delta, depth_histogram
     "working-tree-stashed",     # PR4: prove_deep_end / cancel auto-stashed residual WIP
     "state-drift-detected",     # P2-6: orchestrator-side reconcile noticed events.jsonl ↔ sandbox file disagreement
+    "retreat-triggered",        # czy newloop port: sub-tree retreat — children removed, parent reset to INITIALIZED with history_log entry
     "other",
 )
 

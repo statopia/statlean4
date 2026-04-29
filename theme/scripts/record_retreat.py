@@ -88,13 +88,27 @@ def _atomic_write_yaml(path: Path, data: Dict[str, Any]) -> None:
 
     Same-directory tempfile is required for `os.replace` to be atomic
     on POSIX (cross-FS rename is not).
+
+    File mode preservation: `tempfile.mkstemp` defaults to 0o600. After
+    `os.replace`, that 600 mode would shadow the original file's mode
+    (typically 0o644 for repo files). Stat the original (if it exists)
+    and apply its mode to the tempfile fd before replace.
     """
+    # Snapshot original mode before any mutation; default 0o644 if no original.
+    if path.exists():
+        original_mode = os.stat(path).st_mode & 0o777
+    else:
+        original_mode = 0o644
+
     fd, tmp_path = tempfile.mkstemp(
         prefix=path.name + ".",
         suffix=".tmp",
         dir=str(path.parent),
     )
     try:
+        # Preserve mode BEFORE close so the chmod applies to this fd, not
+        # to a possibly-replaced inode. fchmod is fd-bound + atomic.
+        os.fchmod(fd, original_mode)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
         os.replace(tmp_path, path)
@@ -150,7 +164,19 @@ def _build_history_entry(
     used_assumptions: List[str] | None = None,
     retreat_reason: str | None = None,
 ) -> Dict[str, Any]:
-    """Produce a v2 HistoryLogEntry dict (yaml-ready, snake_case)."""
+    """Produce a v2 HistoryLogEntry dict (yaml-ready, snake_case).
+
+    SEMANTIC NOTE on `iteration`: this is the **per-node retreat count**
+    (i.e., how many times THIS specific parent has been retreated and
+    re-decomposed). czy's TS source uses a global proof-loop iteration
+    counter (`proofState.ts:462`) — these are NOT equivalent. We use the
+    per-node count because (a) the SDK-bridge architecture has no
+    natural global proof-loop counter to read, (b) the LLM only needs
+    the relative "Nth time you've tried this parent" signal, which
+    per-node count delivers exactly. The wire format ("Iteration N: …")
+    is byte-identical to czy; only the meaning of N differs. Documented
+    here + in MERGE_PLAN.md §3.2.1.
+    """
     entry: Dict[str, Any] = {
         "iteration": iteration,
         "decomposition": list(decomposition),
@@ -322,7 +348,7 @@ def main() -> int:
 
     _emit(
         sandbox,
-        "retreat_triggered",
+        "retreat-triggered",
         {
             "parent_id": args.parent_id,
             "iteration": entry["iteration"],
