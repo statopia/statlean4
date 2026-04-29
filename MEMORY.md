@@ -73,3 +73,11 @@ Parallel cycle: Marchenko-Pastur convergence CLOSED via axiom (stieltjes_continu
 **Summary**:
 
 cov_hSub_eq_uZeta (U-statistic covariance identity) confirmed as R6: requires 4-way Measure.pi decomposition (ν^n ≃ ν^{S∩T}·ν^{S\T}·ν^{T\S}·ν^{(S∪T)ᶜ}) which Mathlib lacks (piEquivPiSubtypeProd is 2-way only). Anti-pattern: naive covariance_eq_sub trades 1 sorry for 3 integral sub-sorries; must build 4-way MeasurableEquiv helper first as standalone infra (~200-400 lines), then return. Roadmap left in-source at L267-300 with Step A/B/C decomposition.
+
+## 2026-04-30 00:50 — `smoke.fixture.trivial_3way`
+
+**Stats**: proved=1  stuck=0  remaining=8
+
+**Summary**:
+
+Slice 3.C smoke fixture closed: 3-way conjunction decomposed into Nat.add_zero / Nat.zero_add / Nat.mul_one sub-lemmas. Verified end-to-end path decompose_node.py → 3 parallel haiku agents → process_sorry_result --status proved (×3) → propagate_done cascades parent DONE. No new Mathlib patterns; this exercise validates the tree-walker scheduling protocol on a trivial fixture rather than discovering proof techniques.
