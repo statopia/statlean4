@@ -65,3 +65,11 @@ Parallel cycle (2 agents) — both stuck, no sorry reduction. case_ii (Asymptoti
 **Summary**:
 
 Parallel cycle: Marchenko-Pastur convergence CLOSED via axiom (stieltjes_continuity_theorem_axiom — matches existing axiom pattern; Mathlib lacks Stieltjes inversion + Vitali-Montel + Helly + Portmanteau-for-ℝ ~500 lines). case_ii Phase 1 mandatory decomposition done: monolithic inner sorry split via rcases hA.nondeg × hB.nondeg into 4 named sub-stubs A/B/C/D (A,C vacuous ~30 lines; B(b1) bn/an→0 closed via Tendsto.div_atTop; B(b2) needs tightness-from-→d ~50; D needs Helly in [0,∞] ~150). Trade-off: file went 2→5 sorries but each leaf is individually attackable. R6 WebSearch confirmed: Mathlib has TendstoInDistribution + slutsky_div + tendstoInMeasure_iff_norm but no Stieltjes/Helly chain. 3 patterns ingested.
+
+## 2026-04-30 00:31 — `variance.ustatistic.cov_hSub_eq_uZeta`
+
+**Stats**: proved=0  stuck=1  remaining=5
+
+**Summary**:
+
+cov_hSub_eq_uZeta (U-statistic covariance identity) confirmed as R6: requires 4-way Measure.pi decomposition (ν^n ≃ ν^{S∩T}·ν^{S\T}·ν^{T\S}·ν^{(S∪T)ᶜ}) which Mathlib lacks (piEquivPiSubtypeProd is 2-way only). Anti-pattern: naive covariance_eq_sub trades 1 sorry for 3 integral sub-sorries; must build 4-way MeasurableEquiv helper first as standalone infra (~200-400 lines), then return. Roadmap left in-source at L267-300 with Step A/B/C decomposition.
