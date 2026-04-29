@@ -85,6 +85,65 @@ When one sorry is proved → incremental commit → unlock downstream → dispat
 
    Multi-parent dispatch IS parallel-safe (extract_references uses
    flock + atomic write); fan out via Task subagent concurrency.
+7. **R7 — citation-verify dispatch (E11 slice port).** Run AFTER R6
+   completes for the whole batch. Iterate eligible sorries in
+   deterministic order — sorted by `id` ascending (lexicographic) —
+   so L2 reproducibility holds. For each sorry whose
+   `coverage_state ∈ {cited_by_library, cited_by_reference}`:
+
+   **Library path** (`coverage_state == cited_by_library`):
+   The cited Mathlib name comes from R1-R5's helper-search output
+   (when ported) — until then this branch is dormant on real jobs.
+   Invoke:
+
+   ```bash
+   python3 theme/scripts/verify_citation.py \
+       --mode library --sorry-id "<id>" \
+       --cited-lemma "<Mathlib.Name>" \
+       --sandbox "$SANDBOX"
+   ```
+
+   The script (T2 atomic): runs the 4-tactic ladder (`exact <name>`,
+   `apply <name> <;> assumption`, `exact <name>.mp`,
+   `exact <name>.mpr`); on FIRST PASS short-circuits and writes
+   `state=DONE` + `done_reason=library_verified` + `citation_verified=true`;
+   on FULL FAIL leaves the source tree byte-identical to its pre-call
+   state and writes `citation_verified=false`. Body-level mutation
+   only — Rule 3 Layer 1 invariant preserved (locked theorem
+   signature untouched).
+
+   **Reference path** (`coverage_state == cited_by_reference`):
+   Dispatch the `citation-verify` Task subagent
+   (`theme/skills/citation-verify/SKILL.md`) with the sub-problem's
+   `original_description`, the `coverage_citation` (E4 wrote it
+   stripped of the `-- cited from reference: ` prefix) as the
+   `reference_theorem` input, and the `declarationText` (Lean
+   signature). Capture stdout JSON to
+   `$SANDBOX/_citation_verify_<id>.json`, then:
+
+   ```bash
+   python3 theme/scripts/verify_citation.py \
+       --mode reference --sorry-id "<id>" \
+       --subagent-json-file "$SANDBOX/_citation_verify_<id>.json" \
+       --sandbox "$SANDBOX"
+   ```
+
+   On PASS: `state=DONE` + `done_reason=reference_axiom` +
+   `citation_verified=true`. On FAIL (LLM verified=false OR malformed
+   JSON): `citation_verified=false`; `coverage_state` preserved per
+   §E11 D9. Reference path is **non-destructive** — never touches
+   `.lean`.
+
+   **Phase 1 + Phase 2 are NOT modified.** PASS-verified nodes enter
+   Phase 2 already `state=DONE`; the existing "skip DONE" semantic in
+   the LOOP picks them up naturally. FAIL nodes are attacked by the
+   prover (per `docs/E11_CITATION_VERIFY_SPEC.md` §10 D8 — verifier-
+   unsure does NOT skip; statement-integrity over throughput).
+
+   One `citation-verified` milestone fires per invocation. Layer 4
+   (`judge-integrity.ts`) at promotion time is the load-bearing audit
+   on `reference_axiom` rows (E11 verifier is a soft signal; Layer 4
+   has the trust pivot).
 
 ---
 

@@ -107,6 +107,7 @@ MILESTONE_NAMES = (
     "retreat-triggered",        # czy newloop port: sub-tree retreat — children removed, parent reset to INITIALIZED with history_log entry
     "reference-extracted",      # E4 helper-reference: extract_references.py finalized one parent's reference assessments → wrote references[]/coverage_state to backlog
     "restrategize-triggered",   # A1: stuck_rounds=3 → clear children + bump attempts; preserves decomposition strategy across rounds (see docs/A1_RESTRATEGIZE_SPEC.md)
+    "citation-verified",        # E11: a citation candidate ran through the verifier (PASS or FAIL); details carry verdict + verifier mode + done_reason_set (see docs/E11_CITATION_VERIFY_SPEC.md)
     "other",
 )
 

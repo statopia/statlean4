@@ -144,6 +144,15 @@ def migrate_item_v1_to_v2(item: Dict[str, Any]) -> Dict[str, Any]:
     # czy proofLoop.ts:436-437 — see §2.3 D-1 deviation).
     if "attempts" not in item:
         item["attempts"] = 0
+    # E11 citation-verify fields (per docs/E11_CITATION_VERIFY_SPEC.md §5).
+    # Set by verify_citation.py at Phase 0 R7. citation_verified gets a
+    # default (False) so readers can compare bool; done_reason and
+    # citation_verified_at are absent until written (E4 coverage_citation
+    # precedent — readers tolerate missing key).
+    if "citation_verified" not in item:
+        item["citation_verified"] = False
+    # done_reason absent until written (D11)
+    # citation_verified_at absent until written
     return item
 
 
