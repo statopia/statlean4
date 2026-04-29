@@ -268,3 +268,232 @@ def test_module_present_marker() -> None:
     assert RECORD_RETREAT.exists()
     assert READ_HISTORY.exists()
     assert PROPAGATE_DONE.exists()
+
+
+# ── Slice 3.C Gap 2 — multi-level cascade via real subprocess ────────
+
+
+@pytest.mark.skipif(
+    os.environ.get("CI_SKIP_INTEGRATION") == "1",
+    reason="integration smoke disabled in this env",
+)
+def test_multi_level_cascade_via_propagate_done_cli(tmp_path: Path) -> None:
+    """Slice 3.C Gap 2 fix: exercise propagate_done.py recursion through
+    a depth-3 tree via real subprocess invocation.
+
+    Real-LLM L3 of multi-level cascade is blocked by sync_sorry_backlog
+    treating yaml-only tree-structural entries (mid + root) as orphans
+    and removing them before propagate_done can walk the chain. Slice 4
+    will lift sync_sorry_backlog to preserve entries with parent_id
+    set; until then, the multi-level cascade contract is verified via
+    this subprocess-driven test exercising propagate_done.py's full
+    fcntl + atomic write + emit chain end-to-end.
+
+    Tree:
+        root          (state: INACTIVE_WAIT, children=[mid])
+        └── mid       (state: INACTIVE_WAIT, children=[leaf], parent=root)
+            └── leaf  (state: DONE pre-set,   parent=mid)
+
+    Expected: propagate_done walks leaf→mid→root, marks both DONE +
+    done_reason=done_by_dependency, emits dag-cycle-done with
+    ancestors_promoted=[mid, root] (per propagate_done.py logic, the
+    list contains ancestors transitioned in this call, NOT including
+    the input leaf).
+    """
+    backlog = tmp_path / "sorry_backlog.yaml"
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    data = {
+        "schema_version": 2,
+        "version": "v200",
+        "sorry_items": [
+            {
+                "id": "root",
+                "file": "X.lean",
+                "line": 1,
+                "theorem": "root_thm",
+                "state": "INACTIVE_WAIT",
+                "children": ["mid"],
+                "parent_id": None,
+                "history_log": [],
+                "stuck_rounds": 0,
+                "blocker": "decomposed",
+                "dependencies": ["dep_a"],
+                "depth": 0,
+                "priority": 50,
+                "estimated_lines": 100,
+            },
+            {
+                "id": "mid",
+                "file": "X.lean",
+                "line": 2,
+                "theorem": "mid_thm",
+                "state": "INACTIVE_WAIT",
+                "children": ["leaf"],
+                "parent_id": "root",
+                "history_log": [],
+                "stuck_rounds": 0,
+            },
+            {
+                "id": "leaf",
+                "file": "X.lean",
+                "line": 3,
+                "theorem": "leaf_thm",
+                "state": "DONE",  # pre-set: simulating just-proved
+                "done_reason": "proved",
+                "children": [],
+                "parent_id": "mid",
+                "history_log": [],
+                "stuck_rounds": 0,
+            },
+        ],
+    }
+    backlog.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
+
+    # Invoke propagate_done.py via real CLI subprocess (not function call)
+    result = _run([
+        "python3", str(PROPAGATE_DONE),
+        "--node-id", "leaf",
+        "--sandbox", str(sandbox),
+        "--backlog-path", str(backlog),
+    ])
+    assert result.returncode == 0, result.stderr
+
+    # Verify yaml: mid + root cascaded to DONE + done_by_dependency
+    final = yaml.safe_load(backlog.read_text())
+    by_id = {it["id"]: it for it in final["sorry_items"]}
+    assert by_id["leaf"]["state"] == "DONE"  # unchanged input
+    assert by_id["mid"]["state"] == "DONE", "mid did not cascade"
+    assert by_id["mid"].get("done_reason") == "done_by_dependency"
+    assert by_id["root"]["state"] == "DONE", "root did not cascade"
+    assert by_id["root"].get("done_reason") == "done_by_dependency"
+
+    # Locked-signature fields on root preserved (Rule 3 Layer 1)
+    assert by_id["root"]["theorem"] == "root_thm"
+    assert by_id["root"]["dependencies"] == ["dep_a"]
+    assert by_id["root"]["blocker"] == "decomposed"
+
+    # Verify event chain: dag-cycle-done with ancestors_promoted=[mid, root]
+    events = _events(sandbox)
+    cycle_dones = [e for e in events if e.get("name") == "dag-cycle-done"]
+    assert len(cycle_dones) == 1, f"expected exactly 1 dag-cycle-done, got {len(cycle_dones)}"
+    payload = cycle_dones[0]["details"]
+    assert payload["root_id"] == "root", f"wrong root_id: {payload}"
+    assert payload["ancestors_promoted"] == ["mid", "root"], (
+        f"expected multi-level [mid, root], got {payload['ancestors_promoted']}"
+    )
+
+
+# ── Slice 3.C Gap 3 — record_retreat full chain via real subprocess ──
+
+
+@pytest.mark.skipif(
+    os.environ.get("CI_SKIP_INTEGRATION") == "1",
+    reason="integration smoke disabled in this env",
+)
+def test_record_retreat_via_cli_with_pre_bumped_stuck(tmp_path: Path) -> None:
+    """Slice 3.C Gap 3 fix: exercise record_retreat.py end-to-end via
+    real subprocess invocation, simulating the retreat threshold trip.
+
+    Real-LLM L3 of retreat is blocked by the same sync_sorry_backlog
+    conflict as Gap 2 (fixture parent gets removed before the agent
+    reaches retreat threshold). Validation here uses subprocess of
+    record_retreat.py directly — same flock + atomic write + emit
+    chain the prove-deep narrative would invoke after stuck_rounds≥3.
+
+    Setup mirrors the at-retreat-time state:
+      parent (INACTIVE_WAIT, 2 children)
+      ├── child1 (stuck_rounds=3, pending — would have triggered retreat)
+      └── child2 (still ACTIVE_PROVING)
+    """
+    backlog = tmp_path / "sorry_backlog.yaml"
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    data = {
+        "schema_version": 2,
+        "sorry_items": [
+            {
+                "id": "parent_target",
+                "file": "X.lean",
+                "line": 1,
+                "theorem": "parent_thm",
+                "state": "INACTIVE_WAIT",
+                "children": ["parent_target.s1", "parent_target.s2"],
+                "parent_id": None,
+                "history_log": [],
+                "stuck_rounds": 0,
+                "blocker": "to be retreated",
+                "dependencies": [],
+                "depth": 0,
+                "priority": 50,
+                "_pending_decision_reason": "first decompose: split by induction",
+            },
+            {
+                "id": "parent_target.s1",
+                "state": "INITIALIZED",
+                "stuck_rounds": 3,
+                "children": [],
+                "parent_id": "parent_target",
+                "history_log": [],
+            },
+            {
+                "id": "parent_target.s2",
+                "state": "ACTIVE_PROVING",
+                "stuck_rounds": 1,
+                "children": [],
+                "parent_id": "parent_target",
+                "history_log": [],
+            },
+        ],
+    }
+    backlog.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
+
+    result = _run([
+        "python3", str(RECORD_RETREAT),
+        "--parent-id", "parent_target",
+        "--retreat-reason", "stuck_rounds reached 3 on parent_target.s1",
+        "--results-json", json.dumps([
+            {"sub_problem_id": "parent_target.s1", "status": "stuck",
+             "fail_reason": "type mismatch in step 3"},
+            {"sub_problem_id": "parent_target.s2", "status": "stuck"},
+        ]),
+        # Note: no --decision-reason; should fall back to parent's
+        # _pending_decision_reason (slice 3.A §8 fix).
+        "--sandbox", str(sandbox),
+        "--backlog-path", str(backlog),
+    ])
+    assert result.returncode == 0, result.stderr
+
+    # Verify yaml mutation
+    final = yaml.safe_load(backlog.read_text())
+    by_id = {it["id"]: it for it in final["sorry_items"]}
+    # Children removed
+    assert "parent_target.s1" not in by_id
+    assert "parent_target.s2" not in by_id
+    # Parent reset
+    parent = by_id["parent_target"]
+    assert parent["state"] == "INITIALIZED"
+    assert parent["stuck_rounds"] == 0
+    assert parent["children"] == []
+    # _pending_decision_reason consumed (popped)
+    assert "_pending_decision_reason" not in parent
+    # Locked signature preserved
+    assert parent["theorem"] == "parent_thm"
+    assert parent["blocker"] == "to be retreated"
+    # History log populated, decision_reason from stash
+    assert len(parent["history_log"]) == 1
+    entry = parent["history_log"][0]
+    assert entry["iteration"] == 1
+    assert entry["decomposition"] == ["parent_target.s1", "parent_target.s2"]
+    assert entry["retreat_reason"] == "stuck_rounds reached 3 on parent_target.s1"
+    assert entry["decision_reason"] == "first decompose: split by induction"
+
+    # Verify event
+    events = _events(sandbox)
+    retreat_events = [e for e in events if e.get("name") == "retreat-triggered"]
+    assert len(retreat_events) == 1
+    payload = retreat_events[0]["details"]
+    assert payload["parent_id"] == "parent_target"
+    assert payload["iteration"] == 1
+    assert "stuck_rounds reached 3" in payload["retreat_reason"]
+    assert sorted(payload["stuck_subproblems"]) == ["parent_target.s1", "parent_target.s2"]
