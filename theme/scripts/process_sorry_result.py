@@ -38,6 +38,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 EMIT_EVENT = SCRIPTS_DIR / "emit_event.py"
 EXTRACT_SORRIES = SCRIPTS_DIR / "extract_sorries.py"
 VALIDATE_DECOMP = SCRIPTS_DIR / "validate_decomposition.py"
+PROPAGATE_DONE = SCRIPTS_DIR / "propagate_done.py"
 BACKLOG_PATH = SCRIPTS_DIR.parent / "input" / "sorry_backlog.yaml"
 
 # czy newloop merge: schema_version=2 fields. Idempotent migration on load.
@@ -81,6 +82,25 @@ def _refresh_sorry_list(sandbox: Path, lean_file: Path | None) -> int:
         return len(json.loads(out.read_text()))
     except Exception:
         return 0
+
+
+def _read_stuck_rounds(sorry_id: str) -> int:
+    """Read current stuck_rounds for a sorry; default 0 if absent.
+
+    Slice 3.B helper: process_sorry_result bumps this on status=stuck;
+    prove-deep.md narrative compares against threshold (3) to decide
+    whether to call record_retreat.py.
+    """
+    if not BACKLOG_PATH.exists():
+        return 0
+    try:
+        data = yaml.safe_load(BACKLOG_PATH.read_text()) or {}
+    except yaml.YAMLError:
+        return 0
+    for item in (data.get("sorry_items") or []):
+        if item.get("id") == sorry_id:
+            return int(item.get("stuck_rounds", 0))
+    return 0
 
 
 def _update_backlog_status(sorry_id: str, mutations: dict) -> None:
@@ -166,7 +186,28 @@ def main() -> None:
     if args.status == "proved":
         _emit(sandbox, "sorry-proved",
               {"sorry_id": args.sorry_id, "module": args.module})
-        _update_backlog_status(args.sorry_id, {"status": "proved"})
+        # czy newloop port slice 3.B: in addition to status=proved, also
+        # set state=DONE and done_reason=proved (v2 schema), so cascade
+        # propagation has a consistent state-machine signal upward.
+        _update_backlog_status(args.sorry_id, {
+            "status": "proved",
+            "state": "DONE",
+            "done_reason": "proved",
+        })
+        # Cascade DONE up the parent chain (T2 chain). Best-effort —
+        # propagate_done is no-op if the node has no parent or sibling
+        # is still in flight.
+        try:
+            subprocess.run(
+                ["python3", str(PROPAGATE_DONE),
+                 "--node-id", args.sorry_id,
+                 "--sandbox", str(sandbox),
+                 "--backlog-path", str(BACKLOG_PATH)],
+                check=True,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"[process_sorry_result] propagate_done failed: {e}",
+                  file=sys.stderr)
 
     elif args.status == "lake_build_fail":
         _emit(sandbox, "lake-build-fail",
@@ -177,7 +218,16 @@ def main() -> None:
     elif args.status == "stuck":
         _emit(sandbox, "subagent-stuck",
               {"sorry_id": args.sorry_id, "blocker": args.blocker})
-        _update_backlog_status(args.sorry_id, {"status": "pending"})
+        # czy newloop port slice 3.B: bump stuck_rounds. Threshold (3)
+        # is checked by prove-deep.md narrative, which calls
+        # record_retreat.py when reached. The bump itself is determinist;
+        # the threshold logic is T3 narrative because the agent decides
+        # WHICH retreat reason to record.
+        new_stuck = _read_stuck_rounds(args.sorry_id) + 1
+        _update_backlog_status(args.sorry_id, {
+            "status": "pending",
+            "stuck_rounds": new_stuck,
+        })
 
     elif args.status == "need_sub_lemma":
         if not args.parent_metrics or not args.children_decomposition:

@@ -63,8 +63,24 @@ Decomposition steps:
 1. Launch ONE research agent (haiku) to analyze the sorry goal + surrounding context.
 2. Identify independent sub-lemmas (e.g., integrability, measurability, core equality).
 3. Write sub-lemma declarations with sorry + compile-check them.
-4. Update `sorry_backlog.yaml` with new sub-items and DAG edges.
-5. Recompute ready queue — sub-lemmas become the new leaves.
+4. Call **`decompose_node.py`** to atomically register the children in the backlog
+   (czy newloop port slice 3.A; replaces the older "manually edit yaml" recipe):
+   ```bash
+   python3 theme/scripts/decompose_node.py \
+       --parent-id "<parent sorry id>" \
+       --sub-problems-json '[{"id":"parent.sub1","theorem":"...","blocker":"..."},
+                             {"id":"parent.sub2",...}]' \
+       --decision-reason "<why this decomposition; will be stashed on parent
+                          and surfaced in retreat history if children fail>" \
+       --sandbox "$SANDBOX"
+   ```
+   The script (T2 atomic): inserts sub-rows with `state=INITIALIZED`, sets
+   parent `state=INACTIVE_WAIT` + `children=[...]`, stashes `decision_reason`
+   on the parent (consumed by record_retreat if children fail), emits
+   `subtasks-split` milestone. **Locked theorem signature on the parent is
+   never touched** (Rule 3 Layer 1 invariant — verified in unit tests).
+5. The parent enters INACTIVE_WAIT and exits the ready queue automatically;
+   sub-lemmas become the new leaves the next ready_queue computation picks up.
 
 **Rationale**: Agents that discover decomposition ad-hoc waste cycles on instance
 resolution and type-juggling. Pre-decomposition isolates each API interaction into
@@ -74,25 +90,47 @@ Skip this phase only for genuinely simple sorry (single tactic, obvious API).
 
 ---
 
-## Phase 2: Saturated DAG Scheduling Loop (CORE)
+## Phase 2: Tree-Walker Scheduling Loop (CORE — czy newloop port)
+
+The scheduling model is the **decision tree** ported from czy's
+`proofState.ts` + `controlAgent.ts` (replacing the prior flat-DAG queue).
+Every sorry_item has a `state` ∈ {INITIALIZED, INACTIVE_WAIT, ACTIVE_PROVING, DONE}
+and a `parent_id` (None for top-level). Decomposition turns a parent into
+INACTIVE_WAIT with `children` populated; retreat clears the children and
+returns the parent to INITIALIZED with a `history_log` entry.
+
+**Ready-queue rule** (recomputed every iteration; replaces the static
+priority-sorted queue):
+
+```
+A node is ready iff state == "INITIALIZED" AND either:
+  (a) parent_id is None AND every dep in dependencies has status="proved"
+      (top-level: classic DAG-style cross-sorry dependency)
+  OR
+  (b) parent_id is not None AND parent_id's state == "INACTIVE_WAIT"
+      (sub-problem: parent suspended pending us)
+
+Order ready_queue by priority (higher first), break ties on insertion order.
+```
 
 ```
 MAX_SLOTS = 3
 active_agents = {}   # {task_id → sorry_id}
-ready_queue = [sorted by priority]
 start_time = now()
 
 # NOTE: dispatch-batch-start milestone was emitted at Phase 0 step 0
-# via prove_deep_begin.py (which also dumped ready_queue with metrics).
-# Don't re-emit here.
+# via prove_deep_begin.py. Don't re-emit here.
 
 LOOP:
+  # ── Compute ready_queue dynamically (czy tree-walker semantics) ──
+  ready_queue = compute_ready_queue(sorry_backlog)   # see rule above
+
   # ── Fill slots to MAX_SLOTS ──
   while len(active_agents) < MAX_SLOTS and ready_queue is not empty:
     sorry = ready_queue.pop(0)
     agent = launch_background_agent(sorry)
     active_agents[agent.task_id] = sorry.id
-    mark sorry as in_progress in backlog
+    set sorry.state = "ACTIVE_PROVING" in backlog
 
   # ── If no active agents and no ready tasks → done ──
   if active_agents is empty:
@@ -123,9 +161,36 @@ LOOP:
 ### `launch_background_agent(sorry)` — Agent Prompt Template
 
 For each sorry, launch a background Agent with `subagent_type: "general-purpose"`,
-`run_in_background: true`:
+`run_in_background: true`. **Before constructing the prompt, check if this sorry
+has prior-attempt history** (czy newloop port — `informalAgent.ts:741-763`):
+
+```bash
+# If sorry.history_log is non-empty (i.e., this sorry was retreated
+# from at least once before), prepend the history block to the agent
+# prompt so the LLM sees what was tried and can pick a DIFFERENT
+# decomposition strategy.
+HISTORY=$(python3 theme/scripts/read_history_log.py \
+              --node-id "<sorry.id>" \
+              --backlog-path theme/input/sorry_backlog.yaml)
+# HISTORY is empty string if no history — that case yields no prepend.
+```
+
+The output (when non-empty) follows czy's exact format:
 
 ```
+## Previous attempt history (DO NOT repeat failed strategies)
+- Iteration N: decomposed into [...]
+    Reason: <decision_reason>
+  - <sub_id>: stuck (<fail_reason>)
+  Retreat reason: <reason>
+ACTION: Choose a DIFFERENT decomposition strategy from previous attempts.
+```
+
+Prepend this block to the body that follows. The agent prompt body:
+
+```
+{HISTORY block prepended here when sorry.history_log is non-empty}
+
 目标: 证明 {sorry.theorem} (文件 {sorry.file}:{sorry.line})
 Goal type: [read from file]
 {如有路线: "路线已获取（来自 R1/R2/R3/R4），按路线执行：\n" + roadmap_yaml}
@@ -210,12 +275,14 @@ python3 theme/scripts/process_sorry_result.py \
 if result.status == "proved":
   1. lake build Statlean.<Module>  — incremental verify
   2. if build OK:
-     - Check unlocks: for each downstream in sorry.unlocks:
-         if all(dep.status == proved for dep in downstream.dependencies):
-           add downstream to ready_queue (sorted by priority)
      - Check whole-file zero sorry → update Verified.lean
      - git add + commit "prove: {theorem_name}"
      - Call process_sorry_result.py --status proved --sorry-id ... --module ...
+       (czy newloop port: process_sorry_result internally also sets
+        state=DONE + done_reason=proved AND calls propagate_done.py to
+        cascade DONE up the tree. The next ready_queue computation will
+        automatically pick up any newly-eligible nodes — no manual
+        unlocks/dependencies handling needed in this branch.)
   3. if build FAIL:
      - Log error, mark sorry as pending, priority += 3
      - Call process_sorry_result.py --status lake_build_fail --sorry-id ... --blocker ...
@@ -230,6 +297,39 @@ elif result.status == "stuck":
   - Increase priority by 5 (deprioritize)
   - Log blocker info for future reference
   - Call process_sorry_result.py --status stuck --sorry-id ... --blocker ...
+    (czy newloop port: process_sorry_result internally bumps stuck_rounds
+     by 1; this is the field record_retreat thresholds against.)
+  - **Retreat trigger** (czy newloop port — `controlAgent.ts:609`):
+    Re-read sorry's `stuck_rounds` from the backlog. If `stuck_rounds >= 3`
+    AND the sorry has a `parent_id`, the parent's children sub-tree has
+    failed enough rounds — call retreat:
+
+    ```bash
+    python3 theme/scripts/record_retreat.py \
+        --parent-id "<parent_id>" \
+        --retreat-reason "stuck_rounds reached 3 on <sorry_id>" \
+        --results-json '[{"sub_problem_id":"<sorry_id>","status":"stuck",
+                          "fail_reason":"<blocker, sliced 200 char>"}]' \
+        --sandbox "$SANDBOX"
+    ```
+
+    The script (T2 atomic):
+      - Removes ALL descendants of the parent from sorry_items[]
+        (mirrors czy clearSubtree)
+      - Resets parent: state→INITIALIZED, stuck_rounds→0, children→[]
+        (locked theorem signature on parent UNTOUCHED — Rule 3 Layer 1)
+      - Appends a HistoryLogEntry to parent.history_log[] with
+        iteration auto-computed (per-node retreat count, see record_retreat
+        docstring re czy global-iteration semantic divergence)
+      - Pulls decision_reason from parent.`_pending_decision_reason`
+        if set (decompose_node stashes it there for this consumption)
+      - Emits `retreat-triggered` milestone
+
+    The parent now re-enters INITIALIZED with full history; the next
+    iteration's ready_queue picks it up. When that next prove agent
+    is dispatched, `read_history_log.py` (called by launch_background_agent
+    above) will surface the prior attempts in the prompt with the
+    "ACTION: Choose a DIFFERENT decomposition strategy" trailer.
   - **User-trust gate** (web-UI only — silently skipped in CLI-standalone
     mode when the tool is unavailable):
     If the blocker description mentions missing Mathlib infrastructure
@@ -294,19 +394,50 @@ elif result.status == "stuck":
         (keep as pending with deprioritized priority, continue).
 
 elif result.status == "need_sub_lemma":
-  - Compute parent_metrics = { goal_pp_lines, estimated_lines, deps_count }
-    of the parent sorry's goal AT THE POINT it was attacked.
-  - Compute children_metrics = same shape, one per proposed sub-lemma.
-  - **Call process_sorry_result.py --status need_sub_lemma**
-    --parent-metrics '<JSON>' --children-decomposition '<JSON>'
-    The script invokes validate_decomposition.py internally:
-      · exit 0 → emits subtasks-split, you may add children to backlog
-      · exit 1 → emits decomposition-rejected (size-monotone failure,
-        "pushing the pea"), parent marked pending instead.
-        DO NOT add children in this case — the decomposition is invalid.
-  - Only when validate succeeds: create sub-items in backlog with
-    dependency edges; add new leaf sub-items to ready_queue;
-    original sorry becomes blocked by sub-items.
+  Two-step process (czy newloop port — replaces the older
+  validate_decomposition.py + manual yaml edit recipe):
+
+  1. **Validate the decomposition** (still T2 — keep validate_decomposition
+     as the size-monotone "pushing the pea" guard):
+
+     ```bash
+     python3 theme/scripts/validate_decomposition.py \
+         --parent-metrics  '<JSON: goal_pp_lines, estimated_lines, deps_count>' \
+         --children-metrics '<JSON: same shape, one per sub-lemma>'
+     ```
+     Exit 0 → continue to step 2. Exit 1 → emit decomposition-rejected,
+     mark parent pending, do NOT add children.
+
+  2. **Apply the decomposition atomically** via decompose_node.py
+     (replaces the manually-written yaml mutation):
+
+     ```bash
+     python3 theme/scripts/decompose_node.py \
+         --parent-id "<sorry_id>" \
+         --sub-problems-json '[{"id":"<sorry_id>.sub1","theorem":"...",
+                                "blocker":"...","estimated_lines":...},
+                               {"id":"<sorry_id>.sub2",...}]' \
+         --decision-reason "<why this decomposition; surfaces in retreat
+                            history if children later fail>" \
+         --sandbox "$SANDBOX"
+     ```
+     The script (T2 atomic):
+      - Inserts sub-rows with state=INITIALIZED, parent_id=<parent>,
+        children=[], history_log=[], stuck_rounds=0
+      - Sets parent.state=INACTIVE_WAIT, parent.children=[new ids]
+      - Stashes `--decision-reason` on parent as `_pending_decision_reason`
+        (consumed by record_retreat if children later fail)
+      - Locked theorem signature on parent UNTOUCHED (Rule 3 Layer 1)
+      - Emits subtasks-split milestone
+      - Validates: parent must exist; parent.state must be INITIALIZED
+        (cannot decompose an already-decomposed parent without retreat
+        first); sub ids globally unique (no collision; no dup in request)
+
+  After step 2 the parent is INACTIVE_WAIT and the new sub-rows are
+  INITIALIZED. The next ready_queue computation picks up the sub-rows
+  automatically (parent is INACTIVE_WAIT → its children with
+  state=INITIALIZED qualify as ready under the tree-walker rule above).
+  No manual queue manipulation needed.
 ```
 
 ---
