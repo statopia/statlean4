@@ -426,15 +426,28 @@ are set (e.g. flat top-level sorry with no decomposition), no
 guidance block is added.
 
 ```bash
-PLAN=$(python3 -c "
-import yaml, sys
-data = yaml.safe_load(open('theme/input/sorry_backlog.yaml'))
+# §8 review S2.8 fix: use $BACKLOG env var (set by orchestrator) for
+# absolute-path resilience, and shell-interpolate ${SORRY_ID} OUTSIDE
+# the python -c body so a literal "<sorry.id>" can't silently
+# fall through (which would degrade to empty plan).
+BACKLOG="${BACKLOG:-theme/input/sorry_backlog.yaml}"
+SORRY_ID="<sorry.id>"   # ← Agent MUST template-substitute this with
+                        #   the actual sorry id BEFORE invoking the
+                        #   block; literal "<sorry.id>" produces empty
+                        #   plan (defensive: see PLAN check below).
+PLAN=$(SORRY_ID="$SORRY_ID" BACKLOG="$BACKLOG" python3 -c "
+import os, yaml
+backlog_path = os.environ['BACKLOG']
+sorry_id = os.environ['SORRY_ID']
+data = yaml.safe_load(open(backlog_path))
 items = {it['id']: it for it in data.get('sorry_items', [])}
-sorry_id = '<sorry.id>'
 sorry_item = items.get(sorry_id, {})
 parent_id = sorry_item.get('parent_id')
 parent = items.get(parent_id, {}) if parent_id else sorry_item
-plan = parent.get('detailed_proof_plan') or parent.get('direct_assembly') or parent.get('proof_sketch') or ''
+plan = (parent.get('detailed_proof_plan')
+        or parent.get('direct_assembly')
+        or parent.get('proof_sketch')
+        or '')
 print(plan)
 ")
 if [ -n "$PLAN" ]; then
