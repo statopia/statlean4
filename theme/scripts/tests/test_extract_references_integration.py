@@ -197,11 +197,26 @@ def test_l2_two_parent_end_to_end_via_subprocess(
     assert b["references"][0]["coverage"] == "partial_coverage"
     assert b["references"][0].get("matching_statement") is None  # dropped per L1.5
 
-    # Children rows — defaults filled in by migration, NOT touched by
-    # script writes (they belong to siblings/leaves)
-    assert by_id["alpha.s1"]["coverage_state"] == "needs_proof"
-    assert by_id["alpha.s2"]["coverage_state"] == "needs_proof"
-    assert by_id["beta.s1"]["coverage_state"] == "needs_proof"
+    # Per-child propagation (F2 fix, post 2026-04-30 L3): each child
+    # row gets its own coverage_state propagated from the parent's
+    # references[] entry. Without this, downstream readers (E11 R7,
+    # slice 03) read the migration default `needs_proof` even when
+    # E4 just labelled the children. The PARENT's references[] is
+    # the SoT (entry array); child.coverage_state is denormalized.
+    # alpha's children:
+    assert by_id["alpha.s1"]["coverage_state"] == "cited_by_reference"
+    assert by_id["alpha.s2"]["coverage_state"] == "no_coverage"
+    # beta's child:
+    assert by_id["beta.s1"]["coverage_state"] == "partial_coverage"
+    # alpha.s1 was cited_by_reference with matching_statement → child
+    # gets a per-child coverage_citation too
+    assert "coverage_citation" in by_id["alpha.s1"]
+    assert by_id["alpha.s1"]["coverage_citation"].startswith("-- cited from reference: ")
+    # alpha.s2 / beta.s1 are not cited_by_reference → no per-child citation
+    assert "coverage_citation" not in by_id["alpha.s2"]
+    assert "coverage_citation" not in by_id["beta.s1"]
+    # references[] stays parent-only (denormalization writes ONLY the
+    # coverage_state + coverage_citation scalars on children)
     assert by_id["alpha.s1"]["references"] == []
 
 

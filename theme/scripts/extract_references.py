@@ -232,10 +232,20 @@ def apply_extraction(
                 citation = make_coverage_citation(e.matching_statement)
                 break
 
-        # Mutate ONLY the three allow-listed fields. Rule 3 Layer 1:
+        # Mutate ONLY the allow-listed fields. Rule 3 Layer 1:
         # signature / file / line / theorem / state / parent_id /
-        # children / history_log are NOT touched. The dep-rebuild logic
-        # in sync_sorry_backlog handles the unlocks chain.
+        # children / history_log are NOT touched. The dep-rebuild
+        # logic in sync_sorry_backlog handles the unlocks chain.
+        #
+        # Per-child propagation (F2 fix, post 2026-04-30 L3):
+        # E11 R7 and slice 03 refinement loop both READ child rows'
+        # `coverage_state` to decide whether a child is cited /
+        # converged. Without per-child propagation, those readers see
+        # the migration default (`needs_proof`) on every child even
+        # when this script just assessed them as cited_by_reference,
+        # so cited paths never fire in production. Propagate each
+        # entry's per-child verdict to its child row.
+        entries_by_id = {e.sub_problem_id: e for e in entries}
         for it in items:
             if it.get("id") == parent_id:
                 it["references"] = [e.to_yaml() for e in entries]
@@ -248,7 +258,25 @@ def apply_extraction(
                     # if a previous extraction had one but THIS round
                     # didn't (the parent's children may have changed).
                     it.pop("coverage_citation", None)
-                break
+            elif it.get("id") in entries_by_id:
+                # Per-child propagation. Mutates ONLY `coverage_state`
+                # on the child row. Parent's `references[]` is the
+                # SoT (entry array); `child.coverage_state` is the
+                # denormalized per-child read-side cache. Rule 3
+                # Layer 1: theorem / file / line / signature on the
+                # child row are untouched.
+                e = entries_by_id[it["id"]]
+                it["coverage_state"] = e.coverage
+                # If the child was cited_by_reference with a
+                # matching_statement, propagate the per-child
+                # citation too — slice 03 reads it for
+                # replacement_statement substitution in the prompt.
+                if e.coverage == "cited_by_reference" and e.matching_statement:
+                    it["coverage_citation"] = make_coverage_citation(
+                        e.matching_statement
+                    )
+                else:
+                    it.pop("coverage_citation", None)
 
         atomic_write_yaml(backlog_path, data)
         return entries, coverage_state, citation

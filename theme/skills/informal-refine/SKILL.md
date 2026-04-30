@@ -41,7 +41,10 @@ tool prompt:
 
 ## Workflow
 
-1. **Build the user message** mirroring czy `buildUserMessage`:
+1. **Build the user message** mirroring czy `buildUserMessage`. Each
+   sub-problem MUST be displayed with its yaml row id (the
+   load-bearing identifier — see "Critical: id stability rule"
+   below):
 
    ```
    Theorem: <theorem_name>
@@ -51,8 +54,9 @@ tool prompt:
    <lean_code, sliced to ≤8000 chars>
    ```
 
-   ## Remaining sorry sites
-   - <theorem> at line <N> (deps: ...)
+   ## Current decomposition (ids are LOAD-BEARING — reuse them verbatim
+   ## for any sub-problem you keep)
+   - id: <yaml_row_id>     theorem: <theorem_name>     line: <N>     deps: [...]
    ...
 
    ## Previous attempt history (DO NOT repeat failed strategies)
@@ -64,15 +68,34 @@ tool prompt:
 
    ## Helper coverage feedback (from previous round)
    ### Satisfied by external references (no need to prove locally)
-   - <id>: [cited_by_reference] — "<description>"
+   - <yaml_row_id>: [cited_by_reference] — "<description>"
    ### Partially covered by reference
-   - <id>: partial_coverage — "<description>"
+   - <yaml_row_id>: partial_coverage — "<description>"
      Detail: <assessment text from E4>
    ### Still needs proof
-   - <id>: (<description>) [deps: ...]
+   - <yaml_row_id>: (<description>) [deps: ...]
 
    <closing instruction about whether to adjust — see below>
    ```
+
+   **Critical: id stability rule.** The yaml row id (e.g.
+   `ratio_estimator.s2`) is the **load-bearing key** for diff
+   computation in `refine_decomposition.py`. When you propose a
+   refined decomposition:
+
+   - For sub-problems you KEEP unchanged or rephrase: **reuse the
+     EXACT yaml row id verbatim** — do NOT replace with the theorem
+     name or invent new ids.
+   - For sub-problems you DROP: simply omit them from `subProblems`.
+   - For sub-problems you ADD: invent fresh ids that do NOT collide
+     with existing ones.
+
+   Failure to reuse ids will cause the script to interpret EVERY
+   sub-problem as "removed + new", wiping any externally-verified
+   coverage (`citation_verified=true`) and effectively re-doing the
+   decomposition from scratch. Layer 1's "kept children's theorem
+   field is never mutated" guard depends on the kept-id set being
+   non-empty.
 
    For `cited_by_reference` children with non-empty
    `replacement_statement`, swap the description with
@@ -224,6 +247,7 @@ If decomposition is NOT needed:
 - For both proofSketch and directAssembly: name specific lemmas (Mathlib/StatLean or the child lemmas you just defined), explain which hypotheses/variables they apply to, and describe the proof structure in numbered steps. Do NOT write actual Lean tactic code — write in natural language but be specific enough that a prover agent knows exactly which lemmas to apply and in what order.
 - If there are no unresolved proof obligations, return: `{"needsDecomposition": false, "decisionReason": "no unresolved proof obligations"}`
 - The `noAdjustment` field is only meaningful when Helper coverage feedback is provided (refinement rounds). Set it to `true` ONLY when you have reviewed the feedback and are keeping your decomposition strategy completely unchanged — same sub-problems, same structure. If you are adding, removing, or meaningfully rephrasing any sub-problem, set it to `false`.
+- **`id` field STABILITY (load-bearing on refinement rounds).** When the user message includes a "Current decomposition" block (refinement rounds only), each sub-problem you KEEP must reuse its existing yaml row id VERBATIM — never substitute the theorem name, never invent a new id for an existing sub-problem. Existing ids look like `parent.sub_name` (e.g. `efron_stein.condvar`). New sub-problems you ADD get fresh ids that don't collide with existing ones. The host system computes the diff by exact-string id match; mismatched ids cause the entire decomposition to be treated as "drop all + add all", wiping verified citations.
 
 ---
 

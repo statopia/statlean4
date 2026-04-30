@@ -202,9 +202,18 @@ Decomposition steps:
         the round-N+1 refinement then drops).
 
      b. Dispatch informal-refine Task subagent
-        (theme/skills/informal-refine/SKILL.md) with the helper feedback
-        (per-child coverage_state + references[].assessment +
-        replacement_statement). Capture stdout JSON to
+        (theme/skills/informal-refine/SKILL.md) with the helper
+        feedback (per-child coverage_state + references[].assessment
+        + replacement_statement). **CRITICAL**: when building the
+        user message for the subagent, render each current child as
+        `id: <yaml_row_id>     theorem: <theorem>     line: <N>     deps: [...]`
+        with the yaml row id (e.g. `parent.s2`) — NOT just the
+        theorem name. The script's `_diff_subproblems` matches by
+        exact-string id; if the LLM uses theorem names instead of
+        ids, the diff treats EVERY child as "removed + new" and
+        wipes any verified citations. The SKILL prompt now includes
+        an explicit "id stability rule" but the agent must still
+        supply the ids in the rendering. Capture stdout JSON to
         $SANDBOX/_informal_refine_${PARENT_ID}_round_${N}.json.
 
      c. Pipe the JSON through refine_decomposition.py:

@@ -502,6 +502,72 @@ def test_make_coverage_citation_format() -> None:
     assert make_coverage_citation("Theorem 5.2") == "-- cited from reference: Theorem 5.2"
 
 
+def test_per_child_coverage_state_propagated_to_child_rows(
+    backlog: Path, sandbox: Path
+) -> None:
+    """F2 fix (post 2026-04-30 L3): E4 must propagate per-child
+    coverage_state from parent.references[] to each child row's
+    coverage_state field. Without this, E11 R7 + slice 03 read
+    `needs_proof` from children regardless of E4's actual labelling
+    and never fire cited paths in production."""
+    subagent_json = json.dumps([
+        {
+            "subProblemId": "parent.one.s1",
+            "coverage": "cited_by_reference",
+            "assessment": "ok",
+            "matching_statement": "Lemma X",
+        },
+        {
+            "subProblemId": "parent.one.s2",
+            "coverage": "partial_coverage",
+            "assessment": "x",
+            "matching_statement": None,
+        },
+    ])
+    apply_extraction(backlog, "parent.one", subagent_json)
+    final = yaml.safe_load(backlog.read_text())
+    by_id = {it["id"]: it for it in final["sorry_items"]}
+
+    # Each child gets per-child coverage_state propagated
+    assert by_id["parent.one.s1"]["coverage_state"] == "cited_by_reference"
+    assert by_id["parent.one.s2"]["coverage_state"] == "partial_coverage"
+    # cited_by_reference child also gets per-child citation
+    assert "coverage_citation" in by_id["parent.one.s1"]
+    # partial_coverage child does NOT (matching_statement was dropped per L1.5)
+    assert "coverage_citation" not in by_id["parent.one.s2"]
+
+
+def test_per_child_propagation_clears_stale_citation_on_re_run(
+    backlog: Path, sandbox: Path
+) -> None:
+    """If a child was previously cited but a re-run downgrades it,
+    the stale per-child coverage_citation must be cleared."""
+    # Run 1: s1 cited
+    apply_extraction(backlog, "parent.one", json.dumps([
+        {"subProblemId": "parent.one.s1", "coverage": "cited_by_reference",
+         "assessment": "ok", "matching_statement": "X"},
+        {"subProblemId": "parent.one.s2", "coverage": "no_coverage",
+         "assessment": "x", "matching_statement": None},
+    ]))
+    final1 = yaml.safe_load(backlog.read_text())
+    by_id1 = {it["id"]: it for it in final1["sorry_items"]}
+    assert "coverage_citation" in by_id1["parent.one.s1"]
+
+    # Run 2: s1 downgraded to no_coverage
+    apply_extraction(backlog, "parent.one", json.dumps([
+        {"subProblemId": "parent.one.s1", "coverage": "no_coverage",
+         "assessment": "second look: no", "matching_statement": None},
+        {"subProblemId": "parent.one.s2", "coverage": "no_coverage",
+         "assessment": "x", "matching_statement": None},
+    ]))
+    final2 = yaml.safe_load(backlog.read_text())
+    by_id2 = {it["id"]: it for it in final2["sorry_items"]}
+    assert by_id2["parent.one.s1"]["coverage_state"] == "no_coverage"
+    assert "coverage_citation" not in by_id2["parent.one.s1"], (
+        "stale citation must be cleared on downgrade"
+    )
+
+
 def test_module_present_marker() -> None:
     """Sentinel test — guards against the test file being silently
     excluded from collection (mirrors slice-1 pattern)."""
