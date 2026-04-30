@@ -39,6 +39,7 @@ EMIT_EVENT = SCRIPTS_DIR / "emit_event.py"
 EXTRACT_SORRIES = SCRIPTS_DIR / "extract_sorries.py"
 VALIDATE_DECOMP = SCRIPTS_DIR / "validate_decomposition.py"
 PROPAGATE_DONE = SCRIPTS_DIR / "propagate_done.py"
+SAVE_LAST_WRONG = SCRIPTS_DIR / "save_last_wrong_attempt.py"
 BACKLOG_PATH = SCRIPTS_DIR.parent / "input" / "sorry_backlog.yaml"
 
 # czy newloop merge: schema_version=2 fields. Idempotent migration on load.
@@ -143,6 +144,7 @@ def _depth_histogram(sandbox: Path) -> dict:
 
 
 def main() -> None:
+    global BACKLOG_PATH
     ap = argparse.ArgumentParser(
         description="Bundle post-result side effects for one sorry"
     )
@@ -151,7 +153,13 @@ def main() -> None:
     ap.add_argument(
         "--status",
         required=True,
-        choices=["proved", "stuck", "need_sub_lemma", "lake_build_fail"],
+        choices=[
+            "proved", "stuck", "need_sub_lemma", "lake_build_fail",
+            # E12 phase 03: write/edit failure persistence.
+            "write_fail", "edit_fail",
+            # E12 phase 03 stub: replace_fail deferred to Phase 04 (D-7 Option A).
+            "replace_fail",
+        ],
     )
     ap.add_argument("--module",
                     help="Lean module (e.g. Statlean.Variance.UStatistic)")
@@ -163,7 +171,35 @@ def main() -> None:
                     help="JSON array (need_sub_lemma) — children metrics")
     ap.add_argument("--parent-metrics",
                     help="JSON object (need_sub_lemma) — parent metrics")
+    # M5 auto_tactic pre-pass: callers tag the closer that proved the
+    # sorry so downstream telemetry can attribute origin (cost
+    # accounting, audit). Default `"prover"` preserves backward-compat
+    # for all current callers in `~/statlean-merge/.claude/commands/*.md`
+    # and `~/statlean-merge/theme/scripts/*.py` (none pass --closer).
+    # M5 passes `--closer auto_tactic`. New value space MAY be extended
+    # by future closers (e.g. lsp_pre_pass) without protocol break —
+    # consumers should treat unknown values as opaque telemetry.
+    ap.add_argument("--closer", default="prover",
+                    help="Origin of the proof closure ('prover' default; "
+                         "'auto_tactic' for M5 pre-pass)")
+    # M5 §8 code review S2.4: callers running outside the default
+    # statlean tree (L2 tests, multi-tenant invocations) must be able
+    # to override the backlog path. All helpers below read BACKLOG_PATH
+    # at call time, so reassigning the module global here propagates.
+    ap.add_argument("--backlog-path", default=None,
+                    help="Override default backlog path "
+                         "(<scripts>/../input/sorry_backlog.yaml)")
+    # E12 phase 03: write_fail / edit_fail content persistence args.
+    ap.add_argument("--content", default=None,
+                    help="Path to a file containing the failed .lean content "
+                         "(for write_fail / edit_fail)")
+    ap.add_argument("--diagnostics", default="[]",
+                    help="LSP diagnostics JSON string for write_fail / edit_fail "
+                         "(3 shapes accepted by save_last_wrong_attempt.py)")
     args = ap.parse_args()
+
+    if args.backlog_path:
+        BACKLOG_PATH = Path(args.backlog_path).resolve()
 
     sandbox = Path(args.sandbox).resolve()
     if not sandbox.exists():
@@ -192,11 +228,20 @@ def main() -> None:
         # downstream consumers (events.jsonl analyzers, audit scripts)
         # have a uniform key for "which done_reason value was set this
         # invocation."
+        # M5 (per docs/M5_AUTO_TACTIC_SPEC.md §4 D-4): extend
+        # `sorry-proved` payload with `closer` so downstream telemetry
+        # can attribute the origin (`prover` default vs `auto_tactic`
+        # from M5's pre-pass). czy emits the same signal via freeform
+        # log prefix `[AUTO-TACTIC] ✓ line N: closed by 'rfl'`
+        # (proofLoop.ts:1255-1257); SDK-bridge restores it as a
+        # structured payload key. Consumers ignoring `closer` continue
+        # to work (JSON-extensibility; M3 D-3 precedent).
         _emit(sandbox, "sorry-proved",
               {
                   "sorry_id": args.sorry_id,
                   "module": args.module,
                   "done_reason_set": "proved",
+                  "closer": args.closer,
               })
         # czy newloop port slice 3.B: in addition to status=proved, also
         # set state=DONE and done_reason=proved (v2 schema), so cascade
@@ -229,8 +274,26 @@ def main() -> None:
                   file=sys.stderr)
 
     elif args.status == "lake_build_fail":
+        # E12 phase 02: invoke match_pitfall.py to append a routing hint to
+        # --blocker before emitting the event (T1 within T2 per spec §7).
+        # The hint is written into events.jsonl (persistent, not transient
+        # tool-result string) — deliberate +1 over czy's transient injection
+        # (D-6 persistence dimension).
+        blocker_with_hint = args.blocker or ""
+        try:
+            result = subprocess.run(
+                [sys.executable,
+                 str(SCRIPTS_DIR / "match_pitfall.py"),
+                 "--error-text", args.blocker or ""],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                blocker_with_hint = (args.blocker or "") + "\n" + result.stdout.strip()
+        except Exception as e:
+            print(f"[process_sorry_result] match_pitfall failed: {e}",
+                  file=sys.stderr)
         _emit(sandbox, "lake-build-fail",
-              {"sorry_id": args.sorry_id, "blocker": args.blocker,
+              {"sorry_id": args.sorry_id, "blocker": blocker_with_hint,
                "module": args.module})
         _update_backlog_status(args.sorry_id, {"status": "pending"})
 
@@ -305,6 +368,81 @@ def main() -> None:
             # responsibility (prove-deep.md Phase 1 step 4 still owns
             # the schema for new sorry-item entries). This script only
             # validates + emits.
+
+    elif args.status in ("write_fail", "edit_fail"):
+        # E12 phase 03: persist annotated last-wrong-attempt.lean.
+        # Calls save_last_wrong_attempt.py (T1 within T2 chain per spec §7):
+        # once this branch runs, the file write + milestone emit are
+        # structurally guaranteed regardless of agent compliance.
+        fail_type = "write" if args.status == "write_fail" else "edit"
+        sla_cmd = [
+            sys.executable, str(SAVE_LAST_WRONG),
+            "--sandbox", str(sandbox),
+            "--fail-type", fail_type,
+            "--diagnostics", args.diagnostics or "[]",
+        ]
+        if args.sorry_id:
+            sla_cmd += ["--sorry-id", args.sorry_id]
+
+        stdin_data: str | None = None
+        if args.content:
+            sla_cmd += ["--content", args.content]
+        else:
+            # No content file provided — write a placeholder so the file
+            # still appears in the sandbox (agent can read it).
+            sla_cmd += ["--content-stdin"]
+            stdin_data = (
+                "-- last_wrong_attempt.lean: content not provided "
+                "(--content missing from process_sorry_result call)\n"
+            )
+
+        try:
+            run_kwargs: dict = dict(
+                capture_output=True, text=True, timeout=15,
+            )
+            if stdin_data is not None:
+                run_kwargs["input"] = stdin_data
+            proc = subprocess.run(sla_cmd, **run_kwargs)
+            if proc.returncode == 0:
+                print(f"[process_sorry_result] {args.status}: {proc.stdout.strip()}")
+            else:
+                print(
+                    f"[process_sorry_result] save_last_wrong_attempt failed "
+                    f"(rc={proc.returncode}): {proc.stderr.strip()[:200]}",
+                    file=sys.stderr,
+                )
+        except subprocess.TimeoutExpired:
+            print(
+                "[process_sorry_result] save_last_wrong_attempt timed out "
+                "(graceful degradation — continuing)",
+                file=sys.stderr,
+            )
+        except Exception as e:
+            print(
+                f"[process_sorry_result] save_last_wrong_attempt error: {e}",
+                file=sys.stderr,
+            )
+        # Also emit a lake-build-fail for telemetry compatibility.
+        _emit(sandbox, "lake-build-fail",
+              {"sorry_id": args.sorry_id, "blocker": args.blocker or "",
+               "module": args.module, "fail_type": fail_type})
+        _update_backlog_status(args.sorry_id, {"status": "pending"})
+
+    elif args.status == "replace_fail":
+        # E12 phase 03 stub: applyReplaceSorry Python port deferred to Phase 04.
+        # D-7 Option A: log warning only, NO save_last_wrong_attempt call.
+        # TODO Phase 04: add --tactic <str> --line <int> args to
+        # save_last_wrong_attempt.py and perform sorry→(by tactic) substitution
+        # (Python port of applyReplaceSorry from lastWrongAttempt.ts:227-243).
+        print(
+            "[process_sorry_result] replace_fail: last-wrong-attempt deferred to Phase 04 "
+            "(applyReplaceSorry not yet ported). Blocker logged only.",
+            file=sys.stderr,
+        )
+        _emit(sandbox, "lake-build-fail",
+              {"sorry_id": args.sorry_id, "blocker": args.blocker or "",
+               "module": args.module, "fail_type": "replace"})
+        _update_backlog_status(args.sorry_id, {"status": "pending"})
 
     # ---- Always: refresh + telemetry --------------------------------
     post_count = _refresh_sorry_list(sandbox, lean_file)

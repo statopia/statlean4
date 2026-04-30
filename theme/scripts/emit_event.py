@@ -111,6 +111,15 @@ MILESTONE_NAMES = (
     "informal-round",           # Slice 03: one refinement round of InformalAgent ran on a parent — verdict ∈ {refined, noAdjustment, converged_pre_dispatch, cap_reached, parse_error} (see docs/SLICE_03_INFORMAL_AGENT_SPEC.md)
     "plan-elaborated",          # H1 elaborate-plan: detailed_proof_plan written for a parent after slice 03's alignment loop exits — verdict ∈ {elaborated, skipped_already_present, skipped_empty_plan} (see docs/H1_ELABORATE_PLAN_SPEC.md)
     "assumption-extracted",     # H7 helper-assumption: extract_assumption.py finished one sub-problem's diagnosis → wrote assumption_hints[]/assumption_analysis to backlog (see docs/H7_HELPER_ASSUMPTION_SPEC.md)
+    "helper-dispatched",        # H4 dispatch_helper: stuck-recovery dispatcher fired — payload carries which helpers ran (assumption=H7, websearch=H5 both wired; reference=H6 not-yet-wired in dispatch_helper, runs standalone via narrative as of 2026-04-30) (see docs/H4_DISPATCH_HELPER_SPEC.md)
+    "reautoformalized",         # H4-reauto: reautoformalize_node.py / commit_reautoformalize.py fired — verdict ∈ {enriching, committed, locked_fallback_prompt, no_hints, parse_error} (see docs/H4_REAUTOFORMALIZE_SPEC.md)
+    "alt-path-detected",        # H2 detect-alt-path: detect_alt_path.py finished one parent's alignment-phase alt-path detection → wrote alternative_path or null to backlog (see docs/H2_DETECT_ALT_PATH_SPEC.md)
+    "library-coverage-extracted",  # H3 extract_library_coverage: alignment-phase library coverage check completed
+    "web-probe-completed",         # H5 helper-web-probe: extract_web_probe.py finished one sub-problem's web search probe → wrote webprobe_context to backlog (see docs/H5_WEB_PROBE_SPEC.md); verdict ∈ {completed, empty, parse_error}
+    "reference-probe-completed",   # H6 extract_reference_probe: stuck-recovery reference probe ran → wrote referenceprobe_findings[] to backlog (see docs/H6_REFERENCE_PROBE_SPEC.md)
+    "helper-context-assembled",    # PROVER_INJECT assemble_helper_context.py: assembled webprobe_context + referenceprobe_findings[-1] + _assumption_context_*.txt into _helper_context_*.md for prover injection (see docs/PROVER_INJECT_SPEC.md); verdict ∈ {assembled, empty, parse_error}
+    "pitfall-matched",             # E12 phase 02: match_pitfall.py matched a pitfall rule on lake_build_fail error text → routing hint appended to blocker (see docs/E12_PHASE_02_PITFALLS_KB_SPEC.md §7 D-7)
+    "last-wrong-attempt-saved",    # E12 phase 03: save_last_wrong_attempt.py wrote $SANDBOX/last_wrong_attempt.lean with inline error markers + pitfall hints (see docs/E12_PHASE_03_HONESTY_RULES_SPEC.md §4)
     "other",
 )
 

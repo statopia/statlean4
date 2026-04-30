@@ -240,6 +240,13 @@ def apply_restrategize(
                 it["detailed_proof_plan"] = None
                 it["direct_assembly"] = None
                 it["proof_sketch"] = None
+                # H2 detect-alt-path (per docs/H2_DETECT_ALT_PATH_SPEC.md
+                # §10 D-7): the alt-path cache is scoped to "this alignment
+                # cycle of this parent." restrategize clears children →
+                # alt-path must reset so the new decomposition's detect
+                # call starts clean. Same rationale as informal_round reset
+                # above; same pattern record_retreat uses (D-7).
+                it["alternative_path"] = None
                 history_log = list(it.get("history_log") or [])
                 history_log.append(entry)
                 it["history_log"] = history_log

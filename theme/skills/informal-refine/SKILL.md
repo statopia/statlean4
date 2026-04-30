@@ -251,6 +251,42 @@ If decomposition is NOT needed:
 
 ---
 
+## When the user message contains an Alternative proof approach block (H2)
+
+If the user message includes a section:
+
+```
+## Alternative proof approach detected in reference
+Approach: <approachName>
+<description>
+This approach is more efficient because <efficiencyReason>.
+Key tools: <keyTools list>
+
+Decide now: will you switch to this alternative approach, or keep your current plan?
+- If you switch: decompose the theorem using the alternative approach. You may ignore the coverage-based adjustment rules below. Hard constraint still applies: each sub-problem must be a standalone lemma-sized Lean declaration — no tactic steps, no proof-state fragments.
+- If you keep your current plan: proceed with the coverage review below.
+```
+
+This section is present when `detect_alt_path.py` (H2 R6.5) detected that the
+reference proof uses a fundamentally different and more efficient mathematical
+approach. Verbatim port of czy `informalAgent.ts:858-862`.
+
+**Decision rule (verbatim from czy `:860-862`):**
+- **If you switch**: output a `subProblems` list reflecting the alternative
+  approach's decomposition. Set `noAdjustment: false`. Set `decisionReason`
+  to explain the switch. You may ignore coverage-based adjustment rules
+  for this round. Hard constraint: each sub-problem must be a standalone
+  lemma-sized Lean declaration.
+- **If you keep your current plan**: proceed with the coverage review below.
+  Set `noAdjustment` per normal rules.
+
+The alternative path section is ADVISORY — you retain full agency to decide
+whether switching is mathematically sound for THIS theorem. The
+`recommendSwitch` field from the detector is informational; your judgment
+about the decomposition quality takes precedence.
+
+---
+
 ## When the user message contains Helper coverage feedback (refinement-mode)
 
 The user message will include a "Helper coverage feedback (from previous round)" section with three buckets (czy `:790-879`):

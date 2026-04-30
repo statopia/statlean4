@@ -323,6 +323,14 @@ def apply_retreat(
                     it["detailed_proof_plan"] = None
                     it["direct_assembly"] = None
                     it["proof_sketch"] = None
+                    # H2 detect-alt-path (per docs/H2_DETECT_ALT_PATH_SPEC.md
+                    # §10 D-7): the alt-path cache is scoped to "this alignment
+                    # cycle of this parent." After retreat the decomposition
+                    # is gone; reset so the new round's detect_alt_path.py
+                    # call starts clean. czy equivalent: `cachedAltPath`
+                    # goes out of scope when `runInformalForNode` returns.
+                    # Same 2-line patch pattern slice 03 used for informal_round.
+                    it["alternative_path"] = None
                     history_log = list(it.get("history_log") or [])
                     history_log.append(entry)
                     it["history_log"] = history_log

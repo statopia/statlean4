@@ -190,6 +190,39 @@ def migrate_item_v1_to_v2(item: Dict[str, Any]) -> Dict[str, Any]:
         item["assumption_hints"] = []
     if "assumption_analysis" not in item:
         item["assumption_analysis"] = ""
+    # H2 detect-alt-path (per docs/H2_DETECT_ALT_PATH_SPEC.md §5).
+    # Cached per-parent alignment-phase alt-path detection result.
+    # None = "no alternative detected" OR "not yet checked."
+    # Non-null dict = AlternativePathResult (snake_case, 9 fields).
+    # Reset to None on retreat / restrategize (D-7) — same hooks slice 03
+    # uses for informal_round + coverage_stable.
+    # Only meaningful on parents (items with non-empty children[]);
+    # ignored on leaf sorries (D-2 null wire choice).
+    item.setdefault("alternative_path", None)
+    # H3 helper-library-coverage (per docs/H3_LIBRARY_COVERAGE_SPEC.md §4).
+    # Additive optional field. None = "no library match" OR "not yet checked."
+    # Non-null dict = MatchedLemma (name, source, location?, kind?).
+    # Written by extract_library_coverage.py when coverage=="cited_by_library".
+    # Only present on child sorry_items (leaf sorries); never on parents.
+    item.setdefault("library_hit", None)
+    # H5 helper-web-probe (per docs/H5_WEB_PROBE_SPEC.md §4.1).
+    # Assembled context from the most recent webProbe call — the
+    # renderWebProbeContext Markdown block (≤~3000 chars). Overwrite-on-
+    # each-call (D-7 czy parity). Empty string = no probe context written
+    # yet, OR consume-once clear was applied. Schema version stays 2 —
+    # additive within v2 (same pattern as H7, H3).
+    item.setdefault("webprobe_context", "")
+    # H6 helper-reference-probe (per docs/H6_REFERENCE_PROBE_SPEC.md §5).
+    # Accumulate-on-each-call list (D-2 deliberate +1 deviation: unlike H7's
+    # overwrite-on-each-call, reference probe findings accumulate across stuck
+    # rounds; max 10 entries, oldest dropped on overflow).
+    # Each entry: {assembledContext, matchedPassage?, analysis?, suggestion?,
+    #              finding_summary, stuck_rounds, timestamp}
+    # Written by extract_reference_probe.py on each `need:reference` dispatch.
+    # NOT injected into prover prompt in H6-mvp (D-3 czy parity — H6-prover-inject
+    # follow-on slice will add injection).
+    if "referenceprobe_findings" not in item:
+        item["referenceprobe_findings"] = []
     return item
 
 

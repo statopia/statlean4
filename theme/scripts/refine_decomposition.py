@@ -196,6 +196,29 @@ def _diff_subproblems(
     return kept_ids, removed_ids, added
 
 
+def _build_alt_path_reduced(alt_path: Optional[Any]) -> Optional[Dict[str, Any]]:
+    """Build the SKILL-facing reduced shape from parent.alternative_path.
+
+    Mirrors czy `proofLoop.ts:1578-1583` reduction: only 4 fields
+    (approach_name, description, key_tools, efficiency_reason) are
+    threaded to InformalAgent's user-message. The other 5 fields
+    (has_alternative, current_path_coverage, alternative_path_coverage,
+    is_more_efficient, recommend_switch) stay at yaml-level only.
+
+    Returns None when alt_path is null/None (D-2: null wire = no alternative).
+    """
+    if not alt_path or not isinstance(alt_path, dict):
+        return None
+    if not alt_path.get("has_alternative"):
+        return None
+    return {
+        "approach_name": str(alt_path.get("approach_name") or ""),
+        "description": str(alt_path.get("description") or ""),
+        "key_tools": list(alt_path.get("key_tools") or []),
+        "efficiency_reason": str(alt_path.get("efficiency_reason") or ""),
+    }
+
+
 def apply_refinement(
     backlog_path: Path,
     parent_id: str,
@@ -203,6 +226,14 @@ def apply_refinement(
 ) -> Dict[str, Any]:
     """Apply one refinement round under flock + atomic write. Returns
     the milestone payload dict.
+
+    H2 amendment (per docs/H2_DETECT_ALT_PATH_SPEC.md §6.2): reads
+    parent.alternative_path and threads the reduced shape
+    {approach_name, description, key_tools, efficiency_reason} into
+    the milestone payload under 'alternative_path_reduced'. The agent
+    narrative is expected to include this in the informal-refine SKILL
+    user-message (building the "## Alternative proof approach detected"
+    block per czy `informalAgent.ts:856-865`).
 
     Verdict outcomes (all exit 0 from main()):
       - cap_reached: informal_round >= 2 → no LLM read; no yaml write
@@ -235,6 +266,10 @@ def apply_refinement(
             )
 
         current_round = int(parent.get("informal_round", 0) or 0)
+
+        # H2 amendment: read parent.alternative_path for SKILL prompt threading.
+        # Reduced to 4-field shape per czy proofLoop.ts:1578-1583.
+        alt_path_reduced = _build_alt_path_reduced(parent.get("alternative_path"))
 
         # Cap check (structural — happens BEFORE any LLM work)
         if current_round >= INFORMAL_ROUND_CAP:
@@ -417,7 +452,7 @@ def apply_refinement(
 
         atomic_write_yaml(backlog_path, data)
 
-        return {
+        payload = {
             "parent_id": parent_id,
             "verdict": "refined",
             "informal_round_post": current_round + 1,
@@ -428,6 +463,16 @@ def apply_refinement(
             },
             "reason": str(parsed.get("decisionReason", "")),
         }
+        # H2 slice 03 amendment (per docs/H2_DETECT_ALT_PATH_SPEC.md §6.2):
+        # thread alt-path reduced shape into the milestone payload so the
+        # agent narrative can include it in the informal-refine SKILL
+        # user-message (building the "## Alternative proof approach detected"
+        # block per czy informalAgent.ts:856-865). Reduced to 4 fields
+        # per czy proofLoop.ts:1578-1583 (approach_name + description +
+        # key_tools + efficiency_reason). Other 5 fields stay at yaml level.
+        if alt_path_reduced is not None:
+            payload["alternative_path_reduced"] = alt_path_reduced
+        return payload
 
 
 # ── CLI ────────────────────────────────────────────────────────────────

@@ -48,12 +48,71 @@ When one sorry is proved → incremental commit → unlock downstream → dispat
    - **`all-leaves`**: Attack ALL ready sorries via the DAG scheduler below.
 4. **Priority queue**: Sort ready items by `priority` (lower = first).
 5. **Parse time budget**: If `--time-budget 3h` specified, set deadline.
-6. **R6 — helper-reference dispatch (E4 slice port).** For each
+
+6. **H3 — library-coverage dispatch (czy port slice).** For each
+   parent sorry_item where ALL of:
+
+   - `state == INACTIVE_WAIT` (decomposed; has children)
+   - At least one child has `coverage_state == "needs_proof"`
+
+   ...dispatch the `helper-library-coverage` Task subagent
+   (`theme/skills/helper-library-coverage/SKILL.md`) ONCE per parent.
+   Provide sub-problem list (child ids + descriptions) as input:
+
+   ```
+   Theorem: <parent theorem name>
+   Sub-problems to check:
+   1. [<child_id>] <child theorem description>
+   2. [<child_id>] <child theorem description>
+   ...
+   ```
+
+   The subagent runs token-extract → `search_lemmas` tool calls →
+   judge-LLM for each child; emits a JSON array to stdout. Capture
+   to `$SANDBOX/_library_coverage_$PARENT_ID.json` and run:
+
+   ```bash
+   python3 theme/scripts/extract_library_coverage.py \
+       --parent-id "$PARENT_ID" \
+       --subagent-json-file "$SANDBOX/_library_coverage_$PARENT_ID.json" \
+       --sandbox "$SANDBOX"
+   ```
+
+   The script writes `coverage_state: cited_by_library` + `library_hit:
+   {name, source, location, kind}` on child items (Rule 3 Layer 1: only
+   these two fields; `cited_by_reference` is protected — H3 never
+   overwrites E4 territory). One `library-coverage-extracted` milestone
+   fires per parent_id.
+
+   **Multi-parent dispatch is parallel-safe** (extract_library_coverage
+   uses flock + atomic write; same pattern as extract_references).
+
+   **Failures fall through silently to step 7.** SKILL failure or JSON
+   parse failure → no mutation; sorry stays `needs_proof` and continues
+   through R6/R7 unchanged.
+
+   **czy parity per `helperAgent.ts:245-273`**: czy's `runAlignment`
+   runs library check (`checkLibraryCoverage`) FIRST, before reference
+   check (`extractReferences`). This step ordering is preserved here:
+   H3 (step 6) BEFORE R6 (step 7). czy filters library-covered
+   sub-problems out of the reference check (`:276` short-circuit) — in
+   SDK-bridge, R6 already skips children with `coverage_state ==
+   cited_by_library`, so the same filter applies.
+
+   **T-tier (Rule 9 §3)**: `extract_library_coverage.py` is T2 (single
+   named script bundles all side effects); SKILL invocation is T3
+   (narrative-driven Task dispatch). Empirical-adjustment escalation
+   to T1 if real traces show INACTIVE_WAIT parents with needs_proof
+   children but no `library-coverage-extracted` milestone at >25%
+   skip rate.
+
+7. **R6 — helper-reference dispatch (E4 slice port).** For each
    parent sorry_item where ALL of these hold:
 
    - `state == INACTIVE_WAIT` (already decomposed; has children)
-   - `coverage_state` is currently `needs_proof` (R1-R5 / library
-     search did NOT already mark it `cited_by_library`)
+   - `coverage_state` is currently `needs_proof` (H3 step 6
+     library-coverage dispatch did NOT already mark it
+     `cited_by_library`)
    - `pdfProofBody` is available in the sandbox (extracted by the
      latex-ingest / pdf-extract phase) AND its length ≥ 10 chars
 
@@ -85,15 +144,16 @@ When one sorry is proved → incremental commit → unlock downstream → dispat
 
    Multi-parent dispatch IS parallel-safe (extract_references uses
    flock + atomic write); fan out via Task subagent concurrency.
-7. **R7 — citation-verify dispatch (E11 slice port).** Run AFTER R6
+8. **R7 — citation-verify dispatch (E11 slice port).** Run AFTER R6
    completes for the whole batch. Iterate eligible sorries in
    deterministic order — sorted by `id` ascending (lexicographic) —
    so L2 reproducibility holds. For each sorry whose
    `coverage_state ∈ {cited_by_library, cited_by_reference}`:
 
    **Library path** (`coverage_state == cited_by_library`):
-   The cited Mathlib name comes from R1-R5's helper-search output
-   (when ported) — until then this branch is dormant on real jobs.
+   The cited Mathlib name comes from `library_hit.name` (written by
+   step 6 H3 library-coverage dispatch). This branch is now ACTIVE
+   on jobs where H3 found a match.
    Invoke:
 
    ```bash
@@ -144,6 +204,56 @@ When one sorry is proved → incremental commit → unlock downstream → dispat
    (`judge-integrity.ts`) at promotion time is the load-bearing audit
    on `reference_axiom` rows (E11 verifier is a soft signal; Layer 4
    has the trust pivot).
+
+9. **M5 — auto_tactic pre-pass (czy port slice).** Run AFTER R7
+   completes for the whole batch, BEFORE Phase 1 entry. ONE invocation
+   per cycle — no per-sorry agent decision, no judgment loop. The
+   script iterates the backlog itself.
+
+   ```bash
+   python3 theme/scripts/auto_tactic_pre_pass.py \
+       --sandbox "$SANDBOX" \
+       --statlean-root "$STATLEAN_ROOT" \
+       --max-sorries 20
+   ```
+
+   The script (T2 atomic per eligible sorry; T3 at the narrative
+   level — see docs/M5_AUTO_TACTIC_SPEC.md §10 D-5 for the honest
+   tier framing): for each sorry with `state=INITIALIZED, no
+   children, simple file, coverage_state ∉ {cited_by_library,
+   cited_by_reference}`, runs the 9-tactic ladder
+   (`rfl, trivial, decide, ring, linarith, omega, norm_num, simp,
+   aesop` — czy `proofLoop.ts:1227` verbatim). First tactic that
+   closes the goal short-circuits → `_try_tactic` mutates the body
+   in place; `process_sorry_result.py --status proved
+   --closer auto_tactic` writes `state=DONE / status=proved /
+   done_reason=proved` and emits `sorry-proved` with `closer:
+   auto_tactic`. Layer 1 invariant preserved (body-only mutation;
+   `_try_tactic` reverts on FAIL).
+
+   **Cost ceilings** (spec §8 R1; D-6 degraded mechanism vs czy's
+   current LSP):
+   - Complex-file skip: files mentioning any of `MeasureTheory /
+     ProbabilityTheory / ENNReal / IsProbabilityMeasure /
+     FiniteMeasure / StochasticProcess` (czy `:1218-1219` regex
+     verbatim) are skipped — lake-build × 9 tactics is too slow on
+     measure-theory contexts.
+   - First-pass-wins: the ladder exits at the first PASS, not after
+     all 9.
+   - `--max-sorries 20`: per-cycle hard cap.
+   - 60s per-tactic lake-build timeout (inherited from `_try_tactic`).
+
+   **Failures fall through silently to Phase 1.** No mutation, no
+   milestone, no error. The pre-pass is purely a cost-saver for
+   trivial leaves; non-closeable sorries enter Phase 1
+   decomposition / Phase 2 prover loop unchanged.
+
+   **MUST run real bash — fail-loud on script error.** A non-zero
+   exit indicates sandbox / backlog / IO failure; report it and do
+   NOT enter Phase 1 with a half-applied pre-pass. (Per-sorry
+   exceptions inside the ladder are handled by the script itself —
+   they fall through to the next tactic; the script exits 0 in
+   that case.)
 
 ---
 
@@ -200,6 +310,74 @@ Decomposition steps:
         czy's citationVerify.ts fires post-loop, never per-round; this
         avoids the lossy interaction where round-N R7 PASSes a child
         the round-N+1 refinement then drops).
+
+     a.5. **R6.5 — alignment-phase alt-path detection (H2 detect_alt_path).**
+        After R6 has populated `references[]` + `coverage_state` per
+        child, optionally dispatch the `detect-alt-path` SKILL to
+        determine whether the reference proof uses a fundamentally
+        DIFFERENT and MORE EFFICIENT approach than the current
+        decomposition. Fires ONCE per alignment cycle per parent —
+        the G3 cache gate ensures subsequent rounds skip dispatch.
+
+        **Gate checks (in order):**
+
+        1. **G3 (cache):** `parent.alternative_path` non-null → skip
+           dispatch; invoke `detect_alt_path.py --bypass-skill --gate-only`
+           (script emits `verdict=cached` milestone). Continue to step b.
+
+        2. **G2 (reference text):** `$SANDBOX/paper_body.txt` length
+           < 10 chars after `.strip()` → skip dispatch; invoke with
+           `--bypass-skill --gate-only` (G2 emits `no_reference_text`).
+           czy parity per `helperReferenceSubAgent.ts:250-252`.
+
+        3. **G1 (R6 output):** ≥1 child with non-empty `references[]`
+           list → pass; otherwise skip dispatch with
+           `--bypass-skill --gate-only` (G1 emits `no_reference_results`).
+           czy parity per `helperAgent.ts:304` `referenceResults.length > 0`.
+
+        **When all gates pass — dispatch the SKILL:**
+
+        ```bash
+        # Build user-message with 3 sections:
+        #   "Reference proof text:\n${PDF_PROOF_BODY[:4000]}\n\n"
+        #   "Current sub-problem decomposition:\n<list of children>\n\n"
+        #   "Current plan coverage by reference:\n<per-child coverage + assessment[:200]>"
+        # Dispatch detect-alt-path Task subagent; capture stdout to:
+        ALT_PATH_FILE="$SANDBOX/_alt_path_${PARENT_ID}_$(date +%s%3N).json"
+
+        python3 theme/scripts/detect_alt_path.py \
+            --parent-id "$PARENT_ID" \
+            --subagent-json-file "$ALT_PATH_FILE" \
+            --sandbox "$SANDBOX" \
+            --paper-body-path "$SANDBOX/paper_body.txt" \
+            --backlog-path "$BACKLOG"
+        ```
+
+        **Outcome signals:**
+        - `verdict=detected`: `parent.alternative_path` is now a non-null
+          dict; slice 03's `refine_decomposition.py` (step c below) reads
+          it and threads the 4-field reduced shape `{approach_name,
+          description, key_tools, efficiency_reason}` into the
+          informal-refine SKILL user-message under "## Alternative proof
+          approach detected in reference" (czy `:1578-1583` reduction).
+        - `verdict=no_alternative`: alt-path stays null; informal-refine
+          continues without the alt-path section.
+        - `verdict=cached | no_reference_results | no_reference_text`:
+          gate-skip; non-fatal; alignment continues.
+        - `verdict=parse_error | skill_dispatch_failed`: SKILL had a
+          problem; alt-path stays null; alignment continues without it
+          (czy parity: catch-all empty fallback at `:293-295`).
+
+        **Reset hook:** `record_retreat.py` and `restrategize_node.py`
+        reset `parent.alternative_path = None` alongside their other
+        resets, so a new alignment cycle after retreat/restrategize
+        re-detects fresh (D-7 architectural translation).
+
+        **T-tier:** `detect_alt_path.py` is T2 (single named script
+        bundles 3-gate check + JSON parse + atomic yaml write +
+        milestone emit). SKILL invocation is T3 (narrative-driven Task
+        dispatch). Empirical adjustment rule per Rule 9 §3 if drift
+        observed in production.
 
      b. Dispatch informal-refine Task subagent
         (theme/skills/informal-refine/SKILL.md) with the helper
@@ -310,6 +488,61 @@ agent is confident at round 0. Skip steps 1-5 entirely for genuinely simple sorr
 ---
 
 ## Phase 2: Tree-Walker Scheduling Loop (CORE — czy newloop port)
+
+### Pitfalls knowledge base
+
+<!-- Source: website-czy/src/lib/orchestrator/honestyRules.ts:261-274 (LEAN_KB_REFERENCES) + PITFALL_FILES rendered inline — byte-equal -->
+
+These files are KB-preloaded; `read_file path="docs/pitfalls/<name>.md"`
+is instant. Each covers one or two related error categories. Read the
+relevant file BEFORE writing on any non-trivial Lean construct, and
+ALWAYS read the file the routing hint points at when a write fails.
+
+| File | Topic |
+|---|---|
+| `docs/pitfalls/README.md` | Index + error→file:§ routing table. |
+| `docs/pitfalls/lean_syntax_errors.md` | Parser, lexer, elaboration errors (unexpected token, type mismatch, exact failed, no goals). |
+| `docs/pitfalls/typeclass_errors.md` | Instance synthesis failures, OrderBot ℝ, heartbeat timeouts, termination. |
+| `docs/pitfalls/instance_pollution.md` | Multiple MeasurableSpace Ω instances — the dominant CE-proof failure mode. |
+| `docs/pitfalls/measure_theory_patterns.md` | Templates: condExpWith, 3-condition uniqueness, set-integral, AE patterns, σ-algebra plumbing, indicator rewriting. |
+| `docs/pitfalls/statistics_domain.md` | Distributions (gaussianReal, expMeasure), variance, IndepFun, matrix algebra, OLS skeleton, convergence. |
+| `docs/pitfalls/mathlib_style.md` | Promotion-grade style: header, naming, line-length, calc, binders, pre-submit checklist. |
+
+When in doubt, the README acts as the master index:
+`read_file path="docs/pitfalls/README.md"`.
+
+If a write/edit fails, `last_wrong_attempt.lean` is saved in the
+sandbox root. Re-read it next turn to see the broken code with error
+markers at the exact failing lines and pitfall routing hints in the
+footer. Call `read_file path="last_wrong_attempt.lean"` immediately
+after any WRITE-FAIL / EDIT-FAIL / REPLACE-FAIL before retrying.
+
+On WRITE-FAIL / EDIT-FAIL:
+1. Call process_sorry_result.py with `--status write_fail` or `--status edit_fail`:
+   ```bash
+   python3 theme/scripts/process_sorry_result.py \
+       --sandbox "$SANDBOX" --sorry-id "<id>" \
+       --status write_fail \
+       --blocker "<first error line>" \
+       [--content <tempfile>] [--diagnostics '<json>']
+   ```
+   This T1-bundles: `save_last_wrong_attempt.lean` write + `"last-wrong-attempt-saved"` emit.
+2. Call `read_file path="last_wrong_attempt.lean"` immediately to see the
+   annotated broken code with error markers + pitfall routing hints.
+3. If a 📚 ROUTING HINT appears in the summary, call
+   `read_file path="docs/pitfalls/<name>.md"` before retrying.
+
+On REPLACE-FAIL (Phase 03 stub):
+1. Call process_sorry_result.py with `--status replace_fail`:
+   ```bash
+   python3 theme/scripts/process_sorry_result.py \
+       --sandbox "$SANDBOX" --sorry-id "<id>" \
+       --status replace_fail \
+       --blocker "<first error line>"
+   ```
+   (Phase 03: logs a warning "replace_fail last-wrong-attempt deferred to Phase 04".
+    No last_wrong_attempt.lean written for replace_sorry failures in this phase.)
+
 
 The scheduling model is the **decision tree** ported from czy's
 `proofState.ts` + `controlAgent.ts` (replacing the prior flat-DAG queue).
@@ -496,6 +729,114 @@ Phase 0 工具链 (强制):
   - tactic 试错阶段: bash scripts/check_snippet.sh {sorry.file} <start> <end>
   - 全模块验证: lake build Statlean.{Module}
 
+## Available write tools (Phase 2 priority order)
+
+<!-- czy parity per proverAgent.ts:268-270 (3 write-tool bullets verbatim).
+     Path A inline (Phase 03 §8 follow-up via Batch B spec review S3.1):
+     czy interpolates these via TS template literal into prover prompt;
+     SDK-bridge inlines directly into launch_background_agent body. -->
+
+- `replace_sorry` — **preferred** for closing a single sorry — replace one sorry with a tactic; auto-verifies and reverts on failure
+- `edit_lines` — replace a specific line range (`start_line`..`end_line`); `new_content` may have any number of lines including zero, so it can grow, shrink, or delete the range. Auto-verifies and reverts on failure (returns [EDIT-OK] / [EDIT-FAIL]). Use this for localized rewrites — adding helpers above the theorem, fixing a few mid-proof lines, deleting dead branches — instead of retyping the whole file.
+- `write_file` — full file rewrite (last resort, expensive in output tokens); auto-verifies and reverts on failure (returns [WRITE-OK] / [WRITE-FAIL])
+
+Note: heavy read/search tools are NOT available in proof-writing phase. `lean_local_search` and `lean_loogle` are available for on-demand lemma lookup when you encounter an unknown API or a sorry that Phase 0 research didn't cover.
+
+## Anti-trivial-witness rule
+
+<!-- czy parity verbatim per honestyRules.ts:148-149 (PROOF_WITNESS_HONESTY_RULE).
+     Phase 03 §8 follow-up via Batch B spec review S3.1: moved from
+     proof-closure/SKILL.md to here per Path A (czy template-literal interpolation
+     parity; SKILL fold introduced SDK-bridge-specific indirection czy doesn't have). -->
+
+- Do NOT pick trivial witnesses for `∃` goals that vacuously discharge the conclusion. Specifically: `μ := 0` (zero measure) for `∃ μ, ∀ᵐ _ ∂μ, _` collapses via `MeasureTheory.ae_zero`; `s := ∅` for `∃ s, ∀ x ∈ s, _` is vacuous; `f := fun _ => 0` for a non-trivial random variable / estimator is a stub; `C := 1` (or any value) when the predicate body reduces to `True` via your refine. The witness MUST be the object the source mathematics specifies (the noise measure, the OLS estimator, the limit point). If that witness is not visible in the hypotheses, leave the sorry with a `-- blocker:` comment instead of substituting a trivial fill-in.
+
+## Identifier naming (LaTeX-style ASCII for math symbols)
+
+<!-- czy parity verbatim per honestyRules.ts:162-200 (LEAN_NAMING_CONVENTION).
+     Same Path A migration as above. -->
+
+When the source math uses one of these symbols, **always** write the ASCII transliteration as the Lean identifier. Raw Unicode causes lexer failures that are hard to debug.
+
+### HARD BAN: `λ` `Π` `Σ` `∀` `∃` (Lean reserved keywords)
+
+These five characters are **reserved keywords** (lambda binder, dependent function/sigma type, universal/existential quantifier). They MUST NOT appear ANYWHERE inside an identifier — not as the whole name, not as a prefix/suffix, **not embedded in a compound name**. The Lean lexer cuts the identifier at the keyword and reports `unexpected token` at that column.
+
+Common embedded mistake — these all FAIL to parse:
+
+| Mistake | Why it fails | Fix |
+|---|---|---|
+| `hλ_pos` (hypothesis name) | `λ` mid-identifier ends `h` early; parser expects `)` | `hlambda_pos` |
+| `Σ_inv` (covariance inverse) | `Σ` starts a sigma-type token | `Sigma_inv`, `covInv` |
+| `Πₖ` (product symbol) | `Π` starts a Pi-type token | `Pi_k`, `prod_k` |
+| `∀_intro` / `∃_witness` | quantifier symbols are keywords | `forall_intro` / `exists_witness` |
+
+Rule of thumb: before you `write_file`, **grep your own draft for the five characters `λ Π Σ ∀ ∃`** — if any appears inside a name (i.e. adjacent to a letter, digit, or `_`), rename to ASCII.
+
+### LaTeX-style transliteration table (other symbols)
+
+| LaTeX in source | DON'T write | DO write |
+|---|---|---|
+| `\lambda` (eigenvalue, Lagrange mult.) | `λ` (keyword) | `lambda`, `lam`, `eigval` |
+| `\Pi` / `\Sigma` (covariance, etc.) | `Π` / `Σ` (keywords) | `Pi`, `Sigma`, `Sigma_mat`, `covMat` |
+| `\hat{\beta}`, `\hat{\theta}` | `β̂`, `θ̂` (combining mark) | `hat_beta`, `hat_theta` |
+| `\tilde{x}`, `\bar{X}` | `x̃`, `X̄` (combining mark) | `tilde_x`, `bar_X` |
+
+**Always safe** (precomposed, not keywords): `α β γ δ ε ζ η θ ι κ μ ν ξ π ρ τ φ χ ψ ω` (note: `λ Π Σ` are excluded), subscripts `β₀ x₁ ε_n`, superscripts `x² ε⁺ X⁻¹`.
+
+## Quick error reference (try these BEFORE searching APIs)
+
+<!-- czy parity per honestyRules.ts:209-248 (LEAN_QUICK_ERROR_TABLE) — body byte-equal; heading adapted (czy heading is "Phase 2 — Quick error reference"; SDK-bridge drops "Phase 2 — " prefix because the surrounding context already establishes Phase 2). Per Batch B §8 code review S2.3/S4.1 fixup 2026-04-30. -->-
+
+When write_file / edit_lines / replace_sorry returns an error, scan this table FIRST. If the pattern matches, apply the right-column fix immediately. The right-most column also points at `docs/pitfalls/<file>.md` sections — read those when the inline fix isn't enough.
+
+The tool result for any failed write also carries a `📚 ROUTING HINT` block automatically — that block names the matching file:§section explicitly, so prefer reading the indicated file over guessing.
+
+| Error pattern | First action | Detail file |
+|---|---|---|
+| `unexpected token 'λ'` / `'Π'` / `'Σ'` / `'∀'` / `'∃'` | Reserved keyword in identifier (standalone OR embedded — e.g. `hλ_pos`, `Σ_inv`). Rename **every** occurrence to ASCII (`λ`→`lambda`, `Π`→`Pi`, `Σ`→`Sigma`, `∀`→`forall`, `∃`→`exists`). | `docs/pitfalls/lean_syntax_errors.md` §A.1 |
+| `unexpected token 'in' / 'and' / 'or' / 'not'` | English-word operator. Use Lean ops: `∈`, `∧`, `∨`, `¬`. | `docs/pitfalls/lean_syntax_errors.md` §A.2 |
+| `unexpected token 'theorem'/'def'/'lemma'` mid-file | Previous declaration unclosed — count parens 5–20 lines above. | `docs/pitfalls/lean_syntax_errors.md` §A.3 |
+| `Unknown identifier 'X'` + auto-bound implicit Note | X used as binder before declaration. Move declaration before use site. | `docs/pitfalls/lean_syntax_errors.md` §A.4 |
+| `expected token` on `β̂` / `X̄` / `x̃` etc. | Combining mark in identifier. Rename to ASCII (`β̂`→`hat_beta`, `X̄`→`bar_X`). | `docs/pitfalls/lean_syntax_errors.md` §A.6 |
+| `unknown identifier '<name>'` (Tendsto, atTop, 𝓝, IndepFun, condExp) | Missing `open`. Add `open Filter Topology MeasureTheory ProbabilityTheory ENNReal`. | `docs/pitfalls/lean_syntax_errors.md` §B.9 |
+| `unknown identifier '<name>'` (gaussianVolume, expectation, Variance) | API does NOT exist — guessed name. Real names: `gaussianReal`, `variance`. `check_type` first. | `docs/pitfalls/statistics_domain.md` §B |
+| `type mismatch (ℕ vs ℝ)` | Coerce: `(n : ℝ)` or `↑n`. | `docs/pitfalls/lean_syntax_errors.md` §B.2 |
+| `tactic 'exact' failed, type mismatch` | Try `apply`, or use `refine ?_` to inspect expected type. | `docs/pitfalls/lean_syntax_errors.md` §B.3 |
+| `no goals to be solved` | Previous tactic already closed it — delete the redundant tactic. | `docs/pitfalls/lean_syntax_errors.md` §B.6 |
+| `failed to synthesize OrderBot ℝ` (Finset.sup) | Use `⨆ j : Fin p, f j` instead, or `Finset.sup'` with nonempty proof. | `docs/pitfalls/typeclass_errors.md` §A.1 |
+| `failed to synthesize IsProbabilityMeasure μ` / `IsFiniteMeasure` | `haveI : IsProbabilityMeasure μ := ⟨measure_univ⟩`. | `docs/pitfalls/typeclass_errors.md` §A.2 |
+| `failed to synthesize Integrable f μ` | Add hypothesis `(hf : Integrable f μ)` or derive via `Integrable.of_bound`. | `docs/pitfalls/typeclass_errors.md` §A.4 |
+| `synthesized type X, inferred type inst✝N` (sub-σ-algebra) | Multiple MeasurableSpace Ω in scope. Pin ambient with `let m0 := ‹_›` and `@` annotate ambient facts. | `docs/pitfalls/instance_pollution.md` (whole file) |
+| `(deterministic) timeout` / 500k heartbeats | Use three-tier strategy for sub-σ-algebras, or `set_option maxHeartbeats 800000 in`. | `docs/pitfalls/typeclass_errors.md` §B.2 |
+| `unexpected identifier; expected command` after `/-! ... -/` | Section comment terminated proof — replace with `-- ...` line comment. | `docs/pitfalls/lean_syntax_errors.md` §A.5 |
+| Error line N seems "wrong" / unrelated | Check 5-20 lines BEFORE line N (elaboration fails downstream of the actual mistake). | `docs/pitfalls/lean_syntax_errors.md` §B.1 |
+
+**Working with conditional expectation / sub-σ-algebra?** Pre-read `docs/pitfalls/instance_pollution.md` BEFORE writing — it documents the single biggest source of wasted turns on CE proofs.
+
+**If your error doesn't match any row above**, the failed-attempt tool result already includes a routing hint when one matches. If not, browse `docs/pitfalls/README.md` (the file index) and pick the file whose topic best matches your error.
+
+## Pitfalls knowledge base (`docs/pitfalls/`)
+
+<!-- czy parity verbatim per honestyRules.ts:261-274 + PITFALL_FILES rendered.
+     Phase 03 already inlined this in Phase 2 preamble (line ~490);
+     replicating here in launch_background_agent prompt body so the prover
+     sub-agent (general-purpose, no SKILL invocation) actually sees it. -->
+
+These files are KB-preloaded; `read_file path="docs/pitfalls/<name>.md"` is instant. Each covers one or two related error categories. Read the relevant file BEFORE writing on any non-trivial Lean construct, and ALWAYS read the file the routing hint points at when a write fails.
+
+| File | Topic |
+|---|---|
+| `docs/pitfalls/README.md` | Index + error→file:§ routing table. |
+| `docs/pitfalls/lean_syntax_errors.md` | Parser, lexer, elaboration errors (unexpected token, type mismatch, exact failed, no goals). |
+| `docs/pitfalls/typeclass_errors.md` | Instance synthesis failures, OrderBot ℝ, heartbeat timeouts, termination. |
+| `docs/pitfalls/instance_pollution.md` | Multiple MeasurableSpace Ω instances — the dominant CE-proof failure mode. |
+| `docs/pitfalls/measure_theory_patterns.md` | Templates: condExpWith, 3-condition uniqueness, set-integral, AE patterns, σ-algebra plumbing, indicator rewriting. |
+| `docs/pitfalls/statistics_domain.md` | Distributions (gaussianReal, expMeasure), variance, IndepFun, matrix algebra, OLS skeleton, convergence. |
+| `docs/pitfalls/mathlib_style.md` | Promotion-grade style: header, naming, line-length, calc, binders, pre-submit checklist. |
+
+When in doubt, the README acts as the master index: `read_file path="docs/pitfalls/README.md"`.
+
 约束:
   - 只修改 {sorry.file}
   - 最多 5 轮 build 循环
@@ -624,9 +965,282 @@ elif result.status == "stuck":
        The script enforces the gate at script level too: refuses if
        attempts >= 3 (caller should retreat instead). One less footgun.
 
-    3. **Else** (attempts < 3 AND stuck_rounds < 3): continue the prover
-       loop. Higher stuck_rounds will accumulate from process_sorry_result
-       on subsequent stucks; eventually crosses one of the thresholds.
+    3. **Else if `stuck_rounds >= 1` → dispatch_helper flow** (czy
+       parity per `controlAgent.ts:604-614` else-branch; per
+       `docs/H4_DISPATCH_HELPER_SPEC.md` §6.1 + D-5):
+
+       This rung fires on EVERY stuck below the retreat/restrategize
+       thresholds (i.e. `attempts < 3` AND `stuck_rounds < 3`). It
+       gives helpers up to 3 chances — once each at `stuck_rounds=1`,
+       `=2`, `=3-but-restrategize-not-yet` — to unstick the proof
+       before A1's restrategize gate fires.
+
+       NOTE: `stuck_rounds >= 1` is the SDK-bridge **encoding** of
+       czy's "increase_prover_cycles else-branch," NOT a literal czy
+       threshold. czy itself has no `>= 1` check; its equivalent gate
+       is "neither retreat nor restrategize fires AND a stuck just
+       happened." `process_sorry_result.py` has already bumped
+       `stuck_rounds` 0→1 by the time this ladder is evaluated, so
+       once a stuck has just landed, `stuck_rounds` is necessarily
+       ≥ 1; the literal `>= 1` only guards the degenerate
+       `stuck_rounds == 0` no-prior-stuck case in rung 4 below.
+
+       Wiring status (post H5/H6 + PROVER_INJECT):
+       - `need:assumption` arm — fully wired (H7 `extract_assumption.py`
+         + H4-reauto `reautoformalize_node.py`/`commit_reautoformalize.py`).
+       - `need:websearch` arm — H5 `extract_web_probe.py` landed,
+         `dispatch_helper.py` wired via `_dispatch_websearch`.
+       - `need:reference` arm — H6 `extract_reference_probe.py` landed,
+         `dispatch_helper.py` reference branch still uses placeholder
+         (H6 dispatch-wire deferred per H6_REFERENCE_PROBE_SPEC.md §3.5).
+       - `webprobe_context` + `referenceprobe_findings[-1]` injection
+         into prover — wired by PROVER_INJECT (`assemble_helper_context.py`
+         + step d'' below).
+
+       a) **Dispatch `decide-helper-markers` Task subagent.** Build
+          the prompt with:
+          - `theorem_name` — the parent's theorem text
+          - `stuck_node` — `{theorem, node_id: <sorry_id>,
+            last_error: <from events.jsonl most-recent
+            subagent-stuck.details.blocker for this sorry, sliced 200
+            chars>, dead_ends: <last 5 unique blockers, de-duped by
+            80-char prefix; augmented with parent's last 3
+            history_log[].retreat_reason strings>,
+            reference_coverage: <parent's coverage_state, mapped to
+            no_coverage|partial_coverage|cited_by_reference|unknown>,
+            coverage_assessment: <best-effort, may be null>}`
+          - `iteration` — current proof-loop iteration index
+          - `stuck_rounds` — current `stuck_rounds` value for the sorry
+          - `stalled_iterations` — best-effort, may be 0
+
+          Capture stdout to:
+          `$SANDBOX/_marker_<sorry_id>_<ts>.txt`
+
+          The SKILL output is a single line of comma-separated markers
+          from `{need:full, need:assumption, need:websearch,
+          need:reference}`, OR an empty line if the SKILL judges no
+          helper needed.
+
+       b) **For each `need:assumption` marker the SKILL returned**
+          (or for `need:full`, which expands to all three):
+          dispatch the `helper-assumption` Task subagent (H7 SKILL,
+          per `docs/H7_HELPER_ASSUMPTION_SPEC.md`). Capture stdout to:
+          `$SANDBOX/_assumption_<sorry_id>_<ts>.json`
+
+          The H7 SKILL's prompt and output contract are unchanged —
+          this rung simply provides the caller. If the marker SKILL
+          did not return `need:assumption` or `need:full`, skip this
+          step.
+
+       c) **Run `dispatch_helper.py`** (real bash, MANDATORY):
+
+          ```bash
+          python3 theme/scripts/dispatch_helper.py \
+              --sub-problem-id "$SORRY_ID" \
+              --marker-file "$SANDBOX/_marker_${SORRY_ID}_${TS}.txt" \
+              --assumption-json-file "$SANDBOX/_assumption_${SORRY_ID}_${TS}.json" \
+              --sandbox "$SANDBOX" \
+              --stuck-rounds "$STUCK_ROUNDS"
+          ```
+
+          The `--assumption-json-file` flag is REQUIRED only when the
+          marker file contains `need:assumption` or `need:full`. When
+          it isn't (e.g. SKILL returned `need:websearch` only), the
+          flag may be omitted; the dispatcher records
+          `helper_script_failed` for the assumption branch with reason
+          `missing_assumption_json` if encountered, but for pure
+          websearch / reference markers no assumption invocation
+          happens.
+
+          The script emits ONE `helper-dispatched` milestone with verdict
+          ∈ {`dispatched`, `no_helpers_needed`, `all_deferred`,
+          `marker_decider_failed`, `parse_error`}. See
+          `docs/H4_DISPATCH_HELPER_SPEC.md` §4 for the full payload schema.
+
+       d') **Re-autoformalize from assumption hints** (H4-reauto port
+          slice; fires ONLY when `dispatch_helper.py` returned
+          `verdict=dispatched` AND the sorry's `assumption_hints[]`
+          is non-empty in yaml after `dispatch_helper.py` exits).
+          Skipped entirely when verdict ∈ {`all_deferred`,
+          `no_helpers_needed`, `marker_decider_failed`}.
+
+          (d'-i) Run `reautoformalize_node.py` (real bash, T2):
+
+          ```bash
+          python3 theme/scripts/reautoformalize_node.py \
+              --sub-problem-id "$SORRY_ID" \
+              --sandbox "$SANDBOX"
+          ```
+
+          Read the `reautoformalized` milestone verdict from
+          events.jsonl (or stdout):
+          - `no_hints` → exit 0 silently; skip to step (d).
+          - `locked_fallback_prompt` → Lean skeleton already locked
+            (`.integrity.json` present in sandbox); script wrote hint
+            context to `$SANDBOX/_assumption_context_${SORRY_ID}.txt`;
+            proceed to step (d'-ii-b) prompt-augment path.
+          - `enriching` → enriched description written to
+            `$SANDBOX/_enrich_desc_${SORRY_ID}_${TS}.txt`; proceed to
+            step (d'-ii-a) skeleton-rewrite path.
+          - `parse_error` → log; skip to step (d) (non-blocking
+            degradation; prover continues on existing skeleton).
+
+          (d'-ii-a) [skeleton-rewrite path — `enriching` verdict]
+
+          Read enriched description from
+          `$SANDBOX/_enrich_desc_${SORRY_ID}_${TS}.txt`. Rewrite the
+          Lean skeleton for this sorry using the enriched description
+          (same behavior as Phase 1 sub-autoformalize step). The
+          skeleton MUST declare missing hypotheses as formal Lean
+          parameters or `have` bindings derived from hint text.
+
+          After writing the new skeleton, commit the enriched theorem
+          back to yaml (T2):
+
+          ```bash
+          python3 theme/scripts/commit_reautoformalize.py \
+              --sub-problem-id "$SORRY_ID" \
+              --enriched-theorem-file \
+                  "$SANDBOX/_enrich_desc_${SORRY_ID}_${TS}.txt" \
+              --sandbox "$SANDBOX"
+          ```
+
+          Verdicts: `committed` (success, exit 0) | `parse_error`
+          (exit 2; log error but continue — non-blocking).
+
+          Then proceed to step (d) to continue the prover loop.
+
+          (d'-ii-b) [prompt-augment path — `locked_fallback_prompt`]
+
+          Script wrote hint context to
+          `$SANDBOX/_assumption_context_${SORRY_ID}.txt`. Proceed to
+          step (d'') which reads this file and assembles it into
+          `_helper_context_${SORRY_ID}.md` for prover injection
+          (PROVER_INJECT slice). DO NOT separately read the file
+          here — step (d'') handles all three helper context sources
+          (assumption / webprobe / refprobe) in one pass.
+
+          DO NOT modify the locked Lean skeleton (Layer 1 violation).
+          The locked-file fallback is structurally enforced by the
+          `.integrity.json` gate in `reautoformalize_node.py`.
+
+          Then proceed to step (d) to continue the prover loop.
+
+          **T-tier**: `reautoformalize_node.py` is T2; skeleton
+          rewrite (d'-ii-a) is T3 (LLM judgment); `commit_reautoformalize.py`
+          is T2; hint-context injection (d'-ii-b) is T3 narrative.
+          Empirical-adjustment escalation per Rule 9 §3 if traces show
+          `helper-dispatched(verdict=dispatched)` events without
+          `reautoformalized` milestone within ~15 s.
+
+          See `docs/H4_REAUTOFORMALIZE_SPEC.md` for full slice spec.
+
+       d'') **Assemble helper context for prover injection** (PROVER_INJECT
+          port slice; fires after d' completes, regardless of d'
+          verdict — including when d' was skipped because verdict was
+          all_deferred / no_helpers_needed):
+
+          ```bash
+          python3 theme/scripts/assemble_helper_context.py \
+              --sub-problem-id "$SORRY_ID" \
+              --sandbox "$SANDBOX"
+          ```
+
+          The script reads (read-only, Layer 1 enforced):
+          - `webprobe_context` from sorry_backlog.yaml (H5 output)
+          - `referenceprobe_findings[-1]` from sorry_backlog.yaml (H6
+            output; latest entry only per PROVER_INJECT D-3 architectural
+            translation)
+          - `_assumption_context_${SORRY_ID}.txt` from sandbox if present
+            (H4-reauto `locked_fallback_prompt` path), OR `assumption_hints[]`
+            from yaml otherwise; D-2 enriching-path gate skips this section
+            when `_enrich_desc_${SORRY_ID}_*.txt` is present (skeleton
+            rewrite already applied)
+
+          Per-source caps (PROVER_INJECT D-5 deliberate +1 deviation):
+          webprobe ≤3000 chars, refprobe ≤3000, assumption ≤2000;
+          aggregate ≤6000.
+
+          Outputs `$SANDBOX/_helper_context_${SORRY_ID}.md` with sections
+          `### Web Probe (most-recent)` / `### Reference Probe (most-recent)`
+          / `### Diagnosed missing hypotheses` (only the present arms).
+          Emits `helper-context-assembled` milestone with verdict ∈
+          {`assembled`, `empty`, `parse_error`}.
+
+          **Read the output file:**
+
+          ```bash
+          HELPER_CTX=$(cat "$SANDBOX/_helper_context_${SORRY_ID}.md" 2>/dev/null || echo "")
+          ```
+
+          If `$HELPER_CTX` is non-empty: include its content in the
+          next prover agent's Task prompt by appending it to
+          `task_reference.md` (alongside route search context or
+          reference context) under outer header
+          `## Helper context (stuck recovery)` — this matches czy's
+          `proverAgent.ts:610-611` `## Helper coverage context`
+          injection slot. (The script writes only `### subsections`
+          so the agent's outer `##` wrapper does not collide; per
+          PROVER_INJECT §8 code review S5.1.)
+
+          If `$HELPER_CTX` is empty: proceed to step (d) with no
+          additional context (graceful degradation; non-blocking
+          per PROVER_INJECT D-6 deliberate +1).
+
+          **After the prover attack completes** (regardless of status),
+          clear `webprobe_context` via consume-once clear (PROVER_INJECT
+          D-4 H5/H6 asymmetric semantics):
+
+          ```bash
+          python3 theme/scripts/extract_web_probe.py \
+              --sub-problem-id "$SORRY_ID" \
+              --clear-context \
+              --sandbox "$SANDBOX"
+          ```
+
+          NOTE: `referenceprobe_findings[]` is NOT cleared (accumulate
+          semantics per H6 D-2). The `[-1]` read always picks up the
+          latest probe result.
+
+          **T-tier**: `assemble_helper_context.py` is T2. Context-file
+          inclusion in prover prompt is T3 narrative.
+          `extract_web_probe.py --clear-context` is T2.
+
+          **czy fix**: this step closes czy's `proofLoop.ts:1314
+          helperContext: undefined` bug, independently verified across 5
+          §8 reviews (H4-reauto / H5 / H6 / PROVER_INJECT spec /
+          PROVER_INJECT code). Per CZY_NEW_PUSH_AUDIT §3, czy 9ff6536
+          deleted its own probe persistence — SDK-bridge intentionally
+          retains it via skill artifacts and is strictly more correct.
+
+          See `docs/PROVER_INJECT_SPEC.md` for full slice spec.
+
+       d) **Continue the prover loop** on the next iteration. (Catch-all
+          when step d' did not fire — verdict was all_deferred /
+          no_helpers_needed / marker_decider_failed / no_hints; OR
+          d' completed and rejoins here for the next attack via d''.)
+          Helpers' yaml writes (`assumption_hints[]` / `assumption_analysis`
+          / `webprobe_context` / `referenceprobe_findings[]`) feed back
+          via d''.
+
+       **Determinism tier (Rule 9 §3)**: `dispatch_helper.py` is T2
+       (single named script, side-effect chain bundled). The
+       `decide-helper-markers` Task dispatch (step a) and
+       `helper-assumption` Task dispatch (step b) are T3
+       (narrative-driven). Empirical adjustment rule: if real
+       prove-deep traces show `subagent-stuck` events with
+       `stuck_rounds >= 2` but no `helper-dispatched` milestone within
+       ~10 s, escalate the trigger to T1 by detecting the lifecycle
+       boundary in the orchestrator-side stream-json hook. Acceptable
+       interim since missed dispatches degrade gracefully (next
+       round's `stuck_rounds=3` fires restrategize anyway).
+
+    4. **Else** (`stuck_rounds == 0` — pre-stuck; the very-first prover
+       attempt before any stuck has been recorded): continue the prover
+       loop directly. Higher stuck_rounds will accumulate from
+       process_sorry_result on subsequent stucks; once stuck_rounds
+       crosses 1, rung 3 (helper-dispatch) fires; once it crosses 3,
+       rung 2 (restrategize) fires.
 
     Locked theorem signature on the parent is UNTOUCHED in either path
     (Rule 3 Layer 1).
