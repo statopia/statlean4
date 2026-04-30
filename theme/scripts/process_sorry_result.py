@@ -184,11 +184,30 @@ def main() -> None:
 
     # ---- Status-specific emits + backlog mutations ------------------
     if args.status == "proved":
+        # M3 (per docs/M3_DONE_REASON_PROVED_SPEC.md §10 D-3): extend
+        # `sorry-proved` payload with `done_reason_set: "proved"` for
+        # telemetry parity with E11's `citation-verified` payload
+        # (which carries done_reason_set for library_verified /
+        # reference_axiom). Same shape across both writers means
+        # downstream consumers (events.jsonl analyzers, audit scripts)
+        # have a uniform key for "which done_reason value was set this
+        # invocation."
         _emit(sandbox, "sorry-proved",
-              {"sorry_id": args.sorry_id, "module": args.module})
+              {
+                  "sorry_id": args.sorry_id,
+                  "module": args.module,
+                  "done_reason_set": "proved",
+              })
         # czy newloop port slice 3.B: in addition to status=proved, also
         # set state=DONE and done_reason=proved (v2 schema), so cascade
         # propagation has a consistent state-machine signal upward.
+        # M3 (D-1): czy proofState.ts:64-82 documents `"proved"` as the
+        # success-mode marker WITHOUT a deferral annotation (contrast
+        # `done_by_dependency` lines 75-77 which IS annotated "Reserved
+        # /Not currently emitted"). czy never writes `"proved"` despite
+        # documenting it — implementation gap, not deferred design.
+        # SDK-bridge writing it preserves czy's documented intent at
+        # the docstring level. Same framing as A1's D-1/D-2.
         _update_backlog_status(args.sorry_id, {
             "status": "proved",
             "state": "DONE",
