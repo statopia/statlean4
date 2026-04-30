@@ -237,12 +237,61 @@ Decomposition steps:
         R6 on the new children list.
    ```
 
+   **Step C-pre — plan elaboration (H1, czy parity per
+   `informalAgent.ts:477-513`).** After the slice 03 alignment loop
+   exits — detected as
+   `parent.coverage_stable == true OR parent.informal_round >= 2`
+   (czy `proofLoop.ts:929-940` fires elaboratePlan UNCONDITIONALLY
+   after the for-loop exits, regardless of whether it exited via
+   noAdjustment / converged_pre_dispatch / cap_reached) — and BEFORE
+   sub-autoformalize, dispatch the `elaborate-plan` Task subagent
+   (`theme/skills/elaborate-plan/SKILL.md`). The SKILL has two modes:
+
+   - **assembly mode** (parent has children — decomposed): emit a
+     step-by-step proof plan that cites each child lemma in
+     topological order. Closed children (`cited_by_*` /
+     `state=DONE`) ARE enumerated by id (czy `:204-205`); the LLM
+     cites them as "already covered" without re-proving.
+   - **direct mode** (parent has no children — non-decomposed):
+     emit a sketch of how to prove the parent directly, filtering
+     to uncovered remaining sorries (czy `uncoveredFinal`
+     `:927-932`).
+
+   Inputs (built by the agent before dispatch): theorem name,
+   lean_code excerpt, mode-specific child or remaining-sorries list,
+   the parent's brief seed (`parent.direct_assembly` for assembly
+   mode OR `parent.proof_sketch` for direct mode — both persisted
+   by slice 03's patched scripts per H1 D-11), helper coverage
+   feedback, gotchas, statlean_index.
+
+   Capture the SKILL's stdout (plain text, NO JSON wrapping) to
+   `$SANDBOX/_elaborate_plan_${PARENT_ID}.txt`, then:
+
+   ```bash
+   python3 theme/scripts/elaborate_plan.py \
+       --parent-id "<parent_id>" \
+       --mode "{assembly|direct}" \
+       --subagent-text-file "$SANDBOX/_elaborate_plan_${PARENT_ID}.txt" \
+       --sandbox "$SANDBOX"
+   ```
+
+   Verdicts: `elaborated` (plan written to `parent.detailed_proof_plan`),
+   `skipped_already_present` (idempotence — non-null plan exists),
+   `skipped_empty_plan` (LLM produced empty / whitespace — yaml
+   stays None; prover falls back to brief seed per czy `:1120`
+   fallback chain `detailedProofPlan ?? directAssembly ?? proofSketch`).
+   One `plan-elaborated` milestone per dispatch.
+
+   Layer 1: script mutates ONLY `detailed_proof_plan`. Strictest
+   single-field write of any port slice.
+
    **Step C — final commit + post-loop verification**: after the loop
-   converges, sub-autoformalize fires on the FINAL children (existing
-   flow); Layer 1 signature locks apply to FINAL signatures only. Then
-   E11 R7 (citation-verify) dispatches per spec §6.1 on the converged
-   children. PASS-verified children get state=DONE + done_reason and
-   bypass Phase 2 prover.
+   converges (and H1 elaboration has fired), sub-autoformalize
+   fires on the FINAL children (existing flow); Layer 1 signature
+   locks apply to FINAL signatures only. Then E11 R7 (citation-
+   verify) dispatches per spec §6.1 on the converged children.
+   PASS-verified children get state=DONE + done_reason and bypass
+   Phase 2 prover.
 
 6. The parent enters INACTIVE_WAIT and exits the ready queue automatically;
    sub-lemmas become the new leaves the next ready_queue computation picks up.
@@ -362,10 +411,50 @@ The output (when non-empty) follows czy's exact format:
 ACTION: Choose a DIFFERENT decomposition strategy from previous attempts.
 ```
 
-Prepend this block to the body that follows. The agent prompt body:
+Prepend this block to the body that follows.
+
+**Detailed proof plan injection (H1, czy parity per
+`proverAgent.ts:570-572`).** If the sorry's parent — i.e. for a
+sorry produced by Phase 1 decomposition, the parent of the sorry's
+sorry_item — has a non-null `detailed_proof_plan` field (written
+by H1's `elaborate_plan.py` at Step C-pre), prepend a guidance
+block ABOVE the goal statement. czy's prover treats the elaborated
+plan as PRIMARY guidance (not just additional context). Fallback
+chain matches czy `:1120`:
+`detailed_proof_plan ?? direct_assembly ?? proof_sketch`. If none
+are set (e.g. flat top-level sorry with no decomposition), no
+guidance block is added.
+
+```bash
+PLAN=$(python3 -c "
+import yaml, sys
+data = yaml.safe_load(open('theme/input/sorry_backlog.yaml'))
+items = {it['id']: it for it in data.get('sorry_items', [])}
+sorry_id = '<sorry.id>'
+sorry_item = items.get(sorry_id, {})
+parent_id = sorry_item.get('parent_id')
+parent = items.get(parent_id, {}) if parent_id else sorry_item
+plan = parent.get('detailed_proof_plan') or parent.get('direct_assembly') or parent.get('proof_sketch') or ''
+print(plan)
+")
+if [ -n "$PLAN" ]; then
+    PLAN_PREFIX="## Detailed proof plan (Informal Agent — use this as primary guidance)\n\n${PLAN}\n\n"
+else
+    PLAN_PREFIX=""
+fi
+```
+
+Inject `$PLAN_PREFIX` into the prompt body BEFORE the `目标:` line,
+AFTER the `$PROMPT_PREFIX` history block. So the order is:
+HISTORY (if any) → PLAN (if any) → goal statement → Phase 0.5
+narrative.
+
+The agent prompt body:
 
 ```
 {HISTORY block prepended here when sorry.history_log is non-empty}
+
+{PLAN block prepended here when parent has detailed_proof_plan / brief seed}
 
 目标: 证明 {sorry.theorem} (文件 {sorry.file}:{sorry.line})
 Goal type: [read from file]
