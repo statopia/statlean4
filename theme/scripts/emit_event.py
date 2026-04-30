@@ -109,6 +109,7 @@ MILESTONE_NAMES = (
     "restrategize-triggered",   # A1: stuck_rounds=3 → clear children + bump attempts; preserves decomposition strategy across rounds (see docs/A1_RESTRATEGIZE_SPEC.md)
     "citation-verified",        # E11: a citation candidate ran through the verifier (PASS or FAIL); details carry verdict + verifier mode + done_reason_set (see docs/E11_CITATION_VERIFY_SPEC.md)
     "informal-round",           # Slice 03: one refinement round of InformalAgent ran on a parent — verdict ∈ {refined, noAdjustment, converged_pre_dispatch, cap_reached, parse_error} (see docs/SLICE_03_INFORMAL_AGENT_SPEC.md)
+    "assumption-extracted",     # H7 helper-assumption: extract_assumption.py finished one sub-problem's diagnosis → wrote assumption_hints[]/assumption_analysis to backlog (see docs/H7_HELPER_ASSUMPTION_SPEC.md)
     "other",
 )
 

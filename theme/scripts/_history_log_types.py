@@ -167,6 +167,17 @@ def migrate_item_v1_to_v2(item: Dict[str, Any]) -> Dict[str, Any]:
     # retreat / restrategize (D-11).
     if "coverage_stable" not in item:
         item["coverage_stable"] = False
+    # H7 helper-assumption fields (per docs/H7_HELPER_ASSUMPTION_SPEC.md §5).
+    # Two additive fields. `assumption_hints` stores the LATEST diagnose
+    # call's `missingAssumptionNLs` list (czy `helperAssumptionSubAgent.ts:114-118`
+    # per-call list, NOT accumulation). D-1 semantic: OVERWRITE-on-each-call.
+    # Cross-round chain emerges through description-enrichment cycle (H4's
+    # territory), not yaml. `assumption_analysis` stores the latest analysis
+    # text (≤400 chars). Both default to empty.
+    if "assumption_hints" not in item:
+        item["assumption_hints"] = []
+    if "assumption_analysis" not in item:
+        item["assumption_analysis"] = ""
     return item
 
 

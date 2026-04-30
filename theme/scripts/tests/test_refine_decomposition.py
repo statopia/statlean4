@@ -384,7 +384,14 @@ def test_l1_9_subproblems_missing_id_returns_parse_error(backlog: Path) -> None:
 
 def test_l1_10_kept_children_theorem_byte_identical(backlog: Path) -> None:
     """Even when the LLM rephrases a kept child's description, the
-    yaml's `theorem` field stays unchanged. Layer 1 D-6 contract."""
+    yaml's `theorem` field stays unchanged. Layer 1 D-6 contract.
+
+    Note: the migration may add additive default fields on read (e.g.
+    H7's `assumption_hints` / `assumption_analysis`) when the file is
+    re-read post-write. Those are idempotent migration writes, not
+    perturbations of the kept child. We compare the load-bearing
+    column set rather than full dict equality to avoid coupling
+    Layer-1 semantic to schema-extension cadence."""
     pre_p_s1 = copy.deepcopy(_by_id(backlog, "p.s1"))
     apply_refinement(backlog, "p", json.dumps({
         "needsDecomposition": True,
@@ -399,8 +406,20 @@ def test_l1_10_kept_children_theorem_byte_identical(backlog: Path) -> None:
         ],
     }))
     post_p_s1 = _by_id(backlog, "p.s1")
-    # All fields byte-identical (no diff was applied since same children list)
-    assert post_p_s1 == pre_p_s1
+    # Byte-equality on the LAYER-1 protected field set. Migration-default
+    # additive fields appearing post-write are not part of this contract.
+    LAYER1 = (
+        "id", "file", "line", "theorem", "type", "depth", "priority",
+        "estimated_lines", "dependencies", "unlocks", "state", "children",
+        "parent_id", "history_log", "stuck_rounds", "attempts",
+        "references", "coverage_state", "citation_verified",
+        "informal_round", "coverage_stable",
+    )
+    for k in LAYER1:
+        assert post_p_s1.get(k) == pre_p_s1.get(k), (
+            f"layer-1 field {k} drifted: {pre_p_s1.get(k)!r} → "
+            f"{post_p_s1.get(k)!r}"
+        )
 
 
 def test_l1_11_dropped_then_re_added_is_treated_as_new(backlog: Path) -> None:
