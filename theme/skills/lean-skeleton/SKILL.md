@@ -32,6 +32,29 @@ Use this skill when theorem tasks are structured and you need compilable Lean sc
 - Do not place domain-general lemmas in `Formalization`.
 - Avoid direct `Mathlib` imports in `Formalization` when `Statlib` already exports required facts.
 
+## ⚠ MIGRATION NOTE (2026-05-01) — runtime location moved
+
+The `Type encoding + anti-vacuity` and `Identifier naming` sections
+below are **inlined verbatim** into `.claude/commands/pipeline.md` Step 3
+("Honesty rules MANDATORY pre-write checklist"). The pipeline.md inline
+is the **runtime dispatch path** — that's what reaches the agent's
+context during a real `/pipeline` run.
+
+This SKILL file is retained as the **documentation source-of-truth**:
+the original czy `honestyRules.ts:25-46` + `:162-200` content lives here
+unmodified for cross-reference and historical lookup. **Do not edit
+the body below in isolation** — any change must be mirrored into
+pipeline.md Step 3 to take effect at runtime.
+
+Why the migration: empirical falsification on jobmolovhy6getc (2026-05-01)
+showed that `Skill {skill: "lean-skeleton"}` is never invoked by the
+SDK-bridge runtime — the agent reaches Step 3 by reading pipeline.md
+directly, never opens this SKILL file, so the rules below were dead
+text. Same disease pattern as proof-closure SKILL fold (fixed 2026-04-30
+by inlining into prove-deep.md).
+
+---
+
 ## Type encoding + anti-vacuity
 
 <!-- Source: website-czy/src/lib/orchestrator/honestyRules.ts:25-46 (SKELETON_HONESTY_RULES) — body byte-equal; heading adapted per spec §3.3/§3.4 -->
