@@ -68,12 +68,28 @@ def main() -> None:
         if not query:
             raise ValueError("query is required")
 
-        kinds = params.get("kinds", ["theorem", "lemma", "def", "structure", "class", "abbrev"])
+        kinds = params.get("kinds", [
+            "theorem", "lemma", "def", "irreducible_def",
+            "structure", "class", "abbrev",
+        ])
         if not isinstance(kinds, list) or not kinds:
-            kinds = ["theorem", "lemma", "def", "structure", "class", "abbrev"]
+            kinds = [
+                "theorem", "lemma", "def", "irreducible_def",
+                "structure", "class", "abbrev",
+            ]
         kind_alt = "|".join(str(k) for k in kinds)
 
-        regex = rf"^\s*({kind_alt})\s+.*{query}"
+        # Modifiers (protected/noncomputable/private/unsafe/partial/nonrec)
+        # may appear before the declaration keyword and must not block the
+        # match — `protected irreducible_def Measure.pi` and `noncomputable
+        # irreducible_def MeasureTheory.condExp` are core Mathlib APIs that
+        # the previous pattern silently missed. czy ba49507 fix ported to
+        # SDK-bridge per CZY_NEW_PUSH_AUDIT §4.E (S2 NEW HIGH-VALUE).
+        modifier_prefix = (
+            r"(?:protected\s+|noncomputable\s+|private\s+|unsafe\s+|"
+            r"partial\s+|nonrec\s+)*"
+        )
+        regex = rf"^\s*{modifier_prefix}({kind_alt})\s+.*{query}"
         if shutil.which("rg"):
             cmd = ["rg", "-n", "--hidden", "--no-ignore-vcs", regex, str(workspace)]
         else:

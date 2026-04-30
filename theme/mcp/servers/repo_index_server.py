@@ -88,6 +88,15 @@ def main() -> None:
         path = args.get("path")
         if not path:
             raise ValueError("path is required")
+        # E12 phase 02 D-5: agent prompts reference pitfalls as
+        # `docs/pitfalls/<name>.md` (byte-equal czy LEAN_KB_REFERENCES
+        # for phase 03 prompt port). SDK-bridge stores them at
+        # `theme/pitfalls/`. Inline alias keeps repo_index_server self-
+        # contained (the canonical _path_alias.py is in statlean-merge,
+        # not yet merged to statlean). Per E12 phase 02 §8 code review
+        # S3.1 fixup (2026-04-30).
+        if path.startswith("docs/pitfalls/"):
+            path = "theme/pitfalls/" + path[len("docs/pitfalls/"):]
         file_path = resolve_under(root, path)
         text = file_path.read_text(encoding="utf-8", errors="ignore")
 
