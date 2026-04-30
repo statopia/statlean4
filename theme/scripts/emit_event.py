@@ -120,6 +120,20 @@ MILESTONE_NAMES = (
     "helper-context-assembled",    # PROVER_INJECT assemble_helper_context.py: assembled webprobe_context + referenceprobe_findings[-1] + _assumption_context_*.txt into _helper_context_*.md for prover injection (see docs/PROVER_INJECT_SPEC.md); verdict ∈ {assembled, empty, parse_error}
     "pitfall-matched",             # E12 phase 02: match_pitfall.py matched a pitfall rule on lake_build_fail error text → routing hint appended to blocker (see docs/E12_PHASE_02_PITFALLS_KB_SPEC.md §7 D-7)
     "last-wrong-attempt-saved",    # E12 phase 03: save_last_wrong_attempt.py wrote $SANDBOX/last_wrong_attempt.lean with inline error markers + pitfall hints (see docs/E12_PHASE_03_HONESTY_RULES_SPEC.md §4)
+    # czy port arch fix Plan 3 (2026-05-01) — orchestrator-state milestones
+    # emitted by web-side TS state machine (proveCli.ts createOrchestratorState).
+    # These are NOT czy parity additions — they are SDK-bridge invention that
+    # makes the czy state-machine logic (controlAgent.ts:585-617 stuckCount
+    # tracking + decideStuckAction) observable in the same events.jsonl
+    # stream as the rest of the milestones. Phase 6 integration smoke
+    # (10-phase6-end-to-end.ts) verifies these surface end-to-end.
+    "stuck-count-incremented",     # Phase 1: orchestrator state machine credited a no-progress attempt to a file
+    "stuck-count-reset",           # Phase 1: sorry-proved cleared accumulated stuck count for a file
+    "stuck-action-decided",        # Phase 1: czy decideStuckAction returned an action (continue/dispatch_helper/restrategize/retreat)
+    "helper-context-injected",     # Phase 2: orchestrator streamInput'd assemble_helper_context.py output back into the main agent's stream
+    "helper-dispatch-failed",      # Phase 2: orchestrator-driven helper dispatch returned ok=false (e.g. no sorry_id, subagent failure)
+    "restrategize-skipped",        # Phase 3: stuck-action-decided=restrategize but treeStateUpdater couldn't run (no sorry, script error)
+    "retreat-skipped",             # Phase 3: stuck-action-decided=retreat but recordRetreat couldn't run (no children, script error)
     "other",
 )
 
