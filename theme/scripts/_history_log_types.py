@@ -153,6 +153,20 @@ def migrate_item_v1_to_v2(item: Dict[str, Any]) -> Dict[str, Any]:
         item["citation_verified"] = False
     # done_reason absent until written (D11)
     # citation_verified_at absent until written
+    # Slice 03 InformalAgent / refinementRound fields (per
+    # docs/SLICE_03_INFORMAL_AGENT_SPEC.md §5).
+    # informal_round counts refinements committed (czy-parity cap = 2;
+    # 1 initial decompose + 2 refinements = 3 total InformalAgent calls
+    # per czy `for alignRound = 0; alignRound < 3`). Bumped by
+    # refine_decomposition.py on `refined` verdict; reset to 0 by
+    # record_retreat.py and restrategize_node.py (D-8).
+    if "informal_round" not in item:
+        item["informal_round"] = 0
+    # coverage_stable signals "alignment loop converged" — set true on
+    # noAdjustment OR converged_pre_dispatch verdict; reset to false on
+    # retreat / restrategize (D-11).
+    if "coverage_stable" not in item:
+        item["coverage_stable"] = False
     return item
 
 

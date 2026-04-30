@@ -175,14 +175,79 @@ Decomposition steps:
    on the parent (consumed by record_retreat if children fail), emits
    `subtasks-split` milestone. **Locked theorem signature on the parent is
    never touched** (Rule 3 Layer 1 invariant — verified in unit tests).
-5. The parent enters INACTIVE_WAIT and exits the ready queue automatically;
+5. **Refinement loop (slice 03 — czy parity)**: after `decompose_node.py`
+   commits the initial children (Step A), wrap the decomposition with up to
+   2 refinement rounds (Step B). czy `proofLoop.ts:807-920` runs this loop
+   per-parent at decomposition time; SDK-bridge mirrors directly.
+
+   Loop body (czy parity — `for alignRound = 0; alignRound < 3` maps to
+   1 initial decompose + up to 2 refinements; cap = `informal_round >= 2`
+   structurally enforced):
+
+   ```
+   WHILE parent.informal_round < 2
+         AND parent.coverage_stable == false
+         AND at least one child is non-converged
+         (coverage_state ∈ {partial_coverage, needs_proof, no_coverage}
+          OR (cited_by_* AND citation_verified == false)):
+
+     Round body — for each parent eligible for refinement:
+
+     a. Dispatch helper-reference SKILL (R6 — E4 helper-reference) on
+        the current children. Idempotent re-run if children unchanged
+        (E4 L2 idempotence test). NO citation-verify dispatch here —
+        E11 R7 runs in Step C on converged children only (czy parity:
+        czy's citationVerify.ts fires post-loop, never per-round; this
+        avoids the lossy interaction where round-N R7 PASSes a child
+        the round-N+1 refinement then drops).
+
+     b. Dispatch informal-refine Task subagent
+        (theme/skills/informal-refine/SKILL.md) with the helper feedback
+        (per-child coverage_state + references[].assessment +
+        replacement_statement). Capture stdout JSON to
+        $SANDBOX/_informal_refine_${PARENT_ID}_round_${N}.json.
+
+     c. Pipe the JSON through refine_decomposition.py:
+
+        python3 theme/scripts/refine_decomposition.py \
+            --parent-id "<parent_id>" \
+            --subagent-json-file "$SANDBOX/_informal_refine_${PARENT_ID}_round_${N}.json" \
+            --sandbox "$SANDBOX"
+
+        Script (T2 atomic): convergence pre-check (czy "all covered"
+        exit), parses JSON, on noAdjustment → coverage_stable=true; on
+        refined → diff applied (drop + descendants removed; add new
+        children with INITIALIZED defaults; KEPT children's `theorem`
+        UNTOUCHED — Layer 1 D-6); bumps informal_round. Emits one
+        informal-round milestone with verdict ∈ {refined, noAdjustment,
+        converged_pre_dispatch, cap_reached, parse_error}.
+
+     d. Re-evaluate the WHILE condition based on the milestone verdict.
+        cap_reached / converged_pre_dispatch / noAdjustment → loop exits.
+        refined → loop continues to next round; round body re-dispatches
+        R6 on the new children list.
+   ```
+
+   **Step C — final commit + post-loop verification**: after the loop
+   converges, sub-autoformalize fires on the FINAL children (existing
+   flow); Layer 1 signature locks apply to FINAL signatures only. Then
+   E11 R7 (citation-verify) dispatches per spec §6.1 on the converged
+   children. PASS-verified children get state=DONE + done_reason and
+   bypass Phase 2 prover.
+
+6. The parent enters INACTIVE_WAIT and exits the ready queue automatically;
    sub-lemmas become the new leaves the next ready_queue computation picks up.
 
 **Rationale**: Agents that discover decomposition ad-hoc waste cycles on instance
 resolution and type-juggling. Pre-decomposition isolates each API interaction into
-a focused sub-goal, dramatically improving agent success rate.
+a focused sub-goal, dramatically improving agent success rate. The refinement loop
+(steps 5a-5d) gives the InformalAgent up to 2 chances to adjust the decomposition
+based on what helper-reference found — closing the alignment-quality gap that
+slice 03 ports from czy.
 
-Skip this phase only for genuinely simple sorry (single tactic, obvious API).
+Skip step 5 (refinement loop) only for genuinely simple decompositions where the
+agent is confident at round 0. Skip steps 1-5 entirely for genuinely simple sorry
+(single tactic, obvious API — no decomposition needed).
 
 ---
 

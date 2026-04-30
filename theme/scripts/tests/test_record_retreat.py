@@ -639,6 +639,29 @@ def test_retreat_resets_attempts_after_restrategize(tmp_path: Path) -> None:
     )
 
 
+def test_retreat_resets_informal_round_and_coverage_stable(tmp_path: Path) -> None:
+    """Slice 03 coupling: retreat must reset informal_round=0 and
+    coverage_stable=false. Per docs/SLICE_03_INFORMAL_AGENT_SPEC.md
+    §10 D-8 / D-11."""
+    backlog = _make_yaml_with_tree(tmp_path)
+    data = yaml.safe_load(backlog.read_text())
+    parent = next(it for it in data["sorry_items"] if it["id"] == "parent")
+    parent["informal_round"] = 2
+    parent["coverage_stable"] = True
+    backlog.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
+
+    apply_retreat(
+        backlog_path=backlog,
+        parent_id="parent",
+        retreat_reason="x",
+        results=[],
+    )
+
+    parent_after = _by_id(backlog, "parent")
+    assert parent_after["informal_round"] == 0
+    assert parent_after["coverage_stable"] is False
+
+
 # ── Differentiation evidence ─────────────────────────────────────────
 
 

@@ -303,6 +303,14 @@ def apply_retreat(
                     # ProblemNode per re-decompose; in our yaml-persisted
                     # world we make it explicit.
                     it["attempts"] = 0
+                    # Slice 03 (per docs/SLICE_03_INFORMAL_AGENT_SPEC.md
+                    # §10 D-8 / D-11): the refinement counter and
+                    # convergence flag are scoped to "this decomposition
+                    # of this parent." After retreat, the decomposition
+                    # is gone; reset the counter and flag so the new
+                    # decomposition starts clean.
+                    it["informal_round"] = 0
+                    it["coverage_stable"] = False
                     history_log = list(it.get("history_log") or [])
                     history_log.append(entry)
                     it["history_log"] = history_log

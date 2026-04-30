@@ -488,5 +488,22 @@ def test_build_history_entry_some_proved() -> None:
     assert e["results"] == [{"sub_problem_id": "b", "status": "proved"}]
 
 
+def test_restrategize_resets_informal_round_and_coverage_stable(tmp_path: Path) -> None:
+    """Slice 03 coupling: restrategize must reset informal_round=0
+    and coverage_stable=false. Per
+    docs/SLICE_03_INFORMAL_AGENT_SPEC.md §10 D-8 / D-11."""
+    p = tmp_path / "b.yaml"
+    items = _parent_with_three_children()
+    items[0]["informal_round"] = 2
+    items[0]["coverage_stable"] = True
+    _write_backlog(p, items)
+
+    apply_restrategize(p, "p")
+
+    parent_after = _by_id(p, "p")
+    assert parent_after["informal_round"] == 0
+    assert parent_after["coverage_stable"] is False
+
+
 def test_module_present_marker() -> None:
     assert True

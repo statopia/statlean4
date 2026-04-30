@@ -221,6 +221,14 @@ def apply_restrategize(
                 it["stuck_rounds"] = 0
                 it["children"] = []
                 it["attempts"] = current_attempts + 1
+                # Slice 03 (per docs/SLICE_03_INFORMAL_AGENT_SPEC.md
+                # §10 D-8 / D-11): refinement counter + convergence
+                # flag are scoped to "this decomposition of this
+                # parent." restrategize clears children → counter +
+                # flag must reset so the next decomposition's
+                # refinement loop starts clean.
+                it["informal_round"] = 0
+                it["coverage_stable"] = False
                 history_log = list(it.get("history_log") or [])
                 history_log.append(entry)
                 it["history_log"] = history_log
