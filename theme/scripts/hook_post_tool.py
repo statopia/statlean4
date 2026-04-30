@@ -64,9 +64,27 @@ HOOK_BUDGET_S = 8
 SCRIPTS_DIR = Path(__file__).resolve().parent
 EMIT_EVENT = SCRIPTS_DIR / "emit_event.py"
 EXTRACT_SORRIES = SCRIPTS_DIR / "extract_sorries.py"
+MATCH_PITFALL = SCRIPTS_DIR / "match_pitfall.py"
+SAVE_LAST_WRONG = SCRIPTS_DIR / "save_last_wrong_attempt.py"
+AUTO_TACTIC = SCRIPTS_DIR / "auto_tactic_pre_pass.py"
 STATLEAN_ROOT = SCRIPTS_DIR.parent.parent
 
 DEDUP_WINDOW_MS = 30_000
+
+# Phase 4 (czy port arch fix, 2026-05-01) — T1 escalation budget per call.
+# match_pitfall + save_last_wrong_attempt are designed to be fast (<1s);
+# 4s ceiling protects the parent hook's 8s budget against pathological
+# inputs (e.g. unbounded stderr from a runaway process). auto_tactic spawns
+# detached so its long-running cost doesn't count against this budget.
+PHASE4_BUDGET_S = 4
+
+# Auto-tactic lockout: once the orchestrator-driven 9-tactic pre-pass
+# starts on a sandbox, suppress further spawn attempts for 10 minutes.
+# auto_tactic_pre_pass itself caps at 20 sorries × 9 tactics × 10s/tactic
+# ≈ 30 min worst case; the lockout ensures we don't stack two passes
+# even when the agent makes rapid edits that re-cross the delta>0
+# threshold.
+AUTO_TACTIC_LOCKOUT_S = 600
 
 
 def _read_payload() -> dict:
@@ -128,6 +146,161 @@ def _emit(sandbox: Path, name: str, details: dict) -> None:
         pass
 
 
+# ── Phase 4 T1 escalation helpers ──────────────────────────────────
+#
+# Background: jobmolovhy6getc (2026-05-01) showed that prove-deep.md
+# narrative T3 invocations of match_pitfall / save_last_wrong_attempt /
+# auto_tactic_pre_pass are unreliable on production traffic — agent ran
+# 100+ Bash calls without invoking ANY of these scripts. The fix is to
+# call them deterministically from this PostTool hook (T1 — agent has
+# no opportunity to skip). Scripts themselves are unchanged; only the
+# dispatch fabric (this hook) is added.
+
+
+def _parse_lake_errors(text: str) -> dict[str, list[dict]]:
+    """Parse lake-build stderr into LSP-shape-2 diagnostics keyed by
+    file path. Mirrors save_last_wrong_attempt.py's parse_lsp_diagnostics
+    shape 2: {severity, message, line, column}.
+
+    Lake build error format:
+        /abs/path/file.lean:LINE:COL: error: <message>
+
+    Multi-line errors (continuation lines without `error:`) are appended
+    to the most recent error's message.
+
+    Returns: {file_path: [{severity, message, line, column}, ...]}.
+    Empty dict if no errors found.
+    """
+    out: dict[str, list[dict]] = {}
+    last_key: tuple[str, int] | None = None  # (file, idx) of most recent err
+    err_re = re.compile(r"^(.+\.lean):(\d+):(\d+):\s*error:\s*(.+)$")
+    for line in text.splitlines():
+        m = err_re.match(line)
+        if m:
+            f, lineno, col, msg = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
+            out.setdefault(f, []).append({
+                "severity": "error",
+                "line": lineno,
+                "column": col,
+                "message": msg,
+            })
+            last_key = (f, len(out[f]) - 1)
+        elif last_key is not None and line.strip():
+            # Continuation line — append to last error's message (cap to keep tidy).
+            f, idx = last_key
+            cur = out[f][idx]["message"]
+            if len(cur) < 800:
+                out[f][idx]["message"] = cur + "\n" + line.rstrip()
+    return out
+
+
+def _call_match_pitfall(sandbox: Path, error_text: str) -> None:
+    """Best-effort call to match_pitfall.py. Script itself emits the
+    `pitfall-matched` milestone (with hint) when a rule matches; we
+    just invoke and drop output."""
+    if not MATCH_PITFALL.exists():
+        return
+    if not error_text:
+        return
+    try:
+        subprocess.run(
+            [
+                "python3", str(MATCH_PITFALL),
+                "--error-text", error_text[:4000],
+                "--sandbox", str(sandbox),
+            ],
+            check=False, timeout=PHASE4_BUDGET_S,
+            capture_output=True,
+        )
+    except Exception:
+        pass
+
+
+def _call_save_last_wrong_attempt(sandbox: Path, file_path: str, errors: list[dict]) -> None:
+    """Best-effort call to save_last_wrong_attempt.py. Writes annotated
+    `last_wrong_attempt.lean` artifact + emits milestone.
+
+    save_last_wrong_attempt.py:319 only emits the milestone when
+    `--sorry-id` is non-empty (czy parity — lastWrongAttempt.ts requires
+    a target sorry to attach the failed-attempt to). The T1 hook path
+    doesn't see a real sorry_id (lake build stderr has only file:line),
+    so we synthesize an observability-only `auto:<basename>:<line>`
+    identifier. Downstream consumers that expect real sorry IDs filter
+    on the `auto:` prefix; the milestone otherwise carries the same
+    structured payload as a T2 narrative-driven invocation.
+    """
+    if not SAVE_LAST_WRONG.exists():
+        return
+    if not Path(file_path).is_file():
+        return
+    if not errors:
+        return
+    first_line = errors[0].get("line", 0)
+    sorry_id = f"auto:{Path(file_path).name}:{first_line}"
+    try:
+        subprocess.run(
+            [
+                "python3", str(SAVE_LAST_WRONG),
+                "--sandbox", str(sandbox),
+                "--content", file_path,
+                "--diagnostics", json.dumps(errors),
+                "--fail-type", "edit",
+                "--sorry-id", sorry_id,
+            ],
+            check=False, timeout=PHASE4_BUDGET_S,
+            capture_output=True,
+        )
+    except Exception:
+        pass
+
+
+def _maybe_spawn_auto_tactic(sandbox: Path) -> None:
+    """Spawn auto_tactic_pre_pass.py detached when sorry pool grows.
+    Runs in background — its 9-tactic ladder × N sorries can take
+    minutes, far exceeding the hook's 8s budget. Lockout file prevents
+    redundant spawns when the agent makes rapid sorry-pool-changing
+    edits.
+
+    Note: auto_tactic_pre_pass itself uses python subprocess to invoke
+    `lake build` for each tactic attempt; subprocess builds do NOT
+    re-trigger this hook (PostTool hooks fire only on agent's tool
+    calls, not on script-spawned subprocesses), so there's no risk of
+    a hook-recursion loop.
+    """
+    if not AUTO_TACTIC.exists():
+        return
+    lock = sandbox / ".auto_tactic.lock"
+    try:
+        if lock.exists():
+            mtime = lock.stat().st_mtime
+            if (dt.datetime.now().timestamp() - mtime) < AUTO_TACTIC_LOCKOUT_S:
+                return
+    except Exception:
+        pass
+    try:
+        lock.touch()
+    except Exception:
+        pass
+    try:
+        # Detached spawn — do NOT wait. auto_tactic emits its own
+        # milestones (auto-tactic-fired / sorry-proved) as it goes.
+        # Pipe stdout/stderr to log files in sandbox so failures are
+        # diagnosable without polluting the agent's tool stream.
+        log = sandbox / ".auto_tactic.log"
+        with open(log, "ab") as f:
+            subprocess.Popen(
+                [
+                    "python3", str(AUTO_TACTIC),
+                    "--sandbox", str(sandbox),
+                    "--statlean-root", str(STATLEAN_ROOT),
+                ],
+                stdout=f, stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+    except Exception:
+        pass
+
+
 # ── tool-specific handlers ────────────────────────────────────────
 
 
@@ -161,6 +334,26 @@ def _handle_bash(payload: dict, sandbox: Path) -> None:
             "session_id": session_id[:16] if session_id else None,
             "agent_type": agent_type,
         })
+
+        # Phase 4 T1 escalation: on lake-build-fail, fire match_pitfall +
+        # save_last_wrong_attempt deterministically. The narrative T3
+        # path (agent calling these via prove-deep.md instructions) is
+        # unreliable on production traffic; this hook ensures the czy
+        # port arsenal actually triggers when needed. See module
+        # docstring for jobmolovhy6getc evidence.
+        if had_error:
+            combined = (stdout or "") + "\n" + (stderr or "")
+            # match_pitfall is fast (regex over ≤4000 chars); always call.
+            _call_match_pitfall(sandbox, combined)
+            # save_last_wrong_attempt: only if we can identify a failing
+            # Statlean .lean file in the error stream. Each file gets
+            # its own annotated artifact, but we cap at the first file
+            # to keep hook latency bounded — multiple failing files in
+            # one build is rare and the agent gets the most-relevant one.
+            for fpath, errs in _parse_lake_errors(combined).items():
+                if "/Statlean/" in fpath and fpath.endswith(".lean") and Path(fpath).is_file():
+                    _call_save_last_wrong_attempt(sandbox, fpath, errs)
+                    break
 
 
 def _handle_write_or_edit(payload: dict, sandbox: Path) -> None:
@@ -251,6 +444,17 @@ def _handle_write_or_edit(payload: dict, sandbox: Path) -> None:
             "agent_type": agent_type,
             "lake_build_pending": True,
         })
+
+    # Phase 4 T1 escalation: when sorry pool GROWS (delta>0, e.g. skeleton
+    # write or fresh decomposition), fire auto_tactic_pre_pass detached.
+    # M5's 9-tactic ladder closes any sorry that yields to rfl/decide/
+    # ring/linarith/omega/norm_num/simp/aesop/trivial — typically the
+    # trivial cases skeletons leave behind ("isProbability θ := by sorry"
+    # → infer_instance / decide). On main agent edits this catches new
+    # work; subagents inherit the same hook so dispatch_helper-driven
+    # decompositions also get the pre-pass.
+    if delta > 0:
+        _maybe_spawn_auto_tactic(sandbox)
 
 
 def main() -> None:
