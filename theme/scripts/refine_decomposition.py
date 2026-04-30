@@ -376,6 +376,24 @@ def apply_refinement(
         # 3. Apply
         new_children_ids = [sp["id"] for sp in proposed]
         new_items = [it for it in items if it.get("id") not in to_remove]
+        # H1 D-11 (per docs/H1_ELABORATE_PLAN_SPEC.md §10): on the
+        # `refined` verdict path, also persist the latest brief seed
+        # from the SKILL output. czy emits exactly ONE per refinement
+        # output: `composition.directAssembly` (decomposition path) OR
+        # top-level `proofSketch` (no-decomposition path). czy keeps
+        # them in TS in-memory state on the parent ProblemNode; SDK-
+        # bridge persists them on the parent yaml row so H1's
+        # elaborate_plan.py can read the FINAL alignment round's
+        # brief seed without re-dispatching InformalAgent. Architectural
+        # translation, not czy deviation. Write only the field actually
+        # supplied by the SKILL output; leave the other untouched (so
+        # a subsequent SKILL flip from decomposition→direct or vice
+        # versa overwrites correctly without leaving stale data —
+        # except where neither field is present in this refined output,
+        # in which case both stay at their pre-write value).
+        composition = parsed.get("composition") or {}
+        new_direct_assembly = composition.get("directAssembly") if isinstance(composition, dict) else None
+        new_proof_sketch = parsed.get("proofSketch")
         # Find parent in new_items (it survives — D-6 mirror); update
         for it in new_items:
             if it.get("id") == parent_id:
@@ -388,6 +406,10 @@ def apply_refinement(
                 it["children"] = new_children_ids
                 it["informal_round"] = current_round + 1
                 # state stays INACTIVE_WAIT (parent is still mid-decomp)
+                if new_direct_assembly is not None:
+                    it["direct_assembly"] = new_direct_assembly
+                if new_proof_sketch is not None:
+                    it["proof_sketch"] = new_proof_sketch
                 break
         # Append added rows
         new_items.extend(new_rows)

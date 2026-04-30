@@ -311,6 +311,18 @@ def apply_retreat(
                     # decomposition starts clean.
                     it["informal_round"] = 0
                     it["coverage_stable"] = False
+                    # H1 elaborate-plan (per docs/H1_ELABORATE_PLAN_SPEC.md
+                    # §10 D-7 + D-11): the elaborated plan AND the brief
+                    # seed (direct_assembly / proof_sketch) are scoped
+                    # to "this converged decomposition of this parent."
+                    # After retreat the decomposition is gone; reset
+                    # all 3 fields so the new round's elaborate_plan
+                    # call starts from a clean slate. Same 2-line patch
+                    # pattern slice 03 used for informal_round +
+                    # coverage_stable, A1 used for attempts.
+                    it["detailed_proof_plan"] = None
+                    it["direct_assembly"] = None
+                    it["proof_sketch"] = None
                     history_log = list(it.get("history_log") or [])
                     history_log.append(entry)
                     it["history_log"] = history_log

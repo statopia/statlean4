@@ -386,12 +386,13 @@ def test_l1_10_kept_children_theorem_byte_identical(backlog: Path) -> None:
     """Even when the LLM rephrases a kept child's description, the
     yaml's `theorem` field stays unchanged. Layer 1 D-6 contract.
 
-    Note: the migration may add additive default fields on read (e.g.
-    H7's `assumption_hints` / `assumption_analysis`) when the file is
-    re-read post-write. Those are idempotent migration writes, not
-    perturbations of the kept child. We compare the load-bearing
-    column set rather than full dict equality to avoid coupling
-    Layer-1 semantic to schema-extension cadence."""
+    Note: the migration may add additive default fields on read (H1's
+    detailed_proof_plan / direct_assembly / proof_sketch; H7's
+    assumption_hints / assumption_analysis) when the file is re-read
+    post-write. Those are idempotent migration writes, not perturbations
+    of the kept child. We compare the load-bearing column set rather
+    than full dict equality to avoid coupling Layer-1 semantic to
+    schema-extension cadence."""
     pre_p_s1 = copy.deepcopy(_by_id(backlog, "p.s1"))
     apply_refinement(backlog, "p", json.dumps({
         "needsDecomposition": True,
@@ -633,6 +634,95 @@ def test_milestone_emits_via_subprocess(
     assert payload["verdict"] == "refined"
     assert payload["informal_round_post"] == 1
     assert "diff" in payload
+
+
+# ── H1 D-11 cross-slice patch: brief seed survives refinement rounds ─
+
+
+def test_h1_brief_seed_persists_on_refined(backlog: Path) -> None:
+    """H1 D-11 cross-slice patch: when the refinement SKILL output
+    includes `composition.directAssembly`, refine_decomposition writes
+    parent.direct_assembly on the `refined` verdict path. czy keeps
+    this in TS in-memory state on the parent ProblemNode; SDK-bridge
+    persists to yaml so H1's elaborate_plan.py can read the FINAL
+    alignment round's brief seed."""
+    refined_json = json.dumps({
+        "needsDecomposition": True, "noAdjustment": False,
+        "decisionReason": "split p.s2 for clarity",
+        "subProblems": [
+            {"id": "p.s1", "description": "s1", "action": "prove", "dependencies": []},
+            {"id": "p.new1", "description": "new1", "action": "prove", "dependencies": []},
+            {"id": "p.new2", "description": "new2", "action": "prove", "dependencies": []},
+        ],
+        "composition": {
+            "topologicalOrder": ["p.s1", "p.new1", "p.new2"],
+            "directAssembly": "Round-1 seed: apply s1 then chain new1/new2.",
+        },
+    })
+    payload = apply_refinement(backlog, "p", refined_json)
+    assert payload["verdict"] == "refined"
+
+    parent = _by_id(backlog, "p")
+    assert parent.get("direct_assembly") == "Round-1 seed: apply s1 then chain new1/new2."
+    # proof_sketch should remain unset (czy emits ONE per output;
+    # this output had directAssembly)
+    assert not parent.get("proof_sketch")
+
+
+def test_h1_brief_seed_overwrites_across_rounds(backlog: Path) -> None:
+    """Round 1 sets direct_assembly = 'A'; Round 2 sets it = 'B' (latest
+    wins). H1 reads the FINAL value before elaborating."""
+    # Round 1
+    payload1 = apply_refinement(backlog, "p", json.dumps({
+        "needsDecomposition": True, "noAdjustment": False,
+        "decisionReason": "round 1",
+        "subProblems": [
+            {"id": "p.s1", "description": "s1", "action": "prove", "dependencies": []},
+            {"id": "p.r1", "description": "r1", "action": "prove", "dependencies": []},
+        ],
+        "composition": {"directAssembly": "ROUND-1-SEED"},
+    }))
+    assert payload1["verdict"] == "refined"
+    assert _by_id(backlog, "p")["direct_assembly"] == "ROUND-1-SEED"
+
+    # Round 2 — overwrite with the new round's seed
+    payload2 = apply_refinement(backlog, "p", json.dumps({
+        "needsDecomposition": True, "noAdjustment": False,
+        "decisionReason": "round 2",
+        "subProblems": [
+            {"id": "p.s1", "description": "s1", "action": "prove", "dependencies": []},
+            {"id": "p.r2", "description": "r2", "action": "prove", "dependencies": []},
+        ],
+        "composition": {"directAssembly": "ROUND-2-SEED-LATEST"},
+    }))
+    assert payload2["verdict"] == "refined"
+    assert _by_id(backlog, "p")["direct_assembly"] == "ROUND-2-SEED-LATEST"
+
+
+def test_h1_no_brief_seed_in_output_leaves_field_unchanged(backlog: Path) -> None:
+    """Defensive: a SKILL output WITHOUT composition.directAssembly
+    should not erase any pre-existing seed. (Stale-overwrite-with-None
+    would lose data.)"""
+    # Pre-seed via direct yaml edit
+    data = yaml.safe_load(backlog.read_text())
+    for it in data["sorry_items"]:
+        if it["id"] == "p":
+            it["direct_assembly"] = "PRE-EXISTING-SEED"
+    backlog.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    # Refine WITHOUT composition.directAssembly
+    payload = apply_refinement(backlog, "p", json.dumps({
+        "needsDecomposition": True, "noAdjustment": False,
+        "decisionReason": "no seed in output",
+        "subProblems": [
+            {"id": "p.s1", "description": "s1", "action": "prove", "dependencies": []},
+            {"id": "p.new", "description": "new", "action": "prove", "dependencies": []},
+        ],
+        # Note: NO composition key
+    }))
+    assert payload["verdict"] == "refined"
+    # Pre-existing seed survives
+    assert _by_id(backlog, "p")["direct_assembly"] == "PRE-EXISTING-SEED"
 
 
 def test_module_present_marker() -> None:

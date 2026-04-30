@@ -343,6 +343,65 @@ def test_decompose_cli_emits_subtasks_split(tmp_path: Path) -> None:
     assert _by_id(backlog, "foo")["state"] == "INACTIVE_WAIT"
 
 
+# ── H1 D-11 cross-slice patch: brief seed persistence ───────────────
+
+
+def test_decompose_persists_direct_assembly(tmp_path: Path) -> None:
+    """H1 D-11 patch: when the SKILL output's `composition.directAssembly`
+    is supplied, decompose_node writes parent.direct_assembly. Read by
+    H1's elaborate_plan.py (assembly mode brief seed)."""
+    backlog = _make_v2_yaml(tmp_path)
+    apply_decomposition(
+        backlog_path=backlog,
+        parent_id="foo",
+        sub_problems=[
+            {"id": "foo.s1", "theorem": "foo_s1"},
+            {"id": "foo.s2", "theorem": "foo_s2"},
+        ],
+        decision_reason="induction on n",
+        direct_assembly="(1) apply child s1 with h1; (2) close with s2.",
+    )
+    parent = _by_id(backlog, "foo")
+    assert parent.get("direct_assembly") == "(1) apply child s1 with h1; (2) close with s2."
+    # proof_sketch stays None (not provided; czy emits ONE per output)
+    # Migration default may have set it to None — accept either absent
+    # or None.
+    assert not parent.get("proof_sketch")
+
+
+def test_decompose_persists_proof_sketch_when_no_decomposition(tmp_path: Path) -> None:
+    """H1 D-11 patch (direct mode seed): when czy emits proofSketch
+    instead of directAssembly (the no-decomposition path), the same
+    decompose_node script can persist it to parent.proof_sketch.
+    Note: in practice, no-decomposition skips children entirely, but
+    the script supports both args additively."""
+    backlog = _make_v2_yaml(tmp_path)
+    apply_decomposition(
+        backlog_path=backlog,
+        parent_id="foo",
+        sub_problems=[{"id": "foo.s1"}],  # at least one sub-problem required
+        proof_sketch="Direct strategy: apply Real.norm_add_le.",
+    )
+    parent = _by_id(backlog, "foo")
+    assert parent.get("proof_sketch") == "Direct strategy: apply Real.norm_add_le."
+
+
+def test_decompose_brief_seed_optional(tmp_path: Path) -> None:
+    """Backward compatibility: omitting both --direct-assembly and
+    --proof-sketch leaves the fields at their migration defaults
+    (None). Existing decompose calls without H1 args still work."""
+    backlog = _make_v2_yaml(tmp_path)
+    apply_decomposition(
+        backlog_path=backlog,
+        parent_id="foo",
+        sub_problems=[{"id": "foo.s1"}],
+    )
+    parent = _by_id(backlog, "foo")
+    # Either absent or None — both acceptable
+    assert not parent.get("direct_assembly")
+    assert not parent.get("proof_sketch")
+
+
 # ── Differentiation evidence ─────────────────────────────────────────
 
 

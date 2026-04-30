@@ -505,5 +505,25 @@ def test_restrategize_resets_informal_round_and_coverage_stable(tmp_path: Path) 
     assert parent_after["coverage_stable"] is False
 
 
+def test_restrategize_resets_h1_three_fields(tmp_path: Path) -> None:
+    """H1 D-7 + D-11 coupling: restrategize must reset
+    detailed_proof_plan, direct_assembly, and proof_sketch to None.
+    Per docs/H1_ELABORATE_PLAN_SPEC.md §10. Stale fields would
+    mislead the next decomposition's elaborate_plan call (R3)."""
+    p = tmp_path / "b.yaml"
+    items = _parent_with_three_children()
+    items[0]["detailed_proof_plan"] = "stale plan from prior decomposition"
+    items[0]["direct_assembly"] = "stale assembly seed"
+    items[0]["proof_sketch"] = "stale direct seed"
+    _write_backlog(p, items)
+
+    apply_restrategize(p, "p")
+
+    parent_after = _by_id(p, "p")
+    assert parent_after["detailed_proof_plan"] is None
+    assert parent_after["direct_assembly"] is None
+    assert parent_after["proof_sketch"] is None
+
+
 def test_module_present_marker() -> None:
     assert True

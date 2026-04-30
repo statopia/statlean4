@@ -229,6 +229,17 @@ def apply_restrategize(
                 # refinement loop starts clean.
                 it["informal_round"] = 0
                 it["coverage_stable"] = False
+                # H1 elaborate-plan (per docs/H1_ELABORATE_PLAN_SPEC.md
+                # §10 D-7 + D-11): elaborated plan + brief seed
+                # (direct_assembly / proof_sketch) are scoped to "this
+                # converged decomposition of this parent." restrategize
+                # clears children → all 3 fields must reset so the next
+                # decomposition's elaborate_plan call starts clean.
+                # Same rationale as informal_round + coverage_stable
+                # reset above; same pattern record_retreat uses.
+                it["detailed_proof_plan"] = None
+                it["direct_assembly"] = None
+                it["proof_sketch"] = None
                 history_log = list(it.get("history_log") or [])
                 history_log.append(entry)
                 it["history_log"] = history_log

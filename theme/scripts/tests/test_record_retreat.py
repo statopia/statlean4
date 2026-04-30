@@ -662,6 +662,33 @@ def test_retreat_resets_informal_round_and_coverage_stable(tmp_path: Path) -> No
     assert parent_after["coverage_stable"] is False
 
 
+def test_retreat_resets_h1_three_fields(tmp_path: Path) -> None:
+    """H1 D-7 + D-11 coupling: retreat must reset detailed_proof_plan,
+    direct_assembly, and proof_sketch to None. Per
+    docs/H1_ELABORATE_PLAN_SPEC.md §10 D-7 (elaborated plan) + D-11
+    (brief seed cross-slice). Stale values would mislead the next
+    decomposition's elaborate_plan call (R3 in spec §8)."""
+    backlog = _make_yaml_with_tree(tmp_path)
+    data = yaml.safe_load(backlog.read_text())
+    parent = next(it for it in data["sorry_items"] if it["id"] == "parent")
+    parent["detailed_proof_plan"] = "stale plan from previous decomposition"
+    parent["direct_assembly"] = "stale assembly seed"
+    parent["proof_sketch"] = "stale direct seed (mutex with assembly normally)"
+    backlog.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
+
+    apply_retreat(
+        backlog_path=backlog,
+        parent_id="parent",
+        retreat_reason="decomposition wrong",
+        results=[],
+    )
+
+    parent_after = _by_id(backlog, "parent")
+    assert parent_after["detailed_proof_plan"] is None
+    assert parent_after["direct_assembly"] is None
+    assert parent_after["proof_sketch"] is None
+
+
 # ── Differentiation evidence ─────────────────────────────────────────
 
 

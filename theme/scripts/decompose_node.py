@@ -150,9 +150,21 @@ def apply_decomposition(
     sub_problems: List[Dict[str, Any]],
     *,
     decision_reason: str | None = None,
+    direct_assembly: str | None = None,
+    proof_sketch: str | None = None,
 ) -> List[str]:
     """Apply decomposition under flock + atomic write. Returns list of
     new sub-problem ids.
+
+    H1 D-11 (cross-slice patch per docs/H1_ELABORATE_PLAN_SPEC.md §10):
+    `direct_assembly` and `proof_sketch` are the InformalAgent SKILL's
+    brief-seed fields (czy `informalAgent.ts:159-162` `composition.directAssembly`
+    + czy `:170` `proofSketch`). czy emits exactly ONE per SKILL output —
+    `directAssembly` when `needsDecomposition=true`, `proofSketch` when
+    `needsDecomposition=false`. SDK-bridge persists them on the parent so
+    H1's elaborate_plan.py can read the brief seed without re-dispatching
+    InformalAgent. Architectural translation of czy's in-memory
+    ProblemNode field; not a czy deviation.
 
     Raises ValueError on validation failure.
     """
@@ -205,6 +217,15 @@ def apply_decomposition(
                     # is intentionally underscore-prefixed to mark it
                     # internal-runtime-only (not v2-schema-canonical).
                     it["_pending_decision_reason"] = decision_reason
+                # H1 D-11: persist brief seed (czy in-memory →
+                # SDK-bridge yaml architectural translation). czy emits
+                # ONE of these per SKILL output; we write whichever is
+                # provided (None values left as None — caller is
+                # responsible for passing exactly one when applicable).
+                if direct_assembly is not None:
+                    it["direct_assembly"] = direct_assembly
+                if proof_sketch is not None:
+                    it["proof_sketch"] = proof_sketch
                 break
         # Append new sub-rows
         data["sorry_items"] = items + sub_rows
@@ -225,6 +246,21 @@ def _parse_args() -> argparse.Namespace:
         help="JSON array of {id, theorem?, blocker?, file?, line?, priority?, …}",
     )
     p.add_argument("--decision-reason")
+    # H1 D-11 cross-slice patch: brief seed from SKILL output —
+    # `composition.directAssembly` (czy informalAgent.ts:159-162) when
+    # decomposition fired, `proofSketch` (czy :170) when no decomposition.
+    # Caller passes whichever the SKILL output produced; the script only
+    # writes the field actually supplied. Read by H1's elaborate_plan.py.
+    p.add_argument(
+        "--direct-assembly",
+        help="brief assembly sketch from InformalAgent SKILL output "
+             "(composition.directAssembly); persisted on parent for H1",
+    )
+    p.add_argument(
+        "--proof-sketch",
+        help="brief direct-mode strategy from InformalAgent SKILL output "
+             "(top-level proofSketch); persisted on parent for H1",
+    )
     p.add_argument("--sandbox", required=True, help="for emit_event milestone")
     p.add_argument("--backlog-path", default=str(BACKLOG_DEFAULT))
     return p.parse_args()
@@ -247,6 +283,8 @@ def main() -> int:
             parent_id=args.parent_id,
             sub_problems=sub_problems,
             decision_reason=args.decision_reason,
+            direct_assembly=args.direct_assembly,
+            proof_sketch=args.proof_sketch,
         )
     except ValueError as e:
         print(f"[decompose_node] validation: {e}", file=sys.stderr)

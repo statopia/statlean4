@@ -167,6 +167,18 @@ def migrate_item_v1_to_v2(item: Dict[str, Any]) -> Dict[str, Any]:
     # retreat / restrategize (D-11).
     if "coverage_stable" not in item:
         item["coverage_stable"] = False
+    # H1 elaborate-plan fields (per docs/H1_ELABORATE_PLAN_SPEC.md §5).
+    # Three additive optional fields. All default None — absent until
+    # the patched slice 03 scripts (decompose_node, refine_decomposition)
+    # write the brief seed (direct_assembly | proof_sketch) and H1's
+    # elaborate_plan.py writes the elaborated plan (detailed_proof_plan).
+    # Reset to None on retreat / restrategize per H1 D-7 + D-11.
+    if "detailed_proof_plan" not in item:
+        item["detailed_proof_plan"] = None
+    if "direct_assembly" not in item:
+        item["direct_assembly"] = None
+    if "proof_sketch" not in item:
+        item["proof_sketch"] = None
     # H7 helper-assumption fields (per docs/H7_HELPER_ASSUMPTION_SPEC.md §5).
     # Two additive fields. `assumption_hints` stores the LATEST diagnose
     # call's `missingAssumptionNLs` list (czy `helperAssumptionSubAgent.ts:114-118`
