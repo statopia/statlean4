@@ -541,7 +541,7 @@ On REPLACE-FAIL (Phase 03 stub):
        --blocker "<first error line>"
    ```
    (Phase 03: logs a warning "replace_fail last-wrong-attempt deferred to Phase 04".
-    No last_wrong_attempt.lean written for replace_sorry failures in this phase.)
+    No last_wrong_attempt.lean written for `mcp__statlean_prove__replace_sorry` failures in this phase.)
 
 
 The scheduling model is the **decision tree** ported from czy's
@@ -736,11 +736,19 @@ Phase 0 工具链 (强制):
      czy interpolates these via TS template literal into prover prompt;
      SDK-bridge inlines directly into launch_background_agent body. -->
 
-- `replace_sorry` — **preferred** for closing a single sorry — replace one sorry with a tactic; auto-verifies and reverts on failure
-- `edit_lines` — replace a specific line range (`start_line`..`end_line`); `new_content` may have any number of lines including zero, so it can grow, shrink, or delete the range. Auto-verifies and reverts on failure (returns [EDIT-OK] / [EDIT-FAIL]). Use this for localized rewrites — adding helpers above the theorem, fixing a few mid-proof lines, deleting dead branches — instead of retyping the whole file.
-- `write_file` — full file rewrite (last resort, expensive in output tokens); auto-verifies and reverts on failure (returns [WRITE-OK] / [WRITE-FAIL])
+<!-- W2.S4 (2026-05-01): prove-side tools live under the SDK MCP server
+     `statlean_prove`. Their tool catalog names use the SDK prefix:
+     `mcp__statlean_prove__<bare_name>`. The bullet items below show
+     both names; agents calling the tool MUST use the prefixed form
+     (it's the only entry in the tool list). The bare name is kept
+     in prose for readability + cross-reference to the legacy
+     /api/tool-exec catalog in src/lib/tools.ts. -->
 
-Note: heavy read/search tools are NOT available in proof-writing phase. `lean_local_search` and `lean_loogle` are available for on-demand lemma lookup when you encounter an unknown API or a sorry that Phase 0 research didn't cover.
+- `mcp__statlean_prove__replace_sorry` (alias `replace_sorry`) — **preferred** for closing a single sorry — replace one sorry with a tactic; auto-verifies and reverts on failure
+- `mcp__statlean_prove__edit_lines` (alias `edit_lines`) — replace a specific line range (`start_line`..`end_line`); `new_content` may have any number of lines including zero, so it can grow, shrink, or delete the range. Auto-verifies and reverts on failure (returns [EDIT-OK] / [EDIT-FAIL]). Use this for localized rewrites — adding helpers above the theorem, fixing a few mid-proof lines, deleting dead branches — instead of retyping the whole file.
+- `mcp__statlean_prove__write_file` (alias `write_file`) — full file rewrite (last resort, expensive in output tokens); auto-verifies and reverts on failure (returns [WRITE-OK] / [WRITE-FAIL])
+
+Note: heavy read/search tools are NOT available in proof-writing phase. `lean_local_search` and `mcp__statlean_prove__lean_loogle` (alias `lean_loogle`) are available for on-demand lemma lookup when you encounter an unknown API or a sorry that Phase 0 research didn't cover.
 
 ## Anti-trivial-witness rule
 
@@ -771,7 +779,7 @@ Common embedded mistake — these all FAIL to parse:
 | `Πₖ` (product symbol) | `Π` starts a Pi-type token | `Pi_k`, `prod_k` |
 | `∀_intro` / `∃_witness` | quantifier symbols are keywords | `forall_intro` / `exists_witness` |
 
-Rule of thumb: before you `write_file`, **grep your own draft for the five characters `λ Π Σ ∀ ∃`** — if any appears inside a name (i.e. adjacent to a letter, digit, or `_`), rename to ASCII.
+Rule of thumb: before you `mcp__statlean_prove__write_file`, **grep your own draft for the five characters `λ Π Σ ∀ ∃`** — if any appears inside a name (i.e. adjacent to a letter, digit, or `_`), rename to ASCII.
 
 ### LaTeX-style transliteration table (other symbols)
 
@@ -788,7 +796,7 @@ Rule of thumb: before you `write_file`, **grep your own draft for the five chara
 
 <!-- czy parity per honestyRules.ts:209-248 (LEAN_QUICK_ERROR_TABLE) — body byte-equal; heading adapted (czy heading is "Phase 2 — Quick error reference"; SDK-bridge drops "Phase 2 — " prefix because the surrounding context already establishes Phase 2). Per Batch B §8 code review S2.3/S4.1 fixup 2026-04-30. -->-
 
-When write_file / edit_lines / replace_sorry returns an error, scan this table FIRST. If the pattern matches, apply the right-column fix immediately. The right-most column also points at `docs/pitfalls/<file>.md` sections — read those when the inline fix isn't enough.
+When `mcp__statlean_prove__{write_file,edit_lines,replace_sorry}` returns an error, scan this table FIRST. If the pattern matches, apply the right-column fix immediately. The right-most column also points at `docs/pitfalls/<file>.md` sections — read those when the inline fix isn't enough.
 
 The tool result for any failed write also carries a `📚 ROUTING HINT` block automatically — that block names the matching file:§section explicitly, so prefer reading the indicated file over guessing.
 
@@ -800,7 +808,7 @@ The tool result for any failed write also carries a `📚 ROUTING HINT` block au
 | `Unknown identifier 'X'` + auto-bound implicit Note | X used as binder before declaration. Move declaration before use site. | `docs/pitfalls/lean_syntax_errors.md` §A.4 |
 | `expected token` on `β̂` / `X̄` / `x̃` etc. | Combining mark in identifier. Rename to ASCII (`β̂`→`hat_beta`, `X̄`→`bar_X`). | `docs/pitfalls/lean_syntax_errors.md` §A.6 |
 | `unknown identifier '<name>'` (Tendsto, atTop, 𝓝, IndepFun, condExp) | Missing `open`. Add `open Filter Topology MeasureTheory ProbabilityTheory ENNReal`. | `docs/pitfalls/lean_syntax_errors.md` §B.9 |
-| `unknown identifier '<name>'` (gaussianVolume, expectation, Variance) | API does NOT exist — guessed name. Real names: `gaussianReal`, `variance`. `check_type` first. | `docs/pitfalls/statistics_domain.md` §B |
+| `unknown identifier '<name>'` (gaussianVolume, expectation, Variance) | API does NOT exist — guessed name. Real names: `gaussianReal`, `variance`. `mcp__statlean_prove__check_type` first. | `docs/pitfalls/statistics_domain.md` §B |
 | `type mismatch (ℕ vs ℝ)` | Coerce: `(n : ℝ)` or `↑n`. | `docs/pitfalls/lean_syntax_errors.md` §B.2 |
 | `tactic 'exact' failed, type mismatch` | Try `apply`, or use `refine ?_` to inspect expected type. | `docs/pitfalls/lean_syntax_errors.md` §B.3 |
 | `no goals to be solved` | Previous tactic already closed it — delete the redundant tactic. | `docs/pitfalls/lean_syntax_errors.md` §B.6 |
