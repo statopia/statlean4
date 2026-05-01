@@ -81,3 +81,11 @@ cov_hSub_eq_uZeta (U-statistic covariance identity) confirmed as R6: requires 4-
 **Summary**:
 
 Slice 3.C smoke fixture closed: 3-way conjunction decomposed into Nat.add_zero / Nat.zero_add / Nat.mul_one sub-lemmas. Verified end-to-end path decompose_node.py → 3 parallel haiku agents → process_sorry_result --status proved (×3) → propagate_done cascades parent DONE. No new Mathlib patterns; this exercise validates the tree-walker scheduling protocol on a trivial fixture rather than discovering proof techniques.
+
+## 2026-05-01 19:04 — `umvue_iff_stratum_symmetric`
+
+**Stats**: proved=0  stuck=1  remaining=0
+
+**Summary**:
+
+Smoke test: umvue_iff_stratum_symmetric proof skeleton built (3 sorry remain). Blockers: (1) orderStatistic uses Finset.image (deduplicates ties) so delta=delta∘stratumOrderStat not pointwise-true; (2) symmetric-functions-factor-through-order-statistic lemma absent from Mathlib/Statlean; (3) Measurable delta' missing from theorem hypotheses. All 3 are Mathlib infrastructure gaps. Pipeline alignment loop exercised successfully.
