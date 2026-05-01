@@ -328,12 +328,30 @@ def _handle_bash(payload: dict, sandbox: Path) -> None:
             or bool(re.search(r"^.+:\d+:\d+: error:", stdout, flags=re.MULTILINE))
         )
         name = "lake-build-fail" if had_error else "lake-build-clean"
-        _emit(sandbox, name, {
+        details: dict = {
             "module": module,
             "observed_via": "hook",
             "session_id": session_id[:16] if session_id else None,
             "agent_type": agent_type,
-        })
+        }
+        # W3.S6h Bug 3 line-plumbing (2026-05-01): augment lake-build-fail
+        # emit with the first parsed error's file:line:column. Downstream
+        # orchestratorState.ts reads error_file + error_line and propagates
+        # through stuck-action-decided so helperDispatcher.lookupSorryByLocation
+        # can disambiguate multi-sorry-per-file files (e.g. Main.lean with
+        # sorries at L149 + L214). `error_*` prefix avoids semantic clash
+        # with `file` (= "file with pending edit" in stuck-count payloads).
+        parsed_errors: dict = {}
+        if had_error:
+            combined = (stdout or "") + "\n" + (stderr or "")
+            parsed_errors = _parse_lake_errors(combined)
+            for fpath, errs in parsed_errors.items():
+                if errs:
+                    details["error_file"] = fpath
+                    details["error_line"] = errs[0].get("line")
+                    details["error_column"] = errs[0].get("column")
+                    break
+        _emit(sandbox, name, details)
 
         # Phase 4 T1 escalation: on lake-build-fail, fire match_pitfall +
         # save_last_wrong_attempt deterministically. The narrative T3
@@ -350,7 +368,8 @@ def _handle_bash(payload: dict, sandbox: Path) -> None:
             # its own annotated artifact, but we cap at the first file
             # to keep hook latency bounded — multiple failing files in
             # one build is rare and the agent gets the most-relevant one.
-            for fpath, errs in _parse_lake_errors(combined).items():
+            # Reuse parsed_errors from the emit-details computation above.
+            for fpath, errs in parsed_errors.items():
                 if "/Statlean/" in fpath and fpath.endswith(".lean") and Path(fpath).is_file():
                     _call_save_last_wrong_attempt(sandbox, fpath, errs)
                     break
