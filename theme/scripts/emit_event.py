@@ -134,6 +134,7 @@ MILESTONE_NAMES = (
     "helper-dispatch-failed",      # Phase 2: orchestrator-driven helper dispatch returned ok=false (e.g. no sorry_id, subagent failure)
     "restrategize-skipped",        # Phase 3: stuck-action-decided=restrategize but treeStateUpdater couldn't run (no sorry, script error)
     "retreat-skipped",             # Phase 3: stuck-action-decided=retreat but recordRetreat couldn't run (no children, script error)
+    "prove-deep-injected",         # W2.S5 (Bug 1 fix, 2026-05-01): orchestrator-side fallback pushed `/prove-deep <target>` user-turn after observing Step 4 done in deep mode without a Skill { skill: "prove-deep" } invocation within 30s. Mirrors dispatch-batch-start fallback pattern.
     "other",
 )
 

@@ -1,6 +1,7 @@
 ---
 description: Full pipeline — PDF theorem → Lean 4 formalization (extract → ingest → skeleton → prove → gate)
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash, Agent, Skill, Task, WebSearch, WebFetch
+# KEEP IN SYNC: 14 mcp__statlean_prove__* tools also listed in prove-deep.md frontmatter (W2.S4)
+allowed-tools: Read, Edit, Write, Grep, Glob, Bash, Agent, Skill, Task, WebSearch, WebFetch, mcp__statlean_web_ui__request_user_decision, mcp__statlean_prove__write_file, mcp__statlean_prove__replace_sorry, mcp__statlean_prove__edit_lines, mcp__statlean_prove__lake_build, mcp__statlean_prove__check_snippet, mcp__statlean_prove__revert, mcp__statlean_prove__check_type, mcp__statlean_prove__extract_goal, mcp__statlean_prove__suggest_lemma, mcp__statlean_prove__auto_tactic, mcp__statlean_prove__try_fix, mcp__statlean_prove__lean_loogle, mcp__statlean_prove__grep_repo, mcp__statlean_prove__glob_repo
 model: opus
 argument-hint: <pdf-file> [--theorem <name>] [--pages <range>] [--prove-depth deep|shallow] [--time-budget 1h]
 ---
@@ -293,28 +294,50 @@ If `--prove-depth shallow`:
   - Skip prove, proceed to Step 6 (sorry 留在 backlog 等后续攻击)
 
 If `--prove-depth deep`:
-  1. Read `theme/out/prove_targets.json`
-  2. For each target (up to 3), launch a parallel Agent subagent with:
-     - `subagent_type: "general-purpose"`
-     - The `prompt` field from prove_targets.json
-     - `model: "sonnet"` (good balance of speed and capability)
-     - **prompt 必须包含 Phase 0.5 路线搜索 + Phase 0 工具链指令**：
-       "Phase 0.5 路线搜索（在 API 搜索之前执行）:
-        R1: 检查是否有 --roadmap 参数或用户提供的证明描述
-        R2: {如果 Step 4.5 已解析出 roadmap → 直接注入: roadmap_yaml}
-        R3: 读 theme/proof_knowledge.yaml 匹配 goal
-        R4: 如果 R1-R3 无路线且等级 ≥ C → WebSearch '<theorem> proof Lean 4 Mathlib'
-        R5: 自主探索（当前流程）
-        Phase 0 工具链:
-        先用 python3 scripts/extract_signatures.py 读声明索引，
-        如果已有路线 → 按 key_api grep statlean_api_index.tsv 和 mathlib_full_type_index.tsv 查签名，跳过 mathlib_api_index 全文,
-        未匹配 → 读 theme/mathlib_api_index.md + grep 两个索引，
-        tactic 试错阶段用 bash scripts/check_snippet.sh 增量编译，
-        每证完一个子引理立即写入 .lean 文件并 lake build 验证"
-  3. Wait for all agents to complete
-  4. For each target, verify sorry eliminated: `grep -c '\bsorry\b' <file>`
-  5. If any target made progress but still has sorry, optionally re-dispatch
-  6. Run `lake build <changed-modules>` (the same set Step 4 used — comma-list if multiple) to verify the touched modules still compile after prove edits. Do NOT run a bare `lake build` here; full-project verification is Step 6's job.
+
+  **W2.S5 (2026-05-01) — INVOKE /prove-deep, do NOT launch general-purpose.**
+  Pre-W2.S5 this section instructed the agent to launch a general-purpose
+  subagent with a hand-written R1-R5 prompt — that path bypassed
+  prove-deep.md entirely (the agent never loaded the 4-rung stuck recovery
+  / helper context inject / czy port priority bias). jobmolu42myoqp5
+  trace evidence: 0 of 16 czy port keywords reached the dispatched
+  prover prompt. Audit doc §5 Bug 1.
+
+  Replacement (T2 narrative + T1 orchestrator fallback):
+
+  1. Read `theme/out/prove_targets.json` to get the priority-ordered
+     target list (typically a single sorry id, or `next`).
+  2. Invoke the `/prove-deep` skill ONCE per cycle, passing the top
+     target as argument. Use the Skill tool:
+
+     ```
+     Skill { skill: "prove-deep", args: "<target_sorry_id> --time-budget <budget>" }
+     ```
+
+     `/prove-deep` then runs its full Phase 0-3 narrative with:
+     - Phase 0 cheap convergence (H3 library coverage / R6 paper reference
+       / R7 citation verify / M5 auto_tactic pre-pass)
+     - Phase 1 decompose + alignment loop (Slice 03 + H2 alt-path + H1
+       elaborate plan)
+     - Phase 2 prover dispatch + 4-rung stuck recovery (czy parity)
+     - Phase 3 cycle finalize (commit + ingest_knowledge + MEMORY.md)
+
+  3. After `/prove-deep` returns, verify sorry counts via
+     `grep -c '\bsorry\b' Statlean/Web/<jobId>/Main.lean`.
+  4. If any target remains unproved AND time budget allows, optionally
+     invoke `/prove-deep` again with `next`.
+  5. Run `lake build <changed-modules>` (the same set Step 4 used) to
+     verify post-prove compile. Do NOT run a bare `lake build`; full-
+     project verification is Step 6's job.
+
+  **Orchestrator T1 fallback (proveCli.ts:onEvent)**: if Step 4 done
+  fires AND no `/prove-deep` skill invocation is observed within 30
+  seconds, the orchestrator pushes a `/prove-deep` user-turn directly.
+  This guarantees the deep narrative loads even if the agent's pipeline.md
+  compliance drifts. Mirror of the existing dispatch-batch-start
+  fallback timer (proveCli.ts:1039-1060). Same rationale as PR2:
+  T3 narrative reliability is ~0% on long prompts; T1 lifecycle hooks
+  recover the missing call.
 
 **Important**: This uses Claude Code subagents (Max plan quota), NOT the `claude` CLI
 (which would consume API credits). The prove_loop.sh fallback is only for CI environments.

@@ -1,6 +1,7 @@
 ---
 description: Deep prove mode — DAG-driven work-stealing scheduler with 3 saturated agents
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash(lake:*), Bash(grep:*), Bash(echo:*), Bash(python3:*), Bash(git:*), Task, Agent, WebSearch, WebFetch, mcp__statlean_web_ui__request_user_decision
+# KEEP IN SYNC: 14 mcp__statlean_prove__* tools also listed in pipeline.md frontmatter (W2.S4)
+allowed-tools: Read, Edit, Write, Grep, Glob, Bash(lake:*), Bash(grep:*), Bash(echo:*), Bash(python3:*), Bash(git:*), Task, Agent, WebSearch, WebFetch, mcp__statlean_web_ui__request_user_decision, mcp__statlean_prove__write_file, mcp__statlean_prove__replace_sorry, mcp__statlean_prove__edit_lines, mcp__statlean_prove__lake_build, mcp__statlean_prove__check_snippet, mcp__statlean_prove__revert, mcp__statlean_prove__check_type, mcp__statlean_prove__extract_goal, mcp__statlean_prove__suggest_lemma, mcp__statlean_prove__auto_tactic, mcp__statlean_prove__try_fix, mcp__statlean_prove__lean_loogle, mcp__statlean_prove__grep_repo, mcp__statlean_prove__glob_repo
 model: opus
 argument-hint: [sorry-id from backlog, or "next" for highest priority, or "all-leaves"] [--time-budget Xh]
 ---
