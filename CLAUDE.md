@@ -12,11 +12,12 @@
 
 ## Git 远程仓库
 
-- **仓库地址**: `git@github.com:mockingbird-gan/statlean4.git`（SSH）
+- **仓库地址**: `git@github.com:statopia/statlean4.git`（SSH，canonical）
+  - 旧地址 `git@github.com:mockingbird-gan/statlean4.git` 仍可工作（GitHub 自动重定向，账号已 transfer），但所有新 remote 配置一律用 statopia
 - **SSH 公钥**: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIYGAXq8NzQtFRG4YobuSL7jEOl+FuiAInKBHgvqKv4O mockingbird-gan`
-- **push 时必须使用 SSH**，不要用 HTTPS。如果发现 remote URL 是 HTTPS，先执行：
+- **push 时必须使用 SSH**，不要用 HTTPS。如果发现 remote URL 是 HTTPS 或旧的 mockingbird-gan，执行：
   ```
-  git remote set-url origin git@github.com:mockingbird-gan/statlean4.git
+  git remote set-url origin git@github.com:statopia/statlean4.git
   ```
 
 ## 沟通语言
