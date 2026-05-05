@@ -158,14 +158,47 @@ sorry_items:
 
 - id: multipletesting.benjaminihochberg.bhReplaced_measurable
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 529
+  line: 581
   theorem: bhReplaced_measurable
-  type: unknown
+  type: closed_modulo_helpers
   depth: 1
   priority: 99
   estimated_lines: 50
-  dependencies: []
+  dependencies:
+    - multipletesting.benjaminihochberg.bhCutoff_measurable
   unlocks: []
+  status_2026-05-06: |
+    Decomposed L4 into 4 helpers (H1-H4):
+      - H1 bhReplaced_component_measurable (L532) — proved (~10 lines)
+      - H2 bhCutoff_measurable (L548) — sorry retained, CORE difficulty
+      - H3 bhReject_measurableSet (L555) — proved via measurableSet_le + H2
+      - H4 bhRejectionCount_measurable (L562) — proved via Finset.card_filter
+        → ∑ ite → Finset.measurable_sum + Measurable.ite
+    L4 main theorem is now `bhRejectionCount_measurable (bhReplaced P k) (H1)`,
+    so closing H2 closes L4 unconditionally.
+
+- id: multipletesting.benjaminihochberg.bhCutoff_measurable
+  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
+  line: 548
+  theorem: bhCutoff_measurable
+  type: measurability
+  depth: 2
+  priority: 75
+  estimated_lines: 80
+  dependencies: []
+  unlocks:
+    - multipletesting.benjaminihochberg.bhReplaced_measurable
+  proof_route: |
+    Strategy: bhCutoff (Q · ω) α takes finitely many values
+    (by bhCutoff_take_values, L1) in {0, α/m, 2α/m, …, α}.
+    Express as a measurable simple function:
+      For each r ∈ {1..m}, the level set {ω | bhCutoff = r·α/m} is determined
+      by finite Boolean combination of {ω | Q i ω ≤ c} for c ∈ {α/m, …, α}.
+    Use `card_filter_eq_countP_sorted` (L292, already proved) to bypass
+    mergeSort: `sorted[k] ≤ x ↔ k < (univ.filter (P · ≤ x)).card`.
+    Hence `qualifies = (range m).filter (fun k => k < (univ.filter
+    (P · ≤ (k+1)α/m)).card)` — purely Boolean combination of
+    `MeasurableSet {ω | P i ω ≤ c}`, fed through measurable Nat-cardinality.
 
 - id: multipletesting.benjaminihochberg.indep_factor
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
