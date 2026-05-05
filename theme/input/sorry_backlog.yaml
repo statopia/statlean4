@@ -1,8 +1,22 @@
-version: v210
+version: v211
 generated: 2026-05-06
-total_sorry: 16
+total_sorry: 17
 
 sorry_items:
+
+- id: semiparametric.influencefunction.asymptotic_normality
+  file: Statlean/Semiparametric/InfluenceFunction.lean
+  line: 167
+  theorem: influence_function_asymptotic_normality
+  type: route_clear
+  depth: 2
+  priority: 30
+  blocker: "Bridge from `IsAsymptoticallyLinear μ T θ₀ ψ` to charfun-level convergence of `√n (T_n − θ₀)` to N(0, E[ψ²]). Route: (1) iid CLT on `(1/√n) Σ ψ(X_i)` → N(0, E[ψ²]) using `Statlean.LimitTheorems.CLT` over the iid product `Measure.pi`; (2) Slutsky to absorb the `o_p(1)` remainder coming from `IsAsymptoticallyLinear`; (3) translate the resulting weak convergence to charfun via `LimitTheorems.Levy`. The main bookkeeping is matching the iid-product structure with the existing CLT statement (currently phrased on a single ambient probability space)."
+  estimated_lines: 120
+  dependencies: []
+  unlocks: []
+  source: "Statlean/Semiparametric/InfluenceFunction.lean (new module 2026-05-06)"
+  stuck_rounds: 0
 
 - id: empiricalprocess.dkw.dkw_inequality
   file: Statlean/EmpiricalProcess/DKW.lean
@@ -42,15 +56,47 @@ sorry_items:
 
 - id: multipletesting.benjaminihochberg.bh_fdr_le
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 66
+  line: 219
   theorem: bh_fdr_le
   type: blocked
   depth: 1
   priority: 75
-  blocker: "BH FDR control under independence — requires either Storey self-consistency, Benjamini-Yekutieli leave-one-out martingale, or a direct integral computation. Long proof (250-400 lines), Mathlib lacks integration of step-function processes + clean leave-one-out independence transfer. Likely R6 cycle to engineer the sub-lemma DAG before any prove agent is launched."
+  blocker: "BH FDR control under independence. Route chosen: Wang-Ramdas (arXiv:2201.09350v3) Second Proof — replacement-identity + independence factorization, no martingale/conditioning. Sub-lemma DAG of 9 lemmas (~335 lines) defined; keystone is L3 (replacement_eventEq, ~80 lines, uses bespoke BH-cutoff monotonicity). Mathlib lacks: leave-one-out for iIndepFun (workaround via indepFun_finset), order-statistic monotonicity API. No prior formalization in Lean/Isabelle/Coq exists (we're first)."
   estimated_lines: 350
   dependencies: []
   unlocks: []
+  stuck_rounds: 0
+  route_notes: |
+    R6 route researched 2026-05-06. Strategy: Wang & Ramdas, "Elementary proofs of
+    several results on false discovery rate", arXiv:2201.09350v3 (2022), Theorem 1,
+    Second Proof. Avoids martingales (Storey 2002) and PRDS lattice (Benjamini-Yekutieli
+    2001). Reduces to: (a) replacement identity decoupling P_k from rejection count,
+    (b) independence factorization E[1·1] = ℙ·ℙ, (c) p-value validity bound, (d) ∑pmf ≤ 1.
+
+    Sub-lemma DAG (9 lemmas, see file docstring for full detail):
+      L0 bhReplaced              ~5    (P with k-th coord set to 0)
+      L1 bhCutoff_take_values    ~25   (cutoff ∈ {0, α/m, 2α/m, …, α})
+      L2 bhRejectionCount        ~40   (count + sorted_get_le_iff_countP reuse)
+      L3 bhReplaced_eventEq      ~80   *KEYSTONE* (replacement identity, μ-a.e.)
+      L4 bhReplaced_measurable   ~30   (R_k measurable wrt P_{≠k})
+      L5 indep_loo               ~25   (leave-one-out indep from iIndepFun.indepFun_finset)
+      L6 pvalue_validity_ofReal  ~10   (direct from IsValidPValue.prob_le)
+      L7 indep_factor            ~25   (IndepFun.measure_inter_preimage_eq_mul)
+      L8 sum_pmf_le_one          ~15   (disjoint events, IsProbabilityMeasure)
+      L9 main bh_fdr_le          ~80   (assembly: decomp → L3 → L7 → L6 → L8)
+    Total ~335 lines + scaffolding ≈ 350.
+
+    Key Mathlib reuse: ProbabilityTheory.iIndepFun, IsProbabilityMeasure,
+    IndepFun.measure_inter_preimage_eq_mul, Finset.sum_comm.
+    Key Statlean reuse: Conformal.MarginalCoverage.sorted_get_le_iff_countP (for L2),
+    MultipleTesting.Basic.IsValidPValue (for L6), Conformal.Basic mergeSort idiom.
+
+    Risk: L3 (replacement identity) is the only nontrivial sub-lemma. Fallback to
+    finite-disjunction via L1's discrete cutoff range adds ~30 lines if monotonicity
+    argument stalls.
+
+    Literature scan: no prior formalization found in Lean/Isabelle-AFP/Coq-MathComp
+    as of 2026-05-06 — this would be the first.
 
 - id: variance.ustatistic.cov_hSub_eq_uZeta
   file: Statlean/Variance/UStatistic.lean

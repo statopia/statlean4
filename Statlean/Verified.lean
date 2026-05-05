@@ -26,6 +26,7 @@ import Statlean.HDMediation.Assumptions
 import Statlean.Conformal.Basic
 import Statlean.Conformal.Rank
 import Statlean.Conformal.MarginalCoverage
+import Statlean.Conformal.Split
 
 -- Multiple testing — Bonferroni FWER control (zero sorry).
 -- BH FDR control deferred (R6 candidate, ~350 lines), so

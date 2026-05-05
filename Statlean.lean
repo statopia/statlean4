@@ -28,6 +28,7 @@ import Statlean.HDMediation.Assumptions
 import Statlean.Conformal.Basic
 import Statlean.Conformal.Rank
 import Statlean.Conformal.MarginalCoverage
+import Statlean.Conformal.Split
 
 -- Multiple testing (FWER + FDR)
 import Statlean.MultipleTesting.Basic
@@ -109,6 +110,9 @@ import Statlean.LimitTheorems.DeltaMethod
 import Statlean.LimitTheorems.CramerWold
 import Statlean.LimitTheorems.AsymptoticExpectation
 import Statlean.Pipeline.Lecture9Handout
+
+-- Semiparametric efficiency / influence-function calculus (DML, Chernozhukov 2018)
+import Statlean.Semiparametric.InfluenceFunction
 
 -- Causal inference (Lin, Kong, Wang 2022)
 import Statlean.Causal.Basic
