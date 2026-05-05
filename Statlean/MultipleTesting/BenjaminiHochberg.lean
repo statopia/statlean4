@@ -221,30 +221,295 @@ follow-up cycles, and the main theorem `bh_fdr_le` is left as a single
 
 variable {m : ℕ}
 
+/-! ### Auxiliary list-counting bridges (for L1, L2') -/
+
+omit [MeasurableSpace Ω] in
+/-- `countP` over `List.ofFn s` = cardinality of matching index filter
+(combinatorial bridge from list counting to `Finset.filter`).
+Adapted from `Statlean.Conformal.MarginalCoverage.countP_ofFn_eq_card_filter`. -/
+private lemma countP_ofFn_eq_card_filter_BH {n : ℕ} (s : Fin n → ℝ) (p : ℝ → Bool) :
+    (List.ofFn s).countP p = (Finset.univ.filter (fun i => p (s i) = true)).card := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [List.ofFn_succ, List.countP_cons, ih (fun i => s i.succ),
+        Finset.card_filter, Finset.card_filter, Fin.sum_univ_succ]
+    ring_nf
+
+omit [MeasurableSpace Ω] in
+/-- For a `≤`-sorted list `L` of length `> k`, `L[k] ≤ x` iff at least `k+1`
+entries of `L` are `≤ x`.
+Adapted from `Statlean.Conformal.MarginalCoverage.sorted_get_le_iff_countP`. -/
+private lemma sorted_get_le_iff_countP_BH {L : List ℝ} (hL : L.Pairwise (· ≤ ·))
+    (k : ℕ) (hk : k < L.length) (x : ℝ) :
+    L[k] ≤ x ↔ k < L.countP (fun y => decide (y ≤ x)) := by
+  induction L generalizing k with
+  | nil => simp at hk
+  | cons a L ih =>
+    rw [List.pairwise_cons] at hL
+    obtain ⟨ha, hLp⟩ := hL
+    match k with
+    | 0 =>
+      simp only [List.getElem_cons_zero, List.countP_cons]
+      by_cases hax : a ≤ x
+      · simp [hax]
+      · have hxa : x < a := lt_of_not_ge hax
+        have h_count : L.countP (fun y => decide (y ≤ x)) = 0 := by
+          rw [List.countP_eq_zero]
+          intro y hy
+          have hay := ha y hy
+          have : x < y := lt_of_lt_of_le hxa hay
+          simp [decide_eq_false (not_le.mpr this)]
+        simp [decide_eq_false hax, h_count, hax]
+    | k+1 =>
+      simp only [List.getElem_cons_succ, List.countP_cons]
+      have hkL : k < L.length := by simp at hk; omega
+      have IH := ih hLp k hkL
+      by_cases hax : a ≤ x
+      · simp [decide_eq_true hax]
+        constructor
+        · intro h; have := IH.mp h; omega
+        · intro h; exact IH.mpr (by omega)
+      · have hxa : x < a := lt_of_not_ge hax
+        simp [decide_eq_false hax]
+        have h_count : L.countP (fun y => decide (y ≤ x)) = 0 := by
+          rw [List.countP_eq_zero]
+          intro y hy
+          have hay := ha y hy
+          have : x < y := lt_of_lt_of_le hxa hay
+          simp [decide_eq_false (not_le.mpr this)]
+        rw [h_count]
+        constructor
+        · intro hLkx
+          have hmem : L[k] ∈ L := List.getElem_mem hkL
+          have : a ≤ L[k] := ha _ hmem
+          linarith
+        · intro h; omega
+
+omit [MeasurableSpace Ω] in
+/-- The cardinality of `{i : P i ω ≤ x}` equals the `countP` over the
+sorted list of p-values. -/
+private lemma card_filter_eq_countP_sorted (P : Fin m → Ω → ℝ) (ω : Ω) (x : ℝ) :
+    (Finset.univ.filter (fun i : Fin m => P i ω ≤ x)).card =
+    ((List.ofFn (fun j => P j ω)).mergeSort (fun a b => decide (a ≤ b))).countP
+      (fun y => decide (y ≤ x)) := by
+  rw [(List.mergeSort_perm _ _).countP_eq (fun y => decide (y ≤ x)),
+      countP_ofFn_eq_card_filter_BH]
+  simp
+
 /-- L0: Replace one coordinate of the p-value vector with `0`. -/
 private def bhReplaced (P : Fin m → Ω → ℝ) (k : Fin m) :
     Fin m → Ω → ℝ :=
   fun i ω => if i = k then 0 else P i ω
 
+omit [MeasurableSpace Ω] in
 /-- L1: BH cutoff takes values in `{0, α/m, 2α/m, …, α}`. -/
 private theorem bhCutoff_take_values (P : Fin m → Ω → ℝ) (α : ℝ) (ω : Ω) :
     bhCutoff (fun j => P j ω) α = 0 ∨
     ∃ r : ℕ, 1 ≤ r ∧ r ≤ m ∧ bhCutoff (fun j => P j ω) α = (r : ℝ) * α / m := by
-  sorry
+  rw [bhCutoff]
+  set sorted : List ℝ :=
+    (List.ofFn (fun j => P j ω)).mergeSort (fun a b => decide (a ≤ b))
+  set qualifies : Finset ℕ :=
+    (Finset.range m).filter (fun k =>
+      decide (sorted[k]?.getD 0 ≤ ((k : ℝ) + 1) * α / m))
+  by_cases h : qualifies.Nonempty
+  · right
+    refine ⟨qualifies.max' h + 1, by omega, ?_, ?_⟩
+    · have h_in := qualifies.max'_mem h
+      have h_in' := (Finset.filter_subset _ _) h_in
+      have hlt := Finset.mem_range.mp h_in'
+      omega
+    · simp only [h, ↓reduceDIte]
+      push_cast
+      ring
+  · left
+    simp only [h, ↓reduceDIte]
 
 /-- L2: Number of rejected hypotheses by BH. -/
 private noncomputable def bhRejectionCount (P : Fin m → Ω → ℝ) (α : ℝ) (ω : Ω) :
     ℕ :=
   (Finset.univ.filter (fun i : Fin m => bhReject P α i ω)).card
 
+omit [MeasurableSpace Ω] in
 /-- L2': Characterization — count `= r` iff cutoff is `r·α/m` and exactly
-`r` p-values are below it. (Reuses `Conformal.sorted_get_le_iff_countP`.) -/
+`r` p-values are below it. The hypothesis `0 ≤ α` is essential: a
+counterexample with `α < 0` is `m = 2, P ≡ 0`, where `bhRejectionCount = 2`
+but the cutoff returns `0`, not `2 · α / m = α < 0`. -/
 private theorem bhRejectionCount_eq_iff (P : Fin m → Ω → ℝ) (α : ℝ) (ω : Ω)
-    (r : ℕ) (hr : 1 ≤ r) (hrm : r ≤ m) :
+    (hα : 0 ≤ α) (r : ℕ) (hr : 1 ≤ r) (hrm : r ≤ m) :
     bhRejectionCount P α ω = r ↔
     bhCutoff (fun j => P j ω) α = (r : ℝ) * α / m ∧
     (Finset.univ.filter (fun i : Fin m => P i ω ≤ (r : ℝ) * α / m)).card = r := by
-  sorry
+  have hm_pos : 0 < m := lt_of_lt_of_le hr hrm
+  -- bhRejectionCount is filter card with cutoff
+  have hRC_def : bhRejectionCount P α ω =
+      (Finset.univ.filter (fun i : Fin m => P i ω ≤
+        bhCutoff (fun j => P j ω) α)).card := rfl
+  -- Set up the sort + qualifies
+  set sorted : List ℝ :=
+    (List.ofFn (fun j => P j ω)).mergeSort (fun a b => decide (a ≤ b)) with hsorted_def
+  have hsorted_len : sorted.length = m := by
+    simp [hsorted_def, List.length_mergeSort]
+  have hsorted_pw : sorted.Pairwise (· ≤ ·) := by
+    have h_trans : ∀ a b c : ℝ, decide (a ≤ b) = true →
+        decide (b ≤ c) = true → decide (a ≤ c) = true := by
+      intros a b c hab hbc
+      simp_all
+      linarith
+    have h_total : ∀ a b : ℝ, (decide (a ≤ b) || decide (b ≤ a)) = true := by
+      intros a b
+      simp [Bool.or_eq_true]
+      exact le_total a b
+    have := List.pairwise_mergeSort h_trans h_total (List.ofFn (fun j => P j ω))
+    simpa [hsorted_def] using this
+  set qualifies : Finset ℕ :=
+    (Finset.range m).filter (fun k =>
+      decide (sorted[k]?.getD 0 ≤ ((k : ℝ) + 1) * α / m)) with hqual_def
+  -- bhCutoff unfolds via qualifies
+  have hcut_eq :
+      bhCutoff (fun j => P j ω) α =
+        if h : qualifies.Nonempty then ((qualifies.max' h : ℝ) + 1) * α / m else 0 := by
+    rfl
+  -- Helper: getD on sorted at k < m equals sorted[k]
+  have h_getD : ∀ (k : ℕ) (hk : k < m),
+      sorted[k]?.getD 0 = sorted[k]'(by rw [hsorted_len]; exact hk) := by
+    intro k hk
+    have hk' : k < sorted.length := by rw [hsorted_len]; exact hk
+    rw [List.getElem?_eq_getElem hk']
+    rfl
+  -- Membership in qualifies for k ∈ range m
+  have h_qual_mem : ∀ (k : ℕ) (hk : k < m),
+      (k ∈ qualifies ↔ sorted[k]'(by rw [hsorted_len]; exact hk) ≤
+        ((k : ℝ) + 1) * α / m) := by
+    intro k hk
+    simp only [hqual_def, Finset.mem_filter, Finset.mem_range, decide_eq_true_iff]
+    rw [h_getD k hk]
+    exact and_iff_right hk
+  -- Translate bhRejectionCount via mergeSort + countP
+  have h_count_cutoff : bhRejectionCount P α ω =
+      sorted.countP (fun y => decide (y ≤ bhCutoff (fun j => P j ω) α)) := by
+    rw [hRC_def]
+    rw [card_filter_eq_countP_sorted]
+  -- Translate the RHS count via countP
+  have h_count_r : ∀ x : ℝ,
+      (Finset.univ.filter (fun i : Fin m => P i ω ≤ x)).card =
+        sorted.countP (fun y => decide (y ≤ x)) := by
+    intro x; rw [card_filter_eq_countP_sorted]
+  -- The target characterization: cutoff = r·α/m via qualifies.max' = r-1
+  constructor
+  · -- forward
+    intro hRcount
+    -- bhRejectionCount = r implies sorted[0] ≤ cutoff (since count ≥ 1)
+    -- First show qualifies is nonempty by contradiction
+    by_cases h_qual_ne : qualifies.Nonempty
+    · -- nonempty branch: cutoff = (kmax+1)·α/m
+      set kmax := qualifies.max' h_qual_ne with hkmax_def
+      have hkmax_mem : kmax ∈ qualifies := qualifies.max'_mem h_qual_ne
+      have hkmax_lt_m : kmax < m := by
+        have := (Finset.filter_subset _ _) hkmax_mem
+        exact Finset.mem_range.mp this
+      have hcut_val :
+          bhCutoff (fun j => P j ω) α = ((kmax : ℝ) + 1) * α / m := by
+        rw [hcut_eq, dif_pos h_qual_ne]
+      -- Show count w/ cutoff = kmax + 1
+      -- count ≥ kmax + 1 from sortedness
+      have h_kmax_le : sorted[kmax]'(by omega) ≤ ((kmax : ℝ) + 1) * α / m := by
+        rw [← h_qual_mem kmax hkmax_lt_m]
+        exact hkmax_mem
+      have h_count_ge : kmax + 1 ≤ sorted.countP
+          (fun y => decide (y ≤ ((kmax : ℝ) + 1) * α / m)) := by
+        have := (sorted_get_le_iff_countP_BH hsorted_pw kmax (by omega)
+          (((kmax : ℝ) + 1) * α / m)).mp h_kmax_le
+        omega
+      -- count ≤ kmax + 1 from max' property
+      have h_count_le : sorted.countP
+          (fun y => decide (y ≤ ((kmax : ℝ) + 1) * α / m)) ≤ kmax + 1 := by
+        by_contra h_ge
+        push_neg at h_ge
+        -- h_ge : kmax + 1 < countP. So countP > kmax+1 means by sorted_get_le_iff
+        -- there are at least kmax+2 elements ≤ cutoff.
+        -- In particular sorted[kmax+1] exists and is ≤ cutoff.
+        -- We need kmax+1 < sorted.length = m.
+        -- so sorted[kmax+1] ≤ cutoff (using iff in reverse)
+        -- need kmax+1 < sorted.length
+        have h_kmax1_lt : kmax + 1 < sorted.length := by
+          have h_ub : sorted.countP
+              (fun y => decide (y ≤ ((kmax : ℝ) + 1) * α / m)) ≤ sorted.length :=
+            List.countP_le_length
+          omega
+        have h_kmax1_le_cut : sorted[kmax + 1]'(h_kmax1_lt) ≤
+            ((kmax : ℝ) + 1) * α / m := by
+          rw [sorted_get_le_iff_countP_BH hsorted_pw (kmax + 1) h_kmax1_lt]
+          omega
+        -- Now show kmax+1 ∈ qualifies
+        have h_kmax1_lt_m : kmax + 1 < m := by omega
+        have h_kmax1_qual : kmax + 1 ∈ qualifies := by
+          rw [h_qual_mem (kmax + 1) h_kmax1_lt_m]
+          have h_step : ((kmax : ℝ) + 1) * α / m ≤ (((kmax + 1 : ℕ) : ℝ) + 1) * α / m := by
+            have h_cast : ((kmax + 1 : ℕ) : ℝ) + 1 = (kmax : ℝ) + 2 := by push_cast; ring
+            rw [h_cast]
+            have hm_nn : (0 : ℝ) ≤ m := by exact_mod_cast hm_pos.le
+            by_cases hm_zero : (m : ℝ) = 0
+            · simp [hm_zero]
+            have hm_p : (0 : ℝ) < m := lt_of_le_of_ne hm_nn (Ne.symm hm_zero)
+            rw [div_le_div_iff_of_pos_right hm_p]
+            nlinarith
+          linarith [h_kmax1_le_cut]
+        have : kmax + 1 ≤ kmax := by
+          have := Finset.le_max' qualifies (kmax + 1) h_kmax1_qual
+          exact this
+        omega
+      have h_count_eq : sorted.countP
+          (fun y => decide (y ≤ ((kmax : ℝ) + 1) * α / m)) = kmax + 1 := by
+        omega
+      -- Now we have bhRejectionCount = sorted.countP (... ≤ cutoff) = kmax+1
+      have h_RC_kmax : bhRejectionCount P α ω = kmax + 1 := by
+        rw [h_count_cutoff, hcut_val, h_count_eq]
+      -- So r = kmax + 1
+      have hr_eq : r = kmax + 1 := by omega
+      refine ⟨?_, ?_⟩
+      · rw [hcut_val]
+        congr 1
+        push_cast
+        rw [hr_eq]
+        push_cast
+        ring
+      · -- count w/ r·α/m = r
+        rw [h_count_r]
+        have hr_eq' : ((r : ℝ)) * α / m = ((kmax : ℝ) + 1) * α / m := by
+          rw [hr_eq]; push_cast; ring
+        rw [hr_eq', h_count_eq]
+        omega
+    · -- empty branch: cutoff = 0, but bhRejectionCount ≥ 1 leads to contradiction
+      exfalso
+      have hcut_zero : bhCutoff (fun j => P j ω) α = 0 := by
+        rw [hcut_eq, dif_neg h_qual_ne]
+      -- bhRejectionCount = sorted.countP (· ≤ 0) = r ≥ 1
+      have h_count_at_zero : sorted.countP
+          (fun y => decide (y ≤ 0)) = r := by
+        have := h_count_cutoff
+        rw [hcut_zero] at this
+        omega
+      -- So sorted[0] ≤ 0 (since count ≥ 1)
+      have h0_lt : 0 < sorted.length := by omega
+      have h_s0_le : sorted[0]'h0_lt ≤ 0 := by
+        rw [sorted_get_le_iff_countP_BH hsorted_pw 0 h0_lt 0]
+        omega
+      -- Then 0 ∈ qualifies: sorted[0] ≤ 0 ≤ 1·α/m (using α ≥ 0)
+      have hα_nn : (0 : ℝ) ≤ (((0 : ℕ) : ℝ) + 1) * α / m := by
+        have h1 : ((0 : ℕ) : ℝ) + 1 = 1 := by push_cast; ring
+        rw [h1, one_mul]
+        have hm_nn : (0 : ℝ) ≤ m := by exact_mod_cast hm_pos.le
+        exact div_nonneg hα hm_nn
+      have h_0_qual : 0 ∈ qualifies := by
+        rw [h_qual_mem 0 hm_pos]
+        linarith
+      exact h_qual_ne ⟨0, h_0_qual⟩
+  · -- backward
+    rintro ⟨hCut, hCount⟩
+    rw [hRC_def, hCut]
+    exact hCount
 
 /-- L3 (keystone, ~80 lines): replacement identity. On the event
 `{ω | P k ω ≤ r·α/m ∧ bhRejectionCount P α ω = r}`,
