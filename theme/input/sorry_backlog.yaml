@@ -1,12 +1,12 @@
-version: v211
+version: v212
 generated: 2026-05-06
-total_sorry: 17
+total_sorry: 23
 
 sorry_items:
 
 - id: semiparametric.influencefunction.asymptotic_normality
   file: Statlean/Semiparametric/InfluenceFunction.lean
-  line: 167
+  line: 177
   theorem: influence_function_asymptotic_normality
   type: route_clear
   depth: 2
@@ -56,7 +56,7 @@ sorry_items:
 
 - id: multipletesting.benjaminihochberg.bh_fdr_le
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 219
+  line: 354
   theorem: bh_fdr_le
   type: blocked
   depth: 1
@@ -72,7 +72,7 @@ sorry_items:
     Second Proof. Avoids martingales (Storey 2002) and PRDS lattice (Benjamini-Yekutieli
     2001). Reduces to: (a) replacement identity decoupling P_k from rejection count,
     (b) independence factorization E[1·1] = ℙ·ℙ, (c) p-value validity bound, (d) ∑pmf ≤ 1.
-
+    
     Sub-lemma DAG (9 lemmas, see file docstring for full detail):
       L0 bhReplaced              ~5    (P with k-th coord set to 0)
       L1 bhCutoff_take_values    ~25   (cutoff ∈ {0, α/m, 2α/m, …, α})
@@ -85,18 +85,84 @@ sorry_items:
       L8 sum_pmf_le_one          ~15   (disjoint events, IsProbabilityMeasure)
       L9 main bh_fdr_le          ~80   (assembly: decomp → L3 → L7 → L6 → L8)
     Total ~335 lines + scaffolding ≈ 350.
-
+    
     Key Mathlib reuse: ProbabilityTheory.iIndepFun, IsProbabilityMeasure,
     IndepFun.measure_inter_preimage_eq_mul, Finset.sum_comm.
     Key Statlean reuse: Conformal.MarginalCoverage.sorted_get_le_iff_countP (for L2),
     MultipleTesting.Basic.IsValidPValue (for L6), Conformal.Basic mergeSort idiom.
-
+    
     Risk: L3 (replacement identity) is the only nontrivial sub-lemma. Fallback to
     finite-disjunction via L1's discrete cutoff range adds ~30 lines if monotonicity
     argument stalls.
-
+    
     Literature scan: no prior formalization found in Lean/Isabelle-AFP/Coq-MathComp
     as of 2026-05-06 — this would be the first.
+
+- id: multipletesting.benjaminihochberg.bhCutoff_take_values
+  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
+  line: 233
+  theorem: bhCutoff_take_values
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: multipletesting.benjaminihochberg.bhRejectionCount_eq_iff
+  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
+  line: 247
+  theorem: bhRejectionCount_eq_iff
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: multipletesting.benjaminihochberg.bhReplaced_eventEq
+  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
+  line: 257
+  theorem: bhReplaced_eventEq
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: multipletesting.benjaminihochberg.bhReplaced_measurable
+  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
+  line: 264
+  theorem: bhReplaced_measurable
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: multipletesting.benjaminihochberg.indep_factor
+  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
+  line: 304
+  theorem: indep_factor
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: multipletesting.benjaminihochberg.indep_loo
+  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
+  line: 274
+  theorem: indep_loo
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
 
 - id: variance.ustatistic.cov_hSub_eq_uZeta
   file: Statlean/Variance/UStatistic.lean
