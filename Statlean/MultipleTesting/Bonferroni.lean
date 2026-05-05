@@ -53,6 +53,39 @@ theorem bonferroni_fwer_le
     (α : ℝ) (hα : 0 ≤ α) (hα1 : α ≤ 1)
     (hValid : ∀ i ∈ nulls, IsValidPValue μ (P i)) :
     fwer μ (bonferroniReject P α) nulls ≤ ENNReal.ofReal α := by
-  sorry
+  -- `m > 0` as a real, with `α/m ∈ [0,1]`.
+  have hm_pos : (0 : ℝ) < m := by
+    exact_mod_cast Nat.lt_of_lt_of_le Nat.zero_lt_one hm
+  have hα_div_nn : 0 ≤ α / m := div_nonneg hα (Nat.cast_nonneg m)
+  have hα_div_le : α / m ≤ 1 := by
+    rw [div_le_one hm_pos]
+    exact hα1.trans (by exact_mod_cast hm)
+  -- Step 1: rewrite the false-rejection event as a finite union.
+  have h_event_eq :
+      {ω | ∃ i ∈ nulls, bonferroniReject P α i ω}
+        = ⋃ i ∈ nulls, {ω | P i ω ≤ α / m} := by
+    ext ω
+    simp [bonferroniReject, Set.mem_iUnion]
+  -- Step 2: each event has probability at most `α / m`.
+  have h_each : ∀ i ∈ nulls,
+      μ {ω | P i ω ≤ α / m} ≤ ENNReal.ofReal (α / m) :=
+    fun i hi => (hValid i hi).prob_le _ hα_div_nn hα_div_le
+  -- Step 3: union bound + sum estimate.
+  unfold fwer
+  rw [h_event_eq]
+  calc μ (⋃ i ∈ nulls, {ω | P i ω ≤ α / m})
+      ≤ ∑ i ∈ nulls, μ {ω | P i ω ≤ α / m} :=
+        measure_biUnion_finset_le nulls _
+    _ ≤ ∑ i ∈ nulls, ENNReal.ofReal (α / m) := Finset.sum_le_sum h_each
+    _ = nulls.card • ENNReal.ofReal (α / m) := by rw [Finset.sum_const]
+    _ ≤ (m : ℕ) • ENNReal.ofReal (α / m) := by
+        gcongr
+        exact (nulls.card_le_univ).trans (by simp)
+    _ = ENNReal.ofReal ((m : ℝ) * (α / m)) := by
+        rw [nsmul_eq_mul, ← ENNReal.ofReal_natCast m,
+            ← ENNReal.ofReal_mul (Nat.cast_nonneg m)]
+    _ = ENNReal.ofReal α := by
+        congr 1
+        field_simp
 
 end Statlean.MultipleTesting

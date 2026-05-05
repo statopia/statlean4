@@ -27,6 +27,12 @@ import Statlean.Conformal.Basic
 import Statlean.Conformal.Rank
 import Statlean.Conformal.MarginalCoverage
 
+-- Multiple testing — Bonferroni FWER control (zero sorry).
+-- BH FDR control deferred (R6 candidate, ~350 lines), so
+-- Statlean.MultipleTesting.BenjaminiHochberg is intentionally NOT here.
+import Statlean.MultipleTesting.Basic
+import Statlean.MultipleTesting.Bonferroni
+
 -- USLLN (fully verified — uniform SLLN + all infrastructure)
 import Statlean.LimitTheorems.USLLN
 

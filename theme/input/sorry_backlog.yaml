@@ -1,6 +1,6 @@
-version: v209
+version: v210
 generated: 2026-05-06
-total_sorry: 17
+total_sorry: 16
 
 sorry_items:
 
@@ -39,17 +39,6 @@ sorry_items:
   dependencies: [khinchin_convergence_of_types]
   unlocks: []
   stuck_rounds: 0
-
-- id: multipletesting.bonferroni.bonferroni_fwer_le
-  file: Statlean/MultipleTesting/Bonferroni.lean
-  line: 56
-  theorem: bonferroni_fwer_le
-  type: leaf
-  depth: 1
-  priority: 30
-  estimated_lines: 60
-  dependencies: []
-  unlocks: []
 
 - id: multipletesting.benjaminihochberg.bh_fdr_le
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
