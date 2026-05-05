@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 218
+entry_count: 223
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -646,6 +646,25 @@ L2_api_chains:
     chain: "Unpack triple ⟨forall_aemeasurable, aemeasurable_limit, tendsto⟩; for tendsto use h.tendsto.comp (StrictMono.tendsto_atTop hφ); for TendstoInMeasure ε branch take (h ε hε).comp similarly. forall_aemeasurable composition is by precomp."
     source: AsymptoticExpectation shao_prop_2_3_case_ii sub-case D
     confidence: 4
+
+  - trigger: "rank uniformity under exchangeable measure / push-forward equality of finitely many events"
+    chain: "Equiv.swap j (Fin.last n) → Equiv.swap_apply_right → Finset.card_bij for permuting filter-card → Measure.map_apply (needs Measurable + MeasurableSet) → lintegral_finset_sum + lintegral_indicator → ENNReal.inv_mul_cancel"
+    confidence: 4
+
+  - trigger: "sorted list L[k] ≤ x ↔ count of ≤x entries"
+    chain: "List.pairwise_cons → List.countP_cons → List.countP_eq_zero → List.getElem_mem"
+    confidence: 5
+
+  - trigger: "rankOfLast decomposition into castSucc filter + 1"
+    chain: "Finset.card_filter → Fin.sum_univ_castSucc → simp [le_refl]"
+    confidence: 5
+
+  - trigger: "bridge List.countP over ofFn s to Finset.filter cardinality"
+    chain: "List.ofFn_succ → List.countP_cons → Fin.sum_univ_succ → ring_nf"
+    confidence: 5
+
+  - trigger: "ae rewrite of measure of set defined by predicate to measure of set defined by equivalent predicate"
+    chain: "measure_congr → filter_upwards → propext"
 
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
