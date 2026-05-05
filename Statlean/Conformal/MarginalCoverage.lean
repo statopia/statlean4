@@ -37,16 +37,24 @@ namespace Statlean.Conformal
 
 variable {n : ℕ}
 
-/-- **Coverage event ↔ rank event.** When the sample has no ties, the
+/-- **Coverage event ↔ rank event.** When the sample has no ties and
+`α ∈ [1/(n+1), 1)` (so that `k := ⌈(n+1)(1−α)⌉₊` lies in `{1, …, n}`), the
 point-wise event "`ω (Fin.last n)` lies below the conformal `(1−α)`-quantile
 of the first `n` coordinates" coincides with "rank of `ω (Fin.last n)` is at
-most `⌈(n+1)(1−α)⌉`".
+most `k`".
+
+The hypothesis `1/(n+1) ≤ α < 1` is essential: it pins `k` to the regime
+`1 ≤ k ≤ n` where the placeholder `orderStat … k = 0` (returned for out-of-
+range `k`) does not corrupt the equivalence. The cases `α < 1/(n+1)` (no
+calibration cut, prediction set covers everything) and `α = 1` (empty
+prediction set in distribution-free terms) are handled in the assembled
+coverage theorems by trivial bounds, not via this iff.
 
 This is the rank-statistic reformulation that converts the geometric
 threshold `Q̂_α` into a counting statistic on which exchangeability acts. -/
 theorem coverage_event_iff_rank_le
     (ω : Fin (n + 1) → ℝ) (hInj : Function.Injective ω)
-    (α : ℝ) (hα0 : 0 < α) (hα1 : α ≤ 1) :
+    (α : ℝ) (hα0 : 1 / ((n : ℝ) + 1) ≤ α) (hα1 : α < 1) :
     ω (Fin.last n) ≤ conformalQuantile (fun i : Fin n => ω i.castSucc) α
       ↔ rankOfLast ω ≤ ⌈((n : ℝ) + 1) * (1 - α)⌉₊ := by
   sorry
@@ -63,7 +71,7 @@ the bound holds for every joint distribution `μ` (exchangeable, no ties)
 and every score function — there is no model assumption.
 -/
 theorem marginal_coverage
-    {α : ℝ} (hα0 : 0 < α) (hα1 : α ≤ 1)
+    {α : ℝ} (hα0 : 1 / ((n : ℝ) + 1) ≤ α) (hα1 : α < 1)
     {μ : Measure (Fin (n + 1) → ℝ)} [IsProbabilityMeasure μ]
     (hExch : Exchangeable μ)
     (hNoTies : ∀ᵐ ω ∂μ, Function.Injective ω) :
@@ -79,7 +87,7 @@ Together with `marginal_coverage`, this pins down the conformal coverage to
 the band `[1 − α, 1 − α + 1/(n+1)]`. The slack `1/(n+1)` is intrinsic to
 the discrete rank statistic and shrinks to zero as `n → ∞`. -/
 theorem marginal_coverage_upper
-    {α : ℝ} (hα0 : 0 < α) (hα1 : α ≤ 1)
+    {α : ℝ} (hα0 : 1 / ((n : ℝ) + 1) ≤ α) (hα1 : α < 1)
     {μ : Measure (Fin (n + 1) → ℝ)} [IsProbabilityMeasure μ]
     (hExch : Exchangeable μ)
     (hNoTies : ∀ᵐ ω ∂μ, Function.Injective ω) :
