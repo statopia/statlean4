@@ -352,12 +352,245 @@ theorem shao_prop_2_3_case_ii
     · -- aₙ → ∞.  Split on bₙ behavior.
       rcases hB.nondeg with hB_inf | ⟨b, hb_pos, hb_lim⟩
       · -- **Sub-case (D)** : aₙ → ∞ AND bₙ → ∞.
-        -- Hardest sub-case: requires Helly extraction in `[0, ∞]` to control
-        -- the ratio `bₙ/aₙ`.  `ξₙ →ᵖ 0` (from `bₙξₙ →ᵖ q` and `bₙ → ∞`).
-        -- Then either `bₙ/aₙ` has a sub-sequential limit `c < ∞` (giving
-        -- `aₙξₙ →ᵖ q/c` constant, ⨯ hξ_nondeg) or `c = ∞` (forcing `q = 0`
-        -- by tightness of `aₙξₙ`, then `aₙξₙ →ᵖ 0` ⨯ hξ_nondeg).
-        sorry
+        -- Strategy:
+        -- 1. Prove `bn/an → 0` by contradiction.  Suppose not: `∃ε > 0, ∃ᶠ n, ε ≤ bn/an`.
+        --    Extract subseq φ with `bn(φk)/an(φk) ≥ ε`, so `an(φk)/bn(φk) ≤ ε⁻¹`.
+        --    The seq `r := an/bn` lives in `[0, ε⁻¹]` along φ, compact.
+        --    Sub-sub ψ gives `r ∘ (φ ∘ ψ) → σ ∈ [0, ε⁻¹]`.
+        --    * Case σ = 0: `(an/bn)·(bn ξn) = an ξn →d 0·q = 0` along subseq.
+        --                  Also `an ξn →d ξ` along subseq (subseq stability).
+        --                  Uniqueness ⟹ ξ =ᵐ 0, contradicting hξ_nondeg.
+        --    * Case σ > 0: `bn(φ(ψk))/an(φ(ψk)) → σ⁻¹ > 0`.  Slutsky-mul:
+        --                  `(bn/an)·(an ξn) = bn ξn →d σ⁻¹ · ξ` along subseq.
+        --                  Also `bn ξn →d const q` along subseq.
+        --                  Uniqueness ⟹ σ⁻¹ · ξ =ᵐ q ⟹ ξ =ᵐ σq, contradicting hξ_nondeg.
+        -- 2. Derive `q = 0` from `bn/an → 0` via slutsky_mul on `(bn/an)(an ξn) = bn ξn`.
+        have hξ_aemeas : AEMeasurable ξ μ := hA.convD.aemeasurable_limit
+        have h_ratio_zero : Tendsto (fun n => bn n / an n) atTop (𝓝 (0 : ℝ)) := by
+          by_contra h_not
+          rw [Metric.tendsto_atTop] at h_not
+          push_neg at h_not
+          obtain ⟨ε, hε_pos, h_freq_in⟩ := h_not
+          -- Extract a strictly monotone subseq with `bn(φk)/an(φk) ≥ ε`.
+          have h_freq : ∃ᶠ n in atTop, ε ≤ bn n / an n := by
+            rw [Filter.frequently_atTop]
+            intro N
+            obtain ⟨n, hN, hd⟩ := h_freq_in N
+            refine ⟨n, hN, ?_⟩
+            rw [Real.dist_eq, sub_zero] at hd
+            have h_an_pos := hA.pos n
+            have h_bn_pos := hB.pos n
+            have h_ratio_pos : 0 < bn n / an n := div_pos h_bn_pos h_an_pos
+            rw [abs_of_pos h_ratio_pos] at hd
+            exact hd
+          obtain ⟨φ, hφ_mono, hφ_ε⟩ := Filter.extraction_of_frequently_atTop h_freq
+          -- Along φ, `an/bn ≤ ε⁻¹`, so `an/bn ∈ [0, ε⁻¹]`.
+          have hε_inv_pos : 0 < ε⁻¹ := inv_pos.mpr hε_pos
+          have h_r_in_Icc : ∀ k, an (φ k) / bn (φ k) ∈ Set.Icc (0 : ℝ) ε⁻¹ := by
+            intro k
+            have h_an_pos := hA.pos (φ k)
+            have h_bn_pos := hB.pos (φ k)
+            have h_r_pos : 0 ≤ an (φ k) / bn (φ k) := le_of_lt (div_pos h_an_pos h_bn_pos)
+            have h_r_le : an (φ k) / bn (φ k) ≤ ε⁻¹ := by
+              have h_ε_le := hφ_ε k
+              rw [le_div_iff₀ h_an_pos] at h_ε_le
+              rw [div_le_iff₀ h_bn_pos, le_inv_mul_iff₀ hε_pos]
+              linarith
+            exact ⟨h_r_pos, h_r_le⟩
+          -- Compact extraction: `an(φ(ψk))/bn(φ(ψk)) → σ ∈ [0, ε⁻¹]`.
+          have h_compact : IsCompact (Set.Icc (0 : ℝ) ε⁻¹) := isCompact_Icc
+          obtain ⟨σ, hσ_mem, ψ, hψ_mono, hψ_lim⟩ :=
+            h_compact.tendsto_subseq h_r_in_Icc
+          -- Define χ := φ ∘ ψ
+          set χ := φ ∘ ψ with hχ_def
+          have hχ_mono : StrictMono χ := hφ_mono.comp hψ_mono
+          have hχ_top : Tendsto χ atTop atTop := StrictMono.tendsto_atTop hχ_mono
+          -- hψ_lim : Tendsto ((fun k => an (φ k) / bn (φ k)) ∘ ψ) atTop (𝓝 σ)
+          have hr_lim : Tendsto (fun k => an (χ k) / bn (χ k)) atTop (𝓝 σ) := by
+            simpa [hχ_def, Function.comp] using hψ_lim
+          have hσ_nn : 0 ≤ σ := hσ_mem.1
+          -- Case split on σ
+          by_cases hσ : σ = 0
+          · -- σ = 0: `an/bn` along χ → 0.  Then `(an/bn)·(bn ξn) = an ξn →d 0`.
+            have hr_meas : TendstoInMeasure μ
+                (fun k (_ : Ω) => an (χ k) / bn (χ k)) atTop (fun _ => (0 : ℝ)) := by
+              rw [hσ] at hr_lim
+              exact tendstoInMeasure_const_of_tendsto _ 0 hr_lim
+            have hr_aemeas : ∀ i, AEMeasurable
+                (fun (_ : Ω) => an (χ i) / bn (χ i)) μ := fun _ => aemeasurable_const
+            -- Subseq of hB_const: `bn(χk) ξn(χk) →d const q`
+            have hB_const_sub : TendstoInDistribution
+                (fun k ω => bn (χ k) * ξn (χ k) ω) atTop (fun _ : Ω => q) μ :=
+              ⟨fun i => hB_const.forall_aemeasurable _, hB_const.aemeasurable_limit,
+                hB_const.tendsto.comp hχ_top⟩
+            -- Slutsky-mul: `(an/bn)·(bn ξn) →d 0·q = 0` along χ.
+            have hkey : TendstoInDistribution
+                (fun k ω => (an (χ k) / bn (χ k)) * (bn (χ k) * ξn (χ k) ω)) atTop
+                (fun _ : Ω => (0 : ℝ) * q) μ :=
+              Statlean.LimitTheorems.slutsky_mul hB_const_sub hr_meas hr_aemeas
+            -- Rewrite: `(an/bn)·(bn ξn) = an ξn` (since bn ≠ 0).
+            have hbn_ne : ∀ k, bn (χ k) ≠ 0 := fun k => ne_of_gt (hB.pos (χ k))
+            have hkey' : TendstoInDistribution
+                (fun k ω => an (χ k) * ξn (χ k) ω) atTop
+                (fun _ : Ω => (0 : ℝ) * q) μ := by
+              refine ⟨fun i => hA.convD.forall_aemeasurable _, aemeasurable_const, ?_⟩
+              have ht := hkey.tendsto
+              have hmap_eq : ∀ k,
+                  μ.map (fun ω => (an (χ k) / bn (χ k)) * (bn (χ k) * ξn (χ k) ω)) =
+                  μ.map (fun ω => an (χ k) * ξn (χ k) ω) := by
+                intro k
+                apply Measure.map_congr
+                apply ae_of_all
+                intro ω
+                have hbk : bn (χ k) ≠ 0 := hbn_ne k
+                field_simp
+              apply ht.congr'
+              apply Filter.Eventually.of_forall
+              intro k
+              apply Subtype.ext
+              simp [hmap_eq]
+            -- `an ξn` along χ also tends to ξ (subseq).
+            have hA_sub : TendstoInDistribution
+                (fun k ω => an (χ k) * ξn (χ k) ω) atTop ξ μ :=
+              ⟨fun i => hA.convD.forall_aemeasurable _, hA.convD.aemeasurable_limit,
+                hA.convD.tendsto.comp hχ_top⟩
+            -- Uniqueness ⟹ μ.map ξ = δ_(0·q) = δ_0
+            have hunique := tendstoInDistribution_unique
+              (fun k ω => an (χ k) * ξn (χ k) ω) hA_sub hkey'
+            rw [Measure.map_const] at hunique
+            have h_univ : (μ Set.univ : ENNReal) = 1 := measure_univ
+            rw [h_univ, one_smul] at hunique
+            have hξ_const : ξ =ᵐ[μ] (fun _ => (0 : ℝ) * q) :=
+              ae_eq_const_of_map_eq_dirac hξ_aemeas ((0 : ℝ) * q) hunique
+            exact hξ_nondeg ⟨(0 : ℝ) * q, hξ_const⟩
+          · -- σ > 0: `bn(χk)/an(χk) → σ⁻¹`.
+            have hσ_pos : 0 < σ := lt_of_le_of_ne hσ_nn (Ne.symm hσ)
+            have hσ_ne : σ ≠ 0 := hσ
+            -- `bn(χk)/an(χk) = (an(χk)/bn(χk))⁻¹ → σ⁻¹`
+            have hbn_an_lim : Tendsto (fun k => bn (χ k) / an (χ k)) atTop (𝓝 σ⁻¹) := by
+              have h_eq : ∀ k, bn (χ k) / an (χ k) = (an (χ k) / bn (χ k))⁻¹ := by
+                intro k
+                rw [inv_div]
+              simp_rw [h_eq]
+              exact hr_lim.inv₀ hσ_ne
+            have hbn_an_meas : TendstoInMeasure μ
+                (fun k (_ : Ω) => bn (χ k) / an (χ k)) atTop (fun _ => σ⁻¹) :=
+              tendstoInMeasure_const_of_tendsto _ σ⁻¹ hbn_an_lim
+            have hbn_an_aemeas : ∀ i, AEMeasurable
+                (fun (_ : Ω) => bn (χ i) / an (χ i)) μ := fun _ => aemeasurable_const
+            -- Subseq of hA.convD
+            have hA_sub : TendstoInDistribution
+                (fun k ω => an (χ k) * ξn (χ k) ω) atTop ξ μ :=
+              ⟨fun i => hA.convD.forall_aemeasurable _, hA.convD.aemeasurable_limit,
+                hA.convD.tendsto.comp hχ_top⟩
+            -- Slutsky-mul: `(bn/an)·(an ξn) →d σ⁻¹ · ξ` along χ.
+            have hkey : TendstoInDistribution
+                (fun k ω => (bn (χ k) / an (χ k)) * (an (χ k) * ξn (χ k) ω)) atTop
+                (fun ω => σ⁻¹ * ξ ω) μ :=
+              Statlean.LimitTheorems.slutsky_mul hA_sub hbn_an_meas hbn_an_aemeas
+            -- Rewrite: `(bn/an)·(an ξn) = bn ξn` (since an ≠ 0).
+            have han_ne : ∀ k, an (χ k) ≠ 0 := fun k => ne_of_gt (hA.pos (χ k))
+            have hkey' : TendstoInDistribution
+                (fun k ω => bn (χ k) * ξn (χ k) ω) atTop
+                (fun ω => σ⁻¹ * ξ ω) μ := by
+              refine ⟨fun i => hB.convD.forall_aemeasurable _, hkey.aemeasurable_limit, ?_⟩
+              have ht := hkey.tendsto
+              have hmap_eq : ∀ k,
+                  μ.map (fun ω => (bn (χ k) / an (χ k)) * (an (χ k) * ξn (χ k) ω)) =
+                  μ.map (fun ω => bn (χ k) * ξn (χ k) ω) := by
+                intro k
+                apply Measure.map_congr
+                apply ae_of_all
+                intro ω
+                have hak : an (χ k) ≠ 0 := han_ne k
+                field_simp
+              apply ht.congr'
+              apply Filter.Eventually.of_forall
+              intro k
+              apply Subtype.ext
+              simp [hmap_eq]
+            -- Subseq of hB_const: `bn(χk) ξn(χk) →d const q`
+            have hB_const_sub : TendstoInDistribution
+                (fun k ω => bn (χ k) * ξn (χ k) ω) atTop (fun _ : Ω => q) μ :=
+              ⟨fun i => hB_const.forall_aemeasurable _, hB_const.aemeasurable_limit,
+                hB_const.tendsto.comp hχ_top⟩
+            -- Uniqueness ⟹ `μ.map (σ⁻¹ · ξ) = δ_q`, hence ξ =ᵐ σ·q.
+            have hunique := tendstoInDistribution_unique
+              (fun k ω => bn (χ k) * ξn (χ k) ω) hkey' hB_const_sub
+            rw [Measure.map_const] at hunique
+            have h_univ : (μ Set.univ : ENNReal) = 1 := measure_univ
+            rw [h_univ, one_smul] at hunique
+            -- hunique : μ.map (fun ω => σ⁻¹ * ξ ω) = Measure.dirac q
+            -- We want ξ =ᵐ σ * q
+            have hξ_aemeas_scaled : AEMeasurable (fun ω => σ⁻¹ * ξ ω) μ :=
+              hξ_aemeas.const_mul σ⁻¹
+            have h_scaled_const : (fun ω => σ⁻¹ * ξ ω) =ᵐ[μ] (fun _ => q) :=
+              ae_eq_const_of_map_eq_dirac hξ_aemeas_scaled q hunique
+            -- From σ⁻¹ * ξ =ᵐ q, multiply by σ: ξ =ᵐ σ * q.
+            have hξ_const : ξ =ᵐ[μ] (fun _ => σ * q) := by
+              filter_upwards [h_scaled_const] with ω hω
+              have : σ * (σ⁻¹ * ξ ω) = σ * q := by rw [hω]
+              rw [← this]
+              field_simp
+            exact hξ_nondeg ⟨σ * q, hξ_const⟩
+        -- Step 2: Derive q = 0 from h_ratio_zero.
+        have h_ratio_meas : TendstoInMeasure μ
+            (fun n (_ : Ω) => bn n / an n) atTop (fun _ => (0 : ℝ)) :=
+          tendstoInMeasure_const_of_tendsto _ 0 h_ratio_zero
+        have h_ratio_aemeas : ∀ i, AEMeasurable
+            (fun (_ : Ω) => bn i / an i) μ := fun _ => aemeasurable_const
+        -- Slutsky-mul: `(bn/an)·(an ξn) →d 0·ξ`.
+        have hslut : TendstoInDistribution
+            (fun n ω => (bn n / an n) * (an n * ξn n ω)) atTop
+            (fun ω => (0 : ℝ) * ξ ω) μ :=
+          Statlean.LimitTheorems.slutsky_mul hA.convD h_ratio_meas h_ratio_aemeas
+        have han_ne_all : ∀ n, an n ≠ 0 := fun n => ne_of_gt (hA.pos n)
+        -- Rewrite to `bn ξn →d 0·ξ`
+        have hbnξn_to_zero_fun : TendstoInDistribution
+            (fun n ω => bn n * ξn n ω) atTop (fun ω => (0 : ℝ) * ξ ω) μ := by
+          refine ⟨fun i => hB.convD.forall_aemeasurable _, hslut.aemeasurable_limit, ?_⟩
+          have ht := hslut.tendsto
+          have hmap_eq : ∀ n,
+              μ.map (fun ω => (bn n / an n) * (an n * ξn n ω)) =
+              μ.map (fun ω => bn n * ξn n ω) := by
+            intro n
+            apply Measure.map_congr
+            apply ae_of_all
+            intro ω
+            have han_n : an n ≠ 0 := han_ne_all n
+            field_simp
+          apply ht.congr'
+          apply Filter.Eventually.of_forall
+          intro n
+          apply Subtype.ext
+          simp [hmap_eq]
+        -- Lift `0·ξ =ᵐ 0` to const 0 limit.
+        have h_zero_eq : (fun ω => (0 : ℝ) * ξ ω) =ᵐ[μ] (fun _ => (0 : ℝ)) := by
+          apply ae_of_all; intro ω; ring
+        have hbnξn_to_const_zero : TendstoInDistribution
+            (fun n ω => bn n * ξn n ω) atTop (fun _ : Ω => (0 : ℝ)) μ := by
+          refine ⟨fun i => hB.convD.forall_aemeasurable _, aemeasurable_const, ?_⟩
+          have ht := hbnξn_to_zero_fun.tendsto
+          convert ht using 2
+          apply Subtype.ext
+          exact (Measure.map_congr h_zero_eq).symm
+        -- Uniqueness with hB_const: const 0 = const q.
+        have hunique := tendstoInDistribution_unique
+          (fun n ω => bn n * ξn n ω) hbnξn_to_const_zero hB_const
+        rw [Measure.map_const, Measure.map_const] at hunique
+        have h_univ : (μ Set.univ : ENNReal) = 1 := measure_univ
+        rw [h_univ, one_smul, one_smul] at hunique
+        -- hunique : Measure.dirac 0 = Measure.dirac q ⟹ q = 0
+        have h_q_zero : q = 0 := by
+          by_contra hq_ne
+          have h_dirac : (Measure.dirac (0 : ℝ)) {(0 : ℝ)} =
+              (Measure.dirac q) {(0 : ℝ)} := by rw [hunique]
+          rw [Measure.dirac_apply_of_mem (Set.mem_singleton _)] at h_dirac
+          rw [Measure.dirac_apply' _ (measurableSet_singleton _)] at h_dirac
+          rw [Set.indicator_of_notMem
+              (by simp [Set.mem_singleton_iff]; exact hq_ne) _] at h_dirac
+          exact one_ne_zero h_dirac
+        exact ⟨h_q_zero, h_ratio_zero⟩
       · -- **Sub-case (B)** : aₙ → ∞ AND bₙ → b > 0.
         -- `bₙ/aₙ → 0` directly (deterministic; `b/∞ = 0`).
         -- For `q = 0`: from `bₙξₙ →ᵖ q` and `bₙ → b > 0`, slutsky-div gives

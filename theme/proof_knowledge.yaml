@@ -3,7 +3,7 @@
 # 可选 workflow 字段：描述证明组织方式（"做 X 之前先做 Y"），避免 agent 重复试错
 # 维护：成功证明后由 scripts/ingest_knowledge.py 自动入库
 version: v3
-entry_count: 214
+entry_count: 218
 
 # ═══════════════════════════════════════════
 # L3 — 证明策略（按 goal 形状索引）
@@ -302,6 +302,11 @@ L3_strategies:
 
   - trigger: "TendstoInDistribution congruence on eventually-equal sequences via map equality"
     strategy: "refine ⟨_, _, ?_⟩ on structure; .tendsto.congr' on filter_upwards Subtype.ext (Measure.map_congr ae_of_all field_simp)"
+    confidence: 4
+
+  - trigger: "Ratio bn/an → 0 with both an,bn → ∞, given bn·ξn →d const q and an·ξn →d ξ non-degenerate"
+    strategy: "by_contra → frequently ε ≤ bn/an → Filter.extraction_of_frequently_atTop gives φ → an/bn ∈ [0, ε⁻¹] compact → IsCompact.tendsto_subseq on Icc → sub-sub σ ∈ [0,ε⁻¹]. Case σ=0: (an/bn)·(bn ξn) = an ξn →d 0·q = 0 (slutsky_mul); tendstoInDistribution_unique with an ξn →d ξ → ξ =ᵐ 0 ⨯ hξ_nondeg. Case σ>0: Filter.Tendsto.inv₀ gives bn/an → σ⁻¹; slutsky_mul (bn/an)·(an ξn) = bn ξn →d σ⁻¹·ξ; uniqueness with const q → ξ =ᵐ σ·q ⨯ hξ_nondeg."
+    source: AsymptoticExpectation shao_prop_2_3_case_ii sub-case D Helly extraction
     confidence: 4
 
 # ═══════════════════════════════════════════
@@ -632,6 +637,16 @@ L2_api_chains:
     chain: "ae_iff + preimage to ξ⁻¹{c}ᶜ; Measure.map_apply_of_aemeasurable; Measure.dirac_apply' on {c}ᶜ; simp"
     confidence: 4
 
+  - trigger: "Force equality of two constant-distributional limits c1 = c2 of the same sequence X_n"
+    chain: "Path A: a_n(X_n-c) →d Y + a_n→∞ → tendstoInMeasure_const_of_rescaled_tendstoInDistribution → X_n →ᵖ c → TendstoInMeasure.tendstoInDistribution → X_n →d const c. Path B: slutsky_div on b_n X_n →d c' with b_n→b≠0; eventually-bn-nonzero + Measure.map_congr to rewrite (b_n X_n)/b_n ↦ X_n → X_n →d const c'/b. Combine: tendstoInDistribution_unique → Measure.dirac c1 = Measure.dirac c2. Evaluate at {c2}: dirac_apply_of_mem + dirac_apply' + indicator_of_notMem → c1 = c2"
+    source: Statlean.LimitTheorems.AsymptoticExpectation shao_prop_2_3_case_ii sub-case B(b2)
+    confidence: 4
+
+  - trigger: "Subsequence stability of TendstoInDistribution / TendstoInMeasure along StrictMono φ"
+    chain: "Unpack triple ⟨forall_aemeasurable, aemeasurable_limit, tendsto⟩; for tendsto use h.tendsto.comp (StrictMono.tendsto_atTop hφ); for TendstoInMeasure ε branch take (h ε hε).comp similarly. forall_aemeasurable composition is by precomp."
+    source: AsymptoticExpectation shao_prop_2_3_case_ii sub-case D
+    confidence: 4
+
 # ═══════════════════════════════════════════
 # L1 — Tactic 技巧（常见坑和惯用法）
 # ═══════════════════════════════════════════
@@ -957,3 +972,7 @@ L1_tactic_tips:
   - trigger: "set p := <expr>; rw [<expr-form>]"
     tip: "set already abstracts away the pattern; subsequent rw of original form fails. Apply rw before set, or use show after set."
     frequency: 2
+
+  - trigger: "Goal (a/b)·(b·x) = a·x with b ≠ 0 in Measure.map_congr a.e."
+    tip: "have hb_ne : b ≠ 0; field_simp closes the goal directly. Do NOT chain `ring` after field_simp — it'd reopen."
+    frequency: 1

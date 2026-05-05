@@ -50,7 +50,7 @@ sorry_items:
   - EReal.compactSpace
   unlocks: []
   stuck_rounds: 1
-  status: pending
+  status: proved
   route_notes: 'Comment block in source (L294-L344) records 4-way case-split structure.
     Sub-cases A and C are vacuous given hξ_nondeg; B and D give the actual conclusion.
     Sub-case B is the most tractable starting point (~50 lines): use slutsky_div to
