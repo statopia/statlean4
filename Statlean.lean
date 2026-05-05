@@ -75,8 +75,11 @@ import Statlean.SPD.Geodesic
 import Statlean.Statistic.Basic
 import Statlean.Statistic.Sample
 
--- Time series (strict / wide-sense stationarity, Birkhoff bridge)
+-- Time series (strict / wide-sense stationarity, Birkhoff bridge,
+-- mixing conditions, ARMA processes)
 import Statlean.TimeSeries.Stationarity
+import Statlean.TimeSeries.Mixing
+import Statlean.TimeSeries.ARMA
 
 -- Moments (moment, central moment, skewness, kurtosis)
 import Statlean.Moments.Basic
@@ -120,6 +123,9 @@ import Statlean.Semiparametric.InfluenceFunction
 
 -- Differential privacy (Dwork–Roth framework)
 import Statlean.DifferentialPrivacy.Mechanisms
+
+-- Online learning (Zinkevich 2003, Cesa-Bianchi-Lugosi 2006)
+import Statlean.OnlineLearning.Regret
 
 -- Causal inference (Lin, Kong, Wang 2022)
 import Statlean.Causal.Basic

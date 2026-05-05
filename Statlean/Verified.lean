@@ -77,6 +77,9 @@ import Statlean.SPD.Geodesic
 import Statlean.Statistic.Basic
 import Statlean.Statistic.Sample
 
+-- Time series — strict / wide-sense stationarity + Birkhoff bridge (verified)
+import Statlean.TimeSeries.Stationarity
+
 -- Hypothesis testing (verified)
 import Statlean.Testing.Basic
 
@@ -177,6 +180,10 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
   Rao-Blackwell UMVUE bridge, exponential family UMVUE, unestimability theorem
 - **ExpFamily/Basic**: MLE existence in natural exponential families
 - **Statistic/Sample**: sampleMean, sampleVariance, orderStatistic, sampleQuantile, sampleMedian
+- **TimeSeries/Stationarity**: IsStrictlyStationary, IsWideSenseStationary,
+  isStrictlyStationary_iterate (Birkhoff bridge — `f ∘ T^[t]` is stationary
+  whenever `T` is measure-preserving), marginal-law-shift-invariance, mean
+  shift-invariance for stationary processes
 - **Testing/Basic**: TestFunction, PowerFunction, TypeI/II errors, Size, HasLevel,
   IsUMP, NeymanPearson, pValue, IsUnbiasedTest, IsSimilarTest, IsUMPU,
   HasMonotoneLR, np_integrand_nonneg, np_integral_nonneg,
