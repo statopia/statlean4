@@ -24,6 +24,11 @@ import Statlean.SubGaussian.Lipschitz
 -- High-dimensional mediation analysis
 import Statlean.HDMediation.Assumptions
 
+-- Conformal prediction (distribution-free inference)
+import Statlean.Conformal.Basic
+import Statlean.Conformal.Rank
+import Statlean.Conformal.MarginalCoverage
+
 -- Characteristic function Taylor bounds
 import Statlean.CharFun.Taylor
 

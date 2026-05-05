@@ -1,8 +1,19 @@
-version: v202
-generated: 2026-05-05
-total_sorry: 15
+version: v204
+generated: 2026-05-06
+total_sorry: 19
 
 sorry_items:
+
+- id: conformal.marginalcoverage.coverage_event_iff_rank_le
+  file: Statlean/Conformal/MarginalCoverage.lean
+  line: 52
+  theorem: coverage_event_iff_rank_le
+  type: leaf
+  depth: 1
+  priority: 30
+  estimated_lines: 80
+  dependencies: []
+  unlocks: [conformal.marginalcoverage.marginal_coverage, conformal.marginalcoverage.marginal_coverage_upper]
 
 - id: empiricalprocess.dkw.dkw_inequality
   file: Statlean/EmpiricalProcess/DKW.lean
@@ -27,6 +38,28 @@ sorry_items:
        infrastructure (not yet in Statlean).
   stuck_rounds: 0
 
+- id: conformal.marginalcoverage.marginal_coverage
+  file: Statlean/Conformal/MarginalCoverage.lean
+  line: 72
+  theorem: marginal_coverage
+  type: blocked
+  depth: 2
+  priority: 50
+  estimated_lines: 60
+  dependencies: [conformal.rank.rank_uniform_of_exchangeable, conformal.marginalcoverage.coverage_event_iff_rank_le]
+  unlocks: []
+
+- id: conformal.marginalcoverage.marginal_coverage_upper
+  file: Statlean/Conformal/MarginalCoverage.lean
+  line: 88
+  theorem: marginal_coverage_upper
+  type: blocked
+  depth: 2
+  priority: 50
+  estimated_lines: 60
+  dependencies: [conformal.rank.rank_uniform_of_exchangeable, conformal.marginalcoverage.coverage_event_iff_rank_le]
+  unlocks: []
+
 - id: limittheorems.asympexp.prop_2_3_case_both_nondeg
   file: Statlean/LimitTheorems/AsymptoticExpectation.lean
   line: 305
@@ -39,6 +72,17 @@ sorry_items:
   dependencies: [khinchin_convergence_of_types]
   unlocks: []
   stuck_rounds: 0
+
+- id: conformal.rank.rank_uniform_of_exchangeable
+  file: Statlean/Conformal/Rank.lean
+  line: 63
+  theorem: rank_uniform_of_exchangeable
+  type: leaf
+  depth: 1
+  priority: 30
+  estimated_lines: 120
+  dependencies: []
+  unlocks: [conformal.marginalcoverage.marginal_coverage, conformal.marginalcoverage.marginal_coverage_upper]
 
 - id: variance.ustatistic.cov_hSub_eq_uZeta
   file: Statlean/Variance/UStatistic.lean
