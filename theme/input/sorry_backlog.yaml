@@ -1,6 +1,6 @@
-version: v212
+version: v213
 generated: 2026-05-06
-total_sorry: 23
+total_sorry: 24
 
 sorry_items:
 
@@ -321,3 +321,17 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
+
+- id: conformal.jackknifeplus.coverage
+  file: Statlean/Conformal/JackknifePlus.lean
+  line: 109
+  theorem: jackknifePlus_coverage
+  type: route_clear
+  depth: 2
+  priority: 50
+  blocker: "Jackknife+ marginal coverage `1 − 2α` (Barber–Candès–Ramdas–Tibshirani 2021, Thm 1). Reduce non-coverage event to a rank-exceedance event on the joint residual vector `(R_1, …, R_n, R_test)`, then apply rank uniformity from `Statlean.Conformal.Rank.rank_uniform_of_exchangeable` together with a union/double-counting argument that produces the factor-of-2 in the bound. The argument follows the structure of `marginal_coverage` but accounts for leave-one-out comparison only spanning `n` indices instead of `n + 1`."
+  estimated_lines: 150
+  dependencies: []
+  unlocks: []
+  source: "Statlean/Conformal/JackknifePlus.lean (new module 2026-05-06)"
+  stuck_rounds: 0

@@ -29,6 +29,7 @@ import Statlean.Conformal.Basic
 import Statlean.Conformal.Rank
 import Statlean.Conformal.MarginalCoverage
 import Statlean.Conformal.Split
+import Statlean.Conformal.JackknifePlus
 
 -- Multiple testing (FWER + FDR)
 import Statlean.MultipleTesting.Basic
@@ -74,6 +75,9 @@ import Statlean.SPD.Geodesic
 import Statlean.Statistic.Basic
 import Statlean.Statistic.Sample
 
+-- Time series (strict / wide-sense stationarity, Birkhoff bridge)
+import Statlean.TimeSeries.Stationarity
+
 -- Moments (moment, central moment, skewness, kurtosis)
 import Statlean.Moments.Basic
 import Statlean.Moments.Covariance
@@ -113,6 +117,9 @@ import Statlean.Pipeline.Lecture9Handout
 
 -- Semiparametric efficiency / influence-function calculus (DML, Chernozhukov 2018)
 import Statlean.Semiparametric.InfluenceFunction
+
+-- Differential privacy (Dwork–Roth framework)
+import Statlean.DifferentialPrivacy.Mechanisms
 
 -- Causal inference (Lin, Kong, Wang 2022)
 import Statlean.Causal.Basic
