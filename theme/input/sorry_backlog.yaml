@@ -1,6 +1,6 @@
-version: v206
+version: v208
 generated: 2026-05-06
-total_sorry: 17
+total_sorry: 15
 
 sorry_items:
 
@@ -26,28 +26,6 @@ sorry_items:
        {Symmetrization,Chaining,CoveringNumber}.lean). Requires VC-dimension
        infrastructure (not yet in Statlean).
   stuck_rounds: 0
-
-- id: conformal.marginalcoverage.marginal_coverage
-  file: Statlean/Conformal/MarginalCoverage.lean
-  line: 231
-  theorem: marginal_coverage
-  type: blocked
-  depth: 2
-  priority: 50
-  estimated_lines: 60
-  dependencies: [conformal.rank.rank_uniform_of_exchangeable, conformal.marginalcoverage.coverage_event_iff_rank_le]
-  unlocks: []
-
-- id: conformal.marginalcoverage.marginal_coverage_upper
-  file: Statlean/Conformal/MarginalCoverage.lean
-  line: 247
-  theorem: marginal_coverage_upper
-  type: blocked
-  depth: 2
-  priority: 50
-  estimated_lines: 60
-  dependencies: [conformal.rank.rank_uniform_of_exchangeable, conformal.marginalcoverage.coverage_event_iff_rank_le]
-  unlocks: []
 
 - id: limittheorems.asympexp.prop_2_3_case_both_nondeg
   file: Statlean/LimitTheorems/AsymptoticExpectation.lean

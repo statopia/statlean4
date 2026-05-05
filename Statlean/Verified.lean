@@ -22,6 +22,11 @@ import Statlean.CharFun.Taylor
 -- High-dimensional mediation: structural assumption (A1) — pure predicate, zero sorry
 import Statlean.HDMediation.Assumptions
 
+-- Conformal prediction (Vovk–Shafer–Vapnik) — distribution-free coverage, zero sorry
+import Statlean.Conformal.Basic
+import Statlean.Conformal.Rank
+import Statlean.Conformal.MarginalCoverage
+
 -- USLLN (fully verified — uniform SLLN + all infrastructure)
 import Statlean.LimitTheorems.USLLN
 

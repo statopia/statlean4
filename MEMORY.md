@@ -73,3 +73,11 @@ Parallel cycle: Marchenko-Pastur convergence CLOSED via axiom (stieltjes_continu
 **Summary**:
 
 Closed shao_prop_2_3_case_ii via 2 sub-cases: B(b2) by dual-path uniqueness (rewrite a_n X_n = a_n(X_n-0) + slutsky_div) forcing dirac equality at singleton; D by Helly extraction in compact Set.Icc 0 ε⁻¹ on inverse ratio a_n/b_n + Filter.Tendsto.inv₀ + slutsky_mul, with sub-sub σ=0 and σ>0 both contradicting hξ_nondeg via tendstoInDistribution_unique. New L2/L3 patterns ingested (subseq stability, dual-path uniqueness, Helly route, field_simp/map_congr tip).
+
+## 2026-05-06 01:16 — `conformal_prediction`
+
+**Stats**: proved=4  stuck=0  remaining=14
+
+**Summary**:
+
+Bootstrapped Conformal/ module (Vovk-Shafer-Vapnik distribution-free inference). Three files Basic+Rank+MarginalCoverage now zero-sorry. Key new patterns: rank uniformity via Equiv.swap + Measure.map_apply + Finset.card_bij (L2); sorted-list quantile L[k]≤x ↔ k<countP via List induction (L2); Fin.sum_univ_castSucc to decompose rank as castSucc-filter card + 1 (L2). Anti-pattern recorded: coverage_event_iff_rank_le with α≤1 is FALSE (counterexample n=1 ω=(1,0)); must require Vovk regime 1/(n+1)≤α<1.
