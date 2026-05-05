@@ -1,6 +1,7 @@
 import Mathlib
 import Statlean.LimitTheorems.Convergence
 import Statlean.LimitTheorems.Slutsky
+import Statlean.LimitTheorems.DeltaMethod
 
 /-!
 # Asymptotic Expectation (Shao, Mathematical Statistics, Def 2.11 & Prop 2.3)
@@ -366,7 +367,89 @@ theorem shao_prop_2_3_case_ii
         -- genuine analytical step (~50 lines).
         refine ⟨?_, ?_⟩
         · -- (b2) q = 0
-          sorry
+          -- Path 1: from `aₙ ξₙ →d ξ` and `aₙ → ∞`, deduce `ξₙ →ᵖ 0`.
+          have hξn_aemeas : ∀ i, AEMeasurable (ξn i) μ := by
+            intro i
+            have h_ai_pos : an i ≠ 0 := ne_of_gt (hA.pos i)
+            have h_prod_aemeas : AEMeasurable (fun ω => an i * ξn i ω) μ :=
+              hA.convD.forall_aemeasurable i
+            have hξni : ξn i = fun ω => (an i)⁻¹ * (an i * ξn i ω) := by
+              funext ω; field_simp
+            rw [hξni]
+            exact h_prod_aemeas.const_mul ((an i)⁻¹)
+          have hA_conv_sub :
+              TendstoInDistribution (fun n ω => an n * (ξn n ω - 0)) atTop ξ μ := by
+            refine ⟨?_, hA.convD.aemeasurable_limit, ?_⟩
+            · intro i
+              have : (fun ω => an i * (ξn i ω - 0)) = (fun ω => an i * ξn i ω) := by
+                funext ω; ring
+              rw [this]; exact hA.convD.forall_aemeasurable i
+            · have htendsto := hA.convD.tendsto
+              convert htendsto using 2
+              apply Subtype.ext
+              apply Measure.map_congr
+              apply ae_of_all
+              intro ω; ring_nf
+          have hξn_to_zero_meas : TendstoInMeasure μ ξn atTop (fun _ : Ω => (0 : ℝ)) :=
+            Statlean.LimitTheorems.tendstoInMeasure_const_of_rescaled_tendstoInDistribution
+              (Filter.Eventually.of_forall (fun n => hA.pos n)) hA_inf hA_conv_sub hξn_aemeas
+          have hξn_to_zero_dist :
+              TendstoInDistribution ξn atTop (fun _ : Ω => (0 : ℝ)) μ :=
+            hξn_to_zero_meas.tendstoInDistribution hξn_aemeas
+          -- Path 2: from `bₙ ξₙ →d q` and `bₙ → b ≠ 0`, slutsky-div gives `ξₙ →d q/b`.
+          have hbn_meas :
+              TendstoInMeasure μ (fun n (_ : Ω) => bn n) atTop (fun _ => b) :=
+            tendstoInMeasure_const_of_tendsto bn b hb_lim
+          have hbn_const_aemeas : ∀ i, AEMeasurable (fun (_ : Ω) => bn i) μ :=
+            fun _ => aemeasurable_const
+          have hb_ne : b ≠ 0 := ne_of_gt hb_pos
+          have hdiv : TendstoInDistribution
+              (fun n ω => (bn n * ξn n ω) / bn n) atTop
+              (fun _ : Ω => q / b) μ :=
+            Statlean.LimitTheorems.slutsky_div hb_ne hB_const hbn_meas hbn_const_aemeas
+          have hbn_ne_eventually : ∀ᶠ n in atTop, bn n ≠ 0 := by
+            have hb_half_pos : 0 < b / 2 := by linarith
+            have h := (Metric.tendsto_atTop.mp hb_lim) (b / 2) hb_half_pos
+            rcases h with ⟨N, hN⟩
+            refine eventually_atTop.mpr ⟨N, fun n hn h0 => ?_⟩
+            have h1 := hN n hn
+            rw [h0, Real.dist_eq, zero_sub, abs_neg, abs_of_pos hb_pos] at h1
+            linarith
+          have hξn_to_qb : TendstoInDistribution ξn atTop (fun _ : Ω => q / b) μ := by
+            refine ⟨hξn_aemeas, aemeasurable_const, ?_⟩
+            have htendsto := hdiv.tendsto
+            have hmap_eq : ∀ᶠ n in atTop,
+                μ.map (fun ω => (bn n * ξn n ω) / bn n) = μ.map (ξn n) := by
+              filter_upwards [hbn_ne_eventually] with n hn
+              apply Measure.map_congr
+              apply ae_of_all
+              intro ω
+              field_simp
+            apply htendsto.congr'
+            filter_upwards [hmap_eq] with n hn
+            apply Subtype.ext
+            simp [hn]
+          -- Combine via uniqueness of distribution limit.
+          have hunique := tendstoInDistribution_unique
+            ξn hξn_to_zero_dist hξn_to_qb
+          rw [Measure.map_const, Measure.map_const] at hunique
+          have h_univ : (μ Set.univ : ENNReal) = 1 := measure_univ
+          rw [h_univ, one_smul, one_smul] at hunique
+          -- `Measure.dirac 0 = Measure.dirac (q/b)` ⟹ `q/b = 0`.
+          have h_qb_zero : q / b = 0 := by
+            by_contra hne
+            -- Evaluate both sides on the singleton {q/b}.
+            have h_dirac : (Measure.dirac (0 : ℝ)) {q / b} =
+                (Measure.dirac (q / b)) {q / b} := by rw [hunique]
+            rw [Measure.dirac_apply_of_mem (Set.mem_singleton _)] at h_dirac
+            rw [Measure.dirac_apply' _ (measurableSet_singleton _)] at h_dirac
+            -- h_dirac : ({q/b}.indicator 1) 0 = 1
+            rw [Set.indicator_of_notMem
+                (by simp [Set.mem_singleton_iff]; exact fun h => hne h.symm) _] at h_dirac
+            exact zero_ne_one h_dirac
+          rcases (div_eq_zero_iff.mp h_qb_zero) with hq | hb0
+          · exact hq
+          · exact absurd hb0 hb_ne
         · -- (b1) bn/an → 0: deterministic, since aₙ → ∞ and bₙ → b finite.
           exact hb_lim.div_atTop hA_inf
     · -- aₙ → a > 0.  Both remaining sub-cases are vacuous via `hξ_nondeg`.
