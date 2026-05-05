@@ -185,39 +185,60 @@ def main() -> None:
     # 5. PR4 (D1+D2 from CLI_WEB_CONFORMANCE.md §0.3): auto-stash residual
     #    uncommitted work so the next job inherits a clean baseline.
     #    Solves the 100+ file dirty-tree accumulation observed in
-    #    jobmofvoxwsav8y. Stash recoverable via `git stash list` /
-    #    `git stash pop`. Env opt-out for CLI users with intentional WIP:
-    #      STATLEAN_NO_AUTO_STASH=1 disables; default = on.
+    #    jobmofvoxwsav8y, which was specifically *untracked scaffolding
+    #    files* (sub-lemma `.lean` drafts, `/tmp/...` copies committed in
+    #    error, etc).
+    #
+    #    Tracked-file modifications are intentionally NOT stashed — they
+    #    are typically deliberate cycle-finalization edits (e.g. updating
+    #    `Statlean.Verified` to add the newly proved module, MEMORY.md
+    #    rollups, sorry_backlog.yaml after sync) that the user wants to
+    #    commit immediately after `prove_deep_end` returns. Stashing them
+    #    silently disrupted that workflow (observed 2026-05-06).
+    #
+    #    Stash recoverable via `git stash list` / `git stash pop`.
+    #    Env opt-out: STATLEAN_NO_AUTO_STASH=1 (skip even untracked).
     if os.environ.get("STATLEAN_NO_AUTO_STASH") != "1":
         try:
+            # Only consider untracked files (porcelain prefix `??`).
             r = subprocess.run(
                 ["git", "status", "--porcelain"],
                 cwd=STATLEAN_ROOT, capture_output=True, text=True, timeout=10,
             )
             if r.returncode == 0 and r.stdout.strip():
-                files = [l for l in r.stdout.splitlines() if l.strip()]
-                stash_msg = (
-                    f"{args.stash_prefix}-{args.target}-"
-                    f"{dt.datetime.now().strftime('%Y%m%d-%H%M%S')}"
-                )
-                # -u so untracked .lean files (typical for new sub-lemma
-                # scaffold) also get stashed. -m sets the message.
-                stash = subprocess.run(
-                    ["git", "stash", "push", "-u", "-m", stash_msg],
-                    cwd=STATLEAN_ROOT, capture_output=True, text=True, timeout=30,
-                )
-                if stash.returncode == 0 and "No local changes to save" not in stash.stdout:
-                    _emit(sandbox, "working-tree-stashed", {
-                        "target": args.target,
-                        "stash_msg": stash_msg,
-                        "files_count": len(files),
-                        "files_preview": files[:10],
-                    })
-                    print(
-                        f"[prove_deep_end] auto-stashed {len(files)} file(s) "
-                        f"as '{stash_msg}'. Recover: git stash list | "
-                        f"grep {stash_msg} && git stash pop ..."
+                untracked = [
+                    l[3:] for l in r.stdout.splitlines()
+                    if l.startswith("?? ")
+                ]
+                if untracked:
+                    stash_msg = (
+                        f"{args.stash_prefix}-{args.target}-"
+                        f"{dt.datetime.now().strftime('%Y%m%d-%H%M%S')}"
                     )
+                    # `git stash push -u -- <pathspec>` stashes only the
+                    # listed untracked paths and leaves tracked WIP alone.
+                    stash = subprocess.run(
+                        ["git", "stash", "push", "-u", "-m", stash_msg, "--",
+                         *untracked],
+                        cwd=STATLEAN_ROOT, capture_output=True, text=True,
+                        timeout=30,
+                    )
+                    if (stash.returncode == 0
+                            and "No local changes to save" not in stash.stdout):
+                        _emit(sandbox, "working-tree-stashed", {
+                            "target": args.target,
+                            "stash_msg": stash_msg,
+                            "files_count": len(untracked),
+                            "files_preview": untracked[:10],
+                            "scope": "untracked-only",
+                        })
+                        print(
+                            f"[prove_deep_end] auto-stashed {len(untracked)} "
+                            f"untracked file(s) as '{stash_msg}' (tracked "
+                            f"modifications kept). "
+                            f"Recover: git stash list | "
+                            f"grep {stash_msg} && git stash pop ..."
+                        )
         except Exception as e:
             # Best-effort; never let stash failure prevent dag-cycle-done emit
             print(f"[prove_deep_end] auto-stash failed: {e}", file=sys.stderr)

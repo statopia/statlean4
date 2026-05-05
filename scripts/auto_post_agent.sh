@@ -2,19 +2,37 @@
 # PostToolUse hook for Agent tool.
 # Automatically checks sorry count change and increments stuck if unchanged.
 # No manual intervention needed.
+#
+# Background-agent skip: PostToolUse fires when the Agent tool *returns*,
+# which for `run_in_background: true` is immediately at dispatch — long
+# before the agent has done any work. Counting sorry at that moment always
+# reports "no change" and falsely increments stuck_rounds. We detect the
+# background flag from the tool input and exit 0 silently. The actual
+# completion arrives later as a `task-notification` event (which is not a
+# tool call and therefore not handled by PostToolUse hooks at all).
 
 STUCK_FILE="/tmp/statlean_stuck_counts.txt"
 
-# Extract tool_use_id to find the matching per-agent before-state file
+# Extract tool_use_id and check if the agent was launched in background.
 INPUT=$(cat)
-TOOL_USE_ID=$(echo "$INPUT" | python3 -c "
+read TOOL_USE_ID IS_BACKGROUND <<< $(echo "$INPUT" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    print(d.get('tool_use_id', 'unknown'))
-except: print('unknown')
+    print(d.get('tool_use_id', 'unknown'),
+          'true' if d.get('tool_input', {}).get('run_in_background') else 'false')
+except:
+    print('unknown false')
 " 2>/dev/null)
 BEFORE_FILE="/tmp/statlean_sorry_before_${TOOL_USE_ID}.txt"
+
+# Background agents: clean up the before-state file (it'd dangle otherwise)
+# and skip the sorry-count check. Caller is responsible for inspecting
+# results when the task-notification arrives.
+if [ "$IS_BACKGROUND" = "true" ]; then
+    rm -f "$BEFORE_FILE"
+    exit 0
+fi
 
 # Read saved "before" state (per-agent, no race condition)
 if [ ! -f "$BEFORE_FILE" ]; then
