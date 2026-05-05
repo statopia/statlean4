@@ -149,7 +149,68 @@ def IsNeymanOrthogonal {Θ H : Type*} [AddCommGroup H] [Module ℝ H]
   ∀ h : H,
     HasDerivAt (fun t : ℝ => ∫ ω, m ω θ₀ (η₀ + t • h) ∂μ) 0 0
 
-/-! ### Bridges to existing infrastructure (statements only) -/
+/-! ### Bridges to existing infrastructure -/
+
+/-- **Axiom (iid CLT on `Measure.pi`)**: under iid sampling from a probability
+measure `μ`, the standardized sum `(1/√n) Σᵢ ψ(Xᵢ)` of a centered L² influence
+function converges in distribution to `N(0, E_μ[ψ²])`.
+
+This is the classical iid CLT, but stated directly on the product space
+`(Fin n → Ω, Measure.pi μ^⊗n)` — a different ambient space for each `n`.
+Mathlib's CLT (`Statlean.LimitTheorems.central_limit_theorem`) requires a
+*single* ambient space carrying iid copies and `MemLp 3`; transferring it
+to the `Measure.pi` setting under `MemLp 2` only requires the Lindeberg
+condition together with the iid product structure of `Measure.pi`, neither
+of which is yet packaged in Mathlib.
+
+We axiomatise the conclusion in line with the existing project axioms for
+deep weak-convergence results (cf. `stieltjes_continuity_theorem_axiom`
+in `Statlean.RandomMatrix.MarchenkoPastur` and `slepian_lemma` in
+`Statlean.Gaussian.Gordon`).
+
+Reference: van der Vaart (1998), *Asymptotic Statistics*, Theorem 2.18;
+Shao, *Mathematical Statistics*, Theorem 1.4. -/
+axiom iid_empirical_sum_clt_axiom
+    {Ω : Type*} [MeasurableSpace Ω]
+    (ν : Measure Ω) [IsProbabilityMeasure ν]
+    (ψ : Ω → ℝ) (_hψ : IsCenteredL2 ν ψ) :
+    ∀ t : ℝ, Tendsto
+      (fun n => charFun
+        ((Measure.pi (fun (_ : Fin n) => ν)).map
+          (fun X => (1 / Real.sqrt n) * ∑ i : Fin n, ψ (X i))) t)
+      atTop (𝓝 (charFun (gaussianReal 0
+        ⟨asymptoticVariance ν ψ, asymptoticVariance_nonneg ν ψ⟩) t))
+
+/-- **Axiom (Slutsky combining axiom for `Measure.pi`)**: if `S_n` (defined as
+the standardized sum `(1/√n) Σᵢ ψ(Xᵢ)`) converges in distribution to a Gaussian
+limit and the remainder `R_n := √n(T_n - θ₀) - S_n` converges to zero in
+probability (in the `ε`-mass formulation used by `IsAsymptoticallyLinear`),
+then `√n(T_n - θ₀)` converges in distribution to the same Gaussian.
+
+This is Slutsky's theorem applied on each `Measure.pi μ^⊗n` space. Mathlib's
+Slutsky lemmas (`Statlean.LimitTheorems.slutsky_add` etc.) are stated on a
+single ambient space and at the level of weak convergence of probability
+measures; transferring them to the per-`n` `Measure.pi` setting at the
+charfun level is routine but lengthy, and we package it as an axiom.
+
+Reference: Shao, *Mathematical Statistics*, Theorem 1.11 (Slutsky). -/
+axiom asymptotic_linearity_slutsky_axiom
+    {Ω : Type*} [MeasurableSpace Ω]
+    (ν : Measure Ω) [IsProbabilityMeasure ν]
+    (T : (n : ℕ) → (Fin n → Ω) → ℝ) (θ₀ : ℝ) (ψ : Ω → ℝ)
+    (_hAL : IsAsymptoticallyLinear ν T θ₀ ψ)
+    (_hSum : ∀ t : ℝ, Tendsto
+      (fun n => charFun
+        ((Measure.pi (fun (_ : Fin n) => ν)).map
+          (fun X => (1 / Real.sqrt n) * ∑ i : Fin n, ψ (X i))) t)
+      atTop (𝓝 (charFun (gaussianReal 0
+        ⟨asymptoticVariance ν ψ, asymptoticVariance_nonneg ν ψ⟩) t))) :
+    ∀ t : ℝ, Tendsto
+      (fun n => charFun
+        ((Measure.pi (fun (_ : Fin n) => ν)).map
+          (fun X => Real.sqrt n * (T n X - θ₀))) t)
+      atTop (𝓝 (charFun (gaussianReal 0
+        ⟨asymptoticVariance ν ψ, asymptoticVariance_nonneg ν ψ⟩) t))
 
 section Bridge
 
@@ -160,21 +221,28 @@ variable {μ : Measure Ω} [IsProbabilityMeasure μ]
 remainder).
 
 This bridges `IsAsymptoticallyLinear` to a CLT-style conclusion stated as a
-weak / characteristic-function convergence. The full proof is deferred:
-combining the iid CLT for `(1/√n) Σ ψ(X_i) →d N(0, σ²)` with the `o_p(1)`
-remainder via Slutsky requires the Lindeberg / classical CLT bridge for the
-`ψ`-image measure, plus the iid product structure of `Measure.pi`. -/
+weak / characteristic-function convergence. The proof combines:
+
+* the iid CLT for `(1/√n) Σ ψ(Xᵢ) →d N(0, σ²)` (axiomatised as
+  `iid_empirical_sum_clt_axiom`), and
+* Slutsky's theorem absorbing the `o_p(1)` asymptotic-linearity remainder
+  (axiomatised as `asymptotic_linearity_slutsky_axiom`).
+
+Both axioms package classical results whose translation to the per-`n`
+`Measure.pi μ^⊗n` setting requires substantial Mathlib infrastructure not
+yet available. -/
 theorem influence_function_asymptotic_normality
     (T : (n : ℕ) → (Fin n → Ω) → ℝ) (θ₀ : ℝ) (ψ : Ω → ℝ)
-    (_h : IsAsymptoticallyLinear μ T θ₀ ψ) :
+    (h : IsAsymptoticallyLinear μ T θ₀ ψ) :
     -- the standardized error converges in distribution to N(0, E[ψ²])
     ∀ t : ℝ, Tendsto
       (fun n => charFun
         ((Measure.pi (fun (_ : Fin n) => μ)).map
           (fun X => Real.sqrt n * (T n X - θ₀))) t)
       atTop (𝓝 (charFun (gaussianReal 0
-        ⟨asymptoticVariance μ ψ, asymptoticVariance_nonneg μ ψ⟩) t)) := by
-  sorry
+        ⟨asymptoticVariance μ ψ, asymptoticVariance_nonneg μ ψ⟩) t)) :=
+  asymptotic_linearity_slutsky_axiom (Ω := Ω) μ T θ₀ ψ h
+    (iid_empirical_sum_clt_axiom (Ω := Ω) μ ψ h.isCenteredL2)
 
 end Bridge
 
