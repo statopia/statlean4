@@ -1,6 +1,6 @@
-version: v208
+version: v209
 generated: 2026-05-06
-total_sorry: 15
+total_sorry: 17
 
 sorry_items:
 
@@ -39,6 +39,29 @@ sorry_items:
   dependencies: [khinchin_convergence_of_types]
   unlocks: []
   stuck_rounds: 0
+
+- id: multipletesting.bonferroni.bonferroni_fwer_le
+  file: Statlean/MultipleTesting/Bonferroni.lean
+  line: 56
+  theorem: bonferroni_fwer_le
+  type: leaf
+  depth: 1
+  priority: 30
+  estimated_lines: 60
+  dependencies: []
+  unlocks: []
+
+- id: multipletesting.benjaminihochberg.bh_fdr_le
+  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
+  line: 66
+  theorem: bh_fdr_le
+  type: blocked
+  depth: 1
+  priority: 75
+  blocker: "BH FDR control under independence — requires either Storey self-consistency, Benjamini-Yekutieli leave-one-out martingale, or a direct integral computation. Long proof (250-400 lines), Mathlib lacks integration of step-function processes + clean leave-one-out independence transfer. Likely R6 cycle to engineer the sub-lemma DAG before any prove agent is launched."
+  estimated_lines: 350
+  dependencies: []
+  unlocks: []
 
 - id: variance.ustatistic.cov_hSub_eq_uZeta
   file: Statlean/Variance/UStatistic.lean

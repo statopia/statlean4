@@ -29,6 +29,11 @@ import Statlean.Conformal.Basic
 import Statlean.Conformal.Rank
 import Statlean.Conformal.MarginalCoverage
 
+-- Multiple testing (FWER + FDR)
+import Statlean.MultipleTesting.Basic
+import Statlean.MultipleTesting.Bonferroni
+import Statlean.MultipleTesting.BenjaminiHochberg
+
 -- Characteristic function Taylor bounds
 import Statlean.CharFun.Taylor
 
