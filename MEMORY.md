@@ -65,3 +65,11 @@ Parallel cycle (2 agents) — both stuck, no sorry reduction. case_ii (Asymptoti
 **Summary**:
 
 Parallel cycle: Marchenko-Pastur convergence CLOSED via axiom (stieltjes_continuity_theorem_axiom — matches existing axiom pattern; Mathlib lacks Stieltjes inversion + Vitali-Montel + Helly + Portmanteau-for-ℝ ~500 lines). case_ii Phase 1 mandatory decomposition done: monolithic inner sorry split via rcases hA.nondeg × hB.nondeg into 4 named sub-stubs A/B/C/D (A,C vacuous ~30 lines; B(b1) bn/an→0 closed via Tendsto.div_atTop; B(b2) needs tightness-from-→d ~50; D needs Helly in [0,∞] ~150). Trade-off: file went 2→5 sorries but each leaf is individually attackable. R6 WebSearch confirmed: Mathlib has TendstoInDistribution + slutsky_div + tendstoInMeasure_iff_norm but no Stieltjes/Helly chain. 3 patterns ingested.
+
+## 2026-05-05 20:19 — `next`
+
+**Stats**: proved=2  stuck=0  remaining=1
+
+**Summary**:
+
+Closed shao_prop_2_3_case_ii via 2 sub-cases: B(b2) by dual-path uniqueness (rewrite a_n X_n = a_n(X_n-0) + slutsky_div) forcing dirac equality at singleton; D by Helly extraction in compact Set.Icc 0 ε⁻¹ on inverse ratio a_n/b_n + Filter.Tendsto.inv₀ + slutsky_mul, with sub-sub σ=0 and σ>0 both contradicting hξ_nondeg via tendstoInDistribution_unique. New L2/L3 patterns ingested (subseq stability, dual-path uniqueness, Helly route, field_simp/map_congr tip).
