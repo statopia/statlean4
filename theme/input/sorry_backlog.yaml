@@ -1,6 +1,6 @@
-version: v213
+version: v214
 generated: 2026-05-06
-total_sorry: 24
+total_sorry: 25
 
 sorry_items:
 
@@ -41,6 +41,20 @@ sorry_items:
        infrastructure (not yet in Statlean).
   stuck_rounds: 0
 
+- id: conformal.jackknifeplus.coverage
+  file: Statlean/Conformal/JackknifePlus.lean
+  line: 109
+  theorem: jackknifePlus_coverage
+  type: route_clear
+  depth: 2
+  priority: 50
+  blocker: "Jackknife+ marginal coverage `1 − 2α` (Barber–Candès–Ramdas–Tibshirani 2021, Thm 1). Reduce non-coverage event to a rank-exceedance event on the joint residual vector `(R_1, …, R_n, R_test)`, then apply rank uniformity from `Statlean.Conformal.Rank.rank_uniform_of_exchangeable` together with a union/double-counting argument that produces the factor-of-2 in the bound. The argument follows the structure of `marginal_coverage` but accounts for leave-one-out comparison only spanning `n` indices instead of `n + 1`."
+  estimated_lines: 150
+  dependencies: []
+  unlocks: []
+  source: "Statlean/Conformal/JackknifePlus.lean (new module 2026-05-06)"
+  stuck_rounds: 0
+
 - id: limittheorems.asympexp.prop_2_3_case_both_nondeg
   file: Statlean/LimitTheorems/AsymptoticExpectation.lean
   line: 305
@@ -56,7 +70,7 @@ sorry_items:
 
 - id: multipletesting.benjaminihochberg.bh_fdr_le
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 354
+  line: 619
   theorem: bh_fdr_le
   type: blocked
   depth: 1
@@ -98,10 +112,10 @@ sorry_items:
     Literature scan: no prior formalization found in Lean/Isabelle-AFP/Coq-MathComp
     as of 2026-05-06 — this would be the first.
 
-- id: multipletesting.benjaminihochberg.bhCutoff_take_values
-  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 233
-  theorem: bhCutoff_take_values
+- id: differentialprivacy.mechanisms.composition_sequential
+  file: Statlean/DifferentialPrivacy/Mechanisms.lean
+  line: 175
+  theorem: composition_sequential
   type: unknown
   depth: 1
   priority: 99
@@ -109,10 +123,21 @@ sorry_items:
   dependencies: []
   unlocks: []
 
-- id: multipletesting.benjaminihochberg.bhRejectionCount_eq_iff
-  file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 247
-  theorem: bhRejectionCount_eq_iff
+- id: differentialprivacy.mechanisms.gaussianMechanism_dp
+  file: Statlean/DifferentialPrivacy/Mechanisms.lean
+  line: 123
+  theorem: gaussianMechanism_dp
+  type: unknown
+  depth: 1
+  priority: 99
+  estimated_lines: 50
+  dependencies: []
+  unlocks: []
+
+- id: differentialprivacy.mechanisms.laplaceMechanism_dp
+  file: Statlean/DifferentialPrivacy/Mechanisms.lean
+  line: 156
+  theorem: laplaceMechanism_dp
   type: unknown
   depth: 1
   priority: 99
@@ -122,7 +147,7 @@ sorry_items:
 
 - id: multipletesting.benjaminihochberg.bhReplaced_eventEq
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 257
+  line: 522
   theorem: bhReplaced_eventEq
   type: unknown
   depth: 1
@@ -133,7 +158,7 @@ sorry_items:
 
 - id: multipletesting.benjaminihochberg.bhReplaced_measurable
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 264
+  line: 529
   theorem: bhReplaced_measurable
   type: unknown
   depth: 1
@@ -144,7 +169,7 @@ sorry_items:
 
 - id: multipletesting.benjaminihochberg.indep_factor
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 304
+  line: 569
   theorem: indep_factor
   type: unknown
   depth: 1
@@ -155,7 +180,7 @@ sorry_items:
 
 - id: multipletesting.benjaminihochberg.indep_loo
   file: Statlean/MultipleTesting/BenjaminiHochberg.lean
-  line: 274
+  line: 539
   theorem: indep_loo
   type: unknown
   depth: 1
@@ -321,17 +346,3 @@ sorry_items:
   estimated_lines: 50
   dependencies: []
   unlocks: []
-
-- id: conformal.jackknifeplus.coverage
-  file: Statlean/Conformal/JackknifePlus.lean
-  line: 109
-  theorem: jackknifePlus_coverage
-  type: route_clear
-  depth: 2
-  priority: 50
-  blocker: "Jackknife+ marginal coverage `1 − 2α` (Barber–Candès–Ramdas–Tibshirani 2021, Thm 1). Reduce non-coverage event to a rank-exceedance event on the joint residual vector `(R_1, …, R_n, R_test)`, then apply rank uniformity from `Statlean.Conformal.Rank.rank_uniform_of_exchangeable` together with a union/double-counting argument that produces the factor-of-2 in the bound. The argument follows the structure of `marginal_coverage` but accounts for leave-one-out comparison only spanning `n` indices instead of `n + 1`."
-  estimated_lines: 150
-  dependencies: []
-  unlocks: []
-  source: "Statlean/Conformal/JackknifePlus.lean (new module 2026-05-06)"
-  stuck_rounds: 0
