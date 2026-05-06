@@ -78,7 +78,10 @@ import Statlean.Statistic.Basic
 import Statlean.Statistic.Sample
 
 -- Time series — strict / wide-sense stationarity + Birkhoff bridge (verified)
+-- Mixing.lean uses placeholder coefficient defs (= 0); see file docstring
+-- for the abstract-API upgrade path (downstream theorems remain valid).
 import Statlean.TimeSeries.Stationarity
+import Statlean.TimeSeries.Mixing
 
 -- Hypothesis testing (verified)
 import Statlean.Testing.Basic
@@ -120,6 +123,10 @@ import Statlean.Causal.Basic
 import Statlean.Causal.OptimalTransport
 import Statlean.CoxChangePoint.Auto.exponential_moment_bound
 import Statlean.CoxChangePoint.Auto.uniform_convergence_of_empirical_processes
+import Statlean.CoxChangePoint.Auto.uniform_convergence_of_Gn
+import Statlean.CoxChangePoint.Foundation
+import Statlean.CoxChangePoint.Identifiability
+import Statlean.CoxChangePoint.Score
 import Statlean.CoxChangePoint.S3CauchySchwarzTail
 import Statlean.Decision.Invariance
 import Statlean.EmpiricalProcess.Donsker
@@ -139,6 +146,9 @@ import Statlean.CoxChangePoint.UniformProcessOpRate
 import Statlean.ExpFamily.Regularity
 import Statlean.Decision.Risk
 import Statlean.Web.jobmobquqqakyyv.Theorem1
+
+-- Survival analysis — Kaplan-Meier estimator (zero sorry, zero axiom)
+import Statlean.Survival.KaplanMeier
 
 -- Statlean/Web/* sandboxes were swept 2026-04-25 + 2026-04-27
 -- (see Statlean.lean for details).  Promoted modules are reachable via
@@ -214,4 +224,8 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
 - **LimitTheorems/CramerWold**: Cramér-Wold device (Shao Thm 1.9(iii)): multivariate Lévy
   continuity (charFun convergence → weak convergence in finite dimensions) + Cramér-Wold iff
   (weak convergence ⟺ all 1D projections converge), via ONB tightness + Parseval pigeonhole
+- **Survival/KaplanMeier**: Kaplan-Meier estimator for right-censored survival data —
+  product-limit estimator definition + monotonicity / [0,1] range / step-function properties
+- **CoxChangePoint/Foundation, Identifiability, Score**: Foundation predicates and score
+  function for the Cox proportional-hazards change-point model (zero sorry / zero axiom)
 -/

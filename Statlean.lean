@@ -164,6 +164,7 @@ import Statlean.CoxChangePoint.UniformProcessOpRate
 import Statlean.ExpFamily.Regularity
 import Statlean.EmpiricalBayes.JamesStein
 import Statlean.DRO.Wasserstein
+import Statlean.Survival.KaplanMeier
 
 -- Statlean/Web/* sandboxes were swept 2026-04-25 + 2026-04-27:
 --   * 558 transient sandbox dirs deleted in the original sweep.
