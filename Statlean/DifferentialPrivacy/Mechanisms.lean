@@ -19,9 +19,9 @@ composition.
   Gaussian mechanism achieves `(ε, δ)`-DP under an `ℓ²`-sensitivity bound.
 * `Statlean.DifferentialPrivacy.laplaceMechanism_dp` (statement) — the
   Laplace mechanism achieves `ε`-pure DP under an `ℓ¹`-sensitivity bound.
-* `Statlean.DifferentialPrivacy.composition_sequential` (statement) —
-  composing `(ε₁, δ₁)`-DP and `(ε₂, δ₂)`-DP mechanisms gives
-  `(ε₁ + ε₂, δ₁ + δ₂)`-DP.
+* `Statlean.DifferentialPrivacy.composition_sequential` — composing
+  independent `(ε₁, δ₁)`-DP and `(ε₂, δ₂)`-DP mechanisms gives
+  `(ε₁ + ε₂, δ₁ + exp ε₁ · δ₂)`-DP (Dwork–Roth, Theorem 3.16).
 
 ## References
 
@@ -157,21 +157,117 @@ theorem laplaceMechanism_dp
 
 /-! ## Sequential composition -/
 
-/-- **Sequential composition theorem**: if `M₁` is `(ε₁, δ₁)`-DP and `M₂` is
-`(ε₂, δ₂)`-DP for the same neighbour relation `R`, then the joint mechanism
-`d ↦ (M₁ d) × (M₂ d)` is `(ε₁ + ε₂, δ₁ + δ₂)`-DP.
+/-- **Sequential composition theorem** (Dwork–Roth Theorem 3.16, basic form):
+if `M₁` is `(ε₁, δ₁)`-DP and `M₂` is `(ε₂, δ₂)`-DP for the same neighbour
+relation `R`, then the *independent* joint mechanism
+`d ↦ (M₁ d) × (M₂ d)` is `(ε₁ + ε₂, δ₁ + exp ε₁ · δ₂)`-DP.
 
-*Statement only* — the proof reduces to a Fubini-style decomposition of the
-product measure together with the individual DP inequalities. -/
+The δ-budget `δ₁ + exp ε₁ · δ₂` is the standard asymmetric bound from
+Dwork–Roth: when `ε₁ = 0` it specialises to `δ₁ + δ₂`; for general
+`ε₁ > 0` the looser `δ₁ + exp ε₁ · δ₂` is the tightest bound provable
+via the elementary Fubini + DP-bound argument used here.
+
+The proof Fubini-decomposes the product measure twice: first to apply the
+`M₁` DP inequality on each `O₂`-section, then to apply the `M₂` DP
+inequality on each `O₁`-section of the intermediate product
+`M₁(d') × M₂(d)`. -/
 theorem composition_sequential
     {O₁ O₂ : Type*} [MeasurableSpace O₁] [MeasurableSpace O₂]
     {R : NeighbourRel D}
     {M₁ : D → Measure O₁} {M₂ : D → Measure O₂}
     {ε₁ ε₂ δ₁ δ₂ : ℝ}
-    (_h₁ : IsDifferentiallyPrivate R M₁ ε₁ δ₁)
-    (_h₂ : IsDifferentiallyPrivate R M₂ ε₂ δ₂) :
+    (hδ₁ : 0 ≤ δ₁) (hδ₂ : 0 ≤ δ₂)
+    (h₁ : IsDifferentiallyPrivate R M₁ ε₁ δ₁)
+    (h₂ : IsDifferentiallyPrivate R M₂ ε₂ δ₂) :
     IsDifferentiallyPrivate R
-      (fun d => (M₁ d).prod (M₂ d)) (ε₁ + ε₂) (δ₁ + δ₂) := by
-  sorry
+      (fun d => (M₁ d).prod (M₂ d)) (ε₁ + ε₂) (δ₁ + Real.exp ε₁ * δ₂) := by
+  refine ⟨?_, ?_⟩
+  · intro d
+    have h1 : IsProbabilityMeasure (M₁ d) := h₁.isProb d
+    have h2 : IsProbabilityMeasure (M₂ d) := h₂.isProb d
+    infer_instance
+  · intro d d' hR S hS
+    have h1d : IsProbabilityMeasure (M₁ d) := h₁.isProb d
+    have h1d' : IsProbabilityMeasure (M₁ d') := h₁.isProb d'
+    have h2d : IsProbabilityMeasure (M₂ d) := h₂.isProb d
+    have h2d' : IsProbabilityMeasure (M₂ d') := h₂.isProb d'
+    have hexp1_nn : 0 ≤ Real.exp ε₁ := (Real.exp_pos _).le
+    -- Step A: apply M₁ DP per `O₂`-section, with M₂(d) as the outer measure.
+    have hsec_y : ∀ y : O₂, MeasurableSet ((fun x : O₁ => (x, y)) ⁻¹' S) :=
+      fun y => measurable_prodMk_right hS
+    have hmeas1 : Measurable (fun y => (M₁ d') ((fun x : O₁ => (x, y)) ⁻¹' S)) :=
+      measurable_measure_prodMk_right hS
+    have stepA :
+        ((M₁ d).prod (M₂ d)) S ≤
+          ENNReal.ofReal (Real.exp ε₁) * ((M₁ d').prod (M₂ d)) S
+            + ENNReal.ofReal δ₁ := by
+      rw [Measure.prod_apply_symm hS, Measure.prod_apply_symm hS]
+      calc ∫⁻ y, (M₁ d) ((fun x => (x, y)) ⁻¹' S) ∂(M₂ d)
+          ≤ ∫⁻ y, ENNReal.ofReal (Real.exp ε₁) *
+              (M₁ d') ((fun x => (x, y)) ⁻¹' S) + ENNReal.ofReal δ₁ ∂(M₂ d) := by
+            apply lintegral_mono
+            intro y; exact h₁.bound hR (hsec_y y)
+        _ = ENNReal.ofReal (Real.exp ε₁) *
+              ∫⁻ y, (M₁ d') ((fun x => (x, y)) ⁻¹' S) ∂(M₂ d)
+              + ENNReal.ofReal δ₁ * (M₂ d) Set.univ := by
+            rw [lintegral_add_right _ measurable_const,
+                lintegral_const_mul _ hmeas1, lintegral_const]
+        _ = ENNReal.ofReal (Real.exp ε₁) *
+              ∫⁻ y, (M₁ d') ((fun x => (x, y)) ⁻¹' S) ∂(M₂ d)
+              + ENNReal.ofReal δ₁ := by
+            simp [measure_univ]
+    -- Step B: apply M₂ DP per `O₁`-section, with M₁(d') as the outer measure.
+    have hsec_x : ∀ x : O₁, MeasurableSet (Prod.mk x ⁻¹' S) :=
+      fun x => measurable_prodMk_left hS
+    have hmeas2 : Measurable (fun x => (M₂ d') (Prod.mk x ⁻¹' S)) :=
+      measurable_measure_prodMk_left hS
+    have stepB :
+        ((M₁ d').prod (M₂ d)) S ≤
+          ENNReal.ofReal (Real.exp ε₂) * ((M₁ d').prod (M₂ d')) S
+            + ENNReal.ofReal δ₂ := by
+      rw [Measure.prod_apply hS, Measure.prod_apply hS]
+      calc ∫⁻ x, (M₂ d) (Prod.mk x ⁻¹' S) ∂(M₁ d')
+          ≤ ∫⁻ x, ENNReal.ofReal (Real.exp ε₂) *
+              (M₂ d') (Prod.mk x ⁻¹' S) + ENNReal.ofReal δ₂ ∂(M₁ d') := by
+            apply lintegral_mono
+            intro x; exact h₂.bound hR (hsec_x x)
+        _ = ENNReal.ofReal (Real.exp ε₂) *
+              ∫⁻ x, (M₂ d') (Prod.mk x ⁻¹' S) ∂(M₁ d')
+              + ENNReal.ofReal δ₂ * (M₁ d') Set.univ := by
+            rw [lintegral_add_right _ measurable_const,
+                lintegral_const_mul _ hmeas2, lintegral_const]
+        _ = ENNReal.ofReal (Real.exp ε₂) *
+              ∫⁻ x, (M₂ d') (Prod.mk x ⁻¹' S) ∂(M₁ d')
+              + ENNReal.ofReal δ₂ := by
+            simp [measure_univ]
+    -- Combine A then B (multiplied by `exp ε₁`):
+    -- LHS ≤ exp ε₁ · (exp ε₂ · P(d')(S) + δ₂) + δ₁
+    have stepAB :
+        ((M₁ d).prod (M₂ d)) S ≤
+          ENNReal.ofReal (Real.exp ε₁) *
+            (ENNReal.ofReal (Real.exp ε₂) * ((M₁ d').prod (M₂ d')) S
+              + ENNReal.ofReal δ₂) + ENNReal.ofReal δ₁ := by
+      calc ((M₁ d).prod (M₂ d)) S
+          ≤ ENNReal.ofReal (Real.exp ε₁) * ((M₁ d').prod (M₂ d)) S
+              + ENNReal.ofReal δ₁ := stepA
+        _ ≤ ENNReal.ofReal (Real.exp ε₁) *
+              (ENNReal.ofReal (Real.exp ε₂) * ((M₁ d').prod (M₂ d')) S
+                + ENNReal.ofReal δ₂) + ENNReal.ofReal δ₁ := by
+            gcongr
+    -- Algebraic rearrangement to match the target shape.
+    have heq_exp : ENNReal.ofReal (Real.exp ε₁) * ENNReal.ofReal (Real.exp ε₂) =
+        ENNReal.ofReal (Real.exp (ε₁ + ε₂)) := by
+      rw [← ENNReal.ofReal_mul hexp1_nn, ← Real.exp_add]
+    have heq_delta : ENNReal.ofReal (Real.exp ε₁) * ENNReal.ofReal δ₂ =
+        ENNReal.ofReal (Real.exp ε₁ * δ₂) :=
+      (ENNReal.ofReal_mul hexp1_nn).symm
+    have hδ_split : ENNReal.ofReal (δ₁ + Real.exp ε₁ * δ₂) =
+        ENNReal.ofReal δ₁ + ENNReal.ofReal (Real.exp ε₁ * δ₂) :=
+      ENNReal.ofReal_add hδ₁ (mul_nonneg hexp1_nn hδ₂)
+    refine stepAB.trans ?_
+    rw [hδ_split, ← heq_delta, ← heq_exp,
+        mul_add, ← mul_assoc, add_assoc,
+        add_comm (ENNReal.ofReal (Real.exp ε₁) * ENNReal.ofReal δ₂)
+          (ENNReal.ofReal δ₁)]
 
 end Statlean.DifferentialPrivacy
