@@ -534,18 +534,153 @@ private lemma bhReplaced_component_measurable
   · simp [h]
     exact hMeas i
 
-/-- L4-H2 (CORE difficulty, sorry retained): `bhCutoff (Q · ω) α` is
-measurable in `ω`.
+/-- L4-H2: `bhCutoff (Q · ω) α` is measurable in `ω`.
 
-**Strategy** (deferred): by `bhCutoff_take_values` the cutoff takes values in
-the finite set `{0, α/m, 2α/m, …, α}`.  Each level set
-`{ω | bhCutoff (Q · ω) α = c}` is a finite Boolean combination of sets of
-the form `{ω | Q i ω ≤ c}`, which are measurable since each `Q i` is
-measurable.  Hence the cutoff is a measurable simple function. -/
+**Strategy**: factor through a `Finset ℕ`-valued auxiliary `qualifiesM`.
+The cutoff takes values in `{0, α/m, 2α/m, …, α}` parametrised by
+`(qualifies.max' h + 1)`.  We rewrite `qualifies` (which uses the sorted
+list of p-values) into a measurable form `qualifiesM` (filter-card on
+`Q i ω ≤ (k+1)·α/m`).  Since `Finset ℕ` is countable, `qualifiesM` is
+measurable as `Ω → Finset ℕ` (discrete σ-algebra), and the decode map
+`Finset ℕ → ℝ` is automatically measurable from the discrete domain. -/
 private lemma bhCutoff_measurable
     (Q : Fin m → Ω → ℝ) (hQ : ∀ j, Measurable (Q j)) (α : ℝ) :
     Measurable (fun ω => bhCutoff (fun j => Q j ω) α) := by
-  sorry
+  -- Helper: filter-card on `Q ω` is measurable (as `ℕ`-valued).
+  have h_filter_card_meas : ∀ x : ℝ,
+      Measurable (fun ω => (Finset.univ.filter (fun i : Fin m => Q i ω ≤ x)).card) := by
+    intro x
+    have h : ∀ ω, (Finset.univ.filter (fun i : Fin m => Q i ω ≤ x)).card =
+        ∑ i ∈ (Finset.univ : Finset (Fin m)), (if Q i ω ≤ x then 1 else 0) := by
+      intro ω; rw [Finset.card_filter]
+    simp_rw [h]
+    refine Finset.measurable_sum _ ?_
+    intro i _
+    refine Measurable.ite ?_ measurable_const measurable_const
+    exact measurableSet_le (hQ i) measurable_const
+  -- Discrete σ-algebra on `Finset ℕ` (countable codomain).
+  letI : MeasurableSpace (Finset ℕ) := ⊤
+  -- Measurable form of `qualifies`: filter-card-based, no sort.
+  let qualifiesM : Ω → Finset ℕ := fun ω =>
+    (Finset.range m).filter (fun k =>
+      (k + 1 : ℕ) ≤
+        (Finset.univ.filter (fun i : Fin m => Q i ω ≤ ((k : ℝ) + 1) * α / m)).card)
+  -- Step 1: `qualifiesM` is measurable.
+  have hqM_meas : Measurable qualifiesM := by
+    apply measurable_to_countable'
+    intro S
+    show MeasurableSet (qualifiesM ⁻¹' {S})
+    by_cases hsub : S ⊆ Finset.range m
+    · -- `qualifiesM ⁻¹' {S} = ⋂_{k ∈ range m} {ω | (k ∈ qualifiesM ω) ↔ (k ∈ S)}`.
+      have hset : qualifiesM ⁻¹' {S} =
+          ⋂ k ∈ Finset.range m,
+            {ω | (k + 1 ≤ (Finset.univ.filter (fun i : Fin m =>
+              Q i ω ≤ ((k : ℝ) + 1) * α / m)).card) ↔ k ∈ S} := by
+        ext ω
+        simp only [Set.mem_preimage, Set.mem_singleton_iff, Set.mem_iInter,
+          Set.mem_setOf_eq, Finset.mem_range]
+        constructor
+        · intro hqM k hkm
+          rw [← hqM]
+          simp only [qualifiesM, Finset.mem_filter, Finset.mem_range]
+          exact ⟨fun h => ⟨hkm, h⟩, fun h => h.2⟩
+        · intro h
+          apply Finset.ext
+          intro k
+          simp only [qualifiesM, Finset.mem_filter, Finset.mem_range]
+          by_cases hkm : k < m
+          · have := h k hkm
+            constructor
+            · rintro ⟨_, hcard⟩; exact this.mp hcard
+            · intro hkS; exact ⟨hkm, this.mpr hkS⟩
+          · constructor
+            · rintro ⟨hk, _⟩; exact absurd hk hkm
+            · intro hkS
+              exfalso
+              exact hkm (Finset.mem_range.mp (hsub hkS))
+      rw [hset]
+      refine MeasurableSet.biInter (Finset.range m).countable_toSet ?_
+      intro k _
+      by_cases hkS : k ∈ S
+      · simp only [hkS, iff_true]
+        exact (h_filter_card_meas (((k : ℝ) + 1) * α / m)) measurableSet_Ici
+      · simp only [hkS, iff_false]
+        exact MeasurableSet.compl
+          ((h_filter_card_meas (((k : ℝ) + 1) * α / m)) measurableSet_Ici)
+    · -- `S ⊄ range m`: preimage is empty.
+      have hempty : qualifiesM ⁻¹' {S} = ∅ := by
+        ext ω
+        simp only [Set.mem_preimage, Set.mem_singleton_iff, Set.mem_empty_iff_false,
+          iff_false]
+        intro hqM
+        apply hsub
+        rw [← hqM]
+        simp only [qualifiesM]
+        exact Finset.filter_subset _ _
+      rw [hempty]
+      exact MeasurableSet.empty
+  -- Step 2: For each `ω`, the original `qualifies` (from `bhCutoff`) equals
+  -- `qualifiesM ω`.
+  have h_qual_eq : ∀ ω : Ω,
+      ((Finset.range m).filter (fun (k : ℕ) =>
+        decide (((List.ofFn (fun j => Q j ω)).mergeSort
+          (fun a b => decide (a ≤ b)))[k]?.getD 0 ≤ ((k : ℝ) + 1) * α / m)))
+      = qualifiesM ω := by
+    intro ω
+    set sorted := (List.ofFn (fun j => Q j ω)).mergeSort (fun a b => decide (a ≤ b))
+      with hsd
+    have hsorted_len : sorted.length = m := by
+      rw [hsd, List.length_mergeSort, List.length_ofFn]
+    have hsorted_pw : sorted.Pairwise (· ≤ ·) := by
+      have h_trans : ∀ a b c : ℝ, decide (a ≤ b) = true →
+          decide (b ≤ c) = true → decide (a ≤ c) = true := by
+        intros a b c hab hbc; simp_all; linarith
+      have h_total : ∀ a b : ℝ, (decide (a ≤ b) || decide (b ≤ a)) = true := by
+        intros a b; simp [Bool.or_eq_true]; exact le_total a b
+      have := List.pairwise_mergeSort h_trans h_total (List.ofFn (fun j => Q j ω))
+      simpa using this
+    apply Finset.ext
+    intro k
+    simp only [qualifiesM, Finset.mem_filter, Finset.mem_range, decide_eq_true_iff]
+    constructor
+    · rintro ⟨hk, hcond⟩
+      refine ⟨hk, ?_⟩
+      have hk_lt : k < sorted.length := by rw [hsorted_len]; exact hk
+      have h_getD : sorted[k]?.getD 0 = sorted[k]'hk_lt := by
+        rw [List.getElem?_eq_getElem hk_lt]; rfl
+      rw [h_getD] at hcond
+      have h_iff := sorted_get_le_iff_countP_BH hsorted_pw k hk_lt
+        (((k : ℝ) + 1) * α / m)
+      have h_lt := h_iff.mp hcond
+      rw [card_filter_eq_countP_sorted Q ω (((k : ℝ) + 1) * α / m), ← hsd]
+      omega
+    · rintro ⟨hk, hcard⟩
+      refine ⟨hk, ?_⟩
+      have hk_lt : k < sorted.length := by rw [hsorted_len]; exact hk
+      have h_getD : sorted[k]?.getD 0 = sorted[k]'hk_lt := by
+        rw [List.getElem?_eq_getElem hk_lt]; rfl
+      rw [h_getD]
+      have h_iff := sorted_get_le_iff_countP_BH hsorted_pw k hk_lt
+        (((k : ℝ) + 1) * α / m)
+      apply h_iff.mpr
+      rw [hsd, ← card_filter_eq_countP_sorted Q ω (((k : ℝ) + 1) * α / m)]
+      omega
+  -- Step 3: `bhCutoff = decode ∘ qualifiesM`, where `decode : Finset ℕ → ℝ`.
+  let decode : Finset ℕ → ℝ :=
+    fun S => if h : S.Nonempty then ((S.max' h : ℝ) + 1) * α / m else 0
+  have h_bhCutoff_decode : ∀ ω,
+      bhCutoff (fun j => Q j ω) α = decode (qualifiesM ω) := by
+    intro ω
+    rw [bhCutoff]
+    simp only [h_qual_eq ω]
+    rfl
+  -- Step 4: Composition. `decode` is measurable (codomain `Finset ℕ` has `⊤`),
+  -- `qualifiesM` is measurable.
+  have hdecode_meas : Measurable decode := measurable_from_top
+  have hcomp : (fun ω => bhCutoff (fun j => Q j ω) α) = decode ∘ qualifiesM := by
+    funext ω; exact h_bhCutoff_decode ω
+  rw [hcomp]
+  exact hdecode_meas.comp hqM_meas
 
 /-- L4-H3 (depends on H2): `{ω | bhReject Q α i ω}` is measurable. -/
 private lemma bhReject_measurableSet
@@ -575,7 +710,7 @@ private lemma bhRejectionCount_measurable
 /-- L4: `bhRejectionCount (bhReplaced P k) α` is measurable in the σ-algebra
 generated by `{P j | j ≠ k}`.  Reduces to H4 (`bhRejectionCount` measurable
 in any measurable input) applied to H1 (each replaced component is
-measurable).  Currently relies on H2 (`bhCutoff_measurable`, sorry retained). -/
+measurable).  Now fully proved: H2 (`bhCutoff_measurable`) closed. -/
 private theorem bhReplaced_measurable
     (P : Fin m → Ω → ℝ) (hMeas : ∀ i, Measurable (P i)) (k : Fin m) (α : ℝ) :
     Measurable (fun ω => bhRejectionCount (bhReplaced P k) α ω) :=
