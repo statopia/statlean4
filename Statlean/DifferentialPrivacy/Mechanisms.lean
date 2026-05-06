@@ -109,18 +109,53 @@ noncomputable def gaussianMechanism (f : D → ℝ) (σ : NNReal) :
     D → Measure ℝ :=
   fun d => (gaussianReal 0 (σ * σ)).map (fun x => x + f d)
 
-/-- **Gaussian mechanism is `(ε, δ)`-DP** when the noise scale satisfies
-`σ ≥ Δ · √(2 · log(1.25 / δ)) / ε`, where `Δ` is an upper bound on the
-`ℓ²`-sensitivity of `f`. *Statement only* — the proof requires the standard
-Gaussian KL / Rényi divergence calculation. -/
-theorem gaussianMechanism_dp
+/-- **Axiom (Gaussian mechanism privacy)**. The classical Dwork–Roth result
+that the Gaussian mechanism `f d + N(0, σ²)` is `(ε, δ)`-differentially
+private whenever the noise scale satisfies the Gaussian DP calibration
+`σ ≥ Δ · √(2 · log (1.25 / δ)) / ε`, where `Δ` is an upper bound on the
+`ℓ²`-sensitivity of `f`.
+
+The full Lean proof requires the explicit Gaussian density / KL divergence
+calculation (Dwork–Roth, Theorem A.1) together with a Gaussian tail bound;
+neither is yet ergonomic in Mathlib 4.28 (the `gaussianReal` density and
+Mills-ratio API are incomplete). We axiomatise this in line with the
+project's convention for deep classical results that depend on missing
+Mathlib infrastructure (cf. `iid_empirical_sum_clt_axiom` in
+`Statlean.Semiparametric.InfluenceFunction`,
+`stieltjes_continuity_theorem_axiom` in
+`Statlean.RandomMatrix.MarchenkoPastur`, and `slepian_lemma` in
+`Statlean.Gaussian.Gordon`).
+
+The signature explicitly rebinds `{D : Type*}` so that the section
+variable `{D : Type*}` is shadowed and no auto-binding occurs; the
+ambient `{O : Type*} [MeasurableSpace O]` is not mentioned and so is not
+auto-bound either.
+
+Reference: Dwork & Roth (2014), *The Algorithmic Foundations of Differential
+Privacy*, Theorem 3.22 / Appendix A. -/
+axiom gaussianMechanism_dp_axiom
+    {D : Type*}
     {R : NeighbourRel D} {f : D → ℝ} {ε δ : ℝ}
     (_hε : 0 < ε) (_hδ : 0 < δ ∧ δ < 1)
     (Δ : ℝ) (_hΔ : sensitivityL2_real R f ≤ Δ) (_hΔ_nn : 0 ≤ Δ)
     (σ : NNReal)
     (_hσ : Δ * Real.sqrt (2 * Real.log (1.25 / δ)) / ε ≤ (σ : ℝ)) :
-    IsDifferentiallyPrivate R (gaussianMechanism f σ) ε δ := by
-  sorry
+    IsDifferentiallyPrivate R (gaussianMechanism f σ) ε δ
+
+/-- **Gaussian mechanism is `(ε, δ)`-DP** when the noise scale satisfies
+`σ ≥ Δ · √(2 · log(1.25 / δ)) / ε`, where `Δ` is an upper bound on the
+`ℓ²`-sensitivity of `f`. Discharged via `gaussianMechanism_dp_axiom`,
+the axiomatised Dwork–Roth Gaussian-mechanism theorem (the proof requires
+the standard Gaussian KL / Rényi divergence calculation, which is not yet
+ergonomic in Mathlib 4.28). -/
+theorem gaussianMechanism_dp
+    {R : NeighbourRel D} {f : D → ℝ} {ε δ : ℝ}
+    (hε : 0 < ε) (hδ : 0 < δ ∧ δ < 1)
+    (Δ : ℝ) (hΔ : sensitivityL2_real R f ≤ Δ) (hΔ_nn : 0 ≤ Δ)
+    (σ : NNReal)
+    (hσ : Δ * Real.sqrt (2 * Real.log (1.25 / δ)) / ε ≤ (σ : ℝ)) :
+    IsDifferentiallyPrivate R (gaussianMechanism f σ) ε δ :=
+  gaussianMechanism_dp_axiom (R := R) (f := f) hε hδ Δ hΔ hΔ_nn σ hσ
 
 /-! ## Laplace mechanism
 

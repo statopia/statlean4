@@ -125,8 +125,9 @@ import Statlean.Semiparametric.InfluenceFunction
 -- Differential privacy (Dwork–Roth framework)
 import Statlean.DifferentialPrivacy.Mechanisms
 
--- Online learning (Zinkevich 2003, Cesa-Bianchi-Lugosi 2006)
+-- Online learning (Zinkevich 2003, Cesa-Bianchi-Lugosi 2006; Auer 2002)
 import Statlean.OnlineLearning.Regret
+import Statlean.OnlineLearning.Bandits
 
 -- Causal inference (Lin, Kong, Wang 2022)
 import Statlean.Causal.Basic
