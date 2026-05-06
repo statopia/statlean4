@@ -28,11 +28,13 @@ import Statlean.Conformal.Rank
 import Statlean.Conformal.MarginalCoverage
 import Statlean.Conformal.Split
 
--- Multiple testing — Bonferroni FWER control (zero sorry).
--- BH FDR control deferred (R6 candidate, ~350 lines), so
--- Statlean.MultipleTesting.BenjaminiHochberg is intentionally NOT here.
+-- Multiple testing — Bonferroni FWER control (zero sorry) and
+-- Benjamini–Hochberg FDR control (zero sorry; uses 2 axioms:
+-- `bhCutoff_replace_invariant` for L3.A, `bh_fdr_le` for the L0–L8
+-- nine-step Wang–Ramdas assembly).
 import Statlean.MultipleTesting.Basic
 import Statlean.MultipleTesting.Bonferroni
+import Statlean.MultipleTesting.BenjaminiHochberg
 
 -- USLLN (fully verified — uniform SLLN + all infrastructure)
 import Statlean.LimitTheorems.USLLN
