@@ -78,6 +78,7 @@ import Statlean.Statistic.Sample
 -- Time series (strict / wide-sense stationarity, Birkhoff bridge,
 -- mixing conditions, ARMA processes)
 import Statlean.TimeSeries.Stationarity
+import Statlean.TimeSeries.Ergodic
 import Statlean.TimeSeries.Mixing
 import Statlean.TimeSeries.ARMA
 
