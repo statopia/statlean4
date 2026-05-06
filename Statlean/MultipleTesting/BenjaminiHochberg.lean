@@ -511,15 +511,91 @@ private theorem bhRejectionCount_eq_iff (P : Fin m → Ω → ℝ) (α : ℝ) (�
     rw [hRC_def, hCut]
     exact hCount
 
-/-- L3 (keystone, ~80 lines): replacement identity. On the event
-`{ω | P k ω ≤ r·α/m ∧ bhRejectionCount P α ω = r}`,
-`bhRejectionCount (bhReplaced P k) α ω = r`. -/
+/-- L3.A (auxiliary axiom): on the event `{P k ω ≤ r·α/m, R = r}` with
+`α ≥ 0`, replacing `P k ω` with `0` does not change the BH cutoff.
+
+**Mathematical justification** (informal, ~80 lines to formalize):
+By L2'(.mp), the original `bhCutoff (P · ω) α = r·α/m` and the count of
+indices with `P i ω ≤ r·α/m` is exactly `r`. Replacing the value `P k ω`
+(which is ≤ `r·α/m`) with `0` (also ≤ `r·α/m` since `α ≥ 0` and `r ≥ 1`)
+preserves the multiset of values above `r·α/m`. Hence the sorted list is
+unchanged at positions ≥ `r`, so `qualifies` cannot exceed `r-1` after
+replacement; combined with the qualifies-superset inclusion, the maximum
+is preserved at `r-1` and the cutoff stays `r·α/m`.
+
+This is recorded as an axiom (legal R6 fallback per `prove_playbook.md`)
+to unblock the L3 main theorem and the downstream FDR proof. A full Lean
+proof would expand the multiset/sorted-list argument in detail. -/
+axiom bhCutoff_replace_invariant {m : ℕ} (P : Fin m → Ω → ℝ) (k : Fin m)
+    (α : ℝ) (hα : 0 ≤ α) (r : ℕ) (hr : 1 ≤ r) (hrm : r ≤ m) (ω : Ω)
+    (hPk : P k ω ≤ (r : ℝ) * α / m)
+    (hRcount : bhRejectionCount P α ω = r) :
+    bhCutoff (fun j => bhReplaced P k j ω) α =
+      bhCutoff (fun j => P j ω) α
+
+/-- L3 (keystone): replacement identity. On the event
+`{ω | P k ω ≤ r·α/m ∧ bhRejectionCount P α ω = r}` (with `0 ≤ α`),
+`bhRejectionCount (bhReplaced P k) α ω = r`.
+
+Hypothesis `0 ≤ α` is essential: for `α < 0`, replacing `P k ω` with `0`
+can decrease the rejection count (e.g. `α = -1, m = 2, r = 1, P k ω = -1,
+P j ω = 0`: the original rejects only `k`, but after replacement no
+indices satisfy `P i ω ≤ -1/2`).
+
+**Proof**: combine `bhCutoff_replace_invariant` (L3.A — cutoff unchanged)
+with the observation that the rejection set is unchanged: at index `k`,
+both `P k ω` and `0` lie below the cutoff `r·α/m`; at `i ≠ k`, the value
+is unchanged. Hence `bhRejectionCount` is preserved. -/
 private theorem bhReplaced_eventEq (P : Fin m → Ω → ℝ) (k : Fin m)
-    (α : ℝ) (r : ℕ) (hr : 1 ≤ r) (hrm : r ≤ m) (ω : Ω)
+    (α : ℝ) (hα : 0 ≤ α) (r : ℕ) (hr : 1 ≤ r) (hrm : r ≤ m) (ω : Ω)
     (hPk : P k ω ≤ (r : ℝ) * α / m)
     (hRcount : bhRejectionCount P α ω = r) :
     bhRejectionCount (bhReplaced P k) α ω = r := by
-  sorry
+  -- L3.A: cutoff is unchanged after replacement.
+  have hCutEq :
+      bhCutoff (fun j => bhReplaced P k j ω) α =
+        bhCutoff (fun j => P j ω) α :=
+    bhCutoff_replace_invariant P k α hα r hr hrm ω hPk hRcount
+  -- L2'.mp: cutoff for original is `r·α/m`, and the filter cardinality is `r`.
+  have hm_pos : 0 < m := lt_of_lt_of_le hr hrm
+  have hL2 := (bhRejectionCount_eq_iff P α ω hα r hr hrm).mp hRcount
+  obtain ⟨hCutP, hCardP⟩ := hL2
+  -- The cutoff value `c = r·α/m`.
+  set c : ℝ := (r : ℝ) * α / m with hc_def
+  have hc_nn : 0 ≤ c := by
+    have hr_nn : (0:ℝ) ≤ (r:ℝ) := Nat.cast_nonneg _
+    have hm_nn : (0:ℝ) ≤ (m:ℝ) := Nat.cast_nonneg _
+    positivity
+  -- Show the filter set for replaced equals the filter set for P at threshold c.
+  have hFilterEq :
+      (Finset.univ.filter (fun i : Fin m => bhReplaced P k i ω ≤ c)) =
+      (Finset.univ.filter (fun i : Fin m => P i ω ≤ c)) := by
+    apply Finset.filter_congr
+    intro i _
+    by_cases hik : i = k
+    · subst hik
+      -- bhReplaced P i i ω = 0; and 0 ≤ c, P i ω ≤ c (= hPk).
+      have hzero : bhReplaced P i i ω = 0 := by
+        unfold bhReplaced; simp
+      rw [hzero]
+      constructor
+      · intro _; exact hPk
+      · intro _; exact hc_nn
+    · -- bhReplaced P k i ω = P i ω.
+      have hval : bhReplaced P k i ω = P i ω := by
+        unfold bhReplaced; simp [hik]
+      rw [hval]
+  -- bhRejectionCount replaced = card (filter at cutoff_replaced)
+  -- and cutoff_replaced = cutoff_P = r·α/m = c.
+  have h_def : bhRejectionCount (bhReplaced P k) α ω =
+      (Finset.univ.filter (fun i : Fin m =>
+        bhReplaced P k i ω ≤ bhCutoff (fun j => bhReplaced P k j ω) α)).card :=
+    rfl
+  rw [h_def, hCutEq, hCutP]
+  change (Finset.univ.filter (fun i : Fin m => bhReplaced P k i ω ≤ c)).card = r
+  rw [hFilterEq]
+  -- Now goal: card (filter (P i ω ≤ c)) = r. By hCardP.
+  exact hCardP
 
 /-- L4-H1 (provable, ~10 lines): each component of `bhReplaced P k` is
 measurable.  Either it is the constant `0` (when `i = k`) or the original
