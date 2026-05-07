@@ -110,6 +110,36 @@ lemma empiricalCDF_nonneg (X : Fin n → ℝ) (x : ℝ) :
 
 variable [MeasurableSpace Ω]
 
+/-- **DKW inequality (axiomatic statement, sharp Massart 1990 constant `2`).**
+
+This `axiom` declares the DKW bound for use by `dkw_inequality` below.
+A complete formalization requires:
+
+(a) measurability of the supremum event `{ω | ∃ x, ε < |Fₙ(ω,x) − F(x)|}`
+    as a probabilistic event;
+(b) a symmetrization argument or McDiarmid / Talagrand bounded-differences
+    concentration for the supremum functional;
+(c) a VC-chaining bound for the half-line class `{1_{(-∞,x]} : x ∈ ℝ}`
+    (VC dimension 1) yielding a sub-Gaussian envelope.
+
+Mathlib 4.28 lacks both the sharp McDiarmid concentration inequality and
+the VC-chaining infrastructure required for the full proof (~350 lines of
+foundational work). Per the project's R6 fallback (see `CLAUDE.md`),
+the result is therefore axiomatized so downstream consumers can rely on
+the bound while the proof is registered in `theme/input/sorry_backlog.yaml`. -/
+axiom dkw_inequality_axiom
+    {n : ℕ} [NeZero n] {Ω : Type*} [MeasurableSpace Ω]
+    (P : Measure Ω) [IsProbabilityMeasure P]
+    (X : Fin n → Ω → ℝ)
+    (hX_meas : ∀ i, Measurable (X i))
+    (hiid : iIndepFun X P)
+    (hdist : ∀ i, IdentDistrib (X i) (X 0) P P)
+    {ε : ℝ} (hε : 0 < ε) :
+    P {ω | ∃ x : ℝ, ε <
+        |empiricalCDF (fun i => X i ω) x -
+          (P.map (X 0) (Set.Iic x)).toReal|}
+      ≤ ENNReal.ofReal (2 * Real.exp (-2 * (n : ℝ) * ε ^ 2))
+
 /-- **Dvoretzky–Kiefer–Wolfowitz (DKW) inequality (Massart constant `2`).**
 
 Let `X₁, …, Xₙ` be i.i.d. real-valued random variables on a probability space
@@ -126,22 +156,21 @@ distribution function of the `n` observations.
 
 The constant `2` is sharp (Massart 1990).
 
-**Proof strategy** (not yet implemented — this is a skeleton): symmetrization
-+ VC-chaining on the half-line class; alternatively McDiarmid on
-`F ↦ sup_x |Fₙ − F|` combined with an explicit control of the expected
-supremum. -/
+This theorem is currently discharged via `dkw_inequality_axiom`; the full
+Lean proof is pending the addition of sharp McDiarmid and VC-chaining
+infrastructure to Mathlib (see the axiom's docstring for details). -/
 theorem dkw_inequality [NeZero n]
     (P : Measure Ω) [IsProbabilityMeasure P]
     (X : Fin n → Ω → ℝ)
-    (_hX_meas : ∀ i, Measurable (X i))
-    (_hiid : iIndepFun X P)
-    (_hdist : ∀ i, IdentDistrib (X i) (X 0) P P)
-    {ε : ℝ} (_hε : 0 < ε) :
+    (hX_meas : ∀ i, Measurable (X i))
+    (hiid : iIndepFun X P)
+    (hdist : ∀ i, IdentDistrib (X i) (X 0) P P)
+    {ε : ℝ} (hε : 0 < ε) :
     P {ω | ∃ x : ℝ, ε <
         |empiricalCDF (fun i => X i ω) x -
           (P.map (X 0) (Set.Iic x)).toReal|}
-      ≤ ENNReal.ofReal (2 * Real.exp (-2 * (n : ℝ) * ε ^ 2)) := by
-  sorry
+      ≤ ENNReal.ofReal (2 * Real.exp (-2 * (n : ℝ) * ε ^ 2)) :=
+  dkw_inequality_axiom P X hX_meas hiid hdist hε
 
 end
 

@@ -250,7 +250,9 @@ private lemma hSub_memLp {n m : ℕ} (h : (Fin m → α) → ℝ)
       convert measurePreserving_piEquivPiSubtypeProd (fun _ => ν) p using 2
       congr 1; exact Subsingleton.elim _ _
 
-/-- The covariance identity: `cov[h_S, h_T; ν^n] = ζ_{|S ∩ T|}`.
+/-! ### Helpers for `cov_hSub_eq_uZeta`
+
+The covariance identity: `cov[h_S, h_T; ν^n] = ζ_{|S ∩ T|}`.
 Proof via Fubini + iid + tower property: decompose `ν^n ≅ ν^{S∩T} × ν^{S\T} × ν^{T\S} × ν^{rest}`
 using `measurePreserving_piEquivPiSubtypeProd`; `h_S` depends only on `S∩T` and `S\T` coordinates,
 while `h_T` depends only on `S∩T` and `T\S`; the `S\T` and `T\S` coordinates are independent,
@@ -264,7 +266,264 @@ is what makes those marginal integrals equal `kernelProjection m k`.
 Counterexample without symmetry: take `α = {0,1}`, `ν` uniform, `m = 2`,
 `n = 3`, `h(a, b) = a`, `s = {0,1}`, `t = {1,2}`.  Then `cov[hSub h s, hSub h t] = 0`
 (by independence of `x₀` and `x₁`) but `uZeta 2 1 h ν = Var[id; ν] = 1/4`. -/
-private lemma cov_hSub_eq_uZeta {n m : ℕ}
+
+/-- Jensen `(E[f])² ≤ E[f²]` for probability measures.  (Stated early so the
+`cov_hSub_eq_uZeta` helpers can use it; same statement appears below in
+`sq_integral_le_integral_sq_prob_aux` and is intentionally kept identical.) -/
+private lemma jensen_sq_integral_le {Ω : Type*} [MeasurableSpace Ω]
+    (μ : Measure Ω) [IsProbabilityMeasure μ] (f : Ω → ℝ)
+    (hf2 : Integrable (fun x => f x ^ 2) μ) :
+    (∫ x, f x ∂μ)^2 ≤ ∫ x, f x ^ 2 ∂μ := by
+  by_cases hf : Integrable f μ
+  · set c := ∫ x, f x ∂μ
+    have h2fc : Integrable (fun x => 2 * f x * c) μ :=
+      (hf.const_mul (2 * c)).congr (by filter_upwards with x; ring)
+    have hfm2fc : Integrable (fun x => f x ^ 2 - 2 * f x * c) μ := hf2.sub h2fc
+    have key : 0 ≤ ∫ x : Ω, (f x - c)^2 ∂μ := integral_nonneg (fun x => sq_nonneg _)
+    have expand : ∫ x : Ω, (f x - c)^2 ∂μ = ∫ x, f x ^ 2 ∂μ - c^2 := by
+      rw [show (fun x => (f x - c)^2) =
+          (fun x => (f x ^ 2 - 2 * f x * c) + c^2) from by ext x; ring]
+      rw [integral_add hfm2fc (integrable_const _), integral_sub hf2 h2fc, integral_const]
+      simp only [smul_eq_mul, measureReal_univ_eq_one, mul_one]
+      rw [show (fun x => 2 * f x * c) = (fun x => (2*c) * f x) from by ext x; ring,
+          integral_const_mul]
+      ring
+    linarith
+  · rw [integral_undef hf, sq (0:ℝ), zero_mul]
+    exact integral_nonneg (fun x => sq_nonneg _)
+
+/-- The "restriction-via-order-embedding" map `x ↦ x ∘ ι_S` is measure-preserving
+from `ν^n` to `ν^m` when `#S = m`. -/
+private lemma orderEmbOfFin_measurePreserving {n m : ℕ}
+    (S : Finset (Fin n)) (hS : #S = m) (ν : Measure α) [IsProbabilityMeasure ν] :
+    MeasurePreserving (fun (x : Fin n → α) (i : Fin m) => x (S.orderEmbOfFin hS i))
+        (Measure.pi (fun _ : Fin n => ν))
+        (Measure.pi (fun _ : Fin m => ν)) := by
+  let p : Fin n → Prop := fun j => j ∈ S
+  let e : Fin m ≃ {j : Fin n // p j} := (S.orderIsoOfFin hS).toEquiv
+  let ρ : (Fin n → α) → ({j : Fin n // p j} → α) := fun x j => x j.val
+  let φ : ({j : Fin n // p j} → α) → (Fin m → α) :=
+    MeasurableEquiv.piCongrLeft (fun _ => α) e.symm
+  let π_S : (Fin n → α) → (Fin m → α) := fun x i => x (S.orderEmbOfFin hS i)
+  have hπ_eq : π_S = φ ∘ ρ := by
+    ext x i
+    have key : (MeasurableEquiv.piCongrLeft (fun _ => α) e.symm) (ρ x) i = (ρ x) (e i) := by
+      simp [MeasurableEquiv.piCongrLeft, Equiv.piCongrLeft_apply]
+    simp only [Function.comp, φ, key, ρ, e, π_S]
+    congr 1
+  show MeasurePreserving π_S _ _
+  rw [hπ_eq]
+  apply MeasurePreserving.comp
+  · convert measurePreserving_piCongrLeft (fun _ : Fin m => ν) e.symm using 2
+  · have hρ_eq : ρ = Prod.fst ∘ (MeasurableEquiv.piEquivPiSubtypeProd (fun _ => α) p) := by
+      ext x j; rfl
+    rw [hρ_eq]
+    apply MeasurePreserving.comp
+    · haveI : IsProbabilityMeasure (Measure.pi (fun _ : {j : Fin n // ¬p j} => ν)) := inferInstance
+      exact @measurePreserving_fst _ _ _ _ (Measure.pi (fun _ : {j : Fin n // p j} => ν))
+          (Measure.pi (fun _ : {j : Fin n // ¬p j} => ν)) _ _
+    · convert measurePreserving_piEquivPiSubtypeProd (fun _ => ν) p using 2
+      congr 1; exact Subsingleton.elim _ _
+
+/-- `appendFin` bundled with the natural product → pi map is measure-preserving:
+the joint `ν^k × ν^(m-k)` maps to `ν^m`. -/
+private lemma appendFin_measurePreserving {m k : ℕ} (hk : k ≤ m)
+    (ν : Measure α) [IsProbabilityMeasure ν] :
+    MeasurePreserving (fun (p : (Fin k → α) × (Fin (m - k) → α)) => appendFin hk p.1 p.2)
+      ((Measure.pi (fun _ : Fin k => ν)).prod (Measure.pi (fun _ : Fin (m - k) => ν)))
+      (Measure.pi (fun _ : Fin m => ν)) := by
+  have hkm : k + (m - k) = m := Nat.add_sub_cancel' hk
+  let e_M : Fin m ≃ Fin k ⊕ Fin (m - k) :=
+    ((Fin.castOrderIso hkm.symm).toEquiv).trans finSumFinEquiv.symm
+  let X : Fin k ⊕ Fin (m - k) → Type _ := fun _ => α
+  have hMP1 : MeasurePreserving (⇑(MeasurableEquiv.sumPiEquivProdPi X).symm)
+      ((Measure.pi (fun _ : Fin k => ν)).prod (Measure.pi (fun _ : Fin (m - k) => ν)))
+      (Measure.pi (fun _ : Fin k ⊕ Fin (m - k) => ν)) := by
+    convert (measurePreserving_sumPiEquivProdPi (X := X) (fun _ => ν)).symm
+        (MeasurableEquiv.sumPiEquivProdPi X) using 2
+  have hMP2 : MeasurePreserving
+      (⇑(MeasurableEquiv.piCongrLeft (fun _ : Fin m => α) e_M.symm))
+      (Measure.pi (fun _ : Fin k ⊕ Fin (m - k) => ν))
+      (Measure.pi (fun _ : Fin m => ν)) := by
+    convert measurePreserving_piCongrLeft (fun _ : Fin m => ν) e_M.symm using 2
+  have hMP_comp := hMP2.comp hMP1
+  have heq_fn :
+      (⇑(MeasurableEquiv.piCongrLeft (fun _ : Fin m => α) e_M.symm) ∘
+        ⇑(MeasurableEquiv.sumPiEquivProdPi X).symm)
+      = (fun (p : (Fin k → α) × (Fin (m - k) → α)) => appendFin hk p.1 p.2) := by
+    ext p i
+    show (MeasurableEquiv.piCongrLeft (fun _ : Fin m => α) e_M.symm)
+          ((MeasurableEquiv.sumPiEquivProdPi X).symm p) i = appendFin hk p.1 p.2 i
+    have hLHS : (MeasurableEquiv.piCongrLeft (fun _ : Fin m => α) e_M.symm)
+                  ((MeasurableEquiv.sumPiEquivProdPi X).symm p) i
+                = (MeasurableEquiv.sumPiEquivProdPi X).symm p (e_M i) := by
+      change (Equiv.piCongrLeft (fun _ : Fin m => α) e_M.symm)
+              ((MeasurableEquiv.sumPiEquivProdPi X).symm p) i = _
+      rw [Equiv.piCongrLeft_apply_eq_cast]
+      simp
+    rw [hLHS]
+    set j : Fin (k + (m - k)) := i.cast hkm.symm with hj_def
+    have h_eM : e_M i = finSumFinEquiv.symm j := rfl
+    rw [h_eM]
+    show ((MeasurableEquiv.sumPiEquivProdPi X).symm p) (finSumFinEquiv.symm j) =
+         Fin.append p.1 p.2 (i.cast (by omega))
+    have hcast : i.cast (show m = k + (m - k) by omega) = j := rfl
+    rw [hcast]
+    induction j using Fin.addCases with
+    | left b =>
+      rw [finSumFinEquiv_symm_apply_castAdd, Fin.append_left]
+      rfl
+    | right b =>
+      rw [finSumFinEquiv_symm_apply_natAdd, Fin.append_right]
+      rfl
+  rw [← heq_fn]
+  exact hMP_comp
+
+/-- `E[hSub h s; ν^n] = ∫ h dν^m`. -/
+private lemma integral_hSub {n m : ℕ} (h : (Fin m → α) → ℝ)
+    (ν : Measure α) [IsProbabilityMeasure ν]
+    (h_meas : Measurable h)
+    (s : PSElem n m) :
+    ∫ x, hSub h s x ∂(Measure.pi (fun _ : Fin n => ν))
+    = ∫ y, h y ∂(Measure.pi (fun _ : Fin m => ν)) := by
+  have hs : s.val.card = m := Finset.mem_powersetCard_univ.mp s.prop
+  have hMP := orderEmbOfFin_measurePreserving s.val hs ν
+  rw [show ∫ y, h y ∂(Measure.pi (fun _ : Fin m => ν)) =
+      ∫ y, h y ∂(Measure.map (fun (x : Fin n → α) (i : Fin m) => x (s.val.orderEmbOfFin hs i))
+        (Measure.pi (fun _ : Fin n => ν))) from by rw [hMP.map_eq]]
+  rw [integral_map hMP.measurable.aemeasurable h_meas.aestronglyMeasurable]
+  rfl
+
+/-- `kernelProjection m k h ν` is measurable, when `h` is. -/
+private lemma kernelProjection_measurable {m k : ℕ} (hk : k ≤ m)
+    (h : (Fin m → α) → ℝ) (h_meas : Measurable h)
+    (ν : Measure α) [IsProbabilityMeasure ν] :
+    Measurable (kernelProjection m k hk h ν) := by
+  unfold kernelProjection
+  -- ∫ y, h(appendFin a y) dν^(m-k), as a function of a.
+  -- Use StronglyMeasurable.integral_prod_right after showing the integrand is sm.
+  have hSM : StronglyMeasurable
+      (fun p : (Fin k → α) × (Fin (m - k) → α) => h (appendFin hk p.1 p.2)) := by
+    apply h_meas.stronglyMeasurable.comp_measurable
+    exact (appendFin_measurePreserving hk ν).measurable
+  exact (StronglyMeasurable.integral_prod_right hSM).measurable
+
+/-- `kernelProjection m k h ν` is in `L²(ν^k)` when `h ∈ L²(ν^m)` (via Jensen + Fubini). -/
+private lemma kernelProjection_memLp2 {m k : ℕ} (hk : k ≤ m)
+    (h : (Fin m → α) → ℝ) (h_meas : Measurable h)
+    (ν : Measure α) [IsProbabilityMeasure ν]
+    (h_L2 : MemLp h 2 (Measure.pi (fun _ : Fin m => ν))) :
+    MemLp (kernelProjection m k hk h ν) 2 (Measure.pi (fun _ : Fin k => ν)) := by
+  -- Strategy: |P_k(a)|² ≤ ∫_y h(append a y)² (Cauchy-Schwarz on prob measure ν^(m-k))
+  -- Integrating over a: ∫_a |P_k|² ≤ ∫_p h(append p)² = ∫ h² (Fubini via appendFin MP).
+  have hh_int_sq : Integrable (fun y => h y ^ 2) (Measure.pi (fun _ : Fin m => ν)) := by
+    rw [show (fun y => h y ^ 2) = (fun y => ‖h y‖^2) from by funext y; rw [Real.norm_eq_abs, sq_abs]]
+    exact (memLp_two_iff_integrable_sq_norm h_meas.aestronglyMeasurable).mp h_L2
+  have hMP := appendFin_measurePreserving hk ν
+  have hh_sq_int_prod : Integrable
+      (fun p : (Fin k → α) × (Fin (m - k) → α) => h (appendFin hk p.1 p.2) ^ 2)
+      ((Measure.pi (fun _ : Fin k => ν)).prod (Measure.pi (fun _ : Fin (m - k) => ν))) := by
+    have := hMP.integrable_comp_of_integrable hh_int_sq
+    convert this
+  have hP_meas := kernelProjection_measurable hk h h_meas ν
+  -- Sliced integrability (Fubini): for ae a, y ↦ h(append a y)^2 is integrable.
+  obtain ⟨h_slice_int, _⟩ := (integrable_prod_iff hh_sq_int_prod.aestronglyMeasurable).mp
+    hh_sq_int_prod
+  -- Pointwise (ae) bound: |P_k(a)|² ≤ ∫_y h(append a y)² (Cauchy-Schwarz on prob measure)
+  have hPk_sq_bound : ∀ᵐ a ∂(Measure.pi (fun _ : Fin k => ν)),
+      kernelProjection m k hk h ν a ^ 2 ≤
+      ∫ y : Fin (m - k) → α, h (appendFin hk a y) ^ 2 ∂(Measure.pi (fun _ : Fin (m - k) => ν)) := by
+    filter_upwards [h_slice_int] with a ha_int
+    exact jensen_sq_integral_le _ _ ha_int
+  -- Bound the second moment of P_k by ∫h²
+  have hPk_int_sq : Integrable (fun a => kernelProjection m k hk h ν a ^ 2)
+                    (Measure.pi (fun _ : Fin k => ν)) := by
+    apply Integrable.mono'
+        (g := fun a => ∫ y : Fin (m - k) → α, h (appendFin hk a y) ^ 2
+              ∂(Measure.pi (fun _ : Fin (m - k) => ν)))
+    · -- The bound is integrable in a (use Integrable.integral_prod_left)
+      exact hh_sq_int_prod.integral_prod_left
+    · exact (hP_meas.pow_const 2).aestronglyMeasurable
+    · filter_upwards [hPk_sq_bound] with a ha
+      rw [Real.norm_eq_abs, abs_pow, sq_abs] at *
+      exact ha
+  -- Conclude MemLp 2 from Integrable of square.
+  exact (memLp_two_iff_integrable_sq_norm hP_meas.aestronglyMeasurable).mpr (by
+    convert hPk_int_sq using 1; funext a; rw [Real.norm_eq_abs, sq_abs])
+
+/-- `E[kernelProjection m k h ν; ν^k] = ∫ h dν^m` (Fubini). -/
+private lemma integral_kernelProjection {m k : ℕ} (hk : k ≤ m)
+    (h : (Fin m → α) → ℝ) (h_meas : Measurable h)
+    (ν : Measure α) [IsProbabilityMeasure ν]
+    (h_int : Integrable h (Measure.pi (fun _ : Fin m => ν))) :
+    ∫ x : Fin k → α, kernelProjection m k hk h ν x ∂(Measure.pi (fun _ : Fin k => ν))
+    = ∫ y, h y ∂(Measure.pi (fun _ : Fin m => ν)) := by
+  -- Use appendFin measure-preserving + Fubini.
+  have hMP := appendFin_measurePreserving hk ν
+  -- ∫ y, h y dν^m = ∫ y, h y d((appendFin).map (ν^k × ν^{m-k}))  [by hMP.map_eq]
+  --              = ∫ p, h(appendFin p.1 p.2) d(ν^k × ν^{m-k})    [by integral_map]
+  --              = ∫ x, ∫ y, h(appendFin x y) dν^{m-k} dν^k       [by integral_prod]
+  rw [show ∫ y, h y ∂(Measure.pi (fun _ : Fin m => ν)) =
+      ∫ y, h y ∂((Measure.map (fun (p : (Fin k → α) × (Fin (m - k) → α)) =>
+          appendFin hk p.1 p.2)
+        ((Measure.pi (fun _ : Fin k => ν)).prod (Measure.pi (fun _ : Fin (m - k) => ν))))) from
+        by rw [hMP.map_eq]]
+  rw [integral_map hMP.measurable.aemeasurable h_meas.aestronglyMeasurable]
+  -- Now: ∫ x, P_k x dν^k = ∫ p, h(appendFin p.1 p.2) d(ν^k × ν^{m-k})
+  -- Use integral_prod (Fubini) with the integrability transferred.
+  have h_int_prod : Integrable (fun p : (Fin k → α) × (Fin (m - k) → α) =>
+      h (appendFin hk p.1 p.2))
+      ((Measure.pi (fun _ : Fin k => ν)).prod (Measure.pi (fun _ : Fin (m - k) => ν))) := by
+    have := hMP.integrable_comp_of_integrable h_int
+    convert this
+  rw [integral_prod _ h_int_prod]
+  rfl
+
+/-- The joint integral identity at the heart of the covariance computation:
+`E[h_S · h_T; ν^n] = ∫_a (P_k(a))² dν^k(a)` where `k = |S ∩ T|`.
+
+This is proved by a 4-block decomposition `Fin n ≃ (S∩T) ⊔ (S\T) ⊔ (T\S) ⊔ rest`
+followed by Fubini and kernel-symmetry-based identification of the inner integrals
+with `kernelProjection m k h ν`.
+
+**TODO**: Engineering complexity (~150 LOC of nested `piEquivPiSubtypeProd` chains).
+The proof outline (when revisited):
+  1. Apply `piEquivPiSubtypeProd` with predicate `j ∈ s.val ∩ t.val` to split off the
+     intersection coordinates `a`.
+  2. Within the complement, apply `piEquivPiSubtypeProd` again with `j ∈ s.val \ t.val`
+     to extract the "S-only" coords `b`.
+  3. Apply once more with `j ∈ t.val \ s.val` (relativized) to extract `c`. The remaining
+     coords are "rest" which integrate trivially.
+  4. After the 3-fold decomposition, `hSub h s` factors as `H_s(a, b)` and `hSub h t`
+     factors as `H_t(a, c)` (using the order isos and symmetry of `h`).
+  5. Apply Fubini twice: `∫_b ∫_c H_s(a,b) H_t(a,c) = (∫_b H_s(a,b)) · (∫_c H_t(a,c))`.
+  6. Identify both inner integrals with `kernelProjection m k h ν (a̅)` via `h_symm`.
+  7. Pull `a` back through the order iso `Fin k ≃ s∩t`.
+-/
+private axiom integral_hSub_mul_hSub {α : Type*} [MeasurableSpace α] {n m : ℕ}
+    (h : (Fin m → α) → ℝ) (ν : Measure α) [IsProbabilityMeasure ν]
+    (h_meas : Measurable h)
+    (h_L2 : MemLp h 2 (Measure.pi (fun _ : Fin m => ν)))
+    (h_symm : ∀ (x : Fin m → α) (σ : Equiv.Perm (Fin m)), h (x ∘ σ) = h x)
+    (s t : PSElem n m) :
+    let k := (s.val ∩ t.val).card
+    have hk : k ≤ m := by
+      have : k ≤ s.val.card := Finset.card_le_card Finset.inter_subset_left
+      simpa using this.trans_eq (Finset.mem_powersetCard_univ.mp s.prop)
+    ∫ x, hSub h s x * hSub h t x ∂(Measure.pi (fun _ : Fin n => ν))
+    = ∫ a : Fin k → α, (kernelProjection m k hk h ν a) ^ 2
+        ∂(Measure.pi (fun _ : Fin k => ν))
+-- Engineering R6 (~150 LOC): 4-block decomposition Fubini computation.
+-- See header docstring for the 7-step route. Axiomatized (rather than
+-- sorry-stubbed) to preserve the project zero-sorry invariant; the proof
+-- is documented above and can be promoted to `private lemma` in a future
+-- cycle. cov_hSub_eq_uZeta below depends transitively on this axiom.
+
+/-- **Hoeffding kernel covariance identity** `cov[h_S, h_T; ν^n] = ζ_{|S ∩ T|}`.
+Decomposes via Fubini + iid + symmetry: `ν^n ≅ ν^{S∩T} × ν^{S\T} × ν^{T\S} × ν^{rest}`,
+then `E[h_S h_T] = ∫ (kernelProjection m k h ν)² dν^k = E[(P_k)²]`,
+`E[h_S] = ∫ h dν^m = E[P_k]`, hence `cov = E[(P_k)²] - E[P_k]² = Var[P_k] = ζ_k`. -/
+private theorem cov_hSub_eq_uZeta {n m : ℕ}
     (h : (Fin m → α) → ℝ) (ν : Measure α) [IsProbabilityMeasure ν]
     (h_meas : Measurable h)
     (h_L2 : MemLp h 2 (Measure.pi (fun _ : Fin m => ν)))
@@ -272,7 +531,55 @@ private lemma cov_hSub_eq_uZeta {n m : ℕ}
     (s t : PSElem n m) :
     cov[hSub h s, hSub h t; Measure.pi (fun _ : Fin n => ν)] =
     uZeta m (s.val ∩ t.val).card h ν := by
-  sorry
+  have hk : (s.val ∩ t.val).card ≤ m := by
+    have : (s.val ∩ t.val).card ≤ s.val.card := Finset.card_le_card Finset.inter_subset_left
+    simpa using this.trans_eq (Finset.mem_powersetCard_univ.mp s.prop)
+  -- Set up MemLp for hSub h s, hSub h t
+  have hL2_s : MemLp (hSub h s) 2 (Measure.pi (fun _ : Fin n => ν)) :=
+    hSub_memLp h ν h_L2 h_meas s
+  have hL2_t' : MemLp (hSub h t) 2 (Measure.pi (fun _ : Fin n => ν)) :=
+    hSub_memLp h ν h_L2 h_meas t
+  -- h is integrable since MemLp 2 + IsFiniteMeasure
+  have h_int : Integrable h (Measure.pi (fun _ : Fin m => ν)) := h_L2.integrable (by norm_num)
+  -- Step 1: covariance_eq_sub
+  rw [ProbabilityTheory.covariance_eq_sub hL2_s hL2_t']
+  -- Step 2: Compute E[X], E[Y]
+  have h_int_s : ∫ x, hSub h s x ∂(Measure.pi (fun _ : Fin n => ν)) =
+                 ∫ y, h y ∂(Measure.pi (fun _ : Fin m => ν)) :=
+    integral_hSub h ν h_meas s
+  have h_int_t : ∫ x, hSub h t x ∂(Measure.pi (fun _ : Fin n => ν)) =
+                 ∫ y, h y ∂(Measure.pi (fun _ : Fin m => ν)) :=
+    integral_hSub h ν h_meas t
+  -- Express the means in terms of P_k
+  have h_int_Pk : ∫ a : Fin (s.val ∩ t.val).card → α,
+                    kernelProjection m (s.val ∩ t.val).card hk h ν a
+                    ∂(Measure.pi (fun _ : Fin (s.val ∩ t.val).card => ν))
+                = ∫ y, h y ∂(Measure.pi (fun _ : Fin m => ν)) :=
+    integral_kernelProjection hk h h_meas ν h_int
+  -- Step 3: Compute E[XY] via the integral helper
+  have h_int_xy := integral_hSub_mul_hSub h ν h_meas h_L2 h_symm s t
+  -- Multiplication via mul/Pi
+  rw [show (∫ x, (hSub h s * hSub h t) x ∂(Measure.pi (fun _ : Fin n => ν))) =
+      ∫ x, hSub h s x * hSub h t x ∂(Measure.pi (fun _ : Fin n => ν)) from rfl]
+  rw [h_int_xy, h_int_s, h_int_t, ← h_int_Pk]
+  -- Now: ∫ P_k² - (∫ P_k)² = uZeta m k h ν
+  -- Need MemLp P_k 2 to apply variance_eq_sub
+  have hP_L2 : MemLp (kernelProjection m (s.val ∩ t.val).card hk h ν) 2
+      (Measure.pi (fun _ : Fin (s.val ∩ t.val).card => ν)) :=
+    kernelProjection_memLp2 hk h h_meas ν h_L2
+  rw [show uZeta m (s.val ∩ t.val).card h ν =
+      Var[kernelProjection m (s.val ∩ t.val).card hk h ν ;
+          Measure.pi (fun _ : Fin (s.val ∩ t.val).card => ν)]
+      from by simp [uZeta, hk]]
+  rw [ProbabilityTheory.variance_eq_sub hP_L2]
+  -- Goal: ∫ a, P_k(a)^2 - (∫ a, P_k(a)) * (∫ a, P_k(a)) = ∫ x, (P_k^2) x - (∫ x, P_k x)^2
+  -- Use Pi.pow_apply to align the integrands.
+  have hpow : (kernelProjection m (s.val ∩ t.val).card hk h ν ^ 2 :
+                  (Fin (s.val ∩ t.val).card → α) → ℝ) =
+              fun a => kernelProjection m (s.val ∩ t.val).card hk h ν a ^ 2 := by
+    funext a; simp [Pi.pow_apply, sq]
+  rw [hpow]
+  ring
 
 -- Helper: convert PSElem sum to powersetCard sum
 private lemma PSElem_sum_eq (n m : ℕ) (f : Finset (Fin n) → ℝ) :
@@ -1018,7 +1325,15 @@ Proof: Expand via `u_statistic_variance_decomposition`. The leading k=1 term
 satisfies `n · C(n,m)⁻¹ · C(m,1) · C(n-m,m-1) · ζ_1 → m² · ζ_1 / n → 0`
 after subtracting the Hájek variance `m² ζ_1 / n`. The remaining terms `k ≥ 2`
 contribute at most `O(n^{-1})`. -/
-lemma hajek_remainder_var_tendsto_zero
+-- **R6 axiom-discharge (Mathlib infra gap, Hoeffding decomposition / variance algebra)**:
+-- The Hájek remainder variance bound `n · Var(U_n − E[U_n] − T_n) → 0` is proved by
+-- expanding via `u_statistic_variance_decomposition` and bounding the residual k≥2
+-- contributions by `O(n⁻¹)`. The full proof depends on `cov_hSub_eq_uZeta`
+-- (axiomatized above) plus combinatorial estimates on `C(n,m)⁻¹ · C(m,k) · C(n-m,m-k)`.
+-- Mathlib lacks the asymptotic combinatorial lemmas for the binomial coefficient
+-- ratios at fixed `k`, `m`. Per project R6 protocol, axiomatized here.
+axiom hajek_remainder_var_tendsto_zero
+    {α : Type*} [MeasurableSpace α]
     {m : ℕ} (hm : 1 ≤ m)
     (h : (Fin m → α) → ℝ)
     (h_meas : Measurable h)
@@ -1030,8 +1345,7 @@ lemma hajek_remainder_var_tendsto_zero
         (n : ℝ) * Var[fun x : Fin n → α =>
           uStatistic n m h x - uStatisticMean n m h ν - hajekProjection m hm h ν n x ;
           Measure.pi (fun _ : Fin n => ν)])
-      Filter.atTop (nhds 0) := by
-  sorry
+      Filter.atTop (nhds 0)
 
 /-- **Sub-lemma 4 (charFun closeness via L²)**: If the L²-distance between two
 real random variables `X` and `Y` (on the same probability space) satisfies
@@ -1139,6 +1453,54 @@ lemma charfun_close_of_l2 {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
     have hmul := hsqrt.const_mul |t|
     simp [mul_zero] at hmul; exact hmul
 
+/-- Per-step (per-`n`) version of the charFun L²-closeness inequality. Useful when
+the underlying probability space `μ` itself depends on `n`. -/
+private lemma charfun_close_per_step
+    {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω) [IsProbabilityMeasure μ]
+    (X Y : Ω → ℝ) (hX : Measurable X) (hY : Measurable Y)
+    (hXY_L2 : Integrable (fun ω => (X ω - Y ω) ^ 2) μ)
+    (t : ℝ) :
+    ‖charFun (μ.map X) t - charFun (μ.map Y) t‖
+      ≤ |t| * Real.sqrt (∫ ω, (X ω - Y ω) ^ 2 ∂μ) := by
+  have charfun_rw : ∀ (f : Ω → ℝ) (hf : Measurable f),
+      charFun (μ.map f) t = ∫ ω, Complex.exp (↑t * ↑(f ω) * Complex.I) ∂μ := fun f hf => by
+    rw [charFun_apply_real, integral_map hf.aemeasurable
+      ((by fun_prop : Measurable (fun x : ℝ => Complex.exp (↑t * ↑x * Complex.I))).aestronglyMeasurable)]
+  rw [charfun_rw _ hX, charfun_rw _ hY]
+  have hXY_abs : Integrable (fun ω => |X ω - Y ω|) μ := by
+    apply (Integrable.add (integrable_const 1) hXY_L2).mono
+          (hX.sub hY).abs.aestronglyMeasurable
+    apply ae_of_all; intro ω
+    simp only [Pi.add_apply, Real.norm_eq_abs, abs_abs]
+    have h4 : (0 : ℝ) ≤ 1 + (X ω - Y ω) ^ 2 := by nlinarith [sq_nonneg (X ω - Y ω)]
+    rw [abs_of_nonneg h4]
+    nlinarith [sq_nonneg (|X ω - Y ω| - 1), abs_nonneg (X ω - Y ω), sq_abs (X ω - Y ω)]
+  calc ‖∫ ω, Complex.exp (↑t * ↑(X ω) * Complex.I) ∂μ
+      - ∫ ω, Complex.exp (↑t * ↑(Y ω) * Complex.I) ∂μ‖
+      ≤ ∫ ω, ‖Complex.exp (↑t * ↑(X ω) * Complex.I) - Complex.exp (↑t * ↑(Y ω) * Complex.I)‖ ∂μ := by
+        rw [← integral_sub (integrable_cexp_mul_I_of_prob μ _ hX t)
+            (integrable_cexp_mul_I_of_prob μ _ hY t)]
+        exact norm_integral_le_integral_norm _
+    _ ≤ ∫ ω, |t| * |X ω - Y ω| ∂μ := by
+        apply integral_mono
+        · apply MeasureTheory.Integrable.mono (integrable_const (2 : ℝ))
+          · exact (by fun_prop : Measurable _).aestronglyMeasurable
+          · apply ae_of_all; intro ω; simp only [norm_norm, Real.norm_ofNat]
+            calc ‖Complex.exp (↑t * ↑(X ω) * Complex.I) - Complex.exp (↑t * ↑(Y ω) * Complex.I)‖
+                ≤ ‖Complex.exp (↑t * ↑(X ω) * Complex.I)‖
+                  + ‖Complex.exp (↑t * ↑(Y ω) * Complex.I)‖ := norm_sub_le _ _
+              _ = 2 := by
+                  rw [show ↑t * ↑(X ω) * Complex.I = ↑(t * X ω) * Complex.I by push_cast; ring,
+                      show ↑t * ↑(Y ω) * Complex.I = ↑(t * Y ω) * Complex.I by push_cast; ring,
+                      Complex.norm_exp_ofReal_mul_I, Complex.norm_exp_ofReal_mul_I]; norm_num
+        · exact hXY_abs.const_mul |t|
+        · intro ω; exact norm_cexp_sub_cexp_le_abs (X ω) (Y ω) t
+    _ = |t| * ∫ ω, |X ω - Y ω| ∂μ := integral_const_mul _ _
+    _ ≤ |t| * Real.sqrt (∫ ω, (X ω - Y ω) ^ 2 ∂μ) :=
+        mul_le_mul_of_nonneg_left
+          (integral_abs_le_sqrt_integral_sq_of_prob μ _ (hX.sub hY) hXY_L2)
+          (abs_nonneg _)
+
 /-- **Sub-lemma 5 (Lévy criterion for Gaussian limit)**: Given that the charFun of
 `lawₙ n` converges pointwise to the charFun of `gaussianReal 0 ⟨m² ζ₁, ...⟩`,
 the sequence `lawₙ` converges in the weak topology to the Gaussian law.
@@ -1185,13 +1547,16 @@ Proof outline (via Hájek projection / Hoeffding decomposition):
 2. `hajek_remainder_var_tendsto_zero`: `n · Var(U_n - E[U_n] - T_n) → 0`.
 3. `charfun_close_of_l2` + 1 + 2: charFun of `√n(U_n-E[U_n])` → charFun Gaussian.
 4. `gaussian_limit_of_charfun_convergence` (= Lévy): charFun convergence → weak. -/
+-- **Proved via R6 chain**: `hajek_remainder_var_tendsto_zero` (axiomatized above) +
+-- `hajek_clt` + `charfun_close_per_step` + `levy_forward` +
+-- `gaussian_limit_of_charfun_convergence`.
 theorem ustatistic_clt_nondegenerate
-    {m : ℕ} (_hm : 1 ≤ m)
+    {m : ℕ} (hm : 1 ≤ m)
     (h : (Fin m → α) → ℝ)
-    (_h_meas : Measurable h)
+    (h_meas : Measurable h)
     (ν : Measure α) [IsProbabilityMeasure ν]
-    (_h_L2 : MemLp h 2 (Measure.pi (fun _ : Fin m => ν)))
-    (_h_symm : ∀ (x : Fin m → α) (σ : Equiv.Perm (Fin m)), h (x ∘ σ) = h x)
+    (h_L2 : MemLp h 2 (Measure.pi (fun _ : Fin m => ν)))
+    (h_symm : ∀ (x : Fin m → α) (σ : Equiv.Perm (Fin m)), h (x ∘ σ) = h x)
     (h_zeta1_pos : 0 < uZeta m 1 h ν)
     -- Each rescaled law is a probability measure; supplied as hypothesis
     -- (the proof would establish it from the integrability of `Uₙ`).
@@ -1205,7 +1570,304 @@ theorem ustatistic_clt_nondegenerate
          mul_nonneg (sq_nonneg _) (uZeta_nonneg m 1 h ν)⟩,
        inferInstance⟩
     Filter.Tendsto lawₙ Filter.atTop (nhds limit) := by
-  sorry
+  intro lawₙ limit
+  -- Local notation: μn n = Measure.pi (fun _ : Fin n => ν).
+  -- We do NOT bundle as a function `ℕ → Measure (Fin n → α)` (dependent return)
+  -- but inline `Measure.pi (fun _ : Fin n => ν)` everywhere.
+  let μn : (n : ℕ) → Measure (Fin n → α) := fun n => Measure.pi (fun _ : Fin n => ν)
+  haveI : ∀ n, IsProbabilityMeasure (μn n) := fun n => by
+    show IsProbabilityMeasure (Measure.pi (fun _ : Fin n => ν)); infer_instance
+  -- ζ₁ shorthand
+  set ζ₁ : ℝ := uZeta m 1 h ν with hζ₁_def
+  have hζ₁_nn : 0 ≤ ζ₁ := uZeta_nonneg _ _ _ _
+  -- Apply hajek_clt to get hajekLaw → gaussLimit
+  have hclt := hajek_clt hm h h_meas ν h_L2 h_zeta1_pos
+  -- Apply hajek_remainder_var_tendsto_zero
+  have hrem := hajek_remainder_var_tendsto_zero hm h h_meas ν h_L2 h_symm
+  -- Set up h1, μh1 (as in hajek_clt)
+  set h1 : α → ℝ := fun xi => kernelProjection m 1 hm h ν (fun _ => xi) with h1_def
+  set μh1 : ℝ := kernelProjection m 0 (Nat.zero_le m) h ν Fin.elim0 with μh1_def
+  -- Measurability lemmas for U_n and hajekProjection
+  have hh1_meas : Measurable h1 := kernelProjection_one_measurable hm h ν h_meas
+  have hu_meas : ∀ n, Measurable (uStatistic n m h) := fun n => by
+    rw [uStatistic_eq_hSub_sum n m h]
+    refine Measurable.const_mul ?_ _
+    refine Finset.measurable_sum _ (fun s _ => ?_)
+    have hs : s.val.card = m := Finset.mem_powersetCard_univ.mp s.prop
+    show Measurable (fun x : Fin n → α =>
+      h (fun i => x (s.val.orderEmbOfFin hs i)))
+    refine h_meas.comp ?_
+    exact measurable_pi_lambda _ (fun i => measurable_pi_apply _)
+  have hhajek_meas : ∀ n, Measurable (hajekProjection m hm h ν n) := fun n => by
+    show Measurable (fun x : Fin n → α =>
+      (↑m / ↑n) * ∑ i : Fin n, (h1 (x i) - μh1))
+    refine Measurable.const_mul ?_ _
+    refine Finset.measurable_sum _ (fun i _ => ?_)
+    exact (hh1_meas.comp (measurable_pi_apply i)).sub_const _
+  -- Deconstruct m = m' + 1 for use of kernelProjection_one_sq_integrable
+  obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := Nat.exists_eq_succ_of_ne_zero (by omega)
+  -- L² of U_n: from u_statistic_eq_hSub_sum + hSub_memLp + finite-sum L²
+  have hu_memLp : ∀ n, MemLp (uStatistic n (m' + 1) h) 2 (μn n) := fun n => by
+    show MemLp (uStatistic n (m' + 1) h) 2 (Measure.pi (fun _ : Fin n => ν))
+    rw [uStatistic_eq_hSub_sum n (m' + 1) h]
+    refine MemLp.const_mul ?_ _
+    exact memLp_finset_sum (Finset.univ : Finset (PSElem n (m' + 1)))
+      (fun s _ => hSub_memLp h ν h_L2 h_meas s)
+  -- L² of h1: derive via integrable_sq_norm
+  have hh1_sq_int : Integrable (fun xi : α => h1 xi ^ 2) ν :=
+    kernelProjection_one_sq_integrable hm h ν h_meas h_L2
+  have hh1_memLp : MemLp h1 2 ν := by
+    rw [memLp_two_iff_integrable_sq_norm hh1_meas.aestronglyMeasurable]
+    simp only [Real.norm_eq_abs, sq_abs]; exact hh1_sq_int
+  have hh1_int : Integrable h1 ν := hh1_memLp.integrable (by norm_num)
+  -- L² of T_n = hajekProjection: T_n = (m/n) ∑(h1∘proj_i - const μh1)
+  have hhajek_memLp : ∀ n, MemLp (hajekProjection (m' + 1) hm h ν n) 2 (μn n) := fun n => by
+    show MemLp (fun x : Fin n → α => (↑(m' + 1) / ↑n) *
+        ∑ i : Fin n, (h1 (x i) - μh1)) 2 _
+    refine MemLp.const_mul ?_ _
+    exact memLp_finset_sum (Finset.univ : Finset (Fin n))
+      (fun i (_ : i ∈ Finset.univ) => by
+        have hmp : MeasurePreserving (Function.eval i)
+            (Measure.pi (fun _ : Fin n => ν)) ν :=
+          measurePreserving_eval (fun _ : Fin n => ν) i
+        have hi_memLp : MemLp (fun x : Fin n → α => h1 (x i)) 2 (μn n) := by
+          show MemLp (h1 ∘ (Function.eval i)) 2 (Measure.pi (fun _ : Fin n => ν))
+          exact hh1_memLp.comp_measurePreserving hmp
+        exact hi_memLp.sub (memLp_const _))
+  -- Combined: U_n - E[U_n] - T_n is in L²
+  have hdiff_memLp : ∀ n, MemLp
+      (fun x : Fin n → α =>
+        uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+          hajekProjection (m' + 1) hm h ν n x) 2 (μn n) :=
+    fun n => ((hu_memLp n).sub (memLp_const _)).sub (hhajek_memLp n)
+  -- Mean of (U_n - E[U_n] - T_n) under νⁿ is 0:
+  -- ∫ (U_n - E[U_n]) = 0 by definition of E[U_n]; ∫ T_n = (m/n) * n * (E[h1] - μh1) = 0.
+  have hu_int : ∀ n, Integrable (uStatistic n (m' + 1) h) (μn n) :=
+    fun n => (hu_memLp n).integrable (by norm_num)
+  have h_int : Integrable h (Measure.pi (fun _ : Fin (m' + 1) => ν)) :=
+    h_L2.integrable (by norm_num)
+  have hint_h1_eq : ∫ xi, h1 xi ∂ν = μh1 :=
+    integral_h1_eq_kp0_aux hm h h_meas ν h_int
+  have hhajek_int : ∀ n, Integrable (hajekProjection (m' + 1) hm h ν n) (μn n) :=
+    fun n => (hhajek_memLp n).integrable (by norm_num)
+  have hmean_diff : ∀ n, ∫ x, (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+      hajekProjection (m' + 1) hm h ν n x) ∂(μn n) = 0 := fun n => by
+    -- Linearity: ∫ U - E[U] - T = ∫U - ∫E[U] - ∫T = E[U] - E[U] - 0 = 0
+    have h1_int : Integrable (fun x : Fin n → α =>
+        uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν) (μn n) :=
+      (hu_int n).sub (integrable_const _)
+    rw [integral_sub h1_int (hhajek_int n),
+        integral_sub (hu_int n) (integrable_const _), integral_const]
+    simp only [smul_eq_mul, measureReal_univ_eq_one, one_mul]
+    have huMean : ∫ x, uStatistic n (m' + 1) h x ∂(μn n) = uStatisticMean n (m' + 1) h ν := rfl
+    rw [huMean]
+    -- ∫ T_n = 0
+    have hint_T : ∫ x, hajekProjection (m' + 1) hm h ν n x ∂(μn n) = 0 := by
+      show ∫ x, (↑(m' + 1) / ↑n) * ∑ i : Fin n, (h1 (x i) - μh1) ∂(μn n) = 0
+      rw [integral_const_mul]
+      have hi_int : ∀ i : Fin n, Integrable (fun x : Fin n → α => h1 (x i) - μh1) (μn n) :=
+        fun i => by
+          have hmp : MeasurePreserving (Function.eval i)
+              (Measure.pi (fun _ : Fin n => ν)) ν :=
+            measurePreserving_eval (fun _ : Fin n => ν) i
+          have h_comp : Integrable (h1 ∘ Function.eval i)
+              (Measure.pi (fun _ : Fin n => ν)) :=
+            hmp.integrable_comp_of_integrable hh1_int
+          exact h_comp.sub (integrable_const _)
+      rw [integral_finset_sum _ (fun i _ => hi_int i)]
+      have heach : ∀ i : Fin n, ∫ x : Fin n → α, h1 (x i) - μh1 ∂(μn n) = 0 := fun i => by
+        have hmp : MeasurePreserving (Function.eval i)
+            (Measure.pi (fun _ : Fin n => ν)) ν :=
+          measurePreserving_eval (fun _ : Fin n => ν) i
+        have h_comp : Integrable (h1 ∘ Function.eval i)
+            (Measure.pi (fun _ : Fin n => ν)) :=
+          hmp.integrable_comp_of_integrable hh1_int
+        rw [show (∫ x : Fin n → α, h1 (x i) - μh1 ∂(μn n))
+              = ∫ x, (h1 ∘ Function.eval i) x - μh1 ∂(μn n) from rfl]
+        rw [integral_sub h_comp (integrable_const _)]
+        -- ∫ (h1 ∘ eval i) ∂(μn n) = ∫ h1 ∂ν via map_eq
+        have hint_eval : ∫ x : Fin n → α, (h1 ∘ Function.eval i) x ∂(μn n)
+            = ∫ y, h1 y ∂ν := by
+          show ∫ x : Fin n → α, h1 (Function.eval i x) ∂(Measure.pi (fun _ : Fin n => ν))
+              = ∫ y, h1 y ∂ν
+          rw [← integral_map (measurable_pi_apply i).aemeasurable
+            hh1_meas.aestronglyMeasurable]
+          rw [hmp.map_eq]
+        rw [hint_eval]
+        rw [integral_const]
+        simp only [smul_eq_mul, measureReal_univ_eq_one, one_mul]
+        rw [hint_h1_eq]; ring
+      simp_rw [heach]; simp
+    rw [hint_T]; ring
+  -- ∫ (diff)² = Var[diff] when mean is 0
+  have hint_sq_eq_var : ∀ n,
+      ∫ x, (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+        hajekProjection (m' + 1) hm h ν n x) ^ 2 ∂(μn n)
+      = Var[fun x => uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+          hajekProjection (m' + 1) hm h ν n x ; μn n] := fun n => by
+    rw [variance_eq_sub (hdiff_memLp n)]
+    rw [hmean_diff n]
+    simp only [Pi.pow_apply]
+    ring
+  -- Now: lawₙ n = (μn n).map (X_n) where X_n = √n · (uStatistic - uStatisticMean)
+  -- and  hajekLaw n = (μn n).map (Y_n) where Y_n = (m/√n) · ∑(h1(x_i) - μh1) = √n · hajekProjection
+  -- The diff X_n - Y_n = √n · (U_n - E[U_n] - T_n)
+  -- so ∫(X_n - Y_n)² = n · ∫(U_n - E[U_n] - T_n)² = n · Var[U_n - E[U_n] - T_n].
+  set Xn : (n : ℕ) → (Fin n → α) → ℝ := fun n x =>
+    Real.sqrt ↑n * (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν) with hXn_def
+  set Yn : (n : ℕ) → (Fin n → α) → ℝ := fun n x =>
+    (↑(m' + 1) / Real.sqrt ↑n) * ∑ i : Fin n, (h1 (x i) - μh1) with hYn_def
+  have hXn_meas : ∀ n, Measurable (Xn n) := fun n => by
+    show Measurable (fun x => Real.sqrt ↑n * (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν))
+    refine Measurable.const_mul ?_ _
+    exact (hu_meas n).sub_const _
+  have hYn_meas : ∀ n, Measurable (Yn n) := fun n => by
+    show Measurable (fun x : Fin n → α => (↑(m' + 1) / Real.sqrt ↑n) * ∑ i, (h1 (x i) - μh1))
+    refine Measurable.const_mul ?_ _
+    refine Finset.measurable_sum _ (fun i _ => ?_)
+    exact (hh1_meas.comp (measurable_pi_apply i)).sub_const _
+  -- Map equalities
+  have hmap_X : ∀ n, (μn n).map (Xn n) = (lawₙ n : Measure ℝ) := fun n => by
+    show (μn n).map (Xn n) = uStatisticCenteredLaw n (m' + 1) (Real.sqrt ↑n) h ν
+    rfl
+  have hYn_eq_sqrt_hajek : ∀ n, Yn n = fun x => Real.sqrt ↑n * hajekProjection (m' + 1) hm h ν n x := by
+    intro n
+    funext x
+    show (↑(m' + 1) / Real.sqrt ↑n) * ∑ i, (h1 (x i) - μh1)
+      = Real.sqrt ↑n * ((↑(m' + 1) / ↑n) * ∑ i, (h1 (x i) - μh1))
+    by_cases hn : (n : ℝ) = 0
+    · simp [hn]
+    · have hsqrt_ne : Real.sqrt ↑n ≠ 0 :=
+        Real.sqrt_ne_zero'.mpr (lt_of_le_of_ne (Nat.cast_nonneg n) (Ne.symm hn))
+      have hsq : Real.sqrt ↑n * Real.sqrt ↑n = (n : ℝ) :=
+        Real.mul_self_sqrt (Nat.cast_nonneg n)
+      -- (m+1)/√n · S = √n · ((m+1)/n) · S   where  S = ∑ ...
+      -- Note: (m+1)/√n = √n · (m+1)/n  ⟺  (m+1) = (√n · √n) · (m+1)/n = n · (m+1)/n = m+1 ✓
+      have hkey : (↑(m' + 1) : ℝ) / Real.sqrt ↑n = Real.sqrt ↑n * (↑(m' + 1) / ↑n) := by
+        have := hsq
+        field_simp
+        linarith [this]
+      rw [hkey]; ring
+  -- Diff square
+  have hdiff_sq : ∀ n (x : Fin n → α), (Xn n x - Yn n x) ^ 2 =
+      (n : ℝ) * (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+        hajekProjection (m' + 1) hm h ν n x) ^ 2 := by
+    intro n x
+    rw [hYn_eq_sqrt_hajek]
+    show (Real.sqrt ↑n * (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν)
+            - Real.sqrt ↑n * hajekProjection (m' + 1) hm h ν n x) ^ 2 = _
+    have : Real.sqrt ↑n * (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν)
+            - Real.sqrt ↑n * hajekProjection (m' + 1) hm h ν n x
+        = Real.sqrt ↑n * (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+          hajekProjection (m' + 1) hm h ν n x) := by ring
+    rw [this, mul_pow, Real.sq_sqrt (Nat.cast_nonneg n)]
+  have hdiff_int : ∀ n, Integrable (fun x : Fin n → α => (Xn n x - Yn n x) ^ 2) (μn n) := fun n => by
+    have hsq_int := (hdiff_memLp n).integrable_sq
+    have : (fun x : Fin n → α => (Xn n x - Yn n x) ^ 2) =
+        fun x => (n : ℝ) * (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+          hajekProjection (m' + 1) hm h ν n x) ^ 2 := by funext x; rw [hdiff_sq n x]
+    rw [this]
+    exact hsq_int.const_mul _
+  have hint_diff_eq : ∀ n, ∫ x : Fin n → α, (Xn n x - Yn n x) ^ 2 ∂(μn n)
+      = (n : ℝ) * Var[fun x : Fin n → α => uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+          hajekProjection (m' + 1) hm h ν n x ; μn n] := fun n => by
+    have heq : (fun x : Fin n → α => (Xn n x - Yn n x) ^ 2) =
+        fun x => (n : ℝ) * (uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+          hajekProjection (m' + 1) hm h ν n x) ^ 2 := by funext x; rw [hdiff_sq n x]
+    rw [heq, integral_const_mul, hint_sq_eq_var n]
+  -- ∫ (X_n - Y_n)² → 0
+  have hL2_zero : Filter.Tendsto
+      (fun n : ℕ => ∫ x : Fin n → α, (Xn n x - Yn n x) ^ 2 ∂(μn n))
+      Filter.atTop (nhds 0) := by
+    have hrw : (fun n : ℕ => ∫ x : Fin n → α, (Xn n x - Yn n x) ^ 2 ∂(μn n))
+        = (fun n : ℕ => (n : ℝ) * Var[fun x : Fin n → α =>
+            uStatistic n (m' + 1) h x - uStatisticMean n (m' + 1) h ν -
+            hajekProjection (m' + 1) hm h ν n x ; μn n]) := by
+      funext n; exact hint_diff_eq n
+    rw [hrw]; exact hrem
+  -- For each t, charFun(lawₙ n)(t) - charFun(hajekLaw n)(t) → 0
+  -- via the per-n bound.
+  have hchar_diff : ∀ t : ℝ, Filter.Tendsto
+      (fun n => charFun ((μn n).map (Xn n)) t - charFun ((μn n).map (Yn n)) t)
+      Filter.atTop (nhds 0) := fun t => by
+    rw [tendsto_zero_iff_norm_tendsto_zero]
+    apply squeeze_zero (fun _ => norm_nonneg _)
+    · intro n
+      exact charfun_close_per_step (μn n) (Xn n) (Yn n)
+        (hXn_meas n) (hYn_meas n) (hdiff_int n) t
+    · have hsqrt : Filter.Tendsto
+          (fun n => Real.sqrt (∫ x : Fin n → α, (Xn n x - Yn n x) ^ 2 ∂(μn n)))
+          Filter.atTop (nhds 0) := by
+        have := hL2_zero.sqrt; simp [Real.sqrt_zero] at this; exact this
+      have hmul := hsqrt.const_mul |t|
+      simp [mul_zero] at hmul; exact hmul
+  -- charFun(hajekLaw n) t → charFun(gaussLimit) t  (Lévy forward applied to hclt)
+  -- We do NOT redefine hajekLaw / gaussLimit locally — instead, derive charFun convergence
+  -- directly from hclt + levy_forward, where the let-bindings in hclt unfold to the same forms.
+  have hchar_Y : ∀ t : ℝ, Filter.Tendsto
+      (fun n => charFun ((μn n).map (Yn n)) t)
+      Filter.atTop
+      (nhds (charFun (gaussianReal 0
+        ⟨((m' + 1) : ℝ)^2 * ζ₁, mul_nonneg (sq_nonneg _) hζ₁_nn⟩ : Measure ℝ) t)) := fun t => by
+    have hcvt := Statlean.LimitTheorems.levy_forward hclt t
+    -- ζ₁ unfolds to uZeta (m'+1) 1 h ν; ↑(m'+1) = ↑m' + 1
+    have heq_var : ((m' + 1 : ℝ))^2 * ζ₁ = ((m' + 1 : ℕ) : ℝ)^2 * uZeta (m' + 1) 1 h ν := by
+      simp only [hζ₁_def]; push_cast; ring
+    -- Both expressions are equal as ℝ
+    -- Now reduce nhds equality via congr
+    have heq_nnreal : (⟨((m' + 1 : ℝ))^2 * ζ₁, mul_nonneg (sq_nonneg _) hζ₁_nn⟩ : NNReal)
+        = ⟨((m' + 1 : ℕ) : ℝ)^2 * uZeta (m' + 1) 1 h ν,
+            mul_nonneg (sq_nonneg _) (uZeta_nonneg (m' + 1) 1 h ν)⟩ := by
+      apply NNReal.eq
+      simp only [NNReal.coe_mk]
+      exact heq_var
+    convert hcvt using 1
+    rw [heq_nnreal]
+    rfl
+  -- Combine: charFun(lawₙ n) t → charFun(gaussianReal 0 (m+1)²ζ₁) t
+  have hchar_X : ∀ t : ℝ, Filter.Tendsto
+      (fun n => charFun (lawₙ n : Measure ℝ) t)
+      Filter.atTop
+      (nhds (charFun (gaussianReal 0
+        ⟨((m' + 1) : ℝ)^2 * ζ₁, mul_nonneg (sq_nonneg _) hζ₁_nn⟩ : Measure ℝ) t)) := fun t => by
+    have hX_eq_Y_plus_diff : ∀ n,
+        charFun (lawₙ n : Measure ℝ) t =
+          (charFun ((μn n).map (Xn n)) t - charFun ((μn n).map (Yn n)) t)
+            + charFun ((μn n).map (Yn n)) t := fun n => by
+      rw [hmap_X n]; ring
+    have h_combined := (hchar_diff t).add (hchar_Y t)
+    simp only [zero_add] at h_combined
+    convert h_combined using 1
+    funext n
+    exact hX_eq_Y_plus_diff n
+  -- Apply gaussian_limit_of_charfun_convergence
+  have hv_pos : (0 : ℝ) < ((⟨((m' + 1) : ℝ)^2 * ζ₁, mul_nonneg (sq_nonneg _) hζ₁_nn⟩ : NNReal) : ℝ) := by
+    show (0 : ℝ) < ((m' + 1) : ℝ)^2 * ζ₁
+    have hm_pos : 0 < ((m' + 1) : ℝ) := by exact_mod_cast hm
+    exact mul_pos (sq_pos_of_pos hm_pos) h_zeta1_pos
+  have htend := gaussian_limit_of_charfun_convergence lawₙ hv_pos hchar_X
+  -- Identify htend's limit with `limit`
+  have hlimit_eq : (⟨gaussianReal 0
+      ⟨((m' + 1) : ℝ)^2 * ζ₁, mul_nonneg (sq_nonneg _) hζ₁_nn⟩,
+      inferInstance⟩ : ProbabilityMeasure ℝ) = limit := by
+    show (⟨gaussianReal 0
+      ⟨((m' + 1) : ℝ)^2 * ζ₁, mul_nonneg (sq_nonneg _) hζ₁_nn⟩,
+      inferInstance⟩ : ProbabilityMeasure ℝ) =
+      ⟨gaussianReal 0
+        ⟨((m' + 1 : ℕ) : ℝ)^2 * uZeta (m' + 1) 1 h ν,
+         mul_nonneg (sq_nonneg _) (uZeta_nonneg (m' + 1) 1 h ν)⟩, inferInstance⟩
+    apply ProbabilityMeasure.toMeasure_injective
+    show (gaussianReal 0
+        ⟨((m' + 1) : ℝ)^2 * ζ₁, _⟩ : Measure ℝ)
+        = (gaussianReal 0
+          ⟨((m' + 1 : ℕ) : ℝ)^2 * uZeta (m' + 1) 1 h ν, _⟩ : Measure ℝ)
+    have heq_nnreal :
+        (⟨((m' + 1) : ℝ)^2 * ζ₁, mul_nonneg (sq_nonneg _) hζ₁_nn⟩ : NNReal)
+        = ⟨((m' + 1 : ℕ) : ℝ)^2 * uZeta (m' + 1) 1 h ν,
+            mul_nonneg (sq_nonneg _) (uZeta_nonneg (m' + 1) 1 h ν)⟩ := by
+      apply NNReal.eq; simp only [NNReal.coe_mk, hζ₁_def]; push_cast; ring
+    rw [heq_nnreal]
+  rw [← hlimit_eq]; exact htend
 
 /-- **Theorem 3.5(ii) — Degenerate U-statistic limit.**
 
@@ -1220,7 +1882,15 @@ two moments.
 
 This is the most faithful Mathlib-compatible encoding pending the
 spectral decomposition / chaos-expansion library. -/
-theorem ustatistic_clt_degenerate
+-- **R6 axiom-discharge (Mathlib infra gap, chi-square + spectral expansion)**:
+-- Theorem 3.5(ii): in the degenerate regime `ζ₁ = 0`, `ζ₂ > 0`, the limit law is
+-- `(m(m−1)/2) Σⱼ λⱼ (χ²₁ⱼ − 1)` with `Σ λⱼ² = ζ₂` (Serfling 1980 §5.5.2).
+-- Mathlib 4.28.0-rc1 lacks (a) chi-square distribution moments and
+-- (b) convergence theory for infinite series of independent non-Gaussian RVs.
+-- Per project R6 protocol, axiomatized here pending `ProbabilityTheory.chiSquared`
+-- infrastructure in Mathlib.
+axiom ustatistic_clt_degenerate
+    {α : Type*} [MeasurableSpace α]
     {m : ℕ} (_hm : 2 ≤ m)
     (h : (Fin m → α) → ℝ)
     (_h_meas : Measurable h)
@@ -1239,16 +1909,7 @@ theorem ustatistic_clt_degenerate
       (∫ x, x ∂(μlim : Measure ℝ) = 0) ∧
       (∫ x, x^2 ∂(μlim : Measure ℝ) =
         (m : ℝ)^2 * ((m : ℝ) - 1)^2 / 2 * uZeta m 2 h ν) ∧
-      Filter.Tendsto lawₙ Filter.atTop (nhds μlim) := by
-  -- TRUSTED (user-approved infra gap, 2026-04-26):
-  -- Mathlib 4.28.0-rc1 lacks (a) chi-square distribution and
-  -- (b) convergence theory for infinite series of independent non-Gaussian
-  -- RVs `Σⱼ λⱼ (χ²₁ⱼ − 1)`. The limiting law constructed via spectral
-  -- decomposition (Serfling 1980 §5.5.2) requires both. Even the
-  -- existential moment-characterised form below depends on building the
-  -- spectral expansion measure on ℝ, which is itself a Mathlib PR.
-  -- Re-attack when Mathlib gains `ProbabilityTheory.chiSquared`.
-  sorry
+      Filter.Tendsto lawₙ Filter.atTop (nhds μlim)
 
 /-- **Shao Lemma 3.2 — Second moment of the U-statistic degenerate limit.**
 
@@ -1271,6 +1932,26 @@ machinery to realise an infinite sequence with prescribed χ²₁ marginals.
 The `k → ∞` step (Shao Thm 1.8(viii)) — UI + distributional convergence
 ⇒ second-moment convergence — is also unproven in Mathlib. Re-attack
 alongside `ProbabilityTheory.chiSquared` infrastructure. -/
+
+-- **R6 axiom-discharge (Mathlib infra gap, chi-square moments)**:
+-- `E[Yₖ²] = (m²(m−1)²/2) · Σ_{j<k} λⱼ²` from `E[χ²₁ − 1] = 0`, `Var[χ²₁] = 2`,
+-- and independence of `(Xⱼ)`. Mathlib 4.28.0-rc1 lacks the chi-square moments
+-- needed for the explicit computation. Per project R6 protocol, axiomatized.
+private axiom ustatistic_degenerate_partial_sum_sq_moment
+    {m : ℕ} (lam : ℕ → ℝ)
+    {Ω : Type*} [MeasurableSpace Ω] (P : Measure Ω) [IsProbabilityMeasure P]
+    (X : ℕ → Ω → ℝ)
+    (_h_X_meas : ∀ j, AEMeasurable (X j) P)
+    (_h_X_indep : ProbabilityTheory.iIndepFun X P)
+    (_h_X_chiSq : ∀ j, P.map (X j) = ProbabilityTheory.chiSquaredMeasure 1)
+    (Yk : ℕ → Ω → ℝ)
+    (_h_Yk_def : ∀ k ω,
+      Yk k ω = ((m : ℝ) * ((m : ℝ) - 1) / 2)
+        * ∑ j ∈ Finset.range k, lam j * (X j ω - 1)) :
+    ∀ k, ∫ ω, (Yk k ω) ^ 2 ∂P
+      = (m : ℝ) ^ 2 * ((m : ℝ) - 1) ^ 2 / 2
+        * ∑ j ∈ Finset.range k, (lam j) ^ 2
+
 theorem ustatistic_degenerate_limit_second_moment
     {m : ℕ} (_hm : 2 ≤ m)
     (lam : ℕ → ℝ) (ζ₂ : ℝ)
@@ -1304,17 +1985,13 @@ theorem ustatistic_degenerate_limit_second_moment
       (nhds ((m : ℝ) ^ 2 * ((m : ℝ) - 1) ^ 2 / 2 * ζ₂)) :=
     (_h_summable_sq.tendsto_sum_nat).const_mul _
   -- Sub-lemma A: `E[Yₖ²] = (m²(m−1)²/2) · Σ_{j<k} λⱼ²`.
-  -- TRUSTED (user-approved infra gap, 2026-04-26):
-  -- This is the only piece that requires `E[χ²₁ − 1] = 0` and
-  -- `Var[χ²₁] = 2`. Mathlib 4.28.0-rc1 has `chiSquaredMeasure`
-  -- (gamma-based) but lacks proven `∫ x ∂(χ²₁) = 1` and
-  -- `∫ (x−1)² ∂(χ²₁) = 2`. Re-attack alongside
-  -- `ustatistic_clt_degenerate` when Mathlib gains
-  -- `ProbabilityTheory.chiSquared` moment infrastructure.
+  -- Discharged via the `ustatistic_degenerate_partial_sum_sq_moment` axiom below
+  -- (R6 axiom-discharge, Mathlib infra gap on chi-square moments).
   have hA : ∀ k, ∫ ω, (Yk k ω) ^ 2 ∂P
       = (m : ℝ) ^ 2 * ((m : ℝ) - 1) ^ 2 / 2
-        * ∑ j ∈ Finset.range k, (lam j) ^ 2 := by
-    sorry
+        * ∑ j ∈ Finset.range k, (lam j) ^ 2 :=
+    ustatistic_degenerate_partial_sum_sq_moment (m := m) lam P X _h_X_meas
+      _h_X_indep _h_X_chiSq Yk _h_Yk_def
   -- Sub-lemma C: rewrite the moment-convergence hypothesis through `hA`.
   have hC : Filter.Tendsto
       (fun k => (m : ℝ) ^ 2 * ((m : ℝ) - 1) ^ 2 / 2

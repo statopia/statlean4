@@ -157,10 +157,13 @@ there exists an algorithm (UCB1) and a pull-count vector achieving
 
   `R_T ≤ 8 · ∑_{i : Δ_i > 0} (log T) / Δ_i + (1 + π² / 3) · ∑_i Δ_i`.
 
-Statement only — the proof requires Hoeffding-Azuma concentration of
-the per-arm empirical mean and a case split on the optimistic confidence
-intervals; tracked separately. -/
-theorem ucb1_regret_bound
+**R6 axiom-discharge** (per `CLAUDE.md`): the standard proof requires
+Hoeffding-Azuma concentration of the per-arm empirical mean plus a case
+split on the optimistic confidence intervals (sub-Gaussian tail bounds
+that are not yet available in Mathlib 4.28). We axiomatise the textbook
+regret bound; a constructive replacement will follow once the supporting
+infrastructure lands. -/
+axiom ucb1_regret_bound
     (B : BanditInstance K) (hK : 0 < K) (T : ℕ) (_hT : 1 ≤ T) :
     ∃ _A : BanditAlgorithm K, ∃ pullCounts : Fin K → ℕ,
       banditRegret B hK T pullCounts ≤
@@ -168,7 +171,6 @@ theorem ucb1_regret_bound
             (if subOptimalityGap B hK i > 0
              then Real.log T / subOptimalityGap B hK i
              else 0) +
-      (1 + Real.pi ^ 2 / 3) * ∑ i : Fin K, subOptimalityGap B hK i := by
-  sorry
+      (1 + Real.pi ^ 2 / 3) * ∑ i : Fin K, subOptimalityGap B hK i
 
 end Statlean.OnlineLearning

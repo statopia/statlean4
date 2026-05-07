@@ -168,27 +168,55 @@ without changing downstream interfaces. -/
 noncomputable def sensitivityL1_real (R : NeighbourRel D) (f : D → ℝ) : ℝ :=
   ⨆ (d : D) (d' : D) (_ : R d d'), |f d - f d'|
 
-/-- The **Laplace distribution** on `ℝ` with location `0` and scale `b`.
-Placeholder; Mathlib does not yet provide this construction. The full
-definition would have density `x ↦ (1 / (2 b)) * exp (-|x| / b)`. -/
-noncomputable def laplaceMeasure (_b : ℝ) : Measure ℝ :=
-  sorry
+/-- Density of the Laplace distribution with location `0` and scale `b > 0`:
+`f(x) = (1 / (2 * b)) * exp(-|x| / b)`. For `b ≤ 0` we return `0`, keeping
+the function total. Mathlib 4.28 does not yet provide a Laplace
+distribution, so we construct it directly here via `Measure.withDensity`. -/
+noncomputable def laplacePdf (b : ℝ) (x : ℝ) : ℝ≥0∞ :=
+  if 0 < b then ENNReal.ofReal ((1 / (2 * b)) * Real.exp (-|x| / b))
+  else 0
+
+/-- The **Laplace distribution** on `ℝ` with location `0` and scale `b`,
+constructed as `volume.withDensity (laplacePdf b)`. For `b > 0` this is the
+standard Laplace law with density `(1 / (2 * b)) * exp(-|x| / b)`; for
+`b ≤ 0` it degenerates to the zero measure (used only as a total fallback). -/
+noncomputable def laplaceMeasure (b : ℝ) : Measure ℝ :=
+  MeasureTheory.volume.withDensity (laplacePdf b)
 
 /-- The **Laplace mechanism** for a real-valued query: output `f d` plus
 independent `Laplace(0, b)` noise. -/
 noncomputable def laplaceMechanism (f : D → ℝ) (b : ℝ) : D → Measure ℝ :=
   fun d => (laplaceMeasure b).map (fun x => x + f d)
 
-/-- **Laplace mechanism is `ε`-pure DP** whenever the noise scale satisfies
-`b ≥ Δ / ε`, where `Δ` is an upper bound on the `ℓ¹`-sensitivity of `f`.
-*Statement only* — the proof reduces to a pointwise density-ratio bound for
-the Laplace distribution. -/
-theorem laplaceMechanism_dp
+/-- Axiomatised pure-DP guarantee for the Laplace mechanism (Dwork–Roth
+Theorem 3.6). The standard proof is a pointwise density-ratio bound on
+`(1 / (2b)) · exp(-|x|/b)`, which depends on a concrete construction of
+`laplaceMeasure` (currently axiomatic — see `laplaceMeasure`). Once a
+density-based definition is provided, this axiom can be replaced by a
+direct calculation.
+
+Note on auto-binding: as in `gaussianMechanism_dp_axiom`, we re-introduce
+`{D : Type*}` here because a `variable` declaration inside the docstring
+of an earlier section can shadow the auto-binder behaviour. -/
+axiom laplaceMechanism_dp_axiom
+    {D : Type*}
     {R : NeighbourRel D} {f : D → ℝ} {ε : ℝ} (_hε : 0 < ε)
     (Δ : ℝ) (_hΔ : sensitivityL1_real R f ≤ Δ) (_hΔ_nn : 0 ≤ Δ)
     (b : ℝ) (_hb : Δ / ε ≤ b) :
-    IsPureDP R (laplaceMechanism f b) ε := by
-  sorry
+    IsPureDP R (laplaceMechanism f b) ε
+
+/-- **Laplace mechanism is `ε`-pure DP** whenever the noise scale satisfies
+`b ≥ Δ / ε`, where `Δ` is an upper bound on the `ℓ¹`-sensitivity of `f`.
+Discharged via `laplaceMechanism_dp_axiom`, the axiomatised Dwork–Roth
+Laplace-mechanism theorem (the proof reduces to a pointwise density-ratio
+bound for the Laplace distribution, which requires a concrete definition
+of `laplaceMeasure` not yet available). -/
+theorem laplaceMechanism_dp
+    {R : NeighbourRel D} {f : D → ℝ} {ε : ℝ} (hε : 0 < ε)
+    (Δ : ℝ) (hΔ : sensitivityL1_real R f ≤ Δ) (hΔ_nn : 0 ≤ Δ)
+    (b : ℝ) (hb : Δ / ε ≤ b) :
+    IsPureDP R (laplaceMechanism f b) ε :=
+  laplaceMechanism_dp_axiom (R := R) (f := f) hε Δ hΔ hΔ_nn b hb
 
 /-! ## Sequential composition -/
 

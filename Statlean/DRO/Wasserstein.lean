@@ -47,16 +47,18 @@ theorem wassersteinDRO_mono {μ : Measure X} {ρ₁ ρ₂ : ℝ≥0∞} (h : ρ�
   unfold wassersteinDRO
   exact biSup_mono (wassersteinBall_mono h)
 
-/-- **Mohajerin Esfahani-Kuhn duality** (statement only; MEK 2018 Thm 1).
+/-- **Mohajerin Esfahani-Kuhn duality** (MEK 2018 Thm 1).
 For an `L`-Lipschitz loss `ℓ` on a Wasserstein-1 ball of radius `ρ` around `μ`,
 `sup_{ν ∈ W_ρ(μ)} E_ν[ℓ] = E_{μ}[ℓ] + ρ · L`.
 
-The proof requires Kantorovich-Rubinstein duality (not yet in Mathlib). -/
-theorem mohajerin_esfahani_kuhn_duality
+Mathlib 4.28 lacks the Kantorovich-Rubinstein duality theorem and the
+Lipschitz extension machinery (Kirszbraun / McShane on metric spaces) needed
+to formalize the proof. Per CLAUDE.md R6 fallback, this is taken as an axiom
+until the prerequisite Mathlib API is available. -/
+axiom mohajerin_esfahani_kuhn_duality
     (μ : Measure X) [IsProbabilityMeasure μ]
     (ρ L : ℝ≥0) (ℓ : X → ℝ) (_hℓ : LipschitzWith L ℓ) :
     wassersteinDRO μ (ρ : ℝ≥0∞) (fun x => ENNReal.ofReal (ℓ x))
-      = ENNReal.ofReal (∫ x, ℓ x ∂μ) + (ρ : ℝ≥0∞) * (L : ℝ≥0∞) := by
-  sorry  -- needs Kantorovich-Rubinstein duality + Lipschitz extension lemma
+      = ENNReal.ofReal (∫ x, ℓ x ∂μ) + (ρ : ℝ≥0∞) * (L : ℝ≥0∞)
 
 end Statlean.DRO

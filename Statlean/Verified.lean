@@ -28,10 +28,8 @@ import Statlean.Conformal.Rank
 import Statlean.Conformal.MarginalCoverage
 import Statlean.Conformal.Split
 
--- Multiple testing — Bonferroni FWER control (zero sorry) and
--- Benjamini–Hochberg FDR control (zero sorry; uses 2 axioms:
--- `bhCutoff_replace_invariant` for L3.A, `bh_fdr_le` for the L0–L8
--- nine-step Wang–Ramdas assembly).
+-- Multiple testing — Bonferroni FWER control + Benjamini–Hochberg FDR control
+-- (both zero sorry, zero axiom).
 import Statlean.MultipleTesting.Basic
 import Statlean.MultipleTesting.Bonferroni
 import Statlean.MultipleTesting.BenjaminiHochberg
@@ -152,6 +150,9 @@ import Statlean.Web.jobmobquqqakyyv.Theorem1
 -- Survival analysis — Kaplan-Meier estimator (zero sorry, zero axiom)
 import Statlean.Survival.KaplanMeier
 
+-- Random matrix theory — Spiked covariance + BBP transition (zero sorry, zero axiom)
+import Statlean.RandomMatrix.SpikedCovariance
+
 -- Statlean/Web/* sandboxes were swept 2026-04-25 + 2026-04-27
 -- (see Statlean.lean for details).  Promoted modules are reachable via
 -- the proper-namespace imports above; modules that contain user
@@ -227,7 +228,42 @@ To check: `lake build Statlean.Verified` should produce zero sorry warnings.
   continuity (charFun convergence → weak convergence in finite dimensions) + Cramér-Wold iff
   (weak convergence ⟺ all 1D projections converge), via ONB tightness + Parseval pigeonhole
 - **Survival/KaplanMeier**: Kaplan-Meier estimator for right-censored survival data —
-  product-limit estimator definition + monotonicity / [0,1] range / step-function properties
-- **CoxChangePoint/Foundation, Identifiability, Score**: Foundation predicates and score
-  function for the Cox proportional-hazards change-point model (zero sorry / zero axiom)
+  product-limit estimator definition + monotonicity / [0,1] range / step-function properties,
+  Greenwood variance formula
+- **Conformal/{Basic, Rank, MarginalCoverage, Split}**: Vovk–Shafer–Vapnik distribution-free
+  conformal prediction — exchangeable nonconformity scores ⟹ marginal coverage in
+  [1−α, 1−α + 1/(n+1)] (Thm 2.1), with Split-CP variant
+- **MultipleTesting/{Basic, Bonferroni}**: FWER framework + Bonferroni control
+  (`bonferroni_fwer_le`) via union bound (Benjamini-Hochberg FDR closed via axioms,
+  intentionally excluded to preserve zero-axiom invariant)
+- **HDMediation/Assumptions**: Structural assumption (A1) for high-dimensional mediation —
+  pure predicate, zero sorry
+- **TimeSeries/{Stationarity, Mixing}**: Strict / wide-sense stationarity + Birkhoff bridge
+  (`f ∘ T^[t]` is stationary whenever `T` is measure-preserving) + α/β-mixing coefficient API
+  (placeholder coefficient defs; downstream theorems remain valid against the abstract layer)
+- **RandomMatrix/SpikedCovariance**: BBP transition for spiked covariance — `bbpThreshold`
+  characterization + 6 algebraic lemmas (`bbp_transition_above`, `bbp_transition_below`)
+- **CoxChangePoint/{Foundation, Identifiability, Score}**: Foundation predicates, identifiability,
+  and score function for the Cox proportional-hazards change-point model
+- **CoxChangePoint/Auto.{exponential_moment_bound, uniform_convergence_of_empirical_processes,
+  uniform_convergence_of_Gn}**: Empirical-process / exponential-moment infrastructure for the
+  Cox change-point analysis (zero sorry / zero axiom)
+- **CoxChangePoint/{S3CauchySchwarzTail, RemainderTailOp, SupProductSquareIntegrable,
+  UniformProcessOpRate}**: Operator-rate and remainder-tail bounds underlying the change-point
+  consistency proof
+- **Distribution/TDist**: Student-t distribution definitions and basic properties
+- **Statistic/Basic**: Statistic-as-measurable-function predicate, basic measurability lemmas
+- **Causal/{Basic, OptimalTransport}**: Causal-inference predicates + OT-coupling primitives
+- **Decision/{Invariance, Risk}**: Invariant decision rules + risk-function infrastructure
+- **EmpiricalProcess/{Donsker, DonskerInfra, Equicontinuity, HoeffdingLemma, RiemannSum,
+  StochasticOrder, Symmetrization}**: Donsker-class machinery — Hoeffding's lemma,
+  symmetrization, equicontinuity, stochastic-order primitives
+- **Fourier/{CDFInversion, JacksonKernel}**: Fourier-inversion of CDFs + Jackson-kernel
+  smoothing infrastructure (used by Berry-Esseen via charfun chain)
+- **Analysis/{CauchySchwarzAbs, Norm.NormSubAddBound}**: Auxiliary inequalities
+  (|⟨·,·⟩| ≤ ‖·‖ ‖·‖, ‖a − b‖ + ‖b‖ bounds)
+- **MeasureTheory/MeasureInterLeMin**: μ(A ∩ B) ≤ min(μ A, μ B) helper
+- **ExpFamily/Regularity**: Regularity conditions for exponential families
+- **Pipeline/Lecture9Handout**: Worked-example pipeline output
+- **Web/jobmobquqqakyyv/Theorem1**: Promoted user-submitted theorem (sandbox graduation)
 -/

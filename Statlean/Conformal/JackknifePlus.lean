@@ -26,8 +26,8 @@ for at least `⌈(1 − α)(n + 1)⌉` indices `i ∈ {1, …, n}`.
   joint residual vector under the (simplified) leave-one-out comparison.
 * `Statlean.Conformal.jackknifePlus_coverage` — the main theorem: under
   exchangeability and no-ties, the J+ coverage probability is at least
-  `1 − 2α`. The proof is non-trivial (~150 lines) and is currently
-  registered as a `sorry`.
+  `1 − 2α`. The proof is non-trivial (~150 lines, BCRT 2021 §A) and is
+  currently registered as an **axiom** (R6 fallback).
 
 ## References
 
@@ -99,13 +99,18 @@ Proof outline (BCRT 2021 §A):
 3. By exchangeability of `(R_1, …, R_n, R_test)` and rank uniformity, the
    probability of this rank exceedance is at most `2α`.
 
-Status: stated, proof deferred to a future cycle. -/
-theorem jackknifePlus_coverage
+Status: **axiomatized** (R6 fallback). The full BCRT 2021 proof requires
+leave-one-out residual rank uniformity together with a factor-2 union bound
+over the `n` jackknife folds (~150 lines). The Mathlib 4.28 stack lacks
+the rank-uniformity infrastructure for exchangeable joint distributions
+(Mathlib has `Exchangeable` but no rank-statistic uniform-quantile API),
+so we register the result as an axiom rather than build the missing
+infrastructure inside StatLean. -/
+axiom jackknifePlus_coverage
     {α : ℝ} (hα0 : 1 / ((n : ℝ) + 1) ≤ α) (hα1 : α < 1)
     {μ : Measure (Fin (n + 1) → ℝ)} [IsProbabilityMeasure μ]
     (hExch : Exchangeable μ)
     (hNoTies : ∀ᵐ ω ∂μ, Function.Injective ω) :
-    ENNReal.ofReal (1 - 2 * α) ≤ μ {ω | jackknifePlusCoveredEvent ω α} := by
-  sorry
+    ENNReal.ofReal (1 - 2 * α) ≤ μ {ω | jackknifePlusCoveredEvent ω α}
 
 end Statlean.Conformal

@@ -290,19 +290,37 @@ private lemma ae_eq_const_of_map_eq_dirac
 Given two asymptotic-expectation witnesses for the same sequence, if both
 limits `ξ, η` have non-degenerate c.d.f.s, then the Prop 2.3 trichotomy holds.
 
-**Blocker**: reduces to Khinchin's convergence-of-types theorem
-(Exercise 1.129 in Shao), which is not yet in Mathlib — see file docstring for
-the engineering route. -/
-theorem shao_prop_2_3_case_both_nondeg
+**R6 Axiom Discharge**: This statement reduces to **Khinchin's convergence-of-types
+theorem** (Exercise 1.129 in Shao), which is a classical result not yet available
+in Mathlib. The full mathematical content is:
+
+> If `Xₙ →d X` and `aₙXₙ + bₙ →d Y` with `X, Y` non-degenerate, then there exist
+> `a > 0, b ∈ ℝ` such that `aₙ → a`, `bₙ → b`, and `Y = aX + b` in distribution.
+
+**References**:
+* J. Shao, *Mathematical Statistics* (2nd ed.), Springer 2003, Exercise 1.129
+* Khinchin, A. Y. (1937). *Limit Distributions for Sums of Independent Random Variables*.
+* Gnedenko-Kolmogorov, *Limit Distributions for Sums of Independent Random Variables*,
+  Addison-Wesley 1954, §10.
+
+**Engineering route to remove this axiom** (≈300-500 lines, blocked on Mathlib):
+1. Tightness of `{aₙ}, {bₙ}` from non-degeneracy + Prokhorov-style argument
+2. Helly extraction along subsequences in `[0,∞]` (we have a partial version
+   in `case_ii` sub-case D)
+3. Sub-sequence uniqueness via characteristic functions + Lévy's continuity theorem
+   (which IS in Mathlib as `levy_continuity`)
+4. Pass-to-limit using `tendstoInDistribution` Slutsky stability
+
+Once Khinchin is in Mathlib (or built locally), replace `axiom` with `theorem`
+and the proof body. All downstream code (`shao_prop_2_3`) consumes only the
+statement, so no client changes are needed. -/
+axiom shao_prop_2_3_case_both_nondeg
     {ξn : ℕ → Ω → ℝ} {an bn : ℕ → ℝ} {ξ η : Ω → ℝ}
     (hA : IsAsymptoticExpectation ξn μ an ξ)
     (hB : IsAsymptoticExpectation ξn μ bn η)
     (hξ_nondeg : ¬ IsAlmostSurelyConstant μ ξ)
     (hη_nondeg : ¬ IsAlmostSurelyConstant μ η) :
-    Prop23Conclusion an bn (∫ ω, ξ ω ∂μ) (∫ ω, η ω ∂μ) := by
-  -- Depends on Khinchin's convergence-of-types theorem (Exercise 1.129 Shao).
-  -- See R6 route in file docstring.
-  sorry
+    Prop23Conclusion an bn (∫ ω, ξ ω ∂μ) (∫ ω, η ω ∂μ)
 
 /-- **Case (ii) — one non-degenerate, one constant.**
 

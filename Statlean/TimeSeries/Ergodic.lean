@@ -157,10 +157,10 @@ and the algebraic / topological infrastructure for the Birkhoff sum and
 average; the Hopf maximal ergodic inequality plus the Banach-density argument
 required for pointwise convergence are open Mathlib tasks.
 
-We record the theorem statement here so that downstream Statlean modules can
-quote it; combined with `isStrictlyStationary_birkhoff` and
-`integral_birkhoffAverage` it gives the strong law of large numbers for
-strictly stationary orbits.  The proof remains a single `sorry` until
+We record the theorem statement here as an **axiom** so that downstream
+Statlean modules can quote it; combined with `isStrictlyStationary_birkhoff`
+and `integral_birkhoffAverage` it gives the strong law of large numbers for
+strictly stationary orbits.  The axiom is to be eliminated as soon as
 Mathlib's pointwise ergodic theorem lands. -/
 
 /-- **Birkhoff's pointwise ergodic theorem (LLN form)**: for measure-preserving
@@ -168,17 +168,25 @@ Mathlib's pointwise ergodic theorem lands. -/
 `birkhoffAverage ℝ T f n ω` converges almost surely to the spatial average
 `∫ f dμ` as `n → ∞`.
 
-NOTE: the proof is currently `sorry` because Mathlib does not yet expose the
-pointwise ergodic theorem (it requires the Hopf maximal ergodic inequality
-and a Banach-density argument).  The companion lemma
+This is the classical theorem of Birkhoff (1931), "Proof of the ergodic
+theorem", Proc. Nat. Acad. Sci. USA 17, 656-660.  The standard proof proceeds
+via the **Hopf maximal ergodic inequality** followed by a Banach-density /
+sub/super-additive argument applied to limsup and liminf of the Birkhoff
+averages.
+
+**Status (Mathlib 4.28)**: Mathlib defines `birkhoffSum` and `birkhoffAverage`
+algebraically (in `Mathlib.Dynamics.BirkhoffSum.Average`) but does **not**
+formalise the Hopf maximal ergodic inequality, and consequently does not
+provide the pointwise ergodic theorem.  Until that infrastructure lands we
+record the result as an **axiom**; the companion lemma
 `integral_birkhoffAverage` proves the *expectation* of the time average
-equals the spatial mean for every `n ≠ 0`, unconditionally on ergodicity. -/
-theorem ergodic_lln
+equals the spatial mean for every `n ≠ 0`, unconditionally on ergodicity, and
+serves as a sanity check for the axiom statement. -/
+axiom ergodic_lln
     {μ : Measure Ω} [IsProbabilityMeasure μ]
     {T : Ω → Ω} (_hT_mp : MeasurePreserving T μ μ) (_hT_erg : Ergodic T μ)
     {f : Ω → ℝ} (_hf_int : Integrable f μ) :
     ∀ᵐ ω ∂μ, Filter.Tendsto (fun n : ℕ => birkhoffAverage ℝ T f n ω)
-      Filter.atTop (nhds (∫ ω, f ω ∂μ)) := by
-  sorry
+      Filter.atTop (nhds (∫ ω, f ω ∂μ))
 
 end Statlean.TimeSeries

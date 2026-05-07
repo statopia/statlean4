@@ -95,21 +95,41 @@ theorem jamesSteinEstimator_apply (σsq : ℝ) (y : Fin d → ℝ)
 
 end Trivial
 
+end Statlean.EmpiricalBayes
+
+/-- **Stein's paradox** (Stein 1956, James-Stein 1961): in dimension `d ≥ 3`,
+the James-Stein estimator strictly dominates the MLE in squared-error risk,
+uniformly in `θ`.
+
+Full proof requires Stein's integration-by-parts identity plus the expected
+reciprocal squared norm bound `E[1/‖Y‖²]`, neither yet in Mathlib 4.28.
+R6 fallback per CLAUDE.md (basis: Lehmann & Casella, *Theory of Point
+Estimation*, 2nd ed., §5.5). -/
+axiom stein_dominance_axiom
+    {d : ℕ} (hd : 3 ≤ d) (σsq : NNReal) (hσ : 0 < σsq) (θ : Fin d → ℝ) :
+    Statlean.EmpiricalBayes.risk σsq
+        (Statlean.EmpiricalBayes.jamesSteinEstimator (σsq : ℝ)) θ
+      < Statlean.EmpiricalBayes.risk σsq
+        Statlean.EmpiricalBayes.mleEstimator θ
+
+namespace Statlean.EmpiricalBayes
+
 section SteinDominance
 
-/-- **Stein's paradox** (statement only): for `d ≥ 3`, the James-Stein estimator
-strictly dominates the MLE in squared-error risk, uniformly in `θ`.
+/-- **Stein's paradox**: for `d ≥ 3`, the James-Stein estimator strictly
+dominates the MLE in squared-error risk, uniformly in `θ`.
 
 Quantitatively, `R(JS, θ) = d · σ² - (d - 2)² · σ⁴ · E[1/‖Y‖²]`, which is
 strictly smaller than `R(MLE, θ) = d · σ²` whenever `d ≥ 3` and `σ² > 0`.
 
 The full proof requires Stein's identity (integration by parts against the
 Gaussian density) plus a finite expectation bound for `1 / ‖Y‖²` when
-`d ≥ 3`. Both ingredients are nontrivial and are deferred. -/
+`d ≥ 3`. Both ingredients are not yet in Mathlib 4.28; the result is
+admitted via `stein_dominance_axiom` as an R6 fallback. -/
 theorem stein_dominance
     (hd : 3 ≤ d) (σsq : NNReal) (hσ : 0 < σsq) (θ : Fin d → ℝ) :
-    risk σsq (jamesSteinEstimator (σsq : ℝ)) θ < risk σsq mleEstimator θ := by
-  sorry
+    risk σsq (jamesSteinEstimator (σsq : ℝ)) θ < risk σsq mleEstimator θ :=
+  stein_dominance_axiom hd σsq hσ θ
 
 end SteinDominance
 

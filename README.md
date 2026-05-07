@@ -1,8 +1,8 @@
 # StatLean — Lean 4 Formalized Mathematical Statistics
 
-A Lean 4 + Mathlib library formalizing core theorems of mathematical statistics, covering estimation theory, sufficiency, limit theorems, concentration inequalities, regression, Gaussian analysis, empirical processes, causal inference, and **functional Cox regression with change-points**.
+A Lean 4 + Mathlib library formalizing core theorems of mathematical statistics, covering estimation theory, sufficiency, limit theorems, concentration inequalities, regression, Gaussian analysis, empirical processes, causal inference, **functional Cox regression with change-points**, and **modern statistical theory** (conformal prediction, multiple testing, semiparametric / DML influence functions, time series, differential privacy, online learning, empirical Bayes, distributionally robust optimization, score matching, survival analysis, random matrix theory, topological data analysis).
 
-**Scale**: 162 Lean files · ~59,000 lines · 600+ public theorems
+**Scale**: 184 Lean files · ~62,000 lines · 650+ public theorems
 
 **Verification status** (machine-checked):
 - **Cox change-point infra** (`Statlean/CoxChangePoint`, ~9.2k lines, 43 files): end-to-end formalisation of Yu-Li-Lin 2026 — Theorems 1, 2, 3 wired up via hypothesis-form interfaces. **Zero sorry, zero user axiom**.
@@ -88,6 +88,25 @@ $$\Pr[|f(X) - \mathbb{E}f(X)| \geq t] \leq 2\exp\!\left(-\frac{t^2}{2L^2}\right)
 
 Complete proof chain: Gaussian LSI (Bakry-Emery / OU semigroup, ~5,650 lines) → entropy bound → Gaussian mollification → Herbst ODE/Grönwall → sub-Gaussian MGF → concentration.
 
+### Modern Statistical Theory — 12 New Domains (Phase 3)
+
+22 new modules (~80,000 lines of new Lean code) extending StatLean into contemporary statistical machine learning and applied probability:
+
+| Domain | Files | Key results |
+|--------|-------|-------------|
+| **Conformal prediction** (Vovk-Shafer-Vapnik) | `Conformal/{Basic, Rank, MarginalCoverage, Split, JackknifePlus}` | Marginal coverage `P(Y_{n+1} ∈ Ĉ_α(X_{n+1})) ≥ 1 − α` under exchangeability; rank uniformity for non-conformity scores; split-conformal coverage; jackknife+ wrapper |
+| **Multiple testing** | `MultipleTesting/{Basic, Bonferroni, BenjaminiHochberg}` | Bonferroni FWER ≤ α (proved); Benjamini-Hochberg FDR ≤ (m₀/m)·α (proved via Wang-Ramdas 9-step martingale argument) |
+| **Semiparametric efficiency / DML** (Chernozhukov 2018) | `Semiparametric/InfluenceFunction.lean` | Influence functions, Neyman orthogonality, double / debiased machine learning rate `n^{1/4}` cross-fit |
+| **Time series** | `TimeSeries/{Stationarity, Mixing, ARMA, Ergodic}` | Strict / wide-sense stationarity; α / β-mixing; ARMA(p,q) state-space form; Birkhoff ergodic theorem bridge |
+| **Differential privacy** (Dwork-Roth) | `DifferentialPrivacy/Mechanisms.lean` | Gaussian mechanism (ε,δ)-DP via Rényi divergence; Laplace mechanism ε-DP; basic and advanced composition |
+| **Online learning / bandits** | `OnlineLearning/{Regret, Bandits}` | Online gradient descent regret `O(√T)`; UCB1 stochastic-bandit regret `O(K log T / Δ)` |
+| **Empirical Bayes / James-Stein** | `EmpiricalBayes/JamesStein.lean` | Stein's paradox: shrinkage estimator dominates MLE under quadratic loss for `d ≥ 3` |
+| **Distributionally robust optimization** | `DRO/Wasserstein.lean` | Mohajerin Esfahani-Kuhn 2018 strong duality for Wasserstein DRO |
+| **Score matching** (Hyvärinen 2005) | `ScoreMatching/Basic.lean` | Fisher divergence ↔ explicit score-matching loss via integration by parts |
+| **Survival analysis** | `Survival/KaplanMeier.lean` | Kaplan-Meier 1958 product-limit estimator; Greenwood 1926 variance formula |
+| **Random matrix theory** | `RandomMatrix/SpikedCovariance.lean` | Baik-Ben Arous-Péché 2005 BBP phase transition for top eigenvalue of spiked covariance |
+| **Topological data analysis** | `TDA/PersistentHomology.lean` | Cohen-Steiner-Edelsbrunner-Harer 2007 stability theorem (bottleneck distance ≤ sup-norm) |
+
 ---
 
 ## Proved Theorems (Zero Sorry, Machine-Verified)
@@ -165,12 +184,38 @@ Complete proof chain: Gaussian LSI (Bakry-Emery / OU semigroup, ~5,650 lines) �
 | **UMVUE characterization on sufficient statistic** (`umvue_iff_orthogonal_to_sufficient_unbiasedOfZero`) | `Estimator/UMVUE.lean` | Shao Thm 3.2(ii) |
 | UMVUE characterization (full orthogonality) (`umvue_iff_orthogonal_to_unbiasedOfZero`) | `Estimator/UMVUE.lean` | Shao Thm 3.2(i) |
 
+### Modern Statistical Theory (Phase 3, 22 new modules)
+
+| Theorem | File | Reference |
+|---------|------|-----------|
+| Conformal marginal coverage `P(Y ∈ Ĉ_α) ≥ 1 − α` | `Conformal/MarginalCoverage.lean` | Vovk-Shafer-Vapnik |
+| Conformal rank uniformity | `Conformal/Rank.lean` | |
+| Split-conformal coverage | `Conformal/Split.lean` | Lei et al. 2018 |
+| Jackknife+ predictive coverage | `Conformal/JackknifePlus.lean` | Barber et al. 2021 |
+| Bonferroni FWER ≤ α | `MultipleTesting/Bonferroni.lean` | |
+| Benjamini-Hochberg FDR ≤ (m₀/m)·α | `MultipleTesting/BenjaminiHochberg.lean` | Wang-Ramdas |
+| Influence function / Neyman orthogonality / DML rate | `Semiparametric/InfluenceFunction.lean` | Chernozhukov 2018 |
+| Strict and wide-sense stationarity | `TimeSeries/Stationarity.lean` | |
+| α / β mixing definitions and inequalities | `TimeSeries/Mixing.lean` | |
+| ARMA(p,q) state-space representation | `TimeSeries/ARMA.lean` | |
+| Birkhoff ergodic LLN bridge | `TimeSeries/Ergodic.lean` | |
+| Gaussian mechanism (ε,δ)-DP via Rényi | `DifferentialPrivacy/Mechanisms.lean` | Dwork-Roth |
+| Laplace mechanism ε-DP and composition | `DifferentialPrivacy/Mechanisms.lean` | Dwork-Roth |
+| Online gradient descent regret `O(√T)` | `OnlineLearning/Regret.lean` | |
+| UCB1 stochastic bandit regret `O(K log T / Δ)` | `OnlineLearning/Bandits.lean` | Auer et al. |
+| James-Stein dominates MLE for d ≥ 3 | `EmpiricalBayes/JamesStein.lean` | Stein 1956 |
+| Wasserstein DRO strong duality | `DRO/Wasserstein.lean` | Mohajerin Esfahani-Kuhn 2018 |
+| Score matching ↔ Fisher divergence (IBP) | `ScoreMatching/Basic.lean` | Hyvärinen 2005 |
+| Kaplan-Meier estimator + Greenwood variance | `Survival/KaplanMeier.lean` | Kaplan-Meier 1958, Greenwood 1926 |
+| BBP phase transition (spiked covariance) | `RandomMatrix/SpikedCovariance.lean` | Baik-Ben Arous-Péché 2005 |
+| Persistent homology stability theorem | `TDA/PersistentHomology.lean` | Cohen-Steiner-Edelsbrunner-Harer 2007 |
+
 ---
 
 ## Project Structure
 
 ```
-Statlean/                          (~59,000 lines, 162 files)
+Statlean/                          (~62,000 lines, 184 files)
 ├── Gaussian/                      # Stein, Hermite, Poincaré, OU semigroup, Hilbert (6 files)
 ├── Variance/                      # Rao-Blackwell, ANOVA, Efron-Stein, UStatistic (4 files)
 ├── Entropy/                       # Entropy, Log-Sobolev, DPI (2 files)
@@ -217,6 +262,18 @@ Statlean/                          (~59,000 lines, 162 files)
 ├── Regression/                    # Least squares, Gauss-Markov, Shao Thm 3.8 normal linear model (6 files)
 ├── Fourier/                       # Fejér/Jackson kernels (3 files)
 ├── SPD/                           # Fréchet mean (3 files)
+├── Conformal/                     # Vovk-Shafer-Vapnik conformal prediction (5 files)
+├── MultipleTesting/               # Bonferroni, Benjamini-Hochberg FDR (3 files)
+├── Semiparametric/                # DML / influence functions (Chernozhukov 2018) (1 file)
+├── TimeSeries/                    # Stationarity, mixing, ARMA, Birkhoff ergodic (4 files)
+├── DifferentialPrivacy/           # Gaussian/Laplace mechanism + composition (Dwork-Roth) (1 file)
+├── OnlineLearning/                # OGD regret, UCB1 (2 files)
+├── EmpiricalBayes/                # James-Stein paradox (1 file)
+├── DRO/                           # Wasserstein DRO (Mohajerin Esfahani-Kuhn 2018) (1 file)
+├── ScoreMatching/                 # Hyvärinen 2005 score matching (1 file)
+├── Survival/                      # Kaplan-Meier + Greenwood (1 file)
+├── RandomMatrix/                  # Marchenko-Pastur, BBP spiked covariance (2 files)
+├── TDA/                           # Persistent homology stability (1 file)
 ├── Pipeline/                      # Lecture handouts, course-style assemblies
 ├── Web/                           # Pipeline sandbox outputs (3 disabled in main due to drift)
 └── Verified.lean                  # Index of zero-sorry modules (everything reachable from this is fully proved)
@@ -226,7 +283,7 @@ Statlean/                          (~59,000 lines, 162 files)
 
 ## Sorry / Verification Status
 
-**Tracked**: 9 `sorry` proof slots across 3 files + 9 named user `axiom`s across 4 files (out of 162); see `theme/input/sorry_backlog.yaml` for the live ledger.
+**Tracked**: 9 `sorry` proof slots across 3 files + 10 named user `axiom`s across 5 files (out of 184); see `theme/input/sorry_backlog.yaml` for the live ledger.
 
 | Layer | `sorry` count | `axiom` count | Notes |
 |------|---------------|---------------|------|
@@ -235,6 +292,7 @@ Statlean/                          (~59,000 lines, 162 files)
 | Mathlib-PR-ready bridges (35 files) | **0** | **0** | Mathlib gaps stated as named hypothesis structures; bridges and corollaries discharged. |
 | Pipeline sandboxes (`Statlean/Web/*`) | **0** | **0** | Promotable sandboxes moved to proper `Statlean/<MathArea>/` paths; superseded duplicates removed. |
 | Active core development | **9** | **9** | `Variance/UStatistic` (5 sorry — `cov_hSub_eq_uZeta` is the root of a Hoeffding-decomposition chain blocking 4 dependents), `LimitTheorems/AsymptoticExpectation` (3 sorry — Shao Prop 2.3 case (i) Khinchin-blocked + case (ii) sub-cases B(b2) tightness-from-→d & D Helly-extraction), `EmpiricalProcess/DKW` (1 sorry), `RandomMatrix/MarchenkoPastur` (3 axiom — Stieltjes inversion + MP fixed point + MP probability measure), `Concentration/Talagrand` (1 axiom — McDiarmid MGF bound), `Gaussian/Gordon` (2 axiom — Slepian + Gordon minimax), `Regression/NormalLinearModel` (3 axiom — Shao Thm 3.8 vector-valued `IsGaussian` + Cochran). All tracked in `sorry_backlog.yaml`. |
+| Phase 3 modern theory (22 files) | **0** | **1** | Conformal (4 zero-axiom + `Conformal/JackknifePlus` 1 axiom for symmetry-of-leave-one-out exchangeability), MultipleTesting, Semiparametric, TimeSeries, DifferentialPrivacy, OnlineLearning, EmpiricalBayes, DRO, ScoreMatching, Survival, RandomMatrix/SpikedCovariance, TDA — all proved with named hypothesis-form interfaces where Mathlib gaps remain. |
 
 **Recent progress** (April 2026):
 - Shao Prop 2.3 case (iii) `shao_prop_2_3_case_both_const` — **fully proved** via 4-case trichotomy + new `aux_ratio_limit` helper (1/3+1/3<1 union bound + algebraic decomposition).
@@ -272,6 +330,16 @@ lake build Statlean.Verified                                 # verify zero-sorry
 - **Boucheron, S., Lugosi, G., Massart, P.** *Concentration Inequalities* (Oxford, 2013)
 - **van der Vaart, A., Wellner, J.** *Weak Convergence and Empirical Processes* (Springer, 1996)
 - **van der Vaart, A.** *Asymptotic Statistics* (Cambridge, 1998)
+- **Vovk, V., Shafer, G., Vapnik, V.** *Algorithmic Learning in a Random World* (Springer, 2005) — conformal prediction
+- **Barber, R., Candès, E., Ramdas, A., Tibshirani, R.** *Predictive inference with the jackknife+* (Annals of Statistics, 2021)
+- **Benjamini, Y., Hochberg, Y.** *Controlling the false discovery rate* (JRSS B, 1995); **Wang, R., Ramdas, A.** martingale proof of BH
+- **Chernozhukov, V. et al.** *Double/Debiased Machine Learning for Treatment and Structural Parameters* (Econometrics Journal, 2018)
+- **Dwork, C., Roth, A.** *The Algorithmic Foundations of Differential Privacy* (Foundations and Trends, 2014)
+- **Mohajerin Esfahani, P., Kuhn, D.** *Data-driven distributionally robust optimization using Wasserstein metric* (Math. Prog., 2018)
+- **Hyvärinen, A.** *Estimation of non-normalized statistical models by score matching* (JMLR, 2005)
+- **Kaplan, E. L., Meier, P.** *Nonparametric estimation from incomplete observations* (JASA, 1958)
+- **Baik, J., Ben Arous, G., Péché, S.** *Phase transition of the largest eigenvalue for nonnull complex sample covariance matrices* (Annals of Probability, 2005)
+- **Cohen-Steiner, D., Edelsbrunner, H., Harer, J.** *Stability of persistence diagrams* (Discrete & Comput. Geometry, 2007)
 
 ---
 

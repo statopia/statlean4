@@ -132,6 +132,7 @@ import Statlean.OnlineLearning.Bandits
 -- Causal inference (Lin, Kong, Wang 2022)
 import Statlean.Causal.Basic
 import Statlean.Causal.OptimalTransport
+import Statlean.Causal.DoCalculus
 import Statlean.EmpiricalProcess.RiemannSum
 import Statlean.EmpiricalProcess.DonskerInfra
 import Statlean.EmpiricalProcess.HoeffdingLemma
@@ -153,9 +154,13 @@ import Statlean.Decision.Risk
 import Statlean.Gaussian.Gordon
 import Statlean.MeasureTheory.MeasureInterLeMin
 import Statlean.RandomMatrix.MarchenkoPastur
+import Statlean.RandomMatrix.SpikedCovariance
 
 -- Score matching (Hyvärinen 2005)
 import Statlean.ScoreMatching.Basic
+
+-- Compressed sensing — RIP and L¹ recovery (Candès–Tao 2005)
+import Statlean.CompressedSensing.RIP
 
 -- Promoted from Statlean/Web/* sandboxes 2026-04-25:
 import Statlean.CoxChangePoint.RemainderTailOp
@@ -165,6 +170,7 @@ import Statlean.ExpFamily.Regularity
 import Statlean.EmpiricalBayes.JamesStein
 import Statlean.DRO.Wasserstein
 import Statlean.Survival.KaplanMeier
+import Statlean.TDA.PersistentHomology
 
 -- Statlean/Web/* sandboxes were swept 2026-04-25 + 2026-04-27:
 --   * 558 transient sandbox dirs deleted in the original sweep.

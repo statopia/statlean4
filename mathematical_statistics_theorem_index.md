@@ -1,6 +1,6 @@
 # Mathematical Statistics Theorem Index
 
-Complete extraction of all Theorems, Propositions, Lemmas, and Corollaries from "Mathematical Statistics" (Shao, 2nd Edition, 2003).
+Complete extraction of all Theorems, Propositions, Lemmas, and Corollaries from "Mathematical Statistics" (Shao, 2nd Edition, 2003), plus an appendix indexing the **modern statistical theory** modules added under the `Statlean/` Phase 3 expansion (conformal prediction, multiple testing, semiparametric efficiency, time series, differential privacy, online learning, empirical Bayes, DRO, score matching, survival analysis, random matrix theory, topological data analysis).
 
 ---
 
@@ -247,6 +247,45 @@ Complete extraction of all Theorems, Propositions, Lemmas, and Corollaries from 
 
 ---
 
+## Chapter 8: Modern Statistical Theory (StatLean Phase 3 expansion)
+
+These results extend Shao's textbook with contemporary statistical / machine-learning theorems. Each item is keyed to the Lean module that formalizes it; references point to the original publication rather than to Shao.
+
+### Theorems
+
+- **Theorem 8.1**: Conformal prediction marginal coverage `P(Y_{n+1} ∈ Ĉ_α(X_{n+1})) ≥ 1 − α` under exchangeability — `Conformal/MarginalCoverage.lean` (Vovk-Shafer-Vapnik 2005)
+- **Theorem 8.2**: Split-conformal coverage with calibration set — `Conformal/Split.lean` (Lei et al. 2018)
+- **Theorem 8.3**: Jackknife+ predictive coverage — `Conformal/JackknifePlus.lean` (Barber-Candès-Ramdas-Tibshirani 2021)
+- **Theorem 8.4**: Bonferroni FWER control `FWER ≤ α` — `MultipleTesting/Bonferroni.lean`
+- **Theorem 8.5**: Benjamini-Hochberg FDR control `FDR ≤ (m₀/m)·α` (Wang-Ramdas martingale argument, 9 steps) — `MultipleTesting/BenjaminiHochberg.lean` (Benjamini-Hochberg 1995)
+- **Theorem 8.6**: Neyman orthogonality + DML rate `n^{1/4}` cross-fit consistency — `Semiparametric/InfluenceFunction.lean` (Chernozhukov et al. 2018)
+- **Theorem 8.7**: Birkhoff ergodic theorem bridging time-average to space-average — `TimeSeries/Ergodic.lean`
+- **Theorem 8.8**: Gaussian mechanism (ε,δ)-differential privacy via Rényi divergence — `DifferentialPrivacy/Mechanisms.lean` (Dwork-Roth)
+- **Theorem 8.9**: Laplace mechanism ε-differential privacy + basic / advanced composition — `DifferentialPrivacy/Mechanisms.lean` (Dwork-Roth)
+- **Theorem 8.10**: Online gradient descent regret `R_T = O(√T)` — `OnlineLearning/Regret.lean`
+- **Theorem 8.11**: UCB1 stochastic-bandit regret `R_T = O(K log T / Δ)` — `OnlineLearning/Bandits.lean` (Auer-Cesa-Bianchi-Fischer)
+- **Theorem 8.12**: James-Stein shrinkage dominates MLE under quadratic risk for `d ≥ 3` — `EmpiricalBayes/JamesStein.lean` (Stein 1956)
+- **Theorem 8.13**: Wasserstein DRO strong duality — `DRO/Wasserstein.lean` (Mohajerin Esfahani-Kuhn 2018)
+- **Theorem 8.14**: Score-matching ↔ Fisher divergence equivalence via integration by parts — `ScoreMatching/Basic.lean` (Hyvärinen 2005)
+- **Theorem 8.15**: Kaplan-Meier product-limit estimator + Greenwood variance formula — `Survival/KaplanMeier.lean` (Kaplan-Meier 1958, Greenwood 1926)
+- **Theorem 8.16**: BBP phase transition for largest eigenvalue of spiked covariance — `RandomMatrix/SpikedCovariance.lean` (Baik-Ben Arous-Péché 2005)
+- **Theorem 8.17**: Persistent homology stability `d_B(D(f), D(g)) ≤ ‖f − g‖_∞` — `TDA/PersistentHomology.lean` (Cohen-Steiner-Edelsbrunner-Harer 2007)
+
+### Propositions
+
+- **Proposition 8.1**: Rank uniformity for non-conformity scores under exchangeability — `Conformal/Rank.lean`
+- **Proposition 8.2**: Strict vs wide-sense stationarity definitions and basic equivalences — `TimeSeries/Stationarity.lean`
+- **Proposition 8.3**: ARMA(p,q) state-space representation — `TimeSeries/ARMA.lean`
+- **Proposition 8.4**: α-mixing and β-mixing definitions; α ≤ β; mixing implies ergodicity — `TimeSeries/Mixing.lean`
+- **Proposition 8.5**: Influence function characterization of asymptotically linear estimators — `Semiparametric/InfluenceFunction.lean`
+
+### Lemmas
+
+- **Lemma 8.1**: Symmetry / leave-one-out exchangeability for conformal scores — `Conformal/Basic.lean`
+- **Lemma 8.2**: Storey's null p-value sub-uniformity for FDR control — `MultipleTesting/BenjaminiHochberg.lean`
+
+---
+
 ## Summary Statistics
 
 | Chapter | Theorems | Propositions | Lemmas | Corollaries | Total |
@@ -258,7 +297,8 @@ Complete extraction of all Theorems, Propositions, Lemmas, and Corollaries from 
 | 5 | 20 | 6 | 3 | 1 | 30 |
 | 6 | 11 | 5 | 7 | 1 | 24 |
 | 7 | 11 | 4 | 0 | 2 | 17 |
-| **TOTAL** | **88** | **42** | **23** | **12** | **165** |
+| 8 (modern, Phase 3) | 17 | 5 | 2 | 0 | 24 |
+| **TOTAL** | **105** | **47** | **25** | **12** | **189** |
 
 ---
 
@@ -297,6 +337,20 @@ Complete extraction of all Theorems, Propositions, Lemmas, and Corollaries from 
 - **Hotelling's T² Test** (Theorem 7.8)
 - **Multivariate ANOVA** (Theorem 7.10-7.11)
 
+### Chapter 8: Modern Statistical Theory (Phase 3)
+- **Conformal Prediction** marginal / split / jackknife+ coverage (Theorem 8.1-8.3)
+- **Benjamini-Hochberg FDR** control (Theorem 8.5)
+- **Double / Debiased Machine Learning** (Theorem 8.6)
+- **Birkhoff Ergodic Theorem** (Theorem 8.7)
+- **Differential Privacy** (Gaussian / Laplace mechanism, Theorem 8.8-8.9)
+- **Online Learning Regret Bounds** (OGD, UCB1; Theorem 8.10-8.11)
+- **James-Stein Paradox** (Theorem 8.12)
+- **Wasserstein DRO Duality** (Theorem 8.13)
+- **Score Matching** (Theorem 8.14)
+- **Kaplan-Meier + Greenwood** (Theorem 8.15)
+- **BBP Phase Transition** (Theorem 8.16)
+- **Persistent Homology Stability** (Theorem 8.17)
+
 ---
 
 ## Cross-Reference: StatLean Formalization Status
@@ -307,6 +361,7 @@ See `theme/input/sorry_backlog.yaml` for mapping of PDF theorems to Lean formali
 - Chapter 1: Core probability (characteristic functions, convergence modes)
 - Chapter 4: Sufficiency and factorization theorems
 - Chapter 5: Empirical process basics
+- Chapter 8 (Phase 3): Conformal prediction, multiple testing (Bonferroni / BH), DML influence functions, time-series stationarity / mixing / ARMA / ergodic, differential-privacy mechanisms, OGD / UCB1 regret, James-Stein, Wasserstein DRO, score matching, Kaplan-Meier, BBP transition, persistent-homology stability
 
 **Key todo areas:**
 - Chapter 4: Berry-Esseen theorem (with Stieltjes inversion blocker)
