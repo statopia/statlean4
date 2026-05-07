@@ -1,0 +1,815 @@
+# StatLean User Axiom Registry
+#
+# Tracks every `axiom` / `private axiom` declaration in the StatLean codebase,
+# together with provenance, blocker, replacement path, and Mathlib upgrade
+# triggers. Used by `theme/scripts/check_axiom_registry.py` to detect drift
+# between code and registry.
+#
+# Categories:
+#   * historical       — early-project axioms (pre-R6 protocol)
+#   * R6_genuine       — Mathlib-infrastructure-deep results (Massart DKW,
+#                        TDA stability, MEK duality, Slepian/Gordon, ...)
+#   * R6_engineering   — Mathlib has primitives but assembly is non-trivial
+#                        (~150+ LOC), e.g. UStat 4-block Fubini
+#   * R6_API_gap       — pure Mathlib API gap; landing the missing API
+#                        immediately discharges the axiom
+#
+# Schema is documented in `theme/scripts/check_axiom_registry.py`.
+
+axioms:
+
+# ---------------------------------------------------------------------------
+# HISTORICAL — pre-R6 batch (Talagrand, Gordon, MarchenkoPastur, NormalLinearModel)
+# ---------------------------------------------------------------------------
+
+  - id: concentration.talagrand.mcdiarmid_mgf_bound
+    file: Statlean/Concentration/Talagrand.lean
+    line: 550
+    kind: main
+    category: historical
+    math_content: |
+      McDiarmid MGF bound: For `f` with bounded differences `c` on a product
+      space, the MGF of `f - E[f]` under the product measure is bounded by
+      `exp(λ² · ∑cᵢ² / 8)`. Standard route is Doob's martingale decomposition
+      `f - E[f] = ∑ Dᵢ` (martingale differences with `|Dᵢ| ≤ cᵢ`) plus
+      Hoeffding's lemma applied to each conditional exponential moment via
+      iterated Fubini.
+    citation: Boucheron–Lugosi–Massart, *Concentration Inequalities*, Thm 6.2; McDiarmid 1989.
+    blocker: |
+      Mathlib 4.28 lacks `condexp` infrastructure for finite product spaces
+      (no `Measure.pi_succ_above` conditional expectation). Iterated Fubini
+      over `Measure.pi μ` requires this.
+    replacement_path: |
+      1. Build `condExp` API for `Measure.pi` (project the i-th coordinate).
+      2. Hoeffding's lemma per martingale-difference (already in Mathlib as
+         `MeasureTheory.exp_mul_le_exp_var_div_eight` for bounded RVs).
+      3. Telescope using `condExp_pi_pi_succAbove`.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.CondExp.Pi (conditional expectation on product spaces)"
+      - "Mathlib.Probability.Martingale.Hoeffding (Doob decomposition for bounded-differences martingales)"
+    estimated_effort: ~250 LOC
+    priority: med
+    date_added: 2026-05-07
+
+  - id: gaussian.gordon.slepian_lemma
+    file: Statlean/Gaussian/Gordon.lean
+    line: 138
+    kind: main
+    category: historical
+    math_content: |
+      Slepian's lemma: under `SlepianCondition` (centered Gaussians with
+      `Var Xᵢ = Var Yᵢ`, `Cov Xᵢ Xⱼ ≤ Cov Yᵢ Yⱼ`), `E[max Xᵢ] ≤ E[max Yᵢ]`.
+      Proof: Lindeberg/Gaussian interpolation `Z(t) = √t·X + √(1-t)·Y`, then
+      multivariate Gaussian IBP (Stein) gives
+      `d/dt E[φ(Z(t))] = ½ Σ_{i≠j} (Cov(Xᵢ,Xⱼ) - Cov(Yᵢ,Yⱼ)) · ∂²φ/∂xᵢ∂xⱼ ≥ 0`
+      for `φ = max` (convexity), hence monotone in `t`.
+    citation: Slepian (1962), *Bell Syst. Tech. J.* 41, 463–501; Vershynin §6.5.
+    blocker: |
+      Mathlib 4.28 lacks (a) multivariate Gaussian integration-by-parts (Stein
+      identity for `Fin n → ℝ`), (b) parametric differentiation of
+      `E[φ(Z(t))]` for non-smooth `φ = max`, (c) the smoothing argument that
+      transfers to non-smooth `φ`.
+    replacement_path: |
+      1. Multivariate Stein/IBP on `Fin n → ℝ` Gaussians.
+      2. Smoothing of `max` via `softmax_β → max` as `β → ∞`.
+      3. Differentiation under the integral sign (already partial in Mathlib).
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.Gaussian.Multivariate.IBP (Stein for Fin n → ℝ)"
+      - "Mathlib.Analysis.Smooth.Softmax (smooth approximation of max)"
+    estimated_effort: ~350 LOC
+    priority: low
+    date_added: 2026-05-07
+
+  - id: gaussian.gordon.gordon_minimax_axiom
+    file: Statlean/Gaussian/Gordon.lean
+    line: 274
+    kind: main
+    category: historical
+    math_content: |
+      Gordon's minimax theorem: under `GordonCondition` (mean-zero Gaussian
+      matrices with row-covariance ≤ and column-covariance ≥), the inequality
+      `E[min_i max_j X_{ij}] ≤ E[min_i max_j Y_{ij}]` holds. Same Gaussian
+      interpolation route as Slepian, with the sign analysis on the two-index
+      covariance comparison.
+    citation: Gordon (1985), *Israel J. Math.* 50, 265–289; Vershynin §7.4.
+    blocker: |
+      Same as `slepian_lemma` (multivariate Gaussian IBP, parametric
+      differentiation under the integral, smoothing of `min ∘ max`).
+    replacement_path: |
+      Discharge `slepian_lemma` first (gives the IBP + smoothing template),
+      then iterate the same argument with `φ = min ∘ max` and the matched
+      sign analysis on row/column covariance differences.
+    mathlib_upgrade_trigger:
+      - "Same as slepian_lemma — depends on multivariate Stein"
+    estimated_effort: ~400 LOC (incl. shared infra with Slepian)
+    priority: low
+    date_added: 2026-05-07
+
+  - id: randommatrix.mp.mpMeasure_isProbabilityMeasure_axiom
+    file: Statlean/RandomMatrix/MarchenkoPastur.lean
+    line: 194
+    kind: main
+    category: historical
+    math_content: |
+      Total mass of the Marchenko–Pastur measure equals 1 when `σ > 0`,
+      `γ > 0`. Concretely:
+      `∫_{λ₋}^{λ₊} √((λ₊-x)(x-λ₋)) / (2π σ² γ x) dx + max(1 - 1/γ, 0) = 1`.
+    citation: Bai–Silverstein, *Spectral Analysis of Large Dimensional Random Matrices*, §3.1.
+    blocker: |
+      Closed-form definite integral `∫ √((a-x)(x-b))/x dx` over `[b, a]` is
+      not available in Mathlib (requires substitution / residue computation).
+    replacement_path: |
+      1. Substitute `x = (λ₋ + λ₊)/2 + ((λ₊ - λ₋)/2) cos θ`.
+      2. Compute resulting trigonometric integral via standard reductions.
+      3. Combine with the atom mass `max(1 - 1/γ, 0)` at the origin.
+    mathlib_upgrade_trigger:
+      - "Closed-form for ∫ √((a-x)(x-b))/x dx (currently no API)"
+    estimated_effort: ~200 LOC
+    priority: low
+    date_added: 2026-05-07
+
+  - id: randommatrix.mp.mpStieltjes_fixed_point_axiom
+    file: Statlean/RandomMatrix/MarchenkoPastur.lean
+    line: 235
+    kind: main
+    category: historical
+    math_content: |
+      The Stieltjes transform `m(z) = ∫ 1/(x - z) d(mpMeasure σ γ)(x)` of the
+      MP distribution satisfies the fixed-point equation
+      `m = 1 / (-z + γσ² / (1 + σ² m))` for `z` outside the support.
+    citation: Marchenko–Pastur (1967); Tao, *Topics in Random Matrix Theory* §2.4.
+    blocker: |
+      Requires evaluation of `∫_{λ₋}^{λ₊} 1/((x-z) x) · √((λ₊-x)(x-λ₋)) dx`
+      in closed form (elliptic-integral / residue methods not in Mathlib).
+    replacement_path: |
+      1. Same substitution trick as `mpMeasure_isProbabilityMeasure_axiom`.
+      2. Recognize the partial-fraction algebra after the substitution.
+      3. Combine with `stieltjesTransform_dirac` for the atomic part.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Analysis.SpecialFunctions.Stieltjes (Stieltjes transform identities for densities with √-singularities)"
+    estimated_effort: ~300 LOC
+    priority: low
+    date_added: 2026-05-07
+
+  - id: randommatrix.mp.stieltjes_continuity_theorem_axiom
+    file: Statlean/RandomMatrix/MarchenkoPastur.lean
+    line: 293
+    kind: main
+    category: R6_genuine
+    math_content: |
+      Stieltjes continuity theorem: pointwise convergence of Stieltjes
+      transforms off the support of the limit measure implies weak
+      convergence of the underlying probability measures.
+    citation: Bai–Silverstein, *Spectral Analysis of Large Dimensional Random Matrices*, Thm B.9; Tao §2.4.4.
+    blocker: |
+      Requires Stieltjes inversion + Vitali/Montel for analytic functions on
+      the upper half-plane + Helly selection + Portmanteau. Mathlib has
+      Helly + Portmanteau (partial) but not Stieltjes inversion or
+      Vitali–Montel.
+    replacement_path: |
+      1. Stieltjes inversion: recover `μ` from `Im m(x + iε)` as `ε → 0⁺`.
+      2. Helly selection of `{μ_k}`.
+      3. Identify limit via Vitali–Montel + uniqueness of Stieltjes transform.
+      4. Portmanteau to pass to expectations.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Analysis.NormedSpace.HalfPlane.Vitali (Vitali–Montel)"
+      - "Mathlib.MeasureTheory.Measure.Stieltjes.Inversion (Stieltjes inversion)"
+    estimated_effort: ~500 LOC
+    priority: low
+    date_added: 2026-05-07
+
+  - id: regression.normallinear.lse_indep_sigmaSqHat
+    file: Statlean/Regression/NormalLinearModel.lean
+    line: 162
+    kind: main
+    category: historical
+    math_content: |
+      Shao Thm 3.8(i): under A1, `lᵀβ̂` and `σ̂²` are independent for any
+      estimable `lᵀβ`. Proof = (linear-algebraic) cross-covariance
+      `(I - ZHZᵀ) · ZHl = 0` + (probabilistic) jointly normal RVs with
+      vanishing cross-covariance are independent (Shao Exercise 1.58).
+    citation: Shao, *Mathematical Statistics* (2nd ed.), Thm 3.8(i).
+    blocker: |
+      Mathlib 4.28 lacks vector-valued `IsGaussian` on `Fin n → ℝ` and the
+      characteristic-function factorisation argument for the multivariate
+      Gaussian case (`charFunDual_eq_prod_iff` specialised to multivariate).
+    replacement_path: |
+      1. Build `IsGaussianVector` on `Fin n → ℝ`.
+      2. Joint-normal pushforward under linear maps.
+      3. Specialise `charFunDual_eq_prod_iff` to vanishing cross-covariance ⇒ product law.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.Distributions.Gaussian.Multivariate (IsGaussianVector)"
+      - "Mathlib.Probability.CharFun.Multivariate.Factorise"
+    estimated_effort: ~400 LOC
+    priority: med
+    date_added: 2026-05-07
+
+  - id: regression.normallinear.lse_distribution
+    file: Statlean/Regression/NormalLinearModel.lean
+    line: 196
+    kind: main
+    category: historical
+    math_content: |
+      Shao Thm 3.8(ii): the marginal distribution of `lᵀβ̂` is
+      `N(lᵀβ, σ²·lᵀ H l)`. Proof: write `lᵀβ̂ = lᵀβ + σ·⟨c, ε⟩` with
+      `c = (HZᵀ)ᵀl`; then by induction + Gaussian stability under
+      iid affine combination, `⟨c, ε⟩ ~ N(0, ‖c‖²)`. The matrix identity
+      `ZᵀZ · H · ZᵀZ = ZᵀZ` reduces variance to `σ²·lᵀHl`.
+    citation: Shao, *Mathematical Statistics* (2nd ed.), Thm 3.8(ii).
+    blocker: |
+      Mathlib 4.28 lacks the inductive argument for finite weighted Gaussian
+      sums on `Fin n` and the matrix-identity machinery
+      `lᵀHZᵀZHl = lᵀHl` from estimability. Pairwise `IndepFun` extraction
+      from `Measure.pi` is also incomplete.
+    replacement_path: |
+      1. Pairwise `IndepFun` from `Measure.pi`.
+      2. Induction on `Fin n` for `gaussianReal_add_gaussianReal_of_indepFun`.
+      3. Matrix identity by computing `Zᵀ · (estimability lifts) = Zᵀa`.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.IndepFun.Pi (pairwise IndepFun from Measure.pi)"
+      - "Same gaussian multivariate gap as lse_indep_sigmaSqHat"
+    estimated_effort: ~250 LOC
+    priority: med
+    date_added: 2026-05-07
+
+  - id: regression.normallinear.sigmaSqHat_chiSquared
+    file: Statlean/Regression/NormalLinearModel.lean
+    line: 230
+    kind: main
+    category: historical
+    math_content: |
+      Shao Thm 3.8(iii): `(n - r)·σ̂²/σ² ~ χ²_{n-r}` under A1. By Cochran's
+      theorem applied to the symmetric idempotent `I - P` of rank `n - r`
+      acting on standardised errors `ε ~ N(0, Iₙ)`.
+    citation: Shao, *Mathematical Statistics* (2nd ed.), Thm 3.8(iii); Cochran (1934).
+    blocker: |
+      Mathlib lacks Cochran's theorem and its prerequisites: multivariate
+      Gaussian on `Fin n → ℝ`, spectral decomposition of symmetric
+      idempotents, and the link between `chiSquared` (gamma-based) and
+      sums of squared standard normals.
+    replacement_path: |
+      1. `Matrix.IsSymm.spectral_decomposition` for symmetric idempotents.
+      2. `IsGaussianVector` invariance under orthogonal transforms.
+      3. `chiSquared k = Measure.map (∑ᵢ Zᵢ²) (Measure.pi (gaussianReal 0 1))` for the canonical Z's.
+    mathlib_upgrade_trigger:
+      - "Mathlib.LinearAlgebra.Matrix.SymmIdempotent.SpectralDecomposition"
+      - "Mathlib.Probability.Distributions.ChiSquared.OfGaussianSum (link χ² ~ ∑Zᵢ²)"
+    estimated_effort: ~450 LOC
+    priority: med
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# UStatistic — 4 axioms (mix of engineering + chi-square API gap)
+# ---------------------------------------------------------------------------
+
+  - id: variance.ustatistic.integral_hSub_mul_hSub
+    file: Statlean/Variance/UStatistic.lean
+    line: 503
+    kind: helper
+    category: R6_engineering
+    math_content: |
+      Hoeffding 4-block decomposition of `∫ (hSub h s)(hSub h t) dν^n`:
+      under `Fin n ≃ (S∩T) ⊔ (S\T) ⊔ (T\S) ⊔ rest`, the joint product
+      integral factors into `∫ (kernelProjection m k h ν a)² dν^k` over the
+      intersection coordinates `a` of cardinality `k = |S ∩ T|`.
+    citation: Hoeffding (1948), *AMS* 19, 293–325; Serfling 1980 §5.5.
+    blocker: |
+      Engineering only: Mathlib has all primitives (`Measure.pi`,
+      `piEquivPiSubtypeProd`, `MeasureTheory.integral_prod`, kernel symmetry).
+      Assembly = ~150 LOC of nested `piEquivPiSubtypeProd` chains and
+      Fubini swaps.
+    replacement_path: |
+      1. Apply `piEquivPiSubtypeProd` with predicate `j ∈ s.val ∩ t.val`.
+      2. Within complement, apply again with `j ∈ s.val \ t.val` (extract `b`).
+      3. Apply once more with `j ∈ t.val \ s.val` (extract `c`).
+      4. After 3-fold decomposition, `hSub h s = H_s(a, b)`, `hSub h t = H_t(a, c)`.
+      5. Fubini twice: `∫_b ∫_c H_s(a,b) H_t(a,c) = (∫_b H_s) · (∫_c H_t)`.
+      6. Identify both inner integrals with `kernelProjection m k h ν a` via `h_symm`.
+      7. Pull `a` back through `Fin k ≃ s ∩ t`.
+    mathlib_upgrade_trigger: []  # No Mathlib gap; pure engineering
+    estimated_effort: ~150 LOC
+    priority: high  # Unblocks `cov_hSub_eq_uZeta` + entire UStat CLT chain
+    date_added: 2026-05-07
+
+  - id: variance.ustatistic.hajek_remainder_var_tendsto_zero
+    file: Statlean/Variance/UStatistic.lean
+    line: 1335
+    kind: helper
+    category: R6_engineering
+    math_content: |
+      Hájek remainder variance bound: `n · Var(U_n − E[U_n] − T_n) → 0` as
+      `n → ∞`, where `T_n = hajekProjection m hm h ν n`. Expand via
+      `u_statistic_variance_decomposition` (k = 1 leading term cancels with
+      Hájek variance `m² ζ_1 / n`; residual `k ≥ 2` terms decay like
+      `O(n⁻¹)`).
+    citation: Serfling 1980 §5.3.4 (Hájek projection); Hájek (1968).
+    blocker: |
+      Depends transitively on `integral_hSub_mul_hSub` (axiomatized).
+      Plus: Mathlib lacks asymptotic combinatorial bounds for
+      `C(n,m)⁻¹ · C(m,k) · C(n-m, m-k)` at fixed `k, m`.
+    replacement_path: |
+      1. Discharge `integral_hSub_mul_hSub` (engineering).
+      2. Build `Nat.binomial_ratio_tendsto` API for `C(m,k) C(n-m,m-k) / C(n,m) ~ k!/(n^k)`.
+      3. Telescope the variance decomposition; bound `k ≥ 2` terms by `n⁻¹`.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Combinatorics.Binomial.Asymptotics (binomial coefficient ratios)"
+    estimated_effort: ~200 LOC (after `integral_hSub_mul_hSub` is in)
+    priority: med
+    date_added: 2026-05-07
+
+  - id: variance.ustatistic.ustatistic_clt_degenerate
+    file: Statlean/Variance/UStatistic.lean
+    line: 1892
+    kind: main
+    category: R6_API_gap
+    math_content: |
+      Shao Thm 3.5(ii): in the degenerate regime `ζ₁ = 0, ζ₂ > 0`, the
+      centered + n-rescaled U-statistic `n(U_n - E U_n)` converges in
+      distribution to `Y` with `EY = 0`, `EY² = m²(m−1)²ζ₂/2`. Limiting law
+      is `(m(m−1)/2) Σ_j λ_j (χ²_{1j} − 1)` with `Σ λ_j² = ζ₂`.
+    citation: Shao, *Mathematical Statistics* Thm 3.5(ii); Serfling 1980 §5.5.2.
+    blocker: |
+      Mathlib 4.28 lacks (a) chi-square distribution moments
+      (`E[χ²(d)] = d`, `Var[χ²(d)] = 2d`), (b) convergence theory for
+      infinite series of independent non-Gaussian RVs (Skorokhod /
+      Khinchin–Kolmogorov three-series).
+    replacement_path: |
+      1. Land `ProbabilityTheory.chiSquared` moments in Mathlib.
+      2. Build infinite-series convergence (Khinchin–Kolmogorov) for
+         independent non-Gaussian summands.
+      3. Apply Lévy continuity to identify the limit law.
+    mathlib_upgrade_trigger:
+      - "ProbabilityTheory.chiSquared_mean (E[χ²(d)] = d)"
+      - "ProbabilityTheory.chiSquared_variance (Var[χ²(d)] = 2d)"
+      - "Mathlib.Probability.Series.KhinchinKolmogorov (three-series)"
+    estimated_effort: ~300 LOC
+    priority: low  # Blocked on Mathlib χ² infrastructure
+    date_added: 2026-05-07
+
+  - id: variance.ustatistic.ustatistic_degenerate_partial_sum_sq_moment
+    file: Statlean/Variance/UStatistic.lean
+    line: 1940
+    kind: helper
+    category: R6_API_gap
+    math_content: |
+      Closed-form second moment of the partial spectral sum
+      `Yₖ = (m(m−1)/2) Σ_{j<k} λ_j (X_j − 1)` where `X_j` are iid χ²₁:
+      `E[Yₖ²] = (m²(m−1)²/2) · Σ_{j<k} λ_j²`. Direct computation from
+      `E[χ²₁ − 1] = 0`, `Var[χ²₁] = 2`, and independence.
+    citation: Same as `ustatistic_clt_degenerate` (Shao p.196).
+    blocker: |
+      Mathlib lacks chi-square moments. Once `chiSquared_mean` and
+      `chiSquared_variance` land, the proof is direct
+      (~30 LOC: linearity + independence).
+    replacement_path: |
+      1. Apply `chiSquared_mean 1 = 1`, `chiSquared_variance 1 = 2`.
+      2. Expand `(Σ_{j<k} λⱼ(Xⱼ − 1))²` via independence (cross-terms vanish).
+      3. Linearity of integral.
+    mathlib_upgrade_trigger:
+      - "ProbabilityTheory.chiSquared_mean (E[χ²(d)] = d)"
+      - "ProbabilityTheory.chiSquared_variance (Var[χ²(d)] = 2d)"
+    estimated_effort: ~30 LOC (post-chiSquared API)
+    priority: med  # Quick win once chi-square API lands
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# AsymptoticExpectation — Khinchin convergence-of-types blocker
+# ---------------------------------------------------------------------------
+
+  - id: limittheorems.asymptoticexpectation.shao_prop_2_3_case_both_nondeg
+    file: Statlean/LimitTheorems/AsymptoticExpectation.lean
+    line: 317
+    kind: main
+    category: R6_genuine
+    math_content: |
+      Khinchin's convergence-of-types theorem (special case of Shao
+      Prop 2.3 / Exercise 1.129): if `Xₙ →d X` and `aₙXₙ + bₙ →d Y` with
+      `X, Y` both non-degenerate, then `aₙ → a > 0`, `bₙ → b ∈ ℝ`, and
+      `Y = aX + b` in distribution.
+    citation: |
+      Shao, *Mathematical Statistics*, Exercise 1.129;
+      Khinchin (1937), *Limit Distributions for Sums of Independent RVs*;
+      Gnedenko–Kolmogorov 1954, §10.
+    blocker: |
+      Mathlib lacks (a) tightness of `{aₙ}, {bₙ}` from non-degeneracy +
+      Prokhorov, (b) Helly extraction in `[0,∞]`, (c) sub-sequence
+      uniqueness via charFun + Lévy continuity (latter IS in Mathlib).
+    replacement_path: |
+      1. Tightness of `{aₙ}, {bₙ}` from non-degeneracy + Prokhorov.
+      2. Helly extraction along subsequences in `[0,∞]` (we have a partial
+         version in `case_ii` sub-case D).
+      3. Sub-sequence uniqueness via characteristic functions + `levy_continuity`.
+      4. Pass-to-limit using `tendstoInDistribution` Slutsky stability.
+    mathlib_upgrade_trigger:
+      - "Mathlib.MeasureTheory.Measure.Tight.Prokhorov (Prokhorov for ℝ-valued seq)"
+      - "Mathlib.Analysis.Helly.ExtendedReals (Helly selection in [0,∞])"
+    estimated_effort: ~400 LOC
+    priority: med
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# ConformalPrediction — JackknifePlus (BCRT 2021)
+# ---------------------------------------------------------------------------
+
+  - id: conformal.jackknife.jackknifePlus_coverage
+    file: Statlean/Conformal/JackknifePlus.lean
+    line: 109
+    kind: main
+    category: R6_genuine
+    math_content: |
+      Jackknife+ coverage (BCRT 2021): the leave-one-out conformal
+      jackknife predictor achieves coverage at level `1 − 2α` (factor 2
+      penalty over standard split conformal). Proof: leave-one-out residual
+      rank uniformity + factor-2 union bound over n folds.
+    citation: |
+      Barber–Candès–Ramdas–Tibshirani (2021), *AOS* 49(1):486–507,
+      "Predictive inference with the jackknife+", §A.
+    blocker: |
+      Mathlib has `Exchangeable` but no rank-statistic uniform-quantile API
+      for exchangeable joint distributions. ~150 LOC of rank-uniformity
+      infrastructure required.
+    replacement_path: |
+      1. Define rank statistic on exchangeable joint distribution.
+      2. Prove rank uniformity for tie-free exchangeable laws.
+      3. Apply to leave-one-out residuals + factor-2 union bound.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.Exchangeable.Rank (rank-statistic uniform-quantile API)"
+    estimated_effort: ~150 LOC
+    priority: low
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# DRO — Mohajerin–Esfahani–Kuhn duality
+# ---------------------------------------------------------------------------
+
+  - id: dro.wasserstein.mohajerin_esfahani_kuhn_duality
+    file: Statlean/DRO/Wasserstein.lean
+    line: 58
+    kind: main
+    category: R6_genuine
+    math_content: |
+      MEK 2018 Thm 1: for an `L`-Lipschitz loss on a Wasserstein-1 ball of
+      radius `ρ`, `sup_{ν ∈ W_ρ(μ)} E_ν[ℓ] = E_μ[ℓ] + ρ · L`. Direct from
+      Kantorovich–Rubinstein duality applied to the Lipschitz dual.
+    citation: |
+      Mohajerin Esfahani–Kuhn (2018), *Math. Programming* 171:115–166,
+      "Data-driven distributionally robust optimization", Thm 1.
+    blocker: |
+      Mathlib 4.28 lacks (a) Kantorovich–Rubinstein duality theorem,
+      (b) Lipschitz extension machinery (Kirszbraun / McShane on metric
+      spaces).
+    replacement_path: |
+      1. Land Kantorovich–Rubinstein duality
+         (`Mathlib.MeasureTheory.OptimalTransport.KantorovichRubinstein`).
+      2. McShane-Whitney extension on metric spaces.
+      3. Combine: rebalance the dual using the Lipschitz extension.
+    mathlib_upgrade_trigger:
+      - "Mathlib.MeasureTheory.OptimalTransport.KantorovichRubinstein"
+      - "Mathlib.Topology.MetricSpace.LipschitzExtension (McShane-Whitney)"
+    estimated_effort: ~300 LOC (after Mathlib has KR duality)
+    priority: low
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# DifferentialPrivacy — Gaussian + Laplace mechanisms
+# ---------------------------------------------------------------------------
+
+  - id: dp.mechanisms.gaussianMechanism_dp_axiom
+    file: Statlean/DifferentialPrivacy/Mechanisms.lean
+    line: 136
+    kind: main
+    category: R6_API_gap
+    math_content: |
+      Dwork–Roth Thm 3.22: Gaussian mechanism with σ ≥ Δ √(2 log(1.25/δ))/ε
+      is (ε, δ)-DP, where Δ bounds the ℓ²-sensitivity of f. Proof = direct
+      Gaussian density / KL divergence calculation + Gaussian tail bound.
+    citation: |
+      Dwork–Roth (2014), *The Algorithmic Foundations of Differential Privacy*,
+      Thm 3.22 / Appendix A.
+    blocker: |
+      Mathlib 4.28 has `gaussianReal` density but lacks ergonomic
+      Gaussian KL / Mills-ratio / Rényi-divergence API for explicit
+      density-ratio bounds.
+    replacement_path: |
+      1. Land `Mathlib.Probability.Distributions.Gaussian.KLDivergence` (Gaussian KL formula).
+      2. Land `Mathlib.Probability.Mills.RatioBound` (Mills tail).
+      3. Direct calculation: `Pr[likelihood ratio > exp(ε)] ≤ δ`.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.Distributions.Gaussian.KLDivergence (closed form)"
+      - "Mathlib.Probability.Distributions.Gaussian.MillsRatio"
+    estimated_effort: ~150 LOC (after Mathlib upgrade)
+    priority: med
+    date_added: 2026-05-07
+
+  - id: dp.mechanisms.laplaceMechanism_dp_axiom
+    file: Statlean/DifferentialPrivacy/Mechanisms.lean
+    line: 201
+    kind: main
+    category: R6_API_gap
+    math_content: |
+      Dwork–Roth Thm 3.6: Laplace mechanism with `b ≥ Δ/ε` is ε-pure DP
+      where Δ is the ℓ¹-sensitivity. Proof = pointwise density-ratio bound
+      `(1/(2b)) exp(-|x|/b)`, which is bounded by `exp(|f(d) - f(d')|/b) ≤ exp(ε)`.
+    citation: Dwork–Roth (2014), Thm 3.6.
+    blocker: |
+      Mathlib lacks a concrete Laplace distribution
+      (`Mathlib.Probability.Distributions.Laplace` is missing). The local
+      `laplacePdf` is defined but full integral / push-forward identities
+      are not available.
+    replacement_path: |
+      1. Promote local `laplacePdf` to full Mathlib-style `laplaceMeasure`
+         with integration API.
+      2. Prove `∫ laplacePdf b = 1` for `b > 0`.
+      3. Pointwise density-ratio bound; apply to translation by `f d - f d'`.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.Distributions.Laplace (full Laplace distribution)"
+    estimated_effort: ~100 LOC (after Mathlib has Laplace distribution)
+    priority: med
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# EmpiricalBayes — James–Stein dominance
+# ---------------------------------------------------------------------------
+
+  - id: empiricalbayes.jamesstein.stein_dominance_axiom
+    file: Statlean/EmpiricalBayes/JamesStein.lean
+    line: 108
+    kind: main
+    category: R6_API_gap
+    math_content: |
+      Stein 1956 / James–Stein 1961: for `d ≥ 3`, the James–Stein estimator
+      strictly dominates the MLE in squared-error risk uniformly in θ.
+      Formula: `R(JS, θ) = d σ² - (d-2)² σ⁴ E[1/‖Y‖²] < d σ² = R(MLE, θ)`.
+    citation: |
+      Stein (1956), *Proc. 3rd Berkeley Symp.*; James–Stein (1961);
+      Lehmann–Casella, *Theory of Point Estimation* (2nd ed.), §5.5.
+    blocker: |
+      Mathlib lacks (a) Stein's integration-by-parts identity for the
+      Gaussian density, (b) finite-expectation bound `E[1/‖Y‖²] < ∞`
+      when `d ≥ 3`.
+    replacement_path: |
+      1. Land Stein's identity in Mathlib (basic case: `f : ℝ^d → ℝ` smooth,
+         `E[(X - θ) f(X)] = E[∇f(X)]` for `X ~ N(θ, I)`).
+      2. Compute `E[1/‖Y‖²]` via polar coordinates + chi-square density
+         (~50 LOC after χ² API).
+      3. Plug into James–Stein risk formula.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.Stein.Identity (Gaussian Stein IBP)"
+      - "Mathlib.Probability.Distributions.ChiSquared.Reciprocal (E[1/χ²(d)])"
+    estimated_effort: ~250 LOC
+    priority: med
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# EmpiricalProcess — DKW (Massart 1990)
+# ---------------------------------------------------------------------------
+
+  - id: empiricalprocess.dkw.dkw_inequality_axiom
+    file: Statlean/EmpiricalProcess/DKW.lean
+    line: 130
+    kind: main
+    category: R6_genuine
+    math_content: |
+      DKW with Massart's sharp constant 2: for iid samples,
+      `P(sup_x |F_n(x) - F(x)| > ε) ≤ 2 exp(-2 n ε²)`. Three ingredients:
+      (a) measurability of the supremum event over `x ∈ ℝ`,
+      (b) symmetrization or McDiarmid bounded-differences concentration,
+      (c) VC chaining bound for the half-line class (VC-dim 1).
+    citation: |
+      Dvoretzky–Kiefer–Wolfowitz (1956); Massart (1990), *AOP* 18(3):1269–1283
+      (sharp constant 2).
+    blocker: |
+      Mathlib 4.28 lacks (a) sharp McDiarmid concentration with the
+      explicit Massart constant, (b) VC-chaining infrastructure for
+      arbitrary VC classes (~350 LOC of foundational work).
+    replacement_path: |
+      1. Land sharp McDiarmid in Mathlib (depends on `mcdiarmid_mgf_bound`).
+      2. VC dimension formalisation (`Mathlib.Combinatorics.VC.Dimension`).
+      3. Symmetrization + chaining for VC class `{1_{(-∞,x]} : x ∈ ℝ}` (VC dim 1).
+    mathlib_upgrade_trigger:
+      - "Mathlib.Combinatorics.VC.Dimension (VC dimension formalization)"
+      - "Mathlib.Probability.Concentration.McDiarmid (sharp constant)"
+    estimated_effort: ~350 LOC
+    priority: low
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# OnlineLearning — Bandits + Regret
+# ---------------------------------------------------------------------------
+
+  - id: onlinelearning.bandits.ucb1_regret_bound
+    file: Statlean/OnlineLearning/Bandits.lean
+    line: 166
+    kind: main
+    category: R6_API_gap
+    math_content: |
+      Auer–Cesa-Bianchi–Fischer 2002 Thm 1: UCB1 achieves regret
+      `R_T ≤ 8 Σ_{Δᵢ > 0} (log T)/Δᵢ + (1 + π²/3) Σᵢ Δᵢ` on K-armed
+      stochastic bandits with rewards in `[0, 1]`. Proof = Hoeffding–Azuma
+      concentration of per-arm empirical means + case split on
+      optimistic confidence intervals.
+    citation: Auer–Cesa-Bianchi–Fischer (2002), *Mach. Learn.* 47:235–256.
+    blocker: |
+      Mathlib 4.28 lacks sub-Gaussian tail bounds for `[0, 1]`-valued sums
+      with Hoeffding's inequality directly applicable.
+    replacement_path: |
+      1. Hoeffding inequality for bounded RVs in Mathlib.
+      2. Sub-Gaussian envelope for empirical means.
+      3. Case-split inductive regret accounting per arm.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.Concentration.Hoeffding (bounded-RV inequality)"
+    estimated_effort: ~250 LOC
+    priority: low
+    date_added: 2026-05-07
+
+  - id: onlinelearning.regret.ogd_regret_bound
+    file: Statlean/OnlineLearning/Regret.lean
+    line: 117
+    kind: main
+    category: R6_genuine
+    math_content: |
+      Zinkevich 2003: OGD with step-size `η = D/(G√T)` achieves cumulative
+      regret `≤ G·D·√T` on `G`-Lipschitz convex losses on a domain of
+      diameter `D`. Standard ~150 LOC proof: Bregman divergence telescoping
+      + projection non-expansiveness + summation by parts.
+    citation: Zinkevich (2003), *ICML*; Bubeck, *Convex Optimization* §3.
+    blocker: |
+      Mathlib 4.28 lacks gradient-descent machinery: Bregman divergence
+      telescoping, projection non-expansiveness on convex sets, summation
+      by parts for online updates.
+    replacement_path: |
+      1. Bregman divergence library on convex sets.
+      2. Projection non-expansiveness theorem.
+      3. Standard online-convex-optimization regret algebra.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Analysis.Convex.Bregman (Bregman divergence)"
+      - "Mathlib.Analysis.Convex.Projection.NonExpansive"
+    estimated_effort: ~150 LOC
+    priority: low
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# ScoreMatching — Hyvärinen 2005
+# ---------------------------------------------------------------------------
+
+  - id: scorematching.basic.score_matching_minimum_at_truth
+    file: Statlean/ScoreMatching/Basic.lean
+    line: 113
+    kind: main
+    category: R6_API_gap
+    math_content: |
+      Hyvärinen 2005: Fisher divergence is minimized at the truth, i.e.
+      `F(p, p) ≤ F(p, q)`. Direct from `F(p, q) - F(p, p) = ∫ (s_p - s_q)² · p ≥ 0`.
+    citation: Hyvärinen (2005), *J. Mach. Learn. Res.* 6:695–709.
+    blocker: |
+      Mathlib lacks a general ae-integrability lemma for the cross-term
+      `(p' - q')²` against the density `p`, so the inequality cannot be
+      established without ad-hoc hypotheses on `p, q, p', q'`.
+    replacement_path: |
+      1. Strengthen signature with explicit hypotheses (`p` non-negative,
+         integrable cross-term against `p`).
+      2. Direct algebra: subtraction expansion + `integral_nonneg`.
+    mathlib_upgrade_trigger: []  # No specific Mathlib gap; needs hypothesis tightening
+    estimated_effort: ~30 LOC (after rewriting the signature with proper hypotheses)
+    priority: high  # Easy quick win — just needs signature work
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# Semiparametric — iid CLT on Measure.pi
+# ---------------------------------------------------------------------------
+
+  - id: semiparametric.influencefunction.iid_empirical_sum_clt_axiom
+    file: Statlean/Semiparametric/InfluenceFunction.lean
+    line: 361
+    kind: main
+    category: R6_API_gap
+    math_content: |
+      Classical iid CLT on the product space `(Fin n → Ω, Measure.pi μ^⊗n)`:
+      for centered `ψ ∈ L²`, `(1/√n) Σᵢ ψ(Xᵢ) →d N(0, E_μ[ψ²])`. Convergence
+      stated at the characteristic-function level (charFun closeness).
+    citation: van der Vaart (1998), *Asymptotic Statistics* Thm 2.18; Shao Thm 1.4.
+    blocker: |
+      Mathlib has CLT-type results but the upcoming
+      `ProbabilityTheory.tendstoInDistribution_inv_sqrt_mul_sum_sub` is in
+      Mathlib main but not in v4.28-rc1. Statlean's own `central_limit_theorem`
+      requires `MemLp 3` plus a fixed ambient space; lifting through
+      `Measure.infinitePiNat` and projecting via
+      `Measure.infinitePiNat_map_restrict` is mechanical but not yet wired.
+    replacement_path: |
+      1. Bump Mathlib past v4.28-rc1 to access
+         `tendstoInDistribution_inv_sqrt_mul_sum_sub`.
+      2. Or wire `Measure.infinitePiNat_map_restrict` to lift the local CLT.
+    mathlib_upgrade_trigger:
+      - "ProbabilityTheory.tendstoInDistribution_inv_sqrt_mul_sum_sub (lands in Mathlib post-v4.28-rc1)"
+    estimated_effort: ~50 LOC (after Mathlib bump)
+    priority: high  # Discharged by Mathlib version bump
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# TDA — Stability theorem (CSEH 2007)
+# ---------------------------------------------------------------------------
+
+  - id: tda.persistenthomology.stability_theorem_axiom
+    file: Statlean/TDA/PersistentHomology.lean
+    line: 176
+    kind: main
+    category: R6_genuine
+    math_content: |
+      Cohen-Steiner–Edelsbrunner–Harer 2007 Thm 1: bottleneck distance
+      between sublevel-filtration persistence diagrams is bounded by the
+      L^∞ distance between the input functions:
+      `d_B(D_f, D_g) ≤ ‖f - g‖_∞`.
+    citation: |
+      Cohen-Steiner–Edelsbrunner–Harer (2007), *Discr. Comput. Geom.*
+      37(1):103–120; Chazal–de Silva–Glisse–Oudot (2016), algebraic stability.
+    blocker: |
+      Mathlib 4.28 lacks (a) interleaving distance between persistence
+      modules, (b) algebraic stability theorem for persistence modules.
+      Whole field of TDA is essentially absent from Mathlib.
+    replacement_path: |
+      1. Build persistence module library (`Mathlib.TopologicalDataAnalysis`).
+      2. Interleaving distance theorem.
+      3. Algebraic stability (CdSGO).
+    mathlib_upgrade_trigger:
+      - "Mathlib.TopologicalDataAnalysis (entire library)"
+    estimated_effort: ~1000 LOC (entire TDA library)
+    priority: low  # Out of scope for short-term
+    date_added: 2026-05-07
+
+# ---------------------------------------------------------------------------
+# TimeSeries — ARMA + Ergodic
+# ---------------------------------------------------------------------------
+
+  - id: timeseries.arma.ar1_stationary_iff_axiom
+    file: Statlean/TimeSeries/ARMA.lean
+    line: 133
+    kind: main
+    category: R6_engineering
+    math_content: |
+      Brockwell–Davis Prop 3.1.1: an AR(1) process driven by iid noise is
+      strictly stationary iff `|φ| < 1`. Forward: variance grows along
+      `ar1_explicit` expansion ⇒ no shift invariance. Reverse: geometric
+      series `Σ φ^k ε_{t-k}` converges in `L²` to a stationary solution.
+    citation: "Brockwell–Davis (1991), *Time Series: Theory and Methods* Prop 3.1.1."
+    blocker: |
+      Mathlib lacks measure-theoretic infrastructure for stationary `L²`
+      solutions of stochastic recursions and `Measure.map` identities for
+      finite blocks.
+    replacement_path: |
+      1. Build `IsStationarySolution` API for stochastic recursions.
+      2. Geometric `L²` convergence (already partial via `summable_geometric_lt_one`).
+      3. `Measure.map` identities for finite-dimensional joint laws.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.StochasticProcess.Stationary (general API)"
+    estimated_effort: ~150 LOC
+    priority: low
+    date_added: 2026-05-07
+
+  - id: timeseries.arma.maq_always_stationary_axiom
+    file: Statlean/TimeSeries/ARMA.lean
+    line: 166
+    kind: main
+    category: R6_engineering
+    math_content: |
+      Any MA(q) process driven by iid noise is strictly stationary.
+      Direct from iid-shift invariance of the noise + `Measure.map` identity
+      on every finite block.
+    citation: Brockwell–Davis (1991), §3.1.
+    blocker: |
+      Mathlib lacks push-forward infrastructure for finite-dimensional joint
+      laws of linear functionals of iid sequences.
+    replacement_path: |
+      1. Build `Measure.pi` push-forward under linear maps API.
+      2. Apply iid-shift invariance fact.
+    mathlib_upgrade_trigger:
+      - "Same as ar1_stationary_iff_axiom"
+    estimated_effort: ~80 LOC
+    priority: low
+    date_added: 2026-05-07
+
+  - id: timeseries.ergodic.ergodic_lln
+    file: Statlean/TimeSeries/Ergodic.lean
+    line: 185
+    kind: main
+    category: R6_API_gap
+    math_content: |
+      Birkhoff's pointwise ergodic theorem (LLN form): for measure-preserving
+      ergodic `T` on probability space + integrable `f`,
+      `birkhoffAverage T f n ω → ∫ f dμ` almost surely.
+    citation: Birkhoff (1931), *Proc. Nat. Acad. Sci. USA* 17:656–660.
+    blocker: |
+      Mathlib defines `birkhoffSum` and `birkhoffAverage` algebraically (in
+      `Mathlib.Dynamics.BirkhoffSum.Average`) but does NOT have the Hopf
+      maximal ergodic inequality, which is the standard route for the
+      pointwise theorem.
+    replacement_path: |
+      1. Land Hopf maximal ergodic inequality (~150 LOC).
+      2. Sub/super-additive Banach-density argument on limsup/liminf of
+         Birkhoff averages.
+      3. Combine with Lebesgue dominated convergence to identify the limit.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Dynamics.Ergodic.HopfMaximal (Hopf maximal ergodic inequality)"
+      - "Mathlib.Dynamics.Ergodic.BirkhoffPointwise (pointwise ergodic theorem)"
+    estimated_effort: ~250 LOC
+    priority: med
+    date_added: 2026-05-07

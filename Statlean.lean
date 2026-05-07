@@ -122,6 +122,11 @@ import Statlean.Pipeline.Lecture9Handout
 -- Semiparametric efficiency / influence-function calculus (DML, Chernozhukov 2018)
 import Statlean.Semiparametric.InfluenceFunction
 
+-- Reproducing kernel Hilbert spaces (Aronszajn 1950, Schölkopf-Smola 2002)
+import Statlean.Kernel.RKHS
+-- Gaussian process regression and kernel ridge regression (Rasmussen-Williams 2006)
+import Statlean.Kernel.GaussianProcess
+
 -- Differential privacy (Dwork–Roth framework)
 import Statlean.DifferentialPrivacy.Mechanisms
 
