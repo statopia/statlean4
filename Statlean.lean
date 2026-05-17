@@ -24,6 +24,18 @@ import Statlean.SubGaussian.Lipschitz
 -- High-dimensional mediation analysis
 import Statlean.HDMediation.Assumptions
 
+-- High-dimensional statistics (basic definitions + advanced modules)
+import Statlean.HDStats.Basic
+import Statlean.HDStats.SubExponential
+import Statlean.HDStats.SparsePCA
+import Statlean.HDStats.GraphicalLasso
+import Statlean.HDStats.ThresholdedCovariance
+import Statlean.HDStats.BandedCovariance
+import Statlean.HDStats.SlicedInverseRegression
+import Statlean.HDStats.CrossValidation
+import Statlean.HDStats.ProximalGradient
+import Statlean.HDStats.TaperedCovariance
+
 -- Conformal prediction (distribution-free inference)
 import Statlean.Conformal.Basic
 import Statlean.Conformal.Rank
@@ -53,6 +65,7 @@ import Statlean.LimitTheorems.USLLN
 -- Phase 2: Empirical Process Theory
 import Statlean.EmpiricalProcess.CoveringNumber
 import Statlean.EmpiricalProcess.Dudley
+import Statlean.EmpiricalProcess.DudleySudakov
 import Statlean.EmpiricalProcess.Donsker
 import Statlean.EmpiricalProcess.StochasticOrder
 import Statlean.EmpiricalProcess.Symmetrization
@@ -65,6 +78,24 @@ import Statlean.Regression.Linear
 import Statlean.Regression.GaussMarkov
 import Statlean.Regression.Estimability
 import Statlean.Regression.NormalLinearModel
+-- Lasso family (l₁-regularised + variants)
+import Statlean.Regression.Lasso                  -- Bickel-Ritov-Tsybakov 2009
+import Statlean.Regression.LassoOracle            -- prediction / l1 / l2 error projections
+import Statlean.Regression.Ridge                  -- Hoerl-Kennard 1970
+import Statlean.Regression.GroupLasso             -- Yuan-Lin 2006
+import Statlean.Regression.DantzigSelector        -- Candès-Tao 2007
+import Statlean.Regression.ElasticNet             -- Zou-Hastie 2005
+import Statlean.Regression.AdaptiveLasso          -- Zou 2006
+import Statlean.Regression.SqrtLasso              -- Belloni-Chernozhukov-Wang 2011
+import Statlean.Regression.SCAD                   -- Fan-Li 2001
+import Statlean.Regression.MCP                    -- Zhang 2010
+import Statlean.Regression.FusedLasso             -- Tibshirani et al. 2005
+import Statlean.Regression.SLOPE                  -- Bogdan et al. 2015
+import Statlean.Regression.DebiasedLasso          -- Javanmard-Montanari / Zhang-Zhang 2014
+import Statlean.Regression.MultiTaskLasso         -- Obozinski-Wainwright-Jordan 2011
+import Statlean.Regression.GeneralizedLasso       -- Tibshirani-Taylor 2011
+import Statlean.Regression.SparseConfidenceIntervals
+import Statlean.Regression.SparseLogistic         -- van de Geer 2008
 
 -- SPD matrices (Log-Cholesky Fréchet means)
 import Statlean.SPD.FrechetMean
@@ -146,6 +177,13 @@ import Statlean.EmpiricalProcess.DKW
 import Statlean.Analysis.CauchySchwarzAbs
 import Statlean.Analysis.Norm.NormSubAddBound
 import Statlean.Concentration.Talagrand
+import Statlean.Concentration.HansonWright
+import Statlean.Concentration.MatrixBernstein
+import Statlean.MultipleTesting.StabilitySelection
+import Statlean.MultipleTesting.Knockoffs
+import Statlean.CompressedSensing.OMP
+import Statlean.CompressedSensing.IHT
+import Statlean.Survival.SparseCox
 import Statlean.CoxChangePoint.Auto.approximation_of_smoothed_empirical_processes
 import Statlean.CoxChangePoint.Auto.eigenfunction_estimation_L2_rate
 import Statlean.CoxChangePoint.Auto.exponential_moment_bound
@@ -172,6 +210,7 @@ import Statlean.CoxChangePoint.RemainderTailOp
 import Statlean.CoxChangePoint.SupProductSquareIntegrable
 import Statlean.CoxChangePoint.UniformProcessOpRate
 import Statlean.ExpFamily.Regularity
+import Statlean.GLM.Basic
 import Statlean.EmpiricalBayes.JamesStein
 import Statlean.DRO.Wasserstein
 import Statlean.Survival.KaplanMeier
@@ -191,3 +230,14 @@ import Statlean.TDA.PersistentHomology
 --     deleted. Backup tarball: /tmp/statlean_web_backup_2026-04-25.tar.gz.
 --   * Going forward: Statlean/Web/ is gitignored (commit 840a575).
 import Statlean.Web.jobmobquqqakyyv.Theorem1
+
+-- Bootstrap (Efron 1979, Bickel-Freedman 1981)
+import Statlean.Bootstrap.Basic
+
+-- Variational inference (Jordan-Ghahramani-Jaakkola-Saul 1999;
+-- Blei-Kucukelbir-McAuliffe 2017): ELBO and KL divergence wrappers.
+import Statlean.VariationalInference.Basic
+
+-- Reinforcement learning (Puterman 1994; Bertsekas 2017; Sutton-Barto 2018):
+-- finite Markov decision processes and the Bellman expectation operator.
+import Statlean.RL.MDP

@@ -813,3 +813,57 @@ axioms:
     estimated_effort: ~250 LOC
     priority: med
     date_added: 2026-05-07
+
+  - id: concentration.matrixbernstein.matrix_bernstein_tropp
+    file: Statlean/Concentration/MatrixBernstein.lean
+    line: 110
+    kind: main
+    category: R6_genuine
+    math_content: |
+      Tropp 2012 matrix Bernstein bound for sums of independent zero-mean
+      Hermitian d×d random matrices with operator-norm bound R and variance
+      proxy σ²: P(‖Σ Xₖ‖_op ≥ t) ≤ 2d · exp(−t²/(2(σ² + Rt/3))).
+    citation: Tropp (2012), *Found. Comput. Math.* 12, 389–434; Vershynin §5.4.
+    blocker: |
+      Mathlib 4.28 lacks `Matrix.exp`, Lieb's concavity, and Golden–Thompson —
+      the three main ingredients of the standard MGF proof.
+    replacement_path: |
+      1. `Matrix.exp` for Hermitian matrices + spectral mapping.
+      2. Lieb concavity of `A ↦ tr exp(H + log A)`.
+      3. Golden–Thompson `tr exp(A+B) ≤ tr(exp A · exp B)`.
+      4. Standard Markov-on-MGF chaining.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Analysis.NormedSpace.Matrix.Exponential (Matrix.exp for Hermitians)"
+      - "Mathlib.LinearAlgebra.Matrix.Concavity (Lieb / Golden–Thompson)"
+    estimated_effort: ~800–1200 LOC
+    priority: low
+    date_added: 2026-05-17
+
+  - id: concentration.hansonwright.hanson_wright_inequality
+    file: Statlean/Concentration/HansonWright.lean
+    line: 169
+    kind: main
+    category: R6_genuine
+    math_content: |
+      Hanson–Wright (1971): for independent sub-Gaussian components `X_i`
+      with proxy `K` and a symmetric matrix `A`,
+        P(|X^T A X − E[X^T A X]| ≥ t) ≤
+            2 · exp(−c · min(t²/(K⁴ ‖A‖_F²), t/(K² ‖A‖_op))).
+    citation: Hanson–Wright (1971); Rudelson–Vershynin (2013); Vershynin §6.2.
+    blocker: |
+      The standard proof needs decoupling (Bourgain–Tzafriri / de la
+      Peña–Giné) and a sub-Gaussian chaos bound, neither of which is in
+      Mathlib 4.28.
+    replacement_path: |
+      1. Quadratic-form decomposition into diagonal + off-diagonal
+         (already proved in HansonWright.lean as `quadratic_form_decomposition`).
+      2. Diagonal-part Bernstein for sub-exponential `X_i²`
+         (provable from existing `Statlean.Concentration.Talagrand`).
+      3. Decoupling lemma for off-diagonal `Σ_{i≠j} a_{ij} X_i X_j`.
+      4. Sub-Gaussian chaos bound on the decoupled bilinear form.
+    mathlib_upgrade_trigger:
+      - "Mathlib.Probability.Decoupling (de la Peña–Giné decoupling)"
+      - "Mathlib.Probability.Moments.SubGaussianChaos (chaos tail bounds)"
+    estimated_effort: ~600 LOC
+    priority: low
+    date_added: 2026-05-17
